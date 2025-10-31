@@ -52,6 +52,24 @@ export function CreateProjectModal({
   const [salesSource, setSalesSource] = useState('');
   const [salesPersonId, setSalesPersonId] = useState('');
   const [uploadLink, setUploadLink] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [attachment, setAttachment] = useState('');
+  const [depositPaid, setDepositPaid] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [projectName, setProjectName] = useState('');
+  const [serviceFeePercentage, setServiceFeePercentage] = useState('');
+  const [whatsappGroupId, setWhatsappGroupId] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [agreementRef, setAgreementRef] = useState('');
+  const [abbreviation, setAbbreviation] = useState('');
+  const [projectSize, setProjectSize] = useState('');
+  const [projectStartDate, setProjectStartDate] = useState('');
+  const [projectEndDate, setProjectEndDate] = useState('');
+  const [submissionDate, setSubmissionDate] = useState('');
+  const [applicationNumber, setApplicationNumber] = useState('');
+  const [approvalDate, setApprovalDate] = useState('');
+  const [nextHkpcDueDate, setNextHkpcDueDate] = useState('');
+  const [nextDueDate, setNextDueDate] = useState('');
 
   const isFundingProject = projectTypes.find(pt => pt.id === selectedProjectType)?.name === 'Funding Project';
 
@@ -79,6 +97,24 @@ export function CreateProjectModal({
         projectData.sales_source = salesSource.trim() || null;
         projectData.sales_person_id = salesPersonId || null;
         projectData.upload_link = uploadLink.trim() || null;
+        projectData.start_date = startDate || null;
+        projectData.attachment = attachment.trim() || null;
+        projectData.deposit_paid = depositPaid;
+        projectData.deposit_amount = depositAmount ? parseFloat(depositAmount) : null;
+        projectData.project_name = projectName.trim() || null;
+        projectData.service_fee_percentage = serviceFeePercentage ? parseFloat(serviceFeePercentage) : null;
+        projectData.whatsapp_group_id = whatsappGroupId.trim() || null;
+        projectData.invoice_number = invoiceNumber.trim() || null;
+        projectData.agreement_ref = agreementRef.trim() || null;
+        projectData.abbreviation = abbreviation.trim() || null;
+        projectData.project_size = projectSize.trim() || null;
+        projectData.project_start_date = projectStartDate || null;
+        projectData.project_end_date = projectEndDate || null;
+        projectData.submission_date = submissionDate || null;
+        projectData.application_number = applicationNumber.trim() || null;
+        projectData.approval_date = approvalDate || null;
+        projectData.next_hkpc_due_date = nextHkpcDueDate || null;
+        projectData.next_due_date = nextDueDate || null;
       }
 
       const { data: project, error: projectError } = await supabase
@@ -311,6 +347,243 @@ export function CreateProjectModal({
                     onChange={(e) => setUploadLink(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter upload link"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Attachment Link
+                  </label>
+                  <input
+                    type="text"
+                    value={attachment}
+                    onChange={(e) => setAttachment(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter attachment link"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Project Name
+                  </label>
+                  <input
+                    type="text"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter project name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Abbreviation
+                  </label>
+                  <input
+                    type="text"
+                    value={abbreviation}
+                    onChange={(e) => setAbbreviation(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter abbreviation"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Deposit Paid
+                  </label>
+                  <label className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      checked={depositPaid}
+                      onChange={(e) => setDepositPaid(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">Yes</span>
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Deposit Amount
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Service Fee %
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={serviceFeePercentage}
+                    onChange={(e) => setServiceFeePercentage(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Invoice Number
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter invoice number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Agreement Ref
+                  </label>
+                  <input
+                    type="text"
+                    value={agreementRef}
+                    onChange={(e) => setAgreementRef(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter agreement ref"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Application Number
+                  </label>
+                  <input
+                    type="text"
+                    value={applicationNumber}
+                    onChange={(e) => setApplicationNumber(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter application number"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Project Size
+                  </label>
+                  <input
+                    type="text"
+                    value={projectSize}
+                    onChange={(e) => setProjectSize(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter project size"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    WhatsApp Group ID
+                  </label>
+                  <input
+                    type="text"
+                    value={whatsappGroupId}
+                    onChange={(e) => setWhatsappGroupId(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter WhatsApp group ID"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Project Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={projectStartDate}
+                    onChange={(e) => setProjectStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Project End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={projectEndDate}
+                    onChange={(e) => setProjectEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Submission Date
+                  </label>
+                  <input
+                    type="date"
+                    value={submissionDate}
+                    onChange={(e) => setSubmissionDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Approval Date
+                  </label>
+                  <input
+                    type="date"
+                    value={approvalDate}
+                    onChange={(e) => setApprovalDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Next HKPC Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={nextHkpcDueDate}
+                    onChange={(e) => setNextHkpcDueDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Next Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={nextDueDate}
+                    onChange={(e) => setNextDueDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
