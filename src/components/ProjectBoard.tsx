@@ -245,9 +245,21 @@ export function ProjectBoard() {
     (s) => s.project_type_id === selectedProjectType
   );
 
-  const filteredProjects = projects.filter(
-    (p) => p.project_type_id === selectedProjectType && p.status_id === selectedStatus
-  );
+  const filteredProjects = projects.filter((p) => {
+    if (p.project_type_id !== selectedProjectType) return false;
+
+    const selectedStatusObj = statuses.find(s => s.id === selectedStatus);
+
+    if (selectedStatusObj?.is_substatus) {
+      return p.status_id === selectedStatus;
+    } else {
+      const substatusIds = selectedStatusObj?.substatus?.map(s => s.id) || [];
+      if (substatusIds.length > 0) {
+        return substatusIds.includes(p.status_id);
+      }
+      return p.status_id === selectedStatus;
+    }
+  });
 
   const filteredClients = clients.filter(client => {
     if (!searchQuery.trim()) return true;
@@ -408,9 +420,16 @@ export function ProjectBoard() {
                   <div key={status.id}>
                     {status.substatus && status.substatus.length > 0 ? (
                       <div className="space-y-1">
-                        <div className="text-sm font-bold text-slate-700 px-4 py-2 mt-2 bg-slate-100 rounded-lg border border-slate-200">
+                        <button
+                          onClick={() => setSelectedStatus(status.id)}
+                          className={`w-full text-left text-sm font-bold px-4 py-2 mt-2 rounded-lg border transition-all duration-150 ${
+                            selectedStatus === status.id
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                              : 'text-slate-700 bg-slate-100 border-slate-200 hover:bg-slate-200'
+                          }`}
+                        >
                           {status.name}
-                        </div>
+                        </button>
                         {status.substatus.map((sub) => (
                           <button
                             key={sub.id}
@@ -453,7 +472,7 @@ export function ProjectBoard() {
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">
                   {isClientSection ? 'Clients' : (
-                    parentStatus ? (
+                    currentStatus?.is_substatus && parentStatus ? (
                       <span>
                         {parentStatus.name} <span className="text-slate-400">/</span> {currentStatus?.name}
                       </span>
@@ -462,7 +481,12 @@ export function ProjectBoard() {
                     )
                   )}
                 </h2>
-                <p className="text-sm text-slate-500 mt-1">{isClientSection ? filteredClients.length : filteredProjects.length} {isClientSection ? 'clients' : 'projects'}</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  {isClientSection ? filteredClients.length : filteredProjects.length} {isClientSection ? 'clients' : 'projects'}
+                  {!isClientSection && currentStatus && !currentStatus.is_substatus && currentStatus.substatus && currentStatus.substatus.length > 0 && (
+                    <span className="text-slate-400"> (all sub-statuses)</span>
+                  )}
+                </p>
               </div>
               {isClientSection && (
                 <div className="flex items-center gap-3">
@@ -555,6 +579,7 @@ export function ProjectBoard() {
                     projectTypes={projectTypes}
                     statuses={statuses}
                     allProjects={projects}
+                    showSubstatus={currentStatus && !currentStatus.is_substatus}
                     onDragStart={() => handleDragStart(project)}
                     onClick={() => setSelectedProject(project)}
                     onCreateProject={(targetProjectTypeId) => {

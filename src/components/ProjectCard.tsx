@@ -43,6 +43,7 @@ interface ProjectCardProps {
   projectTypes?: ProjectType[];
   statuses?: Status[];
   allProjects?: Project[];
+  showSubstatus?: boolean;
   onDragStart: () => void;
   onClick: () => void;
   onCreateProject?: (projectTypeId: string) => void;
@@ -54,6 +55,7 @@ export function ProjectCard({
   projectTypes,
   statuses,
   allProjects,
+  showSubstatus = false,
   onDragStart,
   onClick,
   onCreateProject
@@ -80,9 +82,16 @@ export function ProjectCard({
         className="p-4 cursor-pointer"
       >
         <div className="flex items-start justify-between mb-2">
-          <h3 className="font-medium text-slate-900">{project.title}</h3>
+          <div className="flex-1">
+            <h3 className="font-medium text-slate-900">{project.title}</h3>
+            {showSubstatus && project.status_id && (
+              <span className="inline-block text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded mt-1">
+                {statuses?.find(s => s.id === project.status_id)?.name}
+              </span>
+            )}
+          </div>
           {project.clients && (
-            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded ml-2">
+            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded ml-2 flex-shrink-0">
               #{String(project.clients.client_number).padStart(4, '0')}
             </span>
           )}
