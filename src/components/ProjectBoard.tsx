@@ -403,35 +403,38 @@ export function ProjectBoard() {
           <aside className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
             <div className="p-4">
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Status</h2>
-              <nav className="space-y-1">
+              <nav className="space-y-2">
                 {filteredStatuses.filter(s => !s.is_substatus).map((status) => (
                   <div key={status.id}>
                     {status.substatus && status.substatus.length > 0 ? (
-                      <>
-                        <div className="text-xs font-semibold text-slate-400 uppercase px-4 py-2 mt-3 mb-1">
+                      <div className="space-y-1">
+                        <div className="text-sm font-bold text-slate-700 px-4 py-2 mt-2 bg-slate-100 rounded-lg border border-slate-200">
                           {status.name}
                         </div>
                         {status.substatus.map((sub) => (
                           <button
                             key={sub.id}
                             onClick={() => setSelectedStatus(sub.id)}
-                            className={`w-full text-left pl-8 pr-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${
+                            className={`w-full text-left pl-6 pr-4 py-2.5 rounded-lg font-medium transition-all duration-150 ${
                               selectedStatus === sub.id
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                : 'text-slate-700 hover:bg-slate-50'
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                             }`}
                           >
-                            {sub.name}
+                            <span className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
+                              {sub.name}
+                            </span>
                           </button>
                         ))}
-                      </>
+                      </div>
                     ) : (
                       <button
                         onClick={() => setSelectedStatus(status.id)}
-                        className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
+                        className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all duration-150 ${
                           selectedStatus === status.id
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : 'text-slate-700 hover:bg-slate-50'
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
                         }`}
                       >
                         {status.name}
