@@ -58,6 +58,17 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
   const [staff, setStaff] = useState<Staff[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+
+  console.log('EditProjectModal received project:', project);
+  console.log('Project fields:', {
+    company_name: project.company_name,
+    deposit_amount: project.deposit_amount,
+    contact_name: project.contact_name,
+    email: project.email,
+    abbreviation: project.abbreviation,
+    application_number: project.application_number
+  });
+
   const [formData, setFormData] = useState({
     title: project.title,
     description: project.description || '',

@@ -622,6 +622,15 @@ export function ProjectBoard() {
         const projectType = projectTypes.find(pt => pt.id === selectedProject.project_type_id);
         const isFundingProject = projectType?.name === 'Funding Project';
 
+        console.log('Selected Project:', {
+          id: selectedProject.id,
+          title: selectedProject.title,
+          project_type_id: selectedProject.project_type_id,
+          projectTypeName: projectType?.name,
+          isFundingProject,
+          allFields: selectedProject
+        });
+
         return isFundingProject ? (
           <EditProjectModal
             project={selectedProject}
