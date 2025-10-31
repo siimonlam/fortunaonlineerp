@@ -99,6 +99,50 @@ export function ProjectBoard() {
 
   useEffect(() => {
     loadData();
+
+    // Set up real-time subscriptions
+    const projectsChannel = supabase
+      .channel('projects-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'projects' },
+        () => {
+          console.log('Projects changed, reloading data...');
+          loadData();
+        }
+      )
+      .subscribe();
+
+    const clientsChannel = supabase
+      .channel('clients-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clients' },
+        () => {
+          console.log('Clients changed, reloading data...');
+          loadData();
+        }
+      )
+      .subscribe();
+
+    const tasksChannel = supabase
+      .channel('tasks-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        () => {
+          console.log('Tasks changed, reloading data...');
+          loadData();
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      supabase.removeChannel(projectsChannel);
+      supabase.removeChannel(clientsChannel);
+      supabase.removeChannel(tasksChannel);
+    };
   }, []);
 
   async function loadData() {
