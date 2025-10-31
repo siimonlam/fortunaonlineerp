@@ -19,6 +19,7 @@ interface Client {
   address: string | null;
   notes: string | null;
   sales_source: string | null;
+  industry: string | null;
   created_by: string;
   sales_person_id: string | null;
   created_at: string;
@@ -58,6 +59,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     address: client.address || '',
     notes: client.notes || '',
     salesSource: client.sales_source || '',
+    industry: client.industry || '',
     salesPersonId: client.sales_person_id || '',
   });
 
@@ -147,6 +149,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
           address: formData.address.trim() || null,
           notes: formData.notes.trim() || null,
           sales_source: formData.salesSource.trim() || null,
+          industry: formData.industry.trim() || null,
           sales_person_id: formData.salesPersonId || null,
         })
         .eq('id', client.id);
@@ -251,15 +254,27 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
-            <input
-              type="text"
-              value={formData.salesSource}
-              onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter sales source (e.g., referral, website, trade show)"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
+              <input
+                type="text"
+                value={formData.salesSource}
+                onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter sales source"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Industry</label>
+              <input
+                type="text"
+                value={formData.industry}
+                onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter industry"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

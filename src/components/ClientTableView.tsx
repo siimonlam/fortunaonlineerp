@@ -15,6 +15,7 @@ interface Client {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  industry: string | null;
   created_by: string;
   sales_person_id: string | null;
   created_at: string;
@@ -49,6 +50,9 @@ export function ClientTableView({ clients, projectTypes, onClientClick, onCreate
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Company Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Industry
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Contact Person
@@ -92,6 +96,13 @@ export function ClientTableView({ clients, projectTypes, onClientClick, onCreate
                       {client.projects.length} project{client.projects.length !== 1 ? 's' : ''}
                     </div>
                   )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
+                  {client.industry ? (
+                    <span className="inline-block text-xs font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded">
+                      {client.industry}
+                    </span>
+                  ) : '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
                   {client.contact_person || '-'}
