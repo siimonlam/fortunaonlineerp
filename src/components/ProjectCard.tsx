@@ -120,7 +120,14 @@ export function ProjectCard({
       >
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1">
-            <h3 className="font-medium text-slate-900">{project.title}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-medium text-slate-900">{project.title}</h3>
+              {!showSubstatus && project.status_id && (
+                <span className="inline-block text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                  {statuses?.find(s => s.id === project.status_id)?.name}
+                </span>
+              )}
+            </div>
             {project.project_name && (
               <p className="text-xs text-slate-600 mt-0.5">{project.project_name}</p>
             )}

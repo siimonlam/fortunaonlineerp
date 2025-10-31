@@ -672,6 +672,7 @@ export function ProjectBoard() {
         return isFundingProject ? (
           <EditProjectModal
             project={selectedProject}
+            statuses={statuses}
             onClose={() => setSelectedProject(null)}
             onSuccess={() => {
               setSelectedProject(null);

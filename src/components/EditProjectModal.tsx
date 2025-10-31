@@ -54,13 +54,30 @@ interface Project {
   created_at: string;
 }
 
+interface Status {
+  id: string;
+  name: string;
+  project_type_id: string;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  completed: boolean;
+  deadline?: string;
+  assigned_to?: string;
+  staff?: Staff;
+}
+
 interface EditProjectModalProps {
-  project: Project;
+  project: Project & { tasks?: Task[] };
+  statuses?: Status[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function EditProjectModal({ project, onClose, onSuccess }: EditProjectModalProps) {
+export function EditProjectModal({ project, statuses, onClose, onSuccess }: EditProjectModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -84,6 +101,7 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
   const [formData, setFormData] = useState({
     title: project.title,
     description: project.description || '',
+    statusId: project.status_id,
     projectName: project.project_name || '',
     companyName: project.company_name || '',
     contactName: project.contact_name || '',
@@ -110,6 +128,15 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
     approvalDate: project.approval_date || '',
     nextDueDate: project.next_due_date || '',
     nextHkpcDueDate: project.next_hkpc_due_date || '',
+  });
+
+  const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    deadline: '',
+    assignedTo: '',
   });
 
   useEffect(() => {
@@ -243,6 +270,7 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
         .update({
           title: formData.title.trim(),
           description: formData.description.trim() || null,
+          status_id: formData.statusId,
           project_name: formData.projectName.trim() || null,
           company_name: formData.companyName.trim() || null,
           contact_name: formData.contactName.trim() || null,
@@ -310,6 +338,75 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
     }
   }
 
+  async function handleAddTask() {
+    if (!newTask.title.trim()) {
+      alert('Task title is required');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          project_id: project.id,
+          title: newTask.title.trim(),
+          description: newTask.description.trim() || null,
+          deadline: newTask.deadline || null,
+          assigned_to: newTask.assignedTo || null,
+          completed: false,
+        })
+        .select(`
+          *,
+          staff:assigned_to (id, full_name, email)
+        `)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setTasks([...tasks, data]);
+        setNewTask({ title: '', description: '', deadline: '', assignedTo: '' });
+        setShowAddTask(false);
+      }
+    } catch (error: any) {
+      console.error('Error adding task:', error);
+      alert(`Failed to add task: ${error.message}`);
+    }
+  }
+
+  async function handleToggleTask(taskId: string, completed: boolean) {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      setTasks(tasks.map(t => t.id === taskId ? { ...t, completed } : t));
+    } catch (error: any) {
+      console.error('Error updating task:', error);
+      alert(`Failed to update task: ${error.message}`);
+    }
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+      setTasks(tasks.filter(t => t.id !== taskId));
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      alert(`Failed to delete task: ${error.message}`);
+    }
+  }
+
+  const projectStatuses = statuses?.filter(s => s.project_type_id === project.project_type_id) || [];
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -347,15 +444,33 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
                 placeholder="Enter project title"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-              <textarea
-                disabled={!canEdit}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] disabled:bg-slate-50 disabled:text-slate-600"
-                placeholder="Enter project description"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea
+                  disabled={!canEdit}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder="Enter project description"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Status *</label>
+                <select
+                  required
+                  disabled={!canEdit}
+                  value={formData.statusId}
+                  onChange={(e) => setFormData({ ...formData, statusId: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                >
+                  {projectStatuses.map(status => (
+                    <option key={status.id} value={status.id}>
+                      {status.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -809,6 +924,129 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
               </div>
             </div>
           )}
+
+          <div className="space-y-4 mt-6">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <h3 className="text-lg font-semibold text-slate-900">Tasks</h3>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddTask(!showAddTask)}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  {showAddTask ? 'Cancel' : '+ Add Task'}
+                </button>
+              )}
+            </div>
+
+            {showAddTask && (
+              <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Task Title *</label>
+                  <input
+                    type="text"
+                    value={newTask.title}
+                    onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter task title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                  <textarea
+                    value={newTask.description}
+                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[60px]"
+                    placeholder="Enter task description"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
+                    <input
+                      type="date"
+                      value={newTask.deadline}
+                      onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Assign To</label>
+                    <select
+                      value={newTask.assignedTo}
+                      onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Unassigned</option>
+                      {staff.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.full_name || s.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddTask}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Add Task
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {tasks.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No tasks yet</p>
+              ) : (
+                tasks.map(task => (
+                  <div key={task.id} className="bg-white border border-slate-200 rounded-lg p-3">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={(e) => handleToggleTask(task.id, e.target.checked)}
+                        disabled={!canEdit}
+                        className="w-4 h-4 mt-1 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${task.completed ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                          {task.title}
+                        </p>
+                        {task.description && (
+                          <p className="text-xs text-slate-600 mt-1">{task.description}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                          {task.deadline && (
+                            <span className={
+                              new Date(task.deadline) < new Date() && !task.completed
+                                ? 'text-red-600 font-medium'
+                                : ''
+                            }>
+                              Due: {new Date(task.deadline).toLocaleDateString()}
+                            </span>
+                          )}
+                          {task.staff && (
+                            <span>Assigned to: {task.staff.full_name || task.staff.email}</span>
+                          )}
+                        </div>
+                      </div>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTask(task.id)}
+                          className="text-red-600 hover:text-red-800 text-xs"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
           <div className="flex gap-3 pt-4 border-t border-slate-200">
             {isAdmin && (
