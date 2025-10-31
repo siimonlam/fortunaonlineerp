@@ -1,0 +1,464 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { Plus, UserPlus, X } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+
+interface Staff {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  client_number: number;
+  contact_person: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  notes: string | null;
+  sales_source: string | null;
+  created_by: string;
+  sales_person_id: string | null;
+  created_at: string;
+  creator?: Staff;
+  sales_person?: Staff;
+  projects?: any[];
+}
+
+interface ClientPermission {
+  id: string;
+  user_id: string;
+  can_view: boolean;
+  can_edit: boolean;
+  user?: Staff;
+}
+
+interface EditClientModalProps {
+  client: Client;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export function EditClientModal({ client, onClose, onSuccess }: EditClientModalProps) {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [permissions, setPermissions] = useState<ClientPermission[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedUser, setSelectedUser] = useState('');
+  const [permissionView, setPermissionView] = useState(true);
+  const [permissionEdit, setPermissionEdit] = useState(false);
+  const [formData, setFormData] = useState({
+    name: client.name,
+    contactPerson: client.contact_person || '',
+    email: client.email || '',
+    phone: client.phone || '',
+    address: client.address || '',
+    notes: client.notes || '',
+    salesSource: client.sales_source || '',
+    salesPersonId: client.sales_person_id || '',
+  });
+
+  useEffect(() => {
+    loadStaff();
+    checkAdminStatus();
+    loadPermissions();
+  }, []);
+
+  async function loadStaff() {
+    const { data } = await supabase.from('staff').select('*');
+    if (data) setStaff(data);
+  }
+
+  async function checkAdminStatus() {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user?.id)
+      .maybeSingle();
+    setIsAdmin(data?.role === 'admin');
+  }
+
+  async function loadPermissions() {
+    const { data } = await supabase
+      .from('client_permissions')
+      .select('*')
+      .eq('client_id', client.id);
+
+    if (data) {
+      setPermissions(data);
+    }
+  }
+
+  async function grantPermission() {
+    if (!selectedUser) return;
+
+    setLoading(true);
+    const { error } = await supabase
+      .from('client_permissions')
+      .upsert({
+        client_id: client.id,
+        user_id: selectedUser,
+        can_view: permissionView,
+        can_edit: permissionEdit,
+        granted_by: user?.id
+      });
+
+    if (error) {
+      alert('Error granting permission: ' + error.message);
+    } else {
+      setSelectedUser('');
+      setPermissionView(true);
+      setPermissionEdit(false);
+      await loadPermissions();
+    }
+    setLoading(false);
+  }
+
+  async function revokePermission(permissionId: string) {
+    setLoading(true);
+    const { error } = await supabase
+      .from('client_permissions')
+      .delete()
+      .eq('id', permissionId);
+
+    if (error) {
+      alert('Error revoking permission: ' + error.message);
+    } else {
+      await loadPermissions();
+    }
+    setLoading(false);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({
+          name: formData.name.trim(),
+          contact_person: formData.contactPerson.trim() || null,
+          email: formData.email.trim() || null,
+          phone: formData.phone.trim() || null,
+          address: formData.address.trim() || null,
+          notes: formData.notes.trim() || null,
+          sales_source: formData.salesSource.trim() || null,
+          sales_person_id: formData.salesPersonId || null,
+        })
+        .eq('id', client.id);
+
+      if (error) throw error;
+      onSuccess();
+    } catch (error: any) {
+      console.error('Error updating client:', error);
+      alert(`Failed to update client: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', client.id);
+
+      if (error) throw error;
+      onSuccess();
+    } catch (error: any) {
+      console.error('Error deleting client:', error);
+      alert(`Failed to delete client: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-900">Edit Client</h2>
+              <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded">
+                #{String(client.client_number).padStart(4, '0')}
+              </span>
+            </div>
+            {client.creator && (
+              <p className="text-sm text-slate-500 mt-1">
+                Created by: {client.creator.full_name || client.creator.email}
+              </p>
+            )}
+            {client.projects && client.projects.length > 0 && (
+              <p className="text-sm text-slate-500">
+                {client.projects.length} associated project{client.projects.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <Plus className="w-5 h-5 rotate-45" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name *</label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter company name"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Contact Person</label>
+              <input
+                type="text"
+                value={formData.contactPerson}
+                onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter contact person name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Sales Person</label>
+              <select
+                value={formData.salesPersonId}
+                onChange={(e) => setFormData({ ...formData, salesPersonId: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select sales person</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.full_name || s.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
+            <input
+              type="text"
+              value={formData.salesSource}
+              onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter sales source (e.g., referral, website, trade show)"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter email"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter phone number"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter address"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
+              placeholder="Enter additional notes"
+            />
+          </div>
+
+          {isAdmin && (
+            <div className="border-t border-slate-200 pt-4 mt-4">
+              <div className="flex items-center gap-2 mb-4">
+                <UserPlus className="w-5 h-5 text-slate-600" />
+                <h3 className="text-lg font-semibold text-slate-900">Access Permissions</h3>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-lg mb-4">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">User</label>
+                    <select
+                      value={selectedUser}
+                      onChange={(e) => setSelectedUser(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    >
+                      <option value="">Select a user...</option>
+                      {staff.filter(s => s.id !== client.created_by && s.id !== client.sales_person_id).map(s => (
+                        <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={grantPermission}
+                      disabled={!selectedUser || loading}
+                      className="w-full bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                    >
+                      Grant Access
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={permissionView}
+                      onChange={(e) => setPermissionView(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">Can View</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={permissionEdit}
+                      onChange={(e) => setPermissionEdit(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">Can Edit</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-700 mb-2">Current Access:</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <div className="text-sm font-medium text-slate-900">
+                          {client.creator?.full_name || client.creator?.email || 'Creator'}
+                        </div>
+                        <div className="text-xs text-slate-500">Creator (automatic access)</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">View</span>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Edit</span>
+                    </div>
+                  </div>
+                  {client.sales_person && (
+                    <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-slate-900">
+                            {client.sales_person.full_name || client.sales_person.email}
+                          </div>
+                          <div className="text-xs text-slate-500">Sales Person (automatic access)</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">View</span>
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Edit</span>
+                      </div>
+                    </div>
+                  )}
+                  {permissions.map(perm => {
+                    const permUser = staff.find(s => s.id === perm.user_id);
+                    return (
+                      <div key={perm.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <div className="text-sm font-medium text-slate-900">
+                              {permUser?.full_name || permUser?.email || 'Unknown User'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {perm.can_view && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">View</span>
+                          )}
+                          {perm.can_edit && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Edit</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => revokePermission(perm.id)}
+                            disabled={loading}
+                            className="text-red-600 hover:text-red-700 disabled:opacity-50 ml-2"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {permissions.length === 0 && (
+                    <p className="text-sm text-slate-500 py-2">No additional permissions granted</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={loading}
+              className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Delete
+            </button>
+            <div className="flex-1"></div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

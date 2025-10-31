@@ -1,0 +1,331 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { X, Plus, Calendar, User, Trash2, CheckCircle2, Circle, Building2, Mail, Phone, MapPin, Link as LinkIcon } from 'lucide-react';
+
+interface Staff {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  assigned_to: string | null;
+  deadline: string | null;
+  completed: boolean;
+  staff?: {
+    full_name: string;
+  };
+}
+
+interface Project {
+  id: string;
+  title: string;
+  description: string | null;
+  client_id?: string;
+  company_name?: string;
+  contact_name?: string;
+  contact_number?: string;
+  email?: string;
+  address?: string;
+  lead_source?: string;
+  sales_person?: string;
+  upload_link?: string;
+  tasks?: Task[];
+}
+
+interface TaskModalProps {
+  project: Project;
+  staff: Staff[];
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [newTaskDeadline, setNewTaskDeadline] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showAddTask, setShowAddTask] = useState(false);
+
+  useEffect(() => {
+    loadTasks();
+  }, [project.id]);
+
+  async function loadTasks() {
+    const { data } = await supabase
+      .from('tasks')
+      .select(`
+        *,
+        staff:assigned_to (full_name)
+      `)
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: false });
+
+    if (data) setTasks(data);
+  }
+
+  async function handleAddTask(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('tasks').insert({
+        project_id: project.id,
+        title: newTaskTitle.trim(),
+        description: newTaskDescription.trim() || null,
+        assigned_to: newTaskAssignee || null,
+        deadline: newTaskDeadline || null,
+      });
+
+      if (error) throw error;
+
+      setNewTaskTitle('');
+      setNewTaskDescription('');
+      setNewTaskAssignee('');
+      setNewTaskDeadline('');
+      setShowAddTask(false);
+      loadTasks();
+    } catch (error) {
+      console.error('Error adding task:', error);
+      alert('Failed to add task. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleToggleComplete(taskId: string, completed: boolean) {
+    const { error } = await supabase
+      .from('tasks')
+      .update({ completed: !completed, updated_at: new Date().toISOString() })
+      .eq('id', taskId);
+
+    if (!error) loadTasks();
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+
+    if (!error) loadTasks();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white">
+          <div className="flex-1">
+            <h2 className="text-xl font-bold text-slate-900">{project.title}</h2>
+            {project.description && (
+              <p className="text-sm text-slate-600 mt-1">{project.description}</p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors ml-4"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {(project.company_name || project.client_id) && (
+          <div className="p-6 bg-slate-50 border-b border-slate-200">
+            <h3 className="text-sm font-semibold text-slate-900 mb-3">Client Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {project.client_id && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Client ID:</span>
+                  <span className="ml-2 text-slate-900 font-medium">{project.client_id}</span>
+                </div>
+              )}
+              {project.company_name && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Building2 className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-900">{project.company_name}</span>
+                </div>
+              )}
+              {project.contact_name && (
+                <div className="flex items-center gap-2 text-sm">
+                  <User className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-900">{project.contact_name}</span>
+                </div>
+              )}
+              {project.contact_number && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-900">{project.contact_number}</span>
+                </div>
+              )}
+              {project.email && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-900">{project.email}</span>
+                </div>
+              )}
+              {project.address && (
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-900">{project.address}</span>
+                </div>
+              )}
+              {project.lead_source && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Lead Source:</span>
+                  <span className="ml-2 text-slate-900">{project.lead_source}</span>
+                </div>
+              )}
+              {project.sales_person && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Sales Person:</span>
+                  <span className="ml-2 text-slate-900">{project.sales_person}</span>
+                </div>
+              )}
+              {project.upload_link && (
+                <div className="flex items-center gap-2 text-sm col-span-2">
+                  <LinkIcon className="w-4 h-4 text-slate-400" />
+                  <a href={project.upload_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 hover:underline">
+                    {project.upload_link}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">Tasks</h3>
+            <button
+              onClick={() => setShowAddTask(!showAddTask)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Task
+            </button>
+          </div>
+
+          {showAddTask && (
+            <form onSubmit={handleAddTask} className="bg-slate-50 rounded-lg p-4 mb-4 space-y-3">
+              <input
+                type="text"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Task title"
+                required
+              />
+              <textarea
+                value={newTaskDescription}
+                onChange={(e) => setNewTaskDescription(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Task description (optional)"
+                rows={2}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  value={newTaskAssignee}
+                  onChange={(e) => setNewTaskAssignee(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Unassigned</option>
+                  {staff.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.full_name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={newTaskDeadline}
+                  onChange={(e) => setNewTaskDeadline(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddTask(false)}
+                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Adding...' : 'Add Task'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="space-y-2">
+            {tasks.length === 0 && !showAddTask && (
+              <p className="text-center text-slate-500 py-8">
+                No tasks yet. Add your first task to get started.
+              </p>
+            )}
+            {tasks.map((task) => (
+              <div
+                key={task.id}
+                className="border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => handleToggleComplete(task.id, task.completed)}
+                    className="mt-0.5"
+                  >
+                    {task.completed ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-slate-400 hover:text-slate-600" />
+                    )}
+                  </button>
+                  <div className="flex-1">
+                    <h4
+                      className={`font-medium ${
+                        task.completed ? 'text-slate-400 line-through' : 'text-slate-900'
+                      }`}
+                    >
+                      {task.title}
+                    </h4>
+                    {task.description && (
+                      <p className="text-sm text-slate-600 mt-1">{task.description}</p>
+                    )}
+                    <div className="flex items-center gap-4 mt-2">
+                      {task.staff && (
+                        <div className="flex items-center gap-1 text-sm text-slate-600">
+                          <User className="w-4 h-4" />
+                          {task.staff.full_name}
+                        </div>
+                      )}
+                      {task.deadline && (
+                        <div className="flex items-center gap-1 text-sm text-slate-600">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(task.deadline).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteTask(task.id)}
+                    className="text-slate-400 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
