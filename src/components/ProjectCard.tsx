@@ -108,6 +108,9 @@ export function ProjectCard({
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1">
             <h3 className="font-medium text-slate-900">{project.title}</h3>
+            {project.project_name && (
+              <p className="text-xs text-slate-600 mt-0.5">{project.project_name}</p>
+            )}
             {showSubstatus && project.status_id && (
               <span className="inline-block text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded mt-1">
                 {statuses?.find(s => s.id === project.status_id)?.name}
@@ -207,6 +210,54 @@ export function ProjectCard({
             <div className="flex items-center gap-2 text-slate-600">
               <span className="font-medium">Invoice:</span>
               <span>{project.invoice_number}</span>
+            </div>
+          )}
+          {project.agreement_ref && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium">Agreement:</span>
+              <span>{project.agreement_ref}</span>
+            </div>
+          )}
+          {project.email && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium">Email:</span>
+              <span className="truncate">{project.email}</span>
+            </div>
+          )}
+          {project.address && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium">Address:</span>
+              <span className="truncate">{project.address}</span>
+            </div>
+          )}
+          {project.sales_source && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium">Source:</span>
+              <span>{project.sales_source}</span>
+            </div>
+          )}
+          {project.service_fee_percentage && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium">Service Fee:</span>
+              <span>{project.service_fee_percentage}%</span>
+            </div>
+          )}
+          {project.whatsapp_group_id && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium">WhatsApp:</span>
+              <span className="truncate">{project.whatsapp_group_id}</span>
+            </div>
+          )}
+          {project.start_date && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <span className="font-medium">Start:</span>
+              <span>{new Date(project.start_date).toLocaleDateString()}</span>
+            </div>
+          )}
+          {project.next_hkpc_due_date && (
+            <div className="flex items-center gap-2 text-orange-600">
+              <span className="font-medium">HKPC Due:</span>
+              <span>{new Date(project.next_hkpc_due_date).toLocaleDateString()}</span>
             </div>
           )}
         </div>
