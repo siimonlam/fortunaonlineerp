@@ -5,6 +5,7 @@ import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search } from 'lucide-re
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
+import { EditProjectModal } from './EditProjectModal';
 import { ClientTableView } from './ClientTableView';
 import { AdminPage } from './AdminPage';
 
@@ -617,17 +618,31 @@ export function ProjectBoard() {
         />
       )}
 
-      {selectedProject && (
-        <TaskModal
-          project={selectedProject}
-          staff={staff}
-          onClose={() => setSelectedProject(null)}
-          onSuccess={() => {
-            setSelectedProject(null);
-            loadData();
-          }}
-        />
-      )}
+      {selectedProject && (() => {
+        const projectType = projectTypes.find(pt => pt.id === selectedProject.project_type_id);
+        const isFundingProject = projectType?.name === 'Funding Project';
+
+        return isFundingProject ? (
+          <EditProjectModal
+            project={selectedProject}
+            onClose={() => setSelectedProject(null)}
+            onSuccess={() => {
+              setSelectedProject(null);
+              loadData();
+            }}
+          />
+        ) : (
+          <TaskModal
+            project={selectedProject}
+            staff={staff}
+            onClose={() => setSelectedProject(null)}
+            onSuccess={() => {
+              setSelectedProject(null);
+              loadData();
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
