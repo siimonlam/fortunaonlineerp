@@ -90,6 +90,7 @@ export function ProjectBoard() {
   const [draggedProject, setDraggedProject] = useState<Project | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [clientSortBy, setClientSortBy] = useState<'client_number_asc' | 'client_number_desc' | 'created_newest' | 'created_oldest'>('client_number_asc');
 
   useEffect(() => {
     loadData();
@@ -262,20 +263,35 @@ export function ProjectBoard() {
     }
   });
 
-  const filteredClients = clients.filter(client => {
-    if (!searchQuery.trim()) return true;
+  const filteredClients = clients
+    .filter(client => {
+      if (!searchQuery.trim()) return true;
 
-    const query = searchQuery.toLowerCase();
-    return (
-      client.name.toLowerCase().includes(query) ||
-      client.client_number.toString().includes(query) ||
-      client.contact_person?.toLowerCase().includes(query) ||
-      client.email?.toLowerCase().includes(query) ||
-      client.phone?.toLowerCase().includes(query) ||
-      client.sales_source?.toLowerCase().includes(query) ||
-      client.notes?.toLowerCase().includes(query)
-    );
-  });
+      const query = searchQuery.toLowerCase();
+      return (
+        client.name.toLowerCase().includes(query) ||
+        client.client_number.toString().includes(query) ||
+        client.contact_person?.toLowerCase().includes(query) ||
+        client.email?.toLowerCase().includes(query) ||
+        client.phone?.toLowerCase().includes(query) ||
+        client.sales_source?.toLowerCase().includes(query) ||
+        client.notes?.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      switch (clientSortBy) {
+        case 'client_number_asc':
+          return a.client_number - b.client_number;
+        case 'client_number_desc':
+          return b.client_number - a.client_number;
+        case 'created_newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'created_oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        default:
+          return 0;
+      }
+    });
 
   const currentStatus = statuses.find(s => s.id === selectedStatus);
   const parentStatus = currentStatus?.parent_status_id
@@ -497,6 +513,16 @@ export function ProjectBoard() {
                       className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                     />
                   </div>
+                  <select
+                    value={clientSortBy}
+                    onChange={(e) => setClientSortBy(e.target.value as any)}
+                    className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                  >
+                    <option value="client_number_asc">Client # (Low to High)</option>
+                    <option value="client_number_desc">Client # (High to Low)</option>
+                    <option value="created_newest">Created (Newest First)</option>
+                    <option value="created_oldest">Created (Oldest First)</option>
+                  </select>
                   <div className="flex items-center bg-white border border-slate-300 rounded-lg p-1">
                     <button
                       onClick={() => setClientViewMode('card')}
