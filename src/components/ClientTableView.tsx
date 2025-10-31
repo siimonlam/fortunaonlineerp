@@ -17,6 +17,7 @@ interface Client {
   address: string | null;
   notes: string | null;
   industry: string | null;
+  abbreviation: string | null;
   created_by: string;
   sales_person_id: string | null;
   created_at: string;

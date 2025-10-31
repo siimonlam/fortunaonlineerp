@@ -20,6 +20,7 @@ interface Client {
   notes: string | null;
   sales_source: string | null;
   industry: string | null;
+  abbreviation: string | null;
   created_by: string;
   sales_person_id: string | null;
   created_at: string;
@@ -60,6 +61,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     notes: client.notes || '',
     salesSource: client.sales_source || '',
     industry: client.industry || '',
+    abbreviation: client.abbreviation || '',
     salesPersonId: client.sales_person_id || '',
   });
 
@@ -150,6 +152,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
           notes: formData.notes.trim() || null,
           sales_source: formData.salesSource.trim() || null,
           industry: formData.industry.trim() || null,
+          abbreviation: formData.abbreviation.trim() || null,
           sales_person_id: formData.salesPersonId || null,
         })
         .eq('id', client.id);
@@ -214,16 +217,28 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name *</label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter company name"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Company Name *</label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter company name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Abbreviation</label>
+              <input
+                type="text"
+                value={formData.abbreviation}
+                onChange={(e) => setFormData({ ...formData, abbreviation: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter abbreviation"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
