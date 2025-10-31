@@ -2,9 +2,19 @@ import { useState } from 'react';
 import { CheckCircle2, Circle, ChevronDown } from 'lucide-react';
 import { ProjectCardFields } from './ProjectCardFields';
 
+interface Staff {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 interface Task {
   id: string;
+  title: string;
   completed: boolean;
+  deadline?: string;
+  assigned_to?: string;
+  staff?: Staff;
 }
 
 interface Client {
@@ -72,6 +82,7 @@ interface ProjectCardProps {
   onDragStart: () => void;
   onClick: () => void;
   onCreateProject?: (projectTypeId: string) => void;
+  onClientClick?: (client: Client) => void;
 }
 
 export function ProjectCard({
@@ -83,7 +94,8 @@ export function ProjectCard({
   showSubstatus = false,
   onDragStart,
   onClick,
-  onCreateProject
+  onCreateProject,
+  onClientClick
 }: ProjectCardProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const completedTasks = project.tasks?.filter((t) => t.completed).length || 0;
@@ -119,13 +131,27 @@ export function ProjectCard({
             )}
           </div>
           {project.clients && (
-            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded ml-2 flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClientClick?.(project.clients!);
+              }}
+              className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded ml-2 flex-shrink-0 hover:bg-blue-100 transition-colors"
+            >
               #{String(project.clients.client_number).padStart(4, '0')}
-            </span>
+            </button>
           )}
         </div>
         {project.clients && (
-          <p className="text-xs text-slate-500 mb-2">{project.clients.name}</p>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClientClick?.(project.clients!);
+            }}
+            className="text-xs text-blue-600 hover:text-blue-800 hover:underline mb-2 text-left"
+          >
+            {project.clients.name}
+          </button>
         )}
         {project.description && (
           <p className="text-sm text-slate-600 mb-3 line-clamp-2">{project.description}</p>
@@ -133,15 +159,57 @@ export function ProjectCard({
 
         <ProjectCardFields project={project} />
         {totalTasks > 0 && (
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            {completedTasks === totalTasks ? (
-              <CheckCircle2 className="w-4 h-4 text-green-500" />
-            ) : (
-              <Circle className="w-4 h-4" />
-            )}
-            <span>
-              {completedTasks}/{totalTasks} tasks
-            </span>
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
+              {completedTasks === totalTasks ? (
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+              ) : (
+                <Circle className="w-4 h-4" />
+              )}
+              <span className="font-medium">
+                {completedTasks}/{totalTasks} tasks
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {project.tasks?.slice(0, 3).map((task) => (
+                <div key={task.id} className="flex items-start gap-2 text-xs">
+                  {task.completed ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <Circle className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className={`truncate ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                      {task.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {task.deadline && (
+                        <span className={`text-xs ${
+                          new Date(task.deadline) < new Date() && !task.completed
+                            ? 'text-red-600 font-medium'
+                            : 'text-slate-500'
+                        }`}>
+                          Due: {new Date(task.deadline).toLocaleDateString()}
+                        </span>
+                      )}
+                      {task.staff && (
+                        <>
+                          {task.deadline && <span className="text-slate-300">•</span>}
+                          <span className="text-slate-500">
+                            {task.staff.full_name || task.staff.email}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {(project.tasks?.length || 0) > 3 && (
+                <p className="text-xs text-slate-500 pl-5">
+                  + {(project.tasks?.length || 0) - 3} more task{(project.tasks?.length || 0) - 3 !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
           </div>
         )}
 

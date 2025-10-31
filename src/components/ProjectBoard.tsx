@@ -113,7 +113,7 @@ export function ProjectBoard() {
           *,
           tasks (
             *,
-            staff:assigned_to (full_name)
+            staff:assigned_to (id, full_name, email)
           ),
           clients (
             id,
@@ -124,7 +124,7 @@ export function ProjectBoard() {
         .order('created_at', { ascending: false }),
       supabase
         .from('clients')
-        .select('id,name,contact_person,email,phone,address,notes,sales_source,created_by,created_at,updated_at,sales_person_id,client_number')
+        .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number')
         .order('created_at', { ascending: false }),
       supabase.from('staff').select('*'),
     ]);
@@ -582,6 +582,7 @@ export function ProjectBoard() {
                       onCreateProject={(targetProjectTypeId) => {
                         handleCreateProjectFromClient(client, targetProjectTypeId);
                       }}
+                      onProjectClick={(project) => setSelectedProject(project)}
                     />
                   ))}
                   {filteredClients.length === 0 && (
@@ -618,6 +619,7 @@ export function ProjectBoard() {
                     onCreateProject={(targetProjectTypeId) => {
                       handleCreateProjectFromClient(project, targetProjectTypeId);
                     }}
+                    onClientClick={(client) => setSelectedClient(client)}
                   />
                 ))}
                 {filteredProjects.length === 0 && (
@@ -717,9 +719,10 @@ interface ClientCardProps {
   projectTypes: ProjectType[];
   onClick: () => void;
   onCreateProject: (targetProjectTypeId: string) => void;
+  onProjectClick?: (project: Project) => void;
 }
 
-function ClientCard({ client, projectTypes, onClick, onCreateProject }: ClientCardProps) {
+function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectClick }: ClientCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing Project');
@@ -821,9 +824,16 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject }: ClientCa
           <p className="text-xs font-semibold text-slate-600 mb-1">Associated Projects ({client.projects.length}):</p>
           <div className="space-y-1">
             {client.projects.slice(0, 3).map((project) => (
-              <p key={project.id} className="text-xs text-slate-600 truncate">
+              <button
+                key={project.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onProjectClick?.(project);
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate block text-left w-full"
+              >
                 • {project.title}
-              </p>
+              </button>
             ))}
             {client.projects.length > 3 && (
               <p className="text-xs text-slate-500">+ {client.projects.length - 3} more</p>
