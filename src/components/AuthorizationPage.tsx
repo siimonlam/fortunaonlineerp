@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Shield, Users, CheckSquare, Square, Save, X } from 'lucide-react';
+import { Shield, Users, CheckSquare, Square, Save, X, ArrowLeft } from 'lucide-react';
 
 interface Staff {
   id: string;
@@ -30,7 +30,11 @@ interface StatusPermission {
   can_edit_all: boolean;
 }
 
-export function AuthorizationPage() {
+interface AuthorizationPageProps {
+  onBack?: () => void;
+}
+
+export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -184,6 +188,15 @@ export function AuthorizationPage() {
   return (
     <div className="p-8">
       <div className="mb-6">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="mb-4 flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Client Permissions
+          </button>
+        )}
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <Shield className="w-6 h-6" />
           User Authorization

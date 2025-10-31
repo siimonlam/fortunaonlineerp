@@ -132,7 +132,7 @@ export function AdminPage() {
   }
 
   if (activeTab === 'status') {
-    return <AuthorizationPage />;
+    return <AuthorizationPage onBack={() => setActiveTab('client')} />;
   }
 
   return (

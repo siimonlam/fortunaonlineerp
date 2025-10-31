@@ -368,16 +368,16 @@ export function ProjectBoard() {
           </div>
         </div>
 
-        <div className="px-8 py-4 bg-slate-50 border-t border-slate-200">
-          <div className="flex gap-4">
+        <div className="px-8 py-3 bg-slate-50 border-t border-slate-200">
+          <div className="flex gap-2">
             {projectTypes.map((type) => (
               <button
                 key={type.id}
                 onClick={() => handleProjectTypeChange(type.id)}
-                className={`flex-1 py-6 rounded-xl font-bold text-lg transition-all ${
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                   selectedProjectType === type.id && selectedView === 'projects'
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'bg-white text-slate-700 hover:bg-slate-100 border-2 border-slate-200'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                 }`}
               >
                 {type.name}
@@ -385,10 +385,10 @@ export function ProjectBoard() {
             ))}
             <button
               onClick={() => handleViewChange('clients')}
-              className={`flex-1 py-6 rounded-xl font-bold text-lg transition-all ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                 selectedView === 'clients'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-white text-slate-700 hover:bg-slate-100 border-2 border-slate-200'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
             >
               Clients
@@ -396,13 +396,13 @@ export function ProjectBoard() {
             {isAdmin && (
               <button
                 onClick={() => handleViewChange('admin')}
-                className={`flex-1 py-6 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
                   selectedView === 'admin'
-                    ? 'bg-red-600 text-white shadow-lg'
-                    : 'bg-white text-slate-700 hover:bg-slate-100 border-2 border-slate-200'
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                 }`}
               >
-                <Shield className="w-5 h-5" />
+                <Shield className="w-4 h-4" />
                 Admin
               </button>
             )}
@@ -470,23 +470,19 @@ export function ProjectBoard() {
           <div className="p-8">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {isClientSection ? 'Clients' : (
-                    currentStatus?.is_substatus && parentStatus ? (
-                      <span>
-                        {parentStatus.name} <span className="text-slate-400">/</span> {currentStatus?.name}
-                      </span>
-                    ) : (
-                      currentStatus?.name || 'Projects'
-                    )
-                  )}
-                </h2>
-                <p className="text-sm text-slate-500 mt-1">
-                  {isClientSection ? filteredClients.length : filteredProjects.length} {isClientSection ? 'clients' : 'projects'}
-                  {!isClientSection && currentStatus && !currentStatus.is_substatus && currentStatus.substatus && currentStatus.substatus.length > 0 && (
-                    <span className="text-slate-400"> (all sub-statuses)</span>
-                  )}
-                </p>
+                {!isAdminSection && (
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    {isClientSection ? 'Clients' : (
+                      currentStatus?.is_substatus && parentStatus ? (
+                        <span>
+                          {parentStatus.name} <span className="text-slate-400">/</span> {currentStatus?.name}
+                        </span>
+                      ) : (
+                        currentStatus?.name || 'Projects'
+                      )
+                    )}
+                  </h2>
+                )}
               </div>
               {isClientSection && (
                 <div className="flex items-center gap-3">
