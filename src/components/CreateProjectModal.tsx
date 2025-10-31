@@ -49,8 +49,8 @@ export function CreateProjectModal({
   const [contactNumber, setContactNumber] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [leadSource, setLeadSource] = useState('');
-  const [salesPerson, setSalesPerson] = useState('');
+  const [salesSource, setSalesSource] = useState('');
+  const [salesPersonId, setSalesPersonId] = useState('');
   const [uploadLink, setUploadLink] = useState('');
 
   const isFundingProject = projectTypes.find(pt => pt.id === selectedProjectType)?.name === 'Funding Project';
@@ -76,8 +76,8 @@ export function CreateProjectModal({
         projectData.contact_number = contactNumber.trim() || null;
         projectData.email = email.trim() || null;
         projectData.address = address.trim() || null;
-        projectData.lead_source = leadSource.trim() || null;
-        projectData.sales_person = salesPerson.trim() || null;
+        projectData.sales_source = salesSource.trim() || null;
+        projectData.sales_person_id = salesPersonId || null;
         projectData.upload_link = uploadLink.trim() || null;
       }
 
@@ -93,13 +93,18 @@ export function CreateProjectModal({
         throw projectError;
       }
 
-      const staffAssignments = selectedStaff.map((staffId) => ({
-        project_id: project.id,
-        staff_id: staffId,
-      }));
+      const staffAssignments = selectedStaff
+        .filter(staffId => staffId !== user.id)
+        .map((staffId) => ({
+          project_id: project.id,
+          user_id: staffId,
+          can_view: true,
+          can_edit: true,
+          assigned_by: user.id
+        }));
 
       const { error: assignError } = await supabase
-        .from('project_staff')
+        .from('project_assignments')
         .insert(staffAssignments);
 
       if (assignError) {
@@ -253,14 +258,14 @@ export function CreateProjectModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Lead Source
+                    Sales Source
                   </label>
                   <input
                     type="text"
-                    value={leadSource}
-                    onChange={(e) => setLeadSource(e.target.value)}
+                    value={salesSource}
+                    onChange={(e) => setSalesSource(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter lead source"
+                    placeholder="Enter sales source"
                   />
                 </div>
               </div>
@@ -283,13 +288,18 @@ export function CreateProjectModal({
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Sales Person
                   </label>
-                  <input
-                    type="text"
-                    value={salesPerson}
-                    onChange={(e) => setSalesPerson(e.target.value)}
+                  <select
+                    value={salesPersonId}
+                    onChange={(e) => setSalesPersonId(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter sales person"
-                  />
+                  >
+                    <option value="">Select sales person...</option>
+                    {staff.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.full_name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">

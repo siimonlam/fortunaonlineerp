@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, X, Check } from 'lucide-react';
+import { Shield, Users, X, Check, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { AuthorizationPage } from './AuthorizationPage';
 
 interface User {
   id: string;
@@ -25,6 +26,7 @@ interface ClientPermission {
 }
 
 export function AdminPage() {
+  const [activeTab, setActiveTab] = useState<'client' | 'status'>('client');
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [permissions, setPermissions] = useState<ClientPermission[]>([]);
@@ -129,6 +131,10 @@ export function AdminPage() {
     setLoading(false);
   }
 
+  if (activeTab === 'status') {
+    return <AuthorizationPage />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -137,7 +143,32 @@ export function AdminPage() {
             <Shield className="w-8 h-8 text-red-600" />
             <h1 className="text-3xl font-bold text-slate-900">Admin Panel</h1>
           </div>
-          <p className="text-slate-600">Manage user roles and client permissions</p>
+          <p className="text-slate-600">Manage user roles and permissions</p>
+        </div>
+
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setActiveTab('client')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+              activeTab === 'client'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Client Permissions
+          </button>
+          <button
+            onClick={() => setActiveTab('status')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+              activeTab === 'status'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Lock className="w-4 h-4" />
+            Status Authorization
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

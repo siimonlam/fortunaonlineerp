@@ -30,9 +30,27 @@ interface Project {
   contact_number?: string;
   email?: string;
   address?: string;
-  lead_source?: string;
-  sales_person?: string;
+  sales_source?: string;
+  sales_person_id?: string;
   upload_link?: string;
+  start_date?: string;
+  attachment?: string;
+  deposit_paid?: boolean;
+  deposit_amount?: number;
+  project_name?: string;
+  service_fee_percentage?: number;
+  whatsapp_group_id?: string;
+  invoice_number?: string;
+  agreement_ref?: string;
+  abbreviation?: string;
+  project_size?: string;
+  project_start_date?: string;
+  project_end_date?: string;
+  submission_date?: string;
+  application_number?: string;
+  approval_date?: string;
+  next_hkpc_due_date?: string;
+  next_due_date?: string;
   tasks?: Task[];
 }
 
@@ -174,16 +192,114 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
                   <span className="text-slate-900">{project.address}</span>
                 </div>
               )}
-              {project.lead_source && (
+              {project.sales_source && (
                 <div className="text-sm">
-                  <span className="text-slate-500">Lead Source:</span>
-                  <span className="ml-2 text-slate-900">{project.lead_source}</span>
+                  <span className="text-slate-500">Sales Source:</span>
+                  <span className="ml-2 text-slate-900">{project.sales_source}</span>
                 </div>
               )}
-              {project.sales_person && (
+              {project.start_date && (
                 <div className="text-sm">
-                  <span className="text-slate-500">Sales Person:</span>
-                  <span className="ml-2 text-slate-900">{project.sales_person}</span>
+                  <span className="text-slate-500">Start Date:</span>
+                  <span className="ml-2 text-slate-900">{new Date(project.start_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              {project.project_name && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Project Name:</span>
+                  <span className="ml-2 text-slate-900">{project.project_name}</span>
+                </div>
+              )}
+              {project.abbreviation && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Abbreviation:</span>
+                  <span className="ml-2 text-slate-900 font-medium">{project.abbreviation}</span>
+                </div>
+              )}
+              {project.project_size && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Project Size:</span>
+                  <span className="ml-2 text-slate-900">{project.project_size}</span>
+                </div>
+              )}
+              {project.application_number && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Application Number:</span>
+                  <span className="ml-2 text-slate-900 font-medium">{project.application_number}</span>
+                </div>
+              )}
+              {project.agreement_ref && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Agreement Ref:</span>
+                  <span className="ml-2 text-slate-900">{project.agreement_ref}</span>
+                </div>
+              )}
+              {project.invoice_number && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Invoice Number:</span>
+                  <span className="ml-2 text-slate-900">{project.invoice_number}</span>
+                </div>
+              )}
+              {project.deposit_paid !== undefined && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Deposit Paid:</span>
+                  <span className={`ml-2 font-medium ${project.deposit_paid ? 'text-green-600' : 'text-slate-900'}`}>
+                    {project.deposit_paid ? 'Yes' : 'No'}
+                  </span>
+                </div>
+              )}
+              {project.deposit_amount && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Deposit Amount:</span>
+                  <span className="ml-2 text-slate-900 font-medium">${project.deposit_amount.toLocaleString()}</span>
+                </div>
+              )}
+              {project.service_fee_percentage && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Service Fee:</span>
+                  <span className="ml-2 text-slate-900">{project.service_fee_percentage}%</span>
+                </div>
+              )}
+              {project.project_start_date && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Project Start:</span>
+                  <span className="ml-2 text-slate-900">{new Date(project.project_start_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              {project.project_end_date && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Project End:</span>
+                  <span className="ml-2 text-slate-900">{new Date(project.project_end_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              {project.submission_date && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Submission Date:</span>
+                  <span className="ml-2 text-slate-900">{new Date(project.submission_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              {project.approval_date && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Approval Date:</span>
+                  <span className="ml-2 text-slate-900">{new Date(project.approval_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              {project.next_hkpc_due_date && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Next HKPC Due:</span>
+                  <span className="ml-2 text-slate-900">{new Date(project.next_hkpc_due_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              {project.next_due_date && (
+                <div className="text-sm">
+                  <span className="text-slate-500">Next Due Date:</span>
+                  <span className="ml-2 text-slate-900">{new Date(project.next_due_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              {project.whatsapp_group_id && (
+                <div className="text-sm">
+                  <span className="text-slate-500">WhatsApp Group:</span>
+                  <span className="ml-2 text-slate-900">{project.whatsapp_group_id}</span>
                 </div>
               )}
               {project.upload_link && (
@@ -191,6 +307,14 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
                   <LinkIcon className="w-4 h-4 text-slate-400" />
                   <a href={project.upload_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 hover:underline">
                     {project.upload_link}
+                  </a>
+                </div>
+              )}
+              {project.attachment && (
+                <div className="flex items-center gap-2 text-sm col-span-2">
+                  <LinkIcon className="w-4 h-4 text-slate-400" />
+                  <a href={project.attachment} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 hover:underline">
+                    Attachment
                   </a>
                 </div>
               )}
