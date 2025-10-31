@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
 
 interface Staff {
@@ -37,7 +38,9 @@ interface ClientTableViewProps {
 }
 
 export function ClientTableView({ clients, projectTypes, onClientClick, onCreateProject }: ClientTableViewProps) {
+  const [openMenuClientId, setOpenMenuClientId] = useState<string | null>(null);
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
+  const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing Project');
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
@@ -119,19 +122,47 @@ export function ClientTableView({ clients, projectTypes, onClientClick, onCreate
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
                   {client.sales_person ? (client.sales_person.full_name || client.sales_person.email) : '-'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  {fundingProjectType && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm relative">
+                  <div className="relative inline-block">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onCreateProject(client, fundingProjectType.id);
+                        setOpenMenuClientId(openMenuClientId === client.id ? null : client.id);
                       }}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors inline-flex items-center gap-1"
                     >
                       <Plus className="w-3 h-3" />
                       Create Project
                     </button>
-                  )}
+                    {openMenuClientId === client.id && (
+                      <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10 min-w-[180px]">
+                        {fundingProjectType && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuClientId(null);
+                              onCreateProject(client, fundingProjectType.id);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                          >
+                            Funding Project
+                          </button>
+                        )}
+                        {marketingProjectType && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuClientId(null);
+                              onCreateProject(client, marketingProjectType.id);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                          >
+                            Marketing Project
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

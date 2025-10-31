@@ -8,6 +8,7 @@ import { EditClientModal } from './EditClientModal';
 import { EditProjectModal } from './EditProjectModal';
 import { ClientTableView } from './ClientTableView';
 import { AdminPage } from './AdminPage';
+import { CreateProjectModal } from './CreateProjectModal';
 
 interface Status {
   id: string;
@@ -92,6 +93,8 @@ export function ProjectBoard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [clientSortBy, setClientSortBy] = useState<'client_number_asc' | 'client_number_desc' | 'created_newest' | 'created_oldest'>('client_number_asc');
+  const [createProjectClient, setCreateProjectClient] = useState<Client | null>(null);
+  const [createProjectTypeId, setCreateProjectTypeId] = useState<string>('');
 
   useEffect(() => {
     loadData();
@@ -310,7 +313,12 @@ export function ProjectBoard() {
     setSelectedView(view);
   }
 
-  async function handleCreateProjectFromClient(client: Client, targetProjectTypeId: string) {
+  function handleCreateProjectFromClient(client: Client, targetProjectTypeId: string) {
+    setCreateProjectClient(client);
+    setCreateProjectTypeId(targetProjectTypeId);
+  }
+
+  async function handleOldCreateProjectFromClient(client: Client, targetProjectTypeId: string) {
     if (!user) return;
 
     const hiPoStatus = statuses.find(
@@ -679,6 +687,26 @@ export function ProjectBoard() {
           />
         );
       })()}
+
+      {createProjectClient && createProjectTypeId && (() => {
+        const projectType = projectTypes.find(pt => pt.id === createProjectTypeId);
+        return (
+          <CreateProjectModal
+            client={createProjectClient}
+            projectTypeId={createProjectTypeId}
+            projectTypeName={projectType?.name || 'Project'}
+            onClose={() => {
+              setCreateProjectClient(null);
+              setCreateProjectTypeId('');
+            }}
+            onSuccess={() => {
+              setCreateProjectClient(null);
+              setCreateProjectTypeId('');
+              loadData();
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -693,6 +721,7 @@ interface ClientCardProps {
 function ClientCard({ client, projectTypes, onClick, onCreateProject }: ClientCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
+  const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing Project');
 
   return (
     <div
@@ -718,18 +747,46 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject }: ClientCa
             </p>
           )}
         </div>
-        {fundingProjectType && (
+        <div className="relative">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onCreateProject(fundingProjectType.id);
+              setShowMenu(!showMenu);
             }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1"
           >
             <Plus className="w-3 h-3" />
             Create Project
           </button>
-        )}
+          {showMenu && (
+            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10 min-w-[180px]">
+              {fundingProjectType && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onCreateProject(fundingProjectType.id);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Funding Project
+                </button>
+              )}
+              {marketingProjectType && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onCreateProject(marketingProjectType.id);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Marketing Project
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       {client.industry && (
         <div className="mb-2">
