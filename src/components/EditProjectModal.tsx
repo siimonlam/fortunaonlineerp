@@ -9,6 +9,14 @@ interface Staff {
   email: string;
 }
 
+interface ProjectPermission {
+  id: string;
+  user_id: string;
+  can_view: boolean;
+  can_edit: boolean;
+  staff?: Staff;
+}
+
 interface Project {
   id: string;
   title: string;
@@ -58,6 +66,10 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
   const [staff, setStaff] = useState<Staff[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [permissions, setPermissions] = useState<ProjectPermission[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [newCanView, setNewCanView] = useState(true);
+  const [newCanEdit, setNewCanEdit] = useState(false);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -103,7 +115,10 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
   useEffect(() => {
     loadStaff();
     checkPermissions();
-  }, []);
+    if (isAdmin) {
+      loadPermissions();
+    }
+  }, [isAdmin]);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
@@ -125,7 +140,93 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
     const isCreator = project.created_by === user.id;
     const isSalesPerson = project.sales_person_id === user.id;
 
-    setCanEdit(isAdminUser || isCreator || isSalesPerson);
+    const { data: permData } = await supabase
+      .from('project_permissions')
+      .select('can_edit')
+      .eq('project_id', project.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const hasEditPermission = permData?.can_edit || false;
+
+    setCanEdit(isAdminUser || isCreator || isSalesPerson || hasEditPermission);
+  }
+
+  async function loadPermissions() {
+    const { data } = await supabase
+      .from('project_permissions')
+      .select(`
+        id,
+        user_id,
+        can_view,
+        can_edit,
+        staff:user_id (
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq('project_id', project.id);
+
+    if (data) {
+      setPermissions(data as any);
+    }
+  }
+
+  async function handleAddPermission() {
+    if (!selectedUserId || !user || !isAdmin) return;
+
+    const { error } = await supabase
+      .from('project_permissions')
+      .insert({
+        project_id: project.id,
+        user_id: selectedUserId,
+        can_view: newCanView,
+        can_edit: newCanEdit,
+        granted_by: user.id,
+      });
+
+    if (error) {
+      alert('Failed to add permission: ' + error.message);
+      return;
+    }
+
+    setSelectedUserId('');
+    setNewCanView(true);
+    setNewCanEdit(false);
+    loadPermissions();
+  }
+
+  async function handleRemovePermission(permissionId: string) {
+    if (!isAdmin) return;
+
+    const { error } = await supabase
+      .from('project_permissions')
+      .delete()
+      .eq('id', permissionId);
+
+    if (error) {
+      alert('Failed to remove permission: ' + error.message);
+      return;
+    }
+
+    loadPermissions();
+  }
+
+  async function handleTogglePermission(permissionId: string, field: 'can_view' | 'can_edit', value: boolean) {
+    if (!isAdmin) return;
+
+    const { error } = await supabase
+      .from('project_permissions')
+      .update({ [field]: value })
+      .eq('id', permissionId);
+
+    if (error) {
+      alert('Failed to update permission: ' + error.message);
+      return;
+    }
+
+    loadPermissions();
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -596,6 +697,118 @@ export function EditProjectModal({ project, onClose, onSuccess }: EditProjectMod
               </div>
             </div>
           </div>
+
+          {isAdmin && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
+                Access Management
+              </h3>
+
+              <div className="space-y-3">
+                <div className="bg-slate-50 p-4 rounded-lg space-y-2">
+                  <p className="text-sm font-medium text-slate-700 mb-2">Default Access:</p>
+                  <div className="space-y-1 text-sm text-slate-600">
+                    <div>• <span className="font-medium">Admin</span>: Full access (you)</div>
+                    <div>• <span className="font-medium">Creator</span>: Full access</div>
+                    <div>• <span className="font-medium">Sales Person</span>: Full access</div>
+                  </div>
+                </div>
+
+                {permissions.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-700">Additional Users with Access:</p>
+                    {permissions.map((perm) => (
+                      <div key={perm.id} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-900">
+                            {perm.staff?.full_name || perm.staff?.email || 'Unknown User'}
+                          </p>
+                          <p className="text-xs text-slate-500">{perm.staff?.email}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={perm.can_view}
+                              onChange={(e) => handleTogglePermission(perm.id, 'can_view', e.target.checked)}
+                              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                            />
+                            <span className="text-slate-700">View</span>
+                          </label>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={perm.can_edit}
+                              onChange={(e) => handleTogglePermission(perm.id, 'can_edit', e.target.checked)}
+                              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                            />
+                            <span className="text-slate-700">Edit</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePermission(perm.id)}
+                            className="ml-2 px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="border-t border-slate-200 pt-4">
+                  <p className="text-sm font-medium text-slate-700 mb-3">Add User Access:</p>
+                  <div className="flex gap-3">
+                    <select
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    >
+                      <option value="">Select a user...</option>
+                      {staff
+                        .filter(s =>
+                          s.id !== project.created_by &&
+                          s.id !== project.sales_person_id &&
+                          !permissions.some(p => p.user_id === s.id)
+                        )
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.full_name || s.email}
+                          </option>
+                        ))}
+                    </select>
+                    <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={newCanView}
+                        onChange={(e) => setNewCanView(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-slate-700">View</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={newCanEdit}
+                        onChange={(e) => setNewCanEdit(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-slate-700">Edit</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddPermission}
+                      disabled={!selectedUserId}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4 border-t border-slate-200">
             {isAdmin && (
