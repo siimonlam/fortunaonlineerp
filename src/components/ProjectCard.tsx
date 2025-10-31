@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, Building2, User, ChevronDown, Calendar, DollarSign, FileText, Hash, Package } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown } from 'lucide-react';
+import { ProjectCardFields } from './ProjectCardFields';
 
 interface Task {
   id: string;
@@ -130,137 +131,7 @@ export function ProjectCard({
           <p className="text-sm text-slate-600 mb-3 line-clamp-2">{project.description}</p>
         )}
 
-        <div className="space-y-1.5 mb-3 text-xs">
-          {project.company_name && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Building2 className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{project.company_name}</span>
-            </div>
-          )}
-          {project.contact_name && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <User className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{project.contact_name}</span>
-            </div>
-          )}
-          {project.contact_number && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">Tel:</span>
-              <span>{project.contact_number}</span>
-            </div>
-          )}
-          {project.abbreviation && (
-            <div className="flex items-center gap-2 text-slate-700">
-              <Hash className="w-3 h-3 flex-shrink-0" />
-              <span className="font-medium">{project.abbreviation}</span>
-            </div>
-          )}
-          {project.application_number && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <FileText className="w-3 h-3 flex-shrink-0" />
-              <span className="font-medium">App #:</span>
-              <span>{project.application_number}</span>
-            </div>
-          )}
-          {project.project_size && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Package className="w-3 h-3 flex-shrink-0" />
-              <span>{project.project_size}</span>
-            </div>
-          )}
-          {project.deposit_amount && (
-            <div className="flex items-center gap-2 text-slate-700">
-              <DollarSign className="w-3 h-3 flex-shrink-0" />
-              <span className="font-medium">${project.deposit_amount.toLocaleString()}</span>
-              {project.deposit_paid && (
-                <span className="text-green-600 font-medium">(Paid)</span>
-              )}
-            </div>
-          )}
-          {project.project_start_date && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Calendar className="w-3 h-3 flex-shrink-0" />
-              <span>{new Date(project.project_start_date).toLocaleDateString()}</span>
-              {project.project_end_date && (
-                <span>- {new Date(project.project_end_date).toLocaleDateString()}</span>
-              )}
-            </div>
-          )}
-          {project.submission_date && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">Submitted:</span>
-              <span>{new Date(project.submission_date).toLocaleDateString()}</span>
-            </div>
-          )}
-          {project.approval_date && (
-            <div className="flex items-center gap-2 text-green-700">
-              <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
-              <span className="font-medium">Approved:</span>
-              <span>{new Date(project.approval_date).toLocaleDateString()}</span>
-            </div>
-          )}
-          {project.next_due_date && (
-            <div className="flex items-center gap-2 text-orange-600">
-              <Calendar className="w-3 h-3 flex-shrink-0" />
-              <span className="font-medium">Next Due:</span>
-              <span>{new Date(project.next_due_date).toLocaleDateString()}</span>
-            </div>
-          )}
-          {project.invoice_number && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">Invoice:</span>
-              <span>{project.invoice_number}</span>
-            </div>
-          )}
-          {project.agreement_ref && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">Agreement:</span>
-              <span>{project.agreement_ref}</span>
-            </div>
-          )}
-          {project.email && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">Email:</span>
-              <span className="truncate">{project.email}</span>
-            </div>
-          )}
-          {project.address && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">Address:</span>
-              <span className="truncate">{project.address}</span>
-            </div>
-          )}
-          {project.sales_source && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">Source:</span>
-              <span>{project.sales_source}</span>
-            </div>
-          )}
-          {project.service_fee_percentage && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">Service Fee:</span>
-              <span>{project.service_fee_percentage}%</span>
-            </div>
-          )}
-          {project.whatsapp_group_id && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">WhatsApp:</span>
-              <span className="truncate">{project.whatsapp_group_id}</span>
-            </div>
-          )}
-          {project.start_date && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="font-medium">Start:</span>
-              <span>{new Date(project.start_date).toLocaleDateString()}</span>
-            </div>
-          )}
-          {project.next_hkpc_due_date && (
-            <div className="flex items-center gap-2 text-orange-600">
-              <span className="font-medium">HKPC Due:</span>
-              <span>{new Date(project.next_hkpc_due_date).toLocaleDateString()}</span>
-            </div>
-          )}
-        </div>
+        <ProjectCardFields project={project} />
         {totalTasks > 0 && (
           <div className="flex items-center gap-2 text-sm text-slate-600">
             {completedTasks === totalTasks ? (
