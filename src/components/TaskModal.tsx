@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { X, Plus, Calendar, User, Trash2, CheckCircle2, Circle, Building2, Mail, Phone, MapPin, Link as LinkIcon } from 'lucide-react';
 
 interface Staff {
@@ -62,6 +63,7 @@ interface TaskModalProps {
 }
 
 export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps) {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
@@ -69,10 +71,23 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
   const [newTaskDeadline, setNewTaskDeadline] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     loadTasks();
-  }, [project.id]);
+    checkAdminStatus();
+  }, [project.id, user]);
+
+  async function checkAdminStatus() {
+    if (!user) return;
+    const { data } = await supabase
+      .from('staff')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    setIsAdmin(data?.role === 'admin');
+  }
 
   async function loadTasks() {
     const { data } = await supabase
@@ -134,6 +149,36 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
     if (!error) loadTasks();
   }
 
+  async function handleDeleteProject() {
+    if (!isAdmin) {
+      alert('Only administrators can delete projects');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete the project "${project.title}"? This action cannot be undone and will delete all associated tasks.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', project.id);
+
+      if (error) throw error;
+
+      alert('Project deleted successfully');
+      onSuccess();
+      onClose();
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert('Failed to delete project. You may not have permission.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -144,12 +189,24 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
               <p className="text-sm text-slate-600 mt-1">{project.description}</p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors ml-4"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <button
+                onClick={handleDeleteProject}
+                disabled={loading}
+                className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Project
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors ml-2"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {(project.company_name || project.client_id) && (

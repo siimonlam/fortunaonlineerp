@@ -41,6 +41,7 @@ export function CreateProjectModal({
   const [description, setDescription] = useState('');
   const [statusId, setStatusId] = useState(statuses[0]?.id || '');
   const [selectedStaff, setSelectedStaff] = useState<string[]>([user?.id || '']);
+  const [staffPermissions, setStaffPermissions] = useState<Map<string, { canView: boolean; canEdit: boolean }>>(new Map());
   const [loading, setLoading] = useState(false);
 
   const [clientId, setClientId] = useState('');
@@ -131,13 +132,16 @@ export function CreateProjectModal({
 
       const staffAssignments = selectedStaff
         .filter(staffId => staffId !== user.id)
-        .map((staffId) => ({
-          project_id: project.id,
-          user_id: staffId,
-          can_view: true,
-          can_edit: true,
-          assigned_by: user.id
-        }));
+        .map((staffId) => {
+          const permissions = staffPermissions.get(staffId) || { canView: true, canEdit: true };
+          return {
+            project_id: project.id,
+            user_id: staffId,
+            can_view: permissions.canView,
+            can_edit: permissions.canEdit,
+            assigned_by: user.id
+          };
+        });
 
       const { error: assignError } = await supabase
         .from('project_assignments')
@@ -158,11 +162,27 @@ export function CreateProjectModal({
   }
 
   function toggleStaff(staffId: string) {
-    setSelectedStaff((prev) =>
-      prev.includes(staffId)
-        ? prev.filter((id) => id !== staffId)
-        : [...prev, staffId]
-    );
+    setSelectedStaff((prev) => {
+      const isCurrentlySelected = prev.includes(staffId);
+      if (isCurrentlySelected) {
+        const newPerms = new Map(staffPermissions);
+        newPerms.delete(staffId);
+        setStaffPermissions(newPerms);
+        return prev.filter((id) => id !== staffId);
+      } else {
+        const newPerms = new Map(staffPermissions);
+        newPerms.set(staffId, { canView: true, canEdit: true });
+        setStaffPermissions(newPerms);
+        return [...prev, staffId];
+      }
+    });
+  }
+
+  function toggleStaffPermission(staffId: string, permission: 'canView' | 'canEdit') {
+    const newPerms = new Map(staffPermissions);
+    const current = newPerms.get(staffId) || { canView: true, canEdit: true };
+    newPerms.set(staffId, { ...current, [permission]: !current[permission] });
+    setStaffPermissions(newPerms);
   }
 
   return (
@@ -594,26 +614,57 @@ export function CreateProjectModal({
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Assign Staff Members
             </label>
-            <div className="space-y-2 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-3">
-              {staff.map((member) => (
-                <label
-                  key={member.id}
-                  className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-2 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedStaff.includes(member.id)}
-                    onChange={() => toggleStaff(member.id)}
-                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                  />
-                  <div>
-                    <div className="text-sm font-medium text-slate-900">
-                      {member.full_name}
-                    </div>
-                    <div className="text-xs text-slate-500">{member.email}</div>
+            <div className="space-y-2 max-h-64 overflow-y-auto border border-slate-200 rounded-lg p-3">
+              {staff.map((member) => {
+                const isSelected = selectedStaff.includes(member.id);
+                const permissions = staffPermissions.get(member.id) || { canView: true, canEdit: true };
+                const isCurrentUser = member.id === user?.id;
+
+                return (
+                  <div
+                    key={member.id}
+                    className={`p-2 rounded ${isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50'}`}
+                  >
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleStaff(member.id)}
+                        disabled={isCurrentUser}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-slate-900">
+                          {member.full_name} {isCurrentUser && <span className="text-xs text-slate-500">(You)</span>}
+                        </div>
+                        <div className="text-xs text-slate-500">{member.email}</div>
+                      </div>
+                    </label>
+                    {isSelected && !isCurrentUser && (
+                      <div className="mt-2 ml-6 flex gap-4 text-xs">
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={permissions.canView}
+                            onChange={() => toggleStaffPermission(member.id, 'canView')}
+                            className="w-3 h-3 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-slate-600">Can View</span>
+                        </label>
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={permissions.canEdit}
+                            onChange={() => toggleStaffPermission(member.id, 'canEdit')}
+                            className="w-3 h-3 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-slate-600">Can Edit</span>
+                        </label>
+                      </div>
+                    )}
                   </div>
-                </label>
-              ))}
+                );
+              })}
             </div>
           </div>
 
