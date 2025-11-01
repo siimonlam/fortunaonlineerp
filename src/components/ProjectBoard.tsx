@@ -122,129 +122,89 @@ export function ProjectBoard() {
   useEffect(() => {
     loadData();
 
-    // Set up real-time subscriptions
-    const projectsChannel = supabase
-      .channel('projects-changes')
+    // Set up a single real-time channel with multiple table listeners
+    const channel = supabase
+      .channel('db-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'projects' },
         (payload) => {
-          console.log('Projects changed event:', payload.eventType, payload);
+          console.log('✅ Projects changed:', payload.eventType, payload.new);
           loadData();
         }
       )
-      .subscribe((status) => {
-        console.log('Projects channel subscription status:', status);
-      });
-
-    const clientsChannel = supabase
-      .channel('clients-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'clients' },
         (payload) => {
-          console.log('Clients changed event:', payload.eventType, payload);
+          console.log('✅ Clients changed:', payload.eventType);
           loadData();
         }
       )
-      .subscribe((status) => {
-        console.log('Clients channel subscription status:', status);
-      });
-
-    const tasksChannel = supabase
-      .channel('tasks-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tasks' },
         (payload) => {
-          console.log('Tasks changed event:', payload.eventType, payload);
+          console.log('✅ Tasks changed:', payload.eventType);
           loadData();
         }
       )
-      .subscribe((status) => {
-        console.log('Tasks channel subscription status:', status);
-      });
-
-    const statusManagersChannel = supabase
-      .channel('status-managers-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'status_managers' },
         (payload) => {
-          console.log('Status managers changed event:', payload.eventType, payload);
+          console.log('✅ Status managers changed:', payload.eventType);
           loadData();
         }
       )
-      .subscribe((status) => {
-        console.log('Status managers channel subscription status:', status);
-      });
-
-    const projectStaffChannel = supabase
-      .channel('project-staff-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'project_staff' },
         (payload) => {
-          console.log('Project staff changed event:', payload.eventType, payload);
+          console.log('✅ Project staff changed:', payload.eventType);
           loadData();
         }
       )
-      .subscribe((status) => {
-        console.log('Project staff channel subscription status:', status);
-      });
-
-    const statusesChannel = supabase
-      .channel('statuses-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'statuses' },
         (payload) => {
-          console.log('Statuses changed event:', payload.eventType, payload);
+          console.log('✅ Statuses changed:', payload.eventType);
           loadData();
         }
       )
-      .subscribe((status) => {
-        console.log('Statuses channel subscription status:', status);
-      });
-
-    const projectTypesChannel = supabase
-      .channel('project-types-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'project_types' },
         (payload) => {
-          console.log('Project types changed event:', payload.eventType, payload);
+          console.log('✅ Project types changed:', payload.eventType);
           loadData();
         }
       )
-      .subscribe((status) => {
-        console.log('Project types channel subscription status:', status);
-      });
-
-    const staffChannel = supabase
-      .channel('staff-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'staff' },
         (payload) => {
-          console.log('Staff changed event:', payload.eventType, payload);
+          console.log('✅ Staff changed:', payload.eventType);
           loadData();
         }
       )
       .subscribe((status) => {
-        console.log('Staff channel subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Real-time subscription active');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Real-time subscription error');
+        } else if (status === 'TIMED_OUT') {
+          console.error('❌ Real-time subscription timed out');
+        } else {
+          console.log('Real-time status:', status);
+        }
       });
 
-    // Cleanup subscriptions on unmount
+    // Cleanup subscription on unmount
     return () => {
-      supabase.removeChannel(projectsChannel);
-      supabase.removeChannel(clientsChannel);
-      supabase.removeChannel(tasksChannel);
-      supabase.removeChannel(statusManagersChannel);
-      supabase.removeChannel(projectStaffChannel);
-      supabase.removeChannel(statusesChannel);
-      supabase.removeChannel(projectTypesChannel);
-      supabase.removeChannel(staffChannel);
+      console.log('🔌 Disconnecting real-time subscription');
+      supabase.removeChannel(channel);
     };
   }, []);
 
