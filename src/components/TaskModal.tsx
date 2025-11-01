@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { X, Plus, Calendar, User, Trash2, CheckCircle2, Circle, Building2, Mail, Phone, MapPin, Link as LinkIcon } from 'lucide-react';
+import { X, Plus, Calendar, User, Trash2, CheckCircle2, Circle, Building2, Mail, Phone, MapPin, Link as LinkIcon, Edit2 } from 'lucide-react';
 
 interface Staff {
   id: string;
@@ -72,6 +72,11 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
   const [loading, setLoading] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editAssignee, setEditAssignee] = useState('');
+  const [editDeadline, setEditDeadline] = useState('');
 
   useEffect(() => {
     loadTasks();
@@ -147,6 +152,51 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
     const { error } = await supabase.from('tasks').delete().eq('id', taskId);
 
     if (!error) loadTasks();
+  }
+
+  function startEditTask(task: Task) {
+    setEditingTaskId(task.id);
+    setEditTitle(task.title);
+    setEditDescription(task.description || '');
+    setEditAssignee(task.assigned_to || '');
+    setEditDeadline(task.deadline || '');
+  }
+
+  function cancelEdit() {
+    setEditingTaskId(null);
+    setEditTitle('');
+    setEditDescription('');
+    setEditAssignee('');
+    setEditDeadline('');
+  }
+
+  async function handleUpdateTask(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingTaskId || !editTitle.trim()) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+          assigned_to: editAssignee || null,
+          deadline: editDeadline || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingTaskId);
+
+      if (error) throw error;
+
+      cancelEdit();
+      loadTasks();
+    } catch (error) {
+      console.error('Error updating task:', error);
+      alert('Failed to update task. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleDeleteProject() {
@@ -458,50 +508,114 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
                 key={task.id}
                 className="border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors"
               >
-                <div className="flex items-start gap-3">
-                  <button
-                    onClick={() => handleToggleComplete(task.id, task.completed)}
-                    className="mt-0.5"
-                  >
-                    {task.completed ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-slate-400 hover:text-slate-600" />
-                    )}
-                  </button>
-                  <div className="flex-1">
-                    <h4
-                      className={`font-medium ${
-                        task.completed ? 'text-slate-400 line-through' : 'text-slate-900'
-                      }`}
+                {editingTaskId === task.id ? (
+                  <form onSubmit={handleUpdateTask} className="space-y-3">
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Task title"
+                      required
+                    />
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Task description (optional)"
+                      rows={2}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <select
+                        value={editAssignee}
+                        onChange={(e) => setEditAssignee(e.target.value)}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Unassigned</option>
+                        {staff.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.full_name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="date"
+                        value={editDeadline}
+                        onChange={(e) => setEditDeadline(e.target.value)}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-white transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        {loading ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <button
+                      onClick={() => handleToggleComplete(task.id, task.completed)}
+                      className="mt-0.5"
                     >
-                      {task.title}
-                    </h4>
-                    {task.description && (
-                      <p className="text-sm text-slate-600 mt-1">{task.description}</p>
-                    )}
-                    <div className="flex items-center gap-4 mt-2">
-                      {task.staff && (
-                        <div className="flex items-center gap-1 text-sm text-slate-600">
-                          <User className="w-4 h-4" />
-                          {task.staff.full_name}
-                        </div>
+                      {task.completed ? (
+                        <CheckCircle2 className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-slate-400 hover:text-slate-600" />
                       )}
-                      {task.deadline && (
-                        <div className="flex items-center gap-1 text-sm text-slate-600">
-                          <Calendar className="w-4 h-4" />
-                          {new Date(task.deadline).toLocaleDateString()}
-                        </div>
+                    </button>
+                    <div className="flex-1">
+                      <h4
+                        className={`font-medium ${
+                          task.completed ? 'text-slate-400 line-through' : 'text-slate-900'
+                        }`}
+                      >
+                        {task.title}
+                      </h4>
+                      {task.description && (
+                        <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                       )}
+                      <div className="flex items-center gap-4 mt-2">
+                        {task.staff && (
+                          <div className="flex items-center gap-1 text-sm text-slate-600">
+                            <User className="w-4 h-4" />
+                            {task.staff.full_name}
+                          </div>
+                        )}
+                        {task.deadline && (
+                          <div className="flex items-center gap-1 text-sm text-slate-600">
+                            <Calendar className="w-4 h-4" />
+                            {new Date(task.deadline).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => startEditTask(task)}
+                        className="text-slate-400 hover:text-blue-600 transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="text-slate-400 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteTask(task.id)}
-                    className="text-slate-400 hover:text-red-600 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                )}
               </div>
             ))}
           </div>
