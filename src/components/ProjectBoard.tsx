@@ -318,7 +318,7 @@ export function ProjectBoard() {
           p.clients?.name?.toLowerCase().includes(query) ||
           statuses.find(s => s.id === p.status_id)?.name?.toLowerCase().includes(query);
 
-        if (!matchesSearch) return false;
+        return matchesSearch;
       }
 
       const selectedStatusObj = statuses.find(s => s.id === selectedStatus);
