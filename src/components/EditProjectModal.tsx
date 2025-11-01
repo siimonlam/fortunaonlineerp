@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 
 interface Staff {
   id: string;
@@ -89,6 +90,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [newCanEdit, setNewCanEdit] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -1166,6 +1168,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
           </div>
         </div>
       )}
+
+      <ProjectActivitySidebar
+        projectId={project.id}
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+      />
     </div>
   );
 }
