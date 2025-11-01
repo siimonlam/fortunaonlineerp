@@ -87,6 +87,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [selectedUserId, setSelectedUserId] = useState('');
   const [newCanView, setNewCanView] = useState(true);
   const [newCanEdit, setNewCanEdit] = useState(false);
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -99,6 +101,38 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   });
 
   const [formData, setFormData] = useState({
+    title: project.title,
+    description: project.description || '',
+    statusId: project.status_id,
+    projectName: project.project_name || '',
+    companyName: project.company_name || '',
+    contactName: project.contact_name || '',
+    contactNumber: project.contact_number || '',
+    email: project.email || '',
+    address: project.address || '',
+    salesSource: project.sales_source || '',
+    salesPersonId: project.sales_person_id || '',
+    abbreviation: project.abbreviation || '',
+    applicationNumber: project.application_number || '',
+    projectSize: project.project_size || '',
+    agreementRef: project.agreement_ref || '',
+    invoiceNumber: project.invoice_number || '',
+    whatsappGroupId: project.whatsapp_group_id || '',
+    uploadLink: project.upload_link || '',
+    attachment: project.attachment || '',
+    depositPaid: project.deposit_paid || false,
+    depositAmount: project.deposit_amount?.toString() || '',
+    serviceFeePercentage: project.service_fee_percentage?.toString() || '',
+    startDate: project.start_date || '',
+    projectStartDate: project.project_start_date || '',
+    projectEndDate: project.project_end_date || '',
+    submissionDate: project.submission_date || '',
+    approvalDate: project.approval_date || '',
+    nextDueDate: project.next_due_date || '',
+    nextHkpcDueDate: project.next_hkpc_due_date || '',
+  });
+
+  const [originalData] = useState({
     title: project.title,
     description: project.description || '',
     statusId: project.status_id,
@@ -146,6 +180,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       loadPermissions();
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    const isChanged = JSON.stringify(formData) !== JSON.stringify(originalData);
+    setHasUnsavedChanges(isChanged);
+  }, [formData, originalData]);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
@@ -256,6 +295,19 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     loadPermissions();
   }
 
+  function handleClose() {
+    if (hasUnsavedChanges) {
+      setShowUnsavedWarning(true);
+    } else {
+      onClose();
+    }
+  }
+
+  function confirmClose() {
+    setShowUnsavedWarning(false);
+    onClose();
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canEdit) {
@@ -302,6 +354,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         .eq('id', project.id);
 
       if (error) throw error;
+      setHasUnsavedChanges(false);
       onSuccess();
     } catch (error: any) {
       console.error('Error updating project:', error);
@@ -422,7 +475,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
               <p className="text-sm text-amber-600 mt-1">View-only mode</p>
             )}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={handleClose} className="text-slate-400 hover:text-slate-600">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -1062,7 +1115,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             <div className="flex-1"></div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
               {canEdit ? 'Cancel' : 'Close'}
@@ -1079,6 +1132,31 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
           </div>
         </form>
       </div>
+
+      {showUnsavedWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Unsaved Changes</h3>
+            <p className="text-slate-600 mb-6">
+              You have unsaved changes. Are you sure you want to close without saving?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowUnsavedWarning(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Continue Editing
+              </button>
+              <button
+                onClick={confirmClose}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Discard Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

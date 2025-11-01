@@ -52,7 +52,21 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
   const [selectedUser, setSelectedUser] = useState('');
   const [permissionView, setPermissionView] = useState(true);
   const [permissionEdit, setPermissionEdit] = useState(false);
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [formData, setFormData] = useState({
+    name: client.name,
+    contactPerson: client.contact_person || '',
+    email: client.email || '',
+    phone: client.phone || '',
+    address: client.address || '',
+    notes: client.notes || '',
+    salesSource: client.sales_source || '',
+    industry: client.industry || '',
+    abbreviation: client.abbreviation || '',
+    salesPersonId: client.sales_person_id || '',
+  });
+  const [originalData] = useState({
     name: client.name,
     contactPerson: client.contact_person || '',
     email: client.email || '',
@@ -70,6 +84,11 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     checkAdminStatus();
     loadPermissions();
   }, []);
+
+  useEffect(() => {
+    const isChanged = JSON.stringify(formData) !== JSON.stringify(originalData);
+    setHasUnsavedChanges(isChanged);
+  }, [formData, originalData]);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
@@ -136,6 +155,19 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     setLoading(false);
   }
 
+  function handleClose() {
+    if (hasUnsavedChanges) {
+      setShowUnsavedWarning(true);
+    } else {
+      onClose();
+    }
+  }
+
+  function confirmClose() {
+    setShowUnsavedWarning(false);
+    onClose();
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -158,6 +190,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
         .eq('id', client.id);
 
       if (error) throw error;
+      setHasUnsavedChanges(false);
       onSuccess();
     } catch (error: any) {
       console.error('Error updating client:', error);
@@ -211,7 +244,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
               </p>
             )}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={handleClose} className="text-slate-400 hover:text-slate-600">
             <Plus className="w-5 h-5 rotate-45" />
           </button>
         </div>
@@ -489,6 +522,31 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
           </div>
         </form>
       </div>
+
+      {showUnsavedWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Unsaved Changes</h3>
+            <p className="text-slate-600 mb-6">
+              You have unsaved changes. Are you sure you want to close without saving?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowUnsavedWarning(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Continue Editing
+              </button>
+              <button
+                onClick={confirmClose}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Discard Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
