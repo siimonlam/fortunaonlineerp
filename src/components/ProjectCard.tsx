@@ -80,6 +80,7 @@ interface ProjectCardProps {
   allProjects?: Project[];
   statusManagers?: any[];
   showSubstatus?: boolean;
+  currentUserId?: string;
   onDragStart: () => void;
   onClick: () => void;
   onCreateProject?: (projectTypeId: string) => void;
@@ -94,6 +95,7 @@ export function ProjectCard({
   allProjects,
   statusManagers,
   showSubstatus = false,
+  currentUserId,
   onDragStart,
   onClick,
   onCreateProject,
@@ -110,6 +112,7 @@ export function ProjectCard({
 
   const upcomingTasks = project.tasks?.filter(task => {
     if (!task.deadline || task.completed) return false;
+    if (!task.assigned_to || task.assigned_to !== currentUserId) return false;
     const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     return daysUntilDue >= 0 && daysUntilDue <= 7;
   }) || [];

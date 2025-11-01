@@ -468,6 +468,7 @@ export function ProjectBoard() {
     return relevantProjects.reduce((count, project) => {
       const upcomingTasks = project.tasks?.filter(task => {
         if (!task.deadline || task.completed) return false;
+        if (!task.assigned_to || task.assigned_to !== user?.id) return false;
         const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
         return daysUntilDue >= 0 && daysUntilDue <= 7;
       }) || [];
@@ -1089,6 +1090,7 @@ export function ProjectBoard() {
                     allProjects={projects}
                     statusManagers={statusManagers}
                     showSubstatus={currentStatus && !currentStatus.is_substatus}
+                    currentUserId={user?.id}
                     onDragStart={() => handleDragStart(project)}
                     onClick={() => setSelectedProject(project)}
                     onCreateProject={(targetProjectTypeId) => {
