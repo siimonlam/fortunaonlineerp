@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -100,6 +100,15 @@ export function ProjectBoard() {
   const [projectSortBy, setProjectSortBy] = useState<'next_due_date' | 'submission_date' | 'project_start_date' | 'project_end_date' | 'created_newest' | 'created_oldest'>('next_due_date');
   const [createProjectClient, setCreateProjectClient] = useState<Client | null>(null);
   const [createProjectTypeId, setCreateProjectTypeId] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [filterProjectSize, setFilterProjectSize] = useState<string[]>([]);
+  const [filterStartDateFrom, setFilterStartDateFrom] = useState('');
+  const [filterStartDateTo, setFilterStartDateTo] = useState('');
+  const [filterEndDateFrom, setFilterEndDateFrom] = useState('');
+  const [filterEndDateTo, setFilterEndDateTo] = useState('');
+  const [filterSubmissionDateFrom, setFilterSubmissionDateFrom] = useState('');
+  const [filterSubmissionDateTo, setFilterSubmissionDateTo] = useState('');
 
   useEffect(() => {
     loadData();
@@ -318,7 +327,57 @@ export function ProjectBoard() {
           p.clients?.name?.toLowerCase().includes(query) ||
           statuses.find(s => s.id === p.status_id)?.name?.toLowerCase().includes(query);
 
-        return matchesSearch;
+        if (!matchesSearch) return false;
+      }
+
+      if (isFundingProjectType) {
+        if (filterStatus.length > 0 && !filterStatus.includes(p.status_id || '')) {
+          return false;
+        }
+
+        if (filterProjectSize.length > 0 && !filterProjectSize.includes(p.project_size || '')) {
+          return false;
+        }
+
+        if (filterStartDateFrom && p.project_start_date) {
+          if (new Date(p.project_start_date) < new Date(filterStartDateFrom)) {
+            return false;
+          }
+        }
+
+        if (filterStartDateTo && p.project_start_date) {
+          if (new Date(p.project_start_date) > new Date(filterStartDateTo)) {
+            return false;
+          }
+        }
+
+        if (filterEndDateFrom && p.project_end_date) {
+          if (new Date(p.project_end_date) < new Date(filterEndDateFrom)) {
+            return false;
+          }
+        }
+
+        if (filterEndDateTo && p.project_end_date) {
+          if (new Date(p.project_end_date) > new Date(filterEndDateTo)) {
+            return false;
+          }
+        }
+
+        if (filterSubmissionDateFrom && p.submission_date) {
+          if (new Date(p.submission_date) < new Date(filterSubmissionDateFrom)) {
+            return false;
+          }
+        }
+
+        if (filterSubmissionDateTo && p.submission_date) {
+          if (new Date(p.submission_date) > new Date(filterSubmissionDateTo)) {
+            return false;
+          }
+        }
+
+        if (projectSearchQuery.trim()) {
+          return true;
+        }
       }
 
       const selectedStatusObj = statuses.find(s => s.id === selectedStatus);
@@ -687,6 +746,169 @@ export function ProjectBoard() {
                     <option value="created_newest">Created (Newest)</option>
                     <option value="created_oldest">Created (Oldest)</option>
                   </select>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-colors inline-flex items-center gap-2 ${
+                        filterStatus.length > 0 || filterProjectSize.length > 0 || filterStartDateFrom || filterStartDateTo || filterEndDateFrom || filterEndDateTo || filterSubmissionDateFrom || filterSubmissionDateTo
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Filter className="w-4 h-4" />
+                      Filters
+                      {(filterStatus.length > 0 || filterProjectSize.length > 0 || filterStartDateFrom || filterStartDateTo || filterEndDateFrom || filterEndDateTo || filterSubmissionDateFrom || filterSubmissionDateTo) && (
+                        <span className="bg-white text-blue-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                          {filterStatus.length + filterProjectSize.length + (filterStartDateFrom ? 1 : 0) + (filterStartDateTo ? 1 : 0) + (filterEndDateFrom ? 1 : 0) + (filterEndDateTo ? 1 : 0) + (filterSubmissionDateFrom ? 1 : 0) + (filterSubmissionDateTo ? 1 : 0)}
+                        </span>
+                      )}
+                    </button>
+                    {showFilters && (
+                      <div className="absolute right-0 top-full mt-2 bg-white border border-slate-200 rounded-lg shadow-xl z-50 w-96 p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-semibold text-slate-900">Filters</h3>
+                          <button
+                            onClick={() => setShowFilters(false)}
+                            className="text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-4 max-h-96 overflow-y-auto">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
+                            <div className="space-y-1 max-h-48 overflow-y-auto border border-slate-200 rounded p-2">
+                              {filteredStatuses.map((status) => (
+                                <label key={status.id} className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={filterStatus.includes(status.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFilterStatus([...filterStatus, status.id]);
+                                      } else {
+                                        setFilterStatus(filterStatus.filter(s => s !== status.id));
+                                      }
+                                    }}
+                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm text-slate-700">{status.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Project Size</label>
+                            <div className="space-y-1">
+                              {['Small', 'Medium', 'Large'].map((size) => (
+                                <label key={size} className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={filterProjectSize.includes(size)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFilterProjectSize([...filterProjectSize, size]);
+                                      } else {
+                                        setFilterProjectSize(filterProjectSize.filter(s => s !== size));
+                                      }
+                                    }}
+                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm text-slate-700">{size}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Start Date</label>
+                            <div className="space-y-2">
+                              <input
+                                type="date"
+                                value={filterStartDateFrom}
+                                onChange={(e) => setFilterStartDateFrom(e.target.value)}
+                                placeholder="From"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                              <input
+                                type="date"
+                                value={filterStartDateTo}
+                                onChange={(e) => setFilterStartDateTo(e.target.value)}
+                                placeholder="To"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">End Date</label>
+                            <div className="space-y-2">
+                              <input
+                                type="date"
+                                value={filterEndDateFrom}
+                                onChange={(e) => setFilterEndDateFrom(e.target.value)}
+                                placeholder="From"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                              <input
+                                type="date"
+                                value={filterEndDateTo}
+                                onChange={(e) => setFilterEndDateTo(e.target.value)}
+                                placeholder="To"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Submission Date</label>
+                            <div className="space-y-2">
+                              <input
+                                type="date"
+                                value={filterSubmissionDateFrom}
+                                onChange={(e) => setFilterSubmissionDateFrom(e.target.value)}
+                                placeholder="From"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                              <input
+                                type="date"
+                                value={filterSubmissionDateTo}
+                                onChange={(e) => setFilterSubmissionDateTo(e.target.value)}
+                                placeholder="To"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 mt-4 pt-4 border-t border-slate-200">
+                          <button
+                            onClick={() => {
+                              setFilterStatus([]);
+                              setFilterProjectSize([]);
+                              setFilterStartDateFrom('');
+                              setFilterStartDateTo('');
+                              setFilterEndDateFrom('');
+                              setFilterEndDateTo('');
+                              setFilterSubmissionDateFrom('');
+                              setFilterSubmissionDateTo('');
+                            }}
+                            className="flex-1 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                          >
+                            Clear All
+                          </button>
+                          <button
+                            onClick={() => setShowFilters(false)}
+                            className="flex-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Apply Filters
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex gap-1 border border-slate-300 rounded-lg p-1 bg-white">
                     <button
                       onClick={() => setProjectViewMode('grid')}
