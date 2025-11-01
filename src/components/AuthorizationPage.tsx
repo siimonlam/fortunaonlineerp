@@ -483,11 +483,21 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select a status...</option>
-                {statuses.filter(s => s.project_type_id === selectedProjectType).map(status => (
-                  <option key={status.id} value={status.id}>
-                    {status.is_substatus ? `  ↳ ${status.name}` : status.name}
-                  </option>
-                ))}
+                {statuses
+                  .filter(s => s.project_type_id === selectedProjectType && !s.is_substatus)
+                  .sort((a, b) => a.order_index - b.order_index)
+                  .map(parentStatus => {
+                    const substatuses = statuses.filter(s => s.parent_status_id === parentStatus.id).sort((a, b) => a.order_index - b.order_index);
+                    return (
+                      <optgroup key={parentStatus.id} label={parentStatus.name}>
+                        {substatuses.map(substatus => (
+                          <option key={substatus.id} value={substatus.id}>
+                            {substatus.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
               </select>
             </div>
             <div>
@@ -517,36 +527,52 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
 
           <div className="space-y-4">
             {statuses
-              .filter(s => s.project_type_id === selectedProjectType)
-              .map(status => {
-                const managers = statusManagers.filter(m => m.status_id === status.id);
-                if (managers.length === 0) return null;
+              .filter(s => s.project_type_id === selectedProjectType && !s.is_substatus)
+              .sort((a, b) => a.order_index - b.order_index)
+              .map(parentStatus => {
+                const substatuses = statuses.filter(s => s.parent_status_id === parentStatus.id).sort((a, b) => a.order_index - b.order_index);
+                const hasManagers = substatuses.some(s => statusManagers.some(m => m.status_id === s.id));
+                if (!hasManagers) return null;
 
                 return (
-                  <div key={status.id} className="border border-slate-200 rounded-lg p-4">
-                    <div className="font-medium text-slate-900 mb-3">
-                      {status.is_substatus ? `↳ ${status.name}` : status.name}
+                  <div key={parentStatus.id} className="border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="bg-slate-100 px-4 py-2 font-semibold text-slate-900">
+                      {parentStatus.name}
                     </div>
-                    <div className="space-y-2">
-                      {managers.map(manager => (
-                        <div key={manager.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
-                          <div>
-                            <div className="font-medium text-sm text-slate-900">
-                              {manager.staff?.full_name || 'Unknown User'}
+                    <div className="p-4 space-y-3">
+                      {substatuses.map(substatus => {
+                        const managers = statusManagers.filter(m => m.status_id === substatus.id);
+                        if (managers.length === 0) return null;
+
+                        return (
+                          <div key={substatus.id} className="border border-slate-200 rounded-lg p-3">
+                            <div className="font-medium text-slate-900 mb-2 text-sm">
+                              {substatus.name}
                             </div>
-                            <div className="text-xs text-slate-500">
-                              {manager.staff?.email}
+                            <div className="space-y-2">
+                              {managers.map(manager => (
+                                <div key={manager.id} className="flex items-center justify-between bg-slate-50 p-2 rounded">
+                                  <div>
+                                    <div className="font-medium text-sm text-slate-900">
+                                      {manager.staff?.full_name || 'Unknown User'}
+                                    </div>
+                                    <div className="text-xs text-slate-500">
+                                      {manager.staff?.email}
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => removeStatusManager(manager.id)}
+                                    disabled={loading}
+                                    className="text-red-600 hover:text-red-700 disabled:opacity-50 text-sm font-medium"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                          <button
-                            onClick={() => removeStatusManager(manager.id)}
-                            disabled={loading}
-                            className="text-red-600 hover:text-red-700 disabled:opacity-50 text-sm font-medium"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );

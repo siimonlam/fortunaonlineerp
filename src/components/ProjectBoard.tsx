@@ -158,11 +158,24 @@ export function ProjectBoard() {
       )
       .subscribe();
 
+    const statusManagersChannel = supabase
+      .channel('status-managers-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'status_managers' },
+        () => {
+          console.log('Status managers changed, reloading data...');
+          loadData();
+        }
+      )
+      .subscribe();
+
     // Cleanup subscriptions on unmount
     return () => {
       supabase.removeChannel(projectsChannel);
       supabase.removeChannel(clientsChannel);
       supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(statusManagersChannel);
     };
   }, []);
 
@@ -661,29 +674,45 @@ export function ProjectBoard() {
                         </button>
                         {status.substatus.map((sub) => {
                           const upcomingCount = getStatusUpcomingCount(sub.id);
+                          const subStatusManagers = statusManagers.filter(m => m.status_id === sub.id);
                           return (
-                            <button
-                              key={sub.id}
-                              onClick={() => setSelectedStatus(sub.id)}
-                              className={`w-full text-left pl-6 pr-4 py-2.5 rounded-lg font-medium transition-all duration-150 ${
-                                selectedStatus === sub.id
-                                  ? 'bg-blue-600 text-white shadow-md'
-                                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                              }`}
-                            >
-                              <span className="flex items-center justify-between">
-                                <span className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
-                                  {sub.name}
-                                </span>
-                                {upcomingCount > 0 && (
-                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
-                                    <Bell className="w-3 h-3" />
-                                    {upcomingCount}
+                            <div key={sub.id}>
+                              <button
+                                onClick={() => setSelectedStatus(sub.id)}
+                                className={`w-full text-left pl-6 pr-4 py-2.5 rounded-lg font-medium transition-all duration-150 ${
+                                  selectedStatus === sub.id
+                                    ? 'bg-blue-600 text-white shadow-md'
+                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                }`}
+                              >
+                                <span className="flex items-center justify-between">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
+                                    {sub.name}
                                   </span>
-                                )}
-                              </span>
-                            </button>
+                                  {upcomingCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                                      <Bell className="w-3 h-3" />
+                                      {upcomingCount}
+                                    </span>
+                                  )}
+                                </span>
+                              </button>
+                              {subStatusManagers.length > 0 && (
+                                <div className="pl-6 pr-4 py-1.5 space-y-1">
+                                  {subStatusManagers.map(manager => (
+                                    <div
+                                      key={manager.id}
+                                      className="flex items-center gap-1.5 text-xs text-slate-500"
+                                      title={manager.staff?.email}
+                                    >
+                                      <User className="w-3 h-3" />
+                                      <span className="truncate">{manager.staff?.full_name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
