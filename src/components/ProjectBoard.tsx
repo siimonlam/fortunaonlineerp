@@ -94,6 +94,8 @@ export function ProjectBoard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [clientSortBy, setClientSortBy] = useState<'client_number_asc' | 'client_number_desc' | 'created_newest' | 'created_oldest'>('client_number_asc');
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
+  const [projectSortBy, setProjectSortBy] = useState<'next_due_date' | 'submission_date' | 'project_start_date' | 'project_end_date' | 'created_newest' | 'created_oldest'>('next_due_date');
   const [createProjectClient, setCreateProjectClient] = useState<Client | null>(null);
   const [createProjectTypeId, setCreateProjectTypeId] = useState<string>('');
 
@@ -296,21 +298,69 @@ export function ProjectBoard() {
     (s) => s.project_type_id === selectedProjectType
   );
 
-  const filteredProjects = projects.filter((p) => {
-    if (p.project_type_id !== selectedProjectType) return false;
+  const filteredProjects = projects
+    .filter((p) => {
+      if (p.project_type_id !== selectedProjectType) return false;
 
-    const selectedStatusObj = statuses.find(s => s.id === selectedStatus);
+      if (isFundingProjectType && projectSearchQuery.trim()) {
+        const query = projectSearchQuery.toLowerCase();
+        const matchesSearch =
+          p.title?.toLowerCase().includes(query) ||
+          p.project_name?.toLowerCase().includes(query) ||
+          p.company_name?.toLowerCase().includes(query) ||
+          p.contact_name?.toLowerCase().includes(query) ||
+          p.abbreviation?.toLowerCase().includes(query) ||
+          p.description?.toLowerCase().includes(query) ||
+          p.clients?.name?.toLowerCase().includes(query) ||
+          statuses.find(s => s.id === p.status_id)?.name?.toLowerCase().includes(query);
 
-    if (selectedStatusObj?.is_substatus) {
-      return p.status_id === selectedStatus;
-    } else {
-      const substatusIds = selectedStatusObj?.substatus?.map(s => s.id) || [];
-      if (substatusIds.length > 0) {
-        return substatusIds.includes(p.status_id);
+        if (!matchesSearch) return false;
       }
-      return p.status_id === selectedStatus;
-    }
-  });
+
+      const selectedStatusObj = statuses.find(s => s.id === selectedStatus);
+
+      if (selectedStatusObj?.is_substatus) {
+        return p.status_id === selectedStatus;
+      } else {
+        const substatusIds = selectedStatusObj?.substatus?.map(s => s.id) || [];
+        if (substatusIds.length > 0) {
+          return substatusIds.includes(p.status_id);
+        }
+        return p.status_id === selectedStatus;
+      }
+    })
+    .sort((a, b) => {
+      if (!isFundingProjectType) return 0;
+
+      switch (projectSortBy) {
+        case 'next_due_date': {
+          const aDate = a.next_due_date ? new Date(a.next_due_date).getTime() : Infinity;
+          const bDate = b.next_due_date ? new Date(b.next_due_date).getTime() : Infinity;
+          return aDate - bDate;
+        }
+        case 'submission_date': {
+          const aDate = a.submission_date ? new Date(a.submission_date).getTime() : Infinity;
+          const bDate = b.submission_date ? new Date(b.submission_date).getTime() : Infinity;
+          return aDate - bDate;
+        }
+        case 'project_start_date': {
+          const aDate = a.project_start_date ? new Date(a.project_start_date).getTime() : Infinity;
+          const bDate = b.project_start_date ? new Date(b.project_start_date).getTime() : Infinity;
+          return aDate - bDate;
+        }
+        case 'project_end_date': {
+          const aDate = a.project_end_date ? new Date(a.project_end_date).getTime() : Infinity;
+          const bDate = b.project_end_date ? new Date(b.project_end_date).getTime() : Infinity;
+          return aDate - bDate;
+        }
+        case 'created_newest':
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        case 'created_oldest':
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        default:
+          return 0;
+      }
+    });
 
   const isFundingProjectType = currentProjectType?.name === 'Funding Project';
 
@@ -611,6 +661,32 @@ export function ProjectBoard() {
                   </h2>
                 )}
               </div>
+              {!isClientSection && !isAdminSection && isFundingProjectType && (
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search projects..."
+                      value={projectSearchQuery}
+                      onChange={(e) => setProjectSearchQuery(e.target.value)}
+                      className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                    />
+                  </div>
+                  <select
+                    value={projectSortBy}
+                    onChange={(e) => setProjectSortBy(e.target.value as any)}
+                    className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                  >
+                    <option value="next_due_date">Next Due Date</option>
+                    <option value="submission_date">Submission Date</option>
+                    <option value="project_start_date">Start Date</option>
+                    <option value="project_end_date">End Date</option>
+                    <option value="created_newest">Created (Newest)</option>
+                    <option value="created_oldest">Created (Oldest)</option>
+                  </select>
+                </div>
+              )}
               {isClientSection && (
                 <div className="flex items-center gap-3">
                   <div className="relative">
