@@ -30,6 +30,14 @@ interface StatusPermission {
   can_edit_all: boolean;
 }
 
+interface StatusManager {
+  id: string;
+  status_id: string;
+  user_id: string;
+  assigned_by: string;
+  staff?: Staff;
+}
+
 interface AuthorizationPageProps {
   onBack?: () => void;
 }
@@ -39,8 +47,11 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [permissions, setPermissions] = useState<StatusPermission[]>([]);
+  const [statusManagers, setStatusManagers] = useState<StatusManager[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedProjectType, setSelectedProjectType] = useState<string>('');
+  const [selectedStatusForManager, setSelectedStatusForManager] = useState<string>('');
+  const [selectedManagerUser, setSelectedManagerUser] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<Map<string, StatusPermission>>(new Map());
   const [editingRole, setEditingRole] = useState<string | null>(null);
@@ -54,6 +65,12 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
       loadUserPermissions();
     }
   }, [selectedUser]);
+
+  useEffect(() => {
+    if (selectedProjectType) {
+      loadStatusManagers();
+    }
+  }, [selectedProjectType]);
 
   async function loadData() {
     const [staffData, typesData, statusesData] = await Promise.all([
@@ -82,6 +99,70 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
     if (data) {
       setPermissions(data);
       setPendingChanges(new Map());
+    }
+  }
+
+  async function loadStatusManagers() {
+    const { data } = await supabase
+      .from('status_managers')
+      .select('*, staff:user_id(*)')
+      .in('status_id', statuses.filter(s => s.project_type_id === selectedProjectType).map(s => s.id));
+
+    if (data) {
+      setStatusManagers(data);
+    }
+  }
+
+  async function addStatusManager() {
+    if (!selectedStatusForManager || !selectedManagerUser) {
+      alert('Please select both a status and a user');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('status_managers')
+        .insert({
+          status_id: selectedStatusForManager,
+          user_id: selectedManagerUser,
+          assigned_by: user.user?.id
+        });
+
+      if (error) throw error;
+
+      setSelectedStatusForManager('');
+      setSelectedManagerUser('');
+      await loadStatusManagers();
+      alert('Status manager added successfully');
+    } catch (error: any) {
+      console.error('Error adding status manager:', error);
+      alert(`Failed to add status manager: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeStatusManager(managerId: string) {
+    if (!confirm('Remove this status manager?')) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('status_managers')
+        .delete()
+        .eq('id', managerId);
+
+      if (error) throw error;
+
+      await loadStatusManagers();
+      alert('Status manager removed successfully');
+    } catch (error: any) {
+      console.error('Error removing status manager:', error);
+      alert('Failed to remove status manager');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -366,6 +447,118 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
               Select a user to manage their status permissions
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div className="p-6 border-b border-slate-200">
+          <h2 className="text-lg font-semibold text-slate-900 mb-2">Status Managers</h2>
+          <p className="text-sm text-slate-500">
+            Assign managers to each status. Status managers will be shown on all projects in that status.
+          </p>
+        </div>
+
+        <div className="p-6">
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Project Type</label>
+            <select
+              value={selectedProjectType}
+              onChange={(e) => setSelectedProjectType(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {projectTypes.map(type => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
+              <select
+                value={selectedStatusForManager}
+                onChange={(e) => setSelectedStatusForManager(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a status...</option>
+                {statuses.filter(s => s.project_type_id === selectedProjectType).map(status => (
+                  <option key={status.id} value={status.id}>
+                    {status.is_substatus ? `  ↳ ${status.name}` : status.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Manager</label>
+              <select
+                value={selectedManagerUser}
+                onChange={(e) => setSelectedManagerUser(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a user...</option>
+                {staff.map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <button
+            onClick={addStatusManager}
+            disabled={loading || !selectedStatusForManager || !selectedManagerUser}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium py-2 px-4 rounded-lg transition-colors mb-6"
+          >
+            Add Status Manager
+          </button>
+
+          <div className="space-y-4">
+            {statuses
+              .filter(s => s.project_type_id === selectedProjectType)
+              .map(status => {
+                const managers = statusManagers.filter(m => m.status_id === status.id);
+                if (managers.length === 0) return null;
+
+                return (
+                  <div key={status.id} className="border border-slate-200 rounded-lg p-4">
+                    <div className="font-medium text-slate-900 mb-3">
+                      {status.is_substatus ? `↳ ${status.name}` : status.name}
+                    </div>
+                    <div className="space-y-2">
+                      {managers.map(manager => (
+                        <div key={manager.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                          <div>
+                            <div className="font-medium text-sm text-slate-900">
+                              {manager.staff?.full_name || 'Unknown User'}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {manager.staff?.email}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeStatusManager(manager.id)}
+                            disabled={loading}
+                            className="text-red-600 hover:text-red-700 disabled:opacity-50 text-sm font-medium"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            {statusManagers.filter(m =>
+              statuses.find(s => s.id === m.status_id && s.project_type_id === selectedProjectType)
+            ).length === 0 && (
+              <div className="text-center py-8 text-slate-500">
+                No status managers assigned yet
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

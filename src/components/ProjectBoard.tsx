@@ -77,6 +77,13 @@ interface Staff {
   email: string;
 }
 
+interface StatusManager {
+  id: string;
+  status_id: string;
+  user_id: string;
+  staff?: Staff;
+}
+
 export function ProjectBoard() {
   const { user, signOut } = useAuth();
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
@@ -85,6 +92,7 @@ export function ProjectBoard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [statusManagers, setStatusManagers] = useState<StatusManager[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
@@ -161,7 +169,7 @@ export function ProjectBoard() {
   async function loadData() {
     console.log('Current user ID:', user?.id);
 
-    const [projectTypesRes, statusesRes, projectsRes, clientsRes, staffRes] = await Promise.all([
+    const [projectTypesRes, statusesRes, projectsRes, clientsRes, staffRes, statusManagersRes] = await Promise.all([
       supabase.from('project_types').select('*').order('name'),
       supabase.from('statuses').select('*').order('order_index'),
       supabase
@@ -184,6 +192,7 @@ export function ProjectBoard() {
         .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number')
         .order('created_at', { ascending: false }),
       supabase.from('staff').select('*'),
+      supabase.from('status_managers').select('*, staff:user_id(id, full_name, email)'),
     ]);
 
     const userRoleRes = await supabase
@@ -250,6 +259,7 @@ export function ProjectBoard() {
     }
     if (projectsRes.data) setProjects(projectsRes.data);
     if (staffRes.data) setStaff(staffRes.data);
+    if (statusManagersRes.data) setStatusManagers(statusManagersRes.data);
 
     if (clientsRes.data) {
       console.log('Processing clients:', clientsRes.data);
@@ -1045,6 +1055,7 @@ export function ProjectBoard() {
                     projectTypes={projectTypes}
                     statuses={statuses}
                     allProjects={projects}
+                    statusManagers={statusManagers}
                     showSubstatus={currentStatus && !currentStatus.is_substatus}
                     onDragStart={() => handleDragStart(project)}
                     onClick={() => setSelectedProject(project)}
