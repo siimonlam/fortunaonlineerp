@@ -171,12 +171,64 @@ export function ProjectBoard() {
       )
       .subscribe();
 
+    const projectStaffChannel = supabase
+      .channel('project-staff-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'project_staff' },
+        () => {
+          console.log('Project staff changed, reloading data...');
+          loadData();
+        }
+      )
+      .subscribe();
+
+    const statusesChannel = supabase
+      .channel('statuses-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'statuses' },
+        () => {
+          console.log('Statuses changed, reloading data...');
+          loadData();
+        }
+      )
+      .subscribe();
+
+    const projectTypesChannel = supabase
+      .channel('project-types-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'project_types' },
+        () => {
+          console.log('Project types changed, reloading data...');
+          loadData();
+        }
+      )
+      .subscribe();
+
+    const staffChannel = supabase
+      .channel('staff-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'staff' },
+        () => {
+          console.log('Staff changed, reloading data...');
+          loadData();
+        }
+      )
+      .subscribe();
+
     // Cleanup subscriptions on unmount
     return () => {
       supabase.removeChannel(projectsChannel);
       supabase.removeChannel(clientsChannel);
       supabase.removeChannel(tasksChannel);
       supabase.removeChannel(statusManagersChannel);
+      supabase.removeChannel(projectStaffChannel);
+      supabase.removeChannel(statusesChannel);
+      supabase.removeChannel(projectTypesChannel);
+      supabase.removeChannel(staffChannel);
     };
   }, []);
 
