@@ -490,6 +490,9 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
                     const substatuses = statuses.filter(s => s.parent_status_id === parentStatus.id).sort((a, b) => a.order_index - b.order_index);
                     return (
                       <optgroup key={parentStatus.id} label={parentStatus.name}>
+                        <option key={`parent-${parentStatus.id}`} value={parentStatus.id}>
+                          {parentStatus.name} (Main)
+                        </option>
                         {substatuses.map(substatus => (
                           <option key={substatus.id} value={substatus.id}>
                             {substatus.name}
