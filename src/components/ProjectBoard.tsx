@@ -117,6 +117,7 @@ export function ProjectBoard() {
   const [filterEndDateTo, setFilterEndDateTo] = useState('');
   const [filterSubmissionDateFrom, setFilterSubmissionDateFrom] = useState('');
   const [filterSubmissionDateTo, setFilterSubmissionDateTo] = useState('');
+  const [filterWithReminder, setFilterWithReminder] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -396,6 +397,16 @@ export function ProjectBoard() {
           if (new Date(p.submission_date) > new Date(filterSubmissionDateTo)) {
             return false;
           }
+        }
+
+        if (filterWithReminder) {
+          const hasUpcomingUserTasks = p.tasks?.some(task => {
+            if (!task.deadline || task.completed) return false;
+            if (!task.assigned_to || task.assigned_to !== user?.id) return false;
+            const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            return daysUntilDue >= 0 && daysUntilDue <= 7;
+          });
+          if (!hasUpcomingUserTasks) return false;
         }
 
         if (projectSearchQuery.trim()) {
@@ -866,6 +877,24 @@ export function ProjectBoard() {
                           </div>
 
                           <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Other Filters</label>
+                            <div className="space-y-1">
+                              <label className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={filterWithReminder}
+                                  onChange={(e) => setFilterWithReminder(e.target.checked)}
+                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-slate-700 flex items-center gap-1">
+                                  <Bell className="w-4 h-4" />
+                                  Projects with my reminders
+                                </span>
+                              </label>
+                            </div>
+                          </div>
+
+                          <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Start Date</label>
                             <div className="space-y-2">
                               <input
@@ -937,6 +966,7 @@ export function ProjectBoard() {
                               setFilterEndDateTo('');
                               setFilterSubmissionDateFrom('');
                               setFilterSubmissionDateTo('');
+                              setFilterWithReminder(false);
                             }}
                             className="flex-1 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
                           >
