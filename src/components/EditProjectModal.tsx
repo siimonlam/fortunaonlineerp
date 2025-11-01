@@ -354,6 +354,15 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         .eq('id', project.id);
 
       if (error) throw error;
+
+      // Broadcast the change to all connected clients
+      const broadcastChannel = supabase.channel('db-changes');
+      await broadcastChannel.send({
+        type: 'broadcast',
+        event: 'project-update',
+        payload: { projectId: project.id, timestamp: new Date().toISOString() }
+      });
+
       setHasUnsavedChanges(false);
       onSuccess();
     } catch (error: any) {

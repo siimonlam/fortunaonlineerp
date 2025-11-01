@@ -129,12 +129,20 @@ export function ProjectBoard() {
     loadData();
 
     // Set up a single real-time channel with multiple table listeners
+    // Using broadcast channel to work around RLS limitations with SECURITY DEFINER functions
     const channel = supabase
       .channel('db-changes', {
         config: {
-          broadcast: { self: true },
+          broadcast: { self: false, ack: false },
           presence: { key: user.id },
         },
+      })
+      .on('broadcast', { event: 'project-update' }, (payload) => {
+        console.log('✅ ========== PROJECT UPDATE BROADCAST ==========');
+        console.log('Broadcast payload:', payload);
+        console.log('Current User:', user?.email);
+        console.log('========================================');
+        loadData();
       })
       .on(
         'postgres_changes',
