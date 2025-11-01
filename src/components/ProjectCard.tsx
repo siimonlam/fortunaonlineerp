@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, ChevronDown, Bell, User } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, Bell } from 'lucide-react';
 import { ProjectCardFields } from './ProjectCardFields';
 
 interface Staff {
@@ -72,20 +72,13 @@ interface Status {
   project_type_id: string;
 }
 
-interface StatusManager {
-  id: string;
-  status_id: string;
-  user_id: string;
-  staff?: Staff;
-}
-
 interface ProjectCardProps {
   project: Project;
   isClientSection?: boolean;
   projectTypes?: ProjectType[];
   statuses?: Status[];
   allProjects?: Project[];
-  statusManagers?: StatusManager[];
+  statusManagers?: any[];
   showSubstatus?: boolean;
   onDragStart: () => void;
   onClick: () => void;
@@ -122,8 +115,6 @@ export function ProjectCard({
   }) || [];
 
   const hasUpcomingDeadline = isFundingProject && upcomingTasks.length > 0;
-
-  const currentStatusManagers = statusManagers?.filter(m => m.status_id === project.status_id) || [];
 
   function getProjectTypeAndStatus(proj: Project) {
     const type = projectTypes?.find(pt => pt.id === proj.project_type_id);
@@ -189,24 +180,6 @@ export function ProjectCard({
         )}
         {project.description && (
           <p className="text-sm text-slate-600 mb-3 line-clamp-2">{project.description}</p>
-        )}
-
-        {currentStatusManagers.length > 0 && (
-          <div className="mb-3 border-t border-slate-100 pt-2">
-            <div className="text-xs font-medium text-slate-500 mb-1.5">Status Managers</div>
-            <div className="flex flex-wrap gap-1.5">
-              {currentStatusManagers.map((manager) => (
-                <div
-                  key={manager.id}
-                  className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium"
-                  title={manager.staff?.email}
-                >
-                  <User className="w-3 h-3" />
-                  {manager.staff?.full_name}
-                </div>
-              ))}
-            </div>
-          </div>
         )}
 
         <ProjectCardFields project={project} />
