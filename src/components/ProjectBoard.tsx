@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -312,6 +312,35 @@ export function ProjectBoard() {
     }
   });
 
+  const isFundingProjectType = currentProjectType?.name === 'Funding Project';
+
+  function getStatusUpcomingCount(statusId: string) {
+    if (!isFundingProjectType) return 0;
+
+    const statusObj = statuses.find(s => s.id === statusId);
+    let relevantProjects: Project[] = [];
+
+    if (statusObj?.is_substatus) {
+      relevantProjects = projects.filter(p => p.status_id === statusId && p.project_type_id === selectedProjectType);
+    } else {
+      const substatusIds = statusObj?.substatus?.map(s => s.id) || [];
+      if (substatusIds.length > 0) {
+        relevantProjects = projects.filter(p => substatusIds.includes(p.status_id || '') && p.project_type_id === selectedProjectType);
+      } else {
+        relevantProjects = projects.filter(p => p.status_id === statusId && p.project_type_id === selectedProjectType);
+      }
+    }
+
+    return relevantProjects.reduce((count, project) => {
+      const upcomingTasks = project.tasks?.filter(task => {
+        if (!task.deadline || task.completed) return false;
+        const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        return daysUntilDue >= 0 && daysUntilDue <= 7;
+      }) || [];
+      return count + (upcomingTasks.length > 0 ? 1 : 0);
+    }, 0);
+  }
+
   const filteredClients = clients
     .filter(client => {
       if (!searchQuery.trim()) return true;
@@ -499,24 +528,43 @@ export function ProjectBoard() {
                               : 'text-slate-700 bg-slate-100 border-slate-200 hover:bg-slate-200'
                           }`}
                         >
-                          {status.name}
+                          <span className="flex items-center justify-between">
+                            <span>{status.name}</span>
+                            {getStatusUpcomingCount(status.id) > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                                <Bell className="w-3 h-3" />
+                                {getStatusUpcomingCount(status.id)}
+                              </span>
+                            )}
+                          </span>
                         </button>
-                        {status.substatus.map((sub) => (
-                          <button
-                            key={sub.id}
-                            onClick={() => setSelectedStatus(sub.id)}
-                            className={`w-full text-left pl-6 pr-4 py-2.5 rounded-lg font-medium transition-all duration-150 ${
-                              selectedStatus === sub.id
-                                ? 'bg-blue-600 text-white shadow-md'
-                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                            }`}
-                          >
-                            <span className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
-                              {sub.name}
-                            </span>
-                          </button>
-                        ))}
+                        {status.substatus.map((sub) => {
+                          const upcomingCount = getStatusUpcomingCount(sub.id);
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => setSelectedStatus(sub.id)}
+                              className={`w-full text-left pl-6 pr-4 py-2.5 rounded-lg font-medium transition-all duration-150 ${
+                                selectedStatus === sub.id
+                                  ? 'bg-blue-600 text-white shadow-md'
+                                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                              }`}
+                            >
+                              <span className="flex items-center justify-between">
+                                <span className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
+                                  {sub.name}
+                                </span>
+                                {upcomingCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                                    <Bell className="w-3 h-3" />
+                                    {upcomingCount}
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : (
                       <button
@@ -527,7 +575,15 @@ export function ProjectBoard() {
                             : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
                         }`}
                       >
-                        {status.name}
+                        <span className="flex items-center justify-between">
+                          <span>{status.name}</span>
+                          {getStatusUpcomingCount(status.id) > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                              <Bell className="w-3 h-3" />
+                              {getStatusUpcomingCount(status.id)}
+                            </span>
+                          )}
+                        </span>
                       </button>
                     )}
                   </div>

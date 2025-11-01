@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, ChevronDown } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, Bell } from 'lucide-react';
 import { ProjectCardFields } from './ProjectCardFields';
 
 interface Staff {
@@ -104,6 +104,16 @@ export function ProjectCard({
   const relatedProjects = allProjects?.filter(p => p.source_client_id === project.id) || [];
   const projectTypesForCreate = projectTypes?.filter(pt => pt.name !== 'Client') || [];
 
+  const isFundingProject = projectTypes?.find(pt => pt.id === project.project_type_id)?.name === 'Funding Project';
+
+  const upcomingTasks = project.tasks?.filter(task => {
+    if (!task.deadline || task.completed) return false;
+    const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    return daysUntilDue >= 0 && daysUntilDue <= 7;
+  }) || [];
+
+  const hasUpcomingDeadline = isFundingProject && upcomingTasks.length > 0;
+
   function getProjectTypeAndStatus(proj: Project) {
     const type = projectTypes?.find(pt => pt.id === proj.project_type_id);
     const status = statuses?.find(s => s.id === proj.status_id);
@@ -122,6 +132,12 @@ export function ProjectCard({
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-medium text-slate-900">{project.title}</h3>
+              {hasUpcomingDeadline && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                  <Bell className="w-3 h-3" />
+                  {upcomingTasks.length} due soon
+                </span>
+              )}
               {!showSubstatus && project.status_id && (
                 <span className="inline-block text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                   {statuses?.find(s => s.id === project.status_id)?.name}
