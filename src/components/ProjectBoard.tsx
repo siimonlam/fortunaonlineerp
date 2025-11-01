@@ -124,12 +124,18 @@ export function ProjectBoard() {
 
     // Set up a single real-time channel with multiple table listeners
     const channel = supabase
-      .channel('db-changes')
+      .channel('db-changes', {
+        config: {
+          broadcast: { self: true },
+          presence: { key: user?.id || 'anonymous' },
+        },
+      })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'projects' },
         (payload) => {
-          console.log('✅ Projects changed:', payload.eventType, payload.new);
+          console.log('✅ Projects changed:', payload.eventType, 'Project ID:', payload.new?.id);
+          console.log('Full payload:', payload);
           loadData();
         }
       )
