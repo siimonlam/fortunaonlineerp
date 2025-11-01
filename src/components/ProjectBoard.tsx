@@ -120,6 +120,12 @@ export function ProjectBoard() {
   const [filterWithReminder, setFilterWithReminder] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      console.log('⏳ Waiting for user authentication before subscribing to realtime');
+      return;
+    }
+
+    console.log('🔄 Setting up realtime subscription for user:', user.email);
     loadData();
 
     // Set up a single real-time channel with multiple table listeners
@@ -127,15 +133,20 @@ export function ProjectBoard() {
       .channel('db-changes', {
         config: {
           broadcast: { self: true },
-          presence: { key: user?.id || 'anonymous' },
+          presence: { key: user.id },
         },
       })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'projects' },
         (payload) => {
-          console.log('✅ Projects changed:', payload.eventType, 'Project ID:', payload.new?.id);
-          console.log('Full payload:', payload);
+          console.log('✅ ========== PROJECT CHANGE DETECTED ==========');
+          console.log('Event Type:', payload.eventType);
+          console.log('Project ID:', payload.new?.id);
+          console.log('Old Data:', payload.old);
+          console.log('New Data:', payload.new);
+          console.log('Current User:', user?.email);
+          console.log('========================================');
           loadData();
         }
       )
@@ -212,7 +223,7 @@ export function ProjectBoard() {
       console.log('🔌 Disconnecting real-time subscription');
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user]);
 
   async function loadData() {
     console.log('Current user ID:', user?.id);
