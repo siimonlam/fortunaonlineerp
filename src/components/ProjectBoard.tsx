@@ -298,6 +298,8 @@ export function ProjectBoard() {
     (s) => s.project_type_id === selectedProjectType
   );
 
+  const isFundingProjectType = currentProjectType?.name === 'Funding Project';
+
   const filteredProjects = projects
     .filter((p) => {
       if (p.project_type_id !== selectedProjectType) return false;
@@ -361,8 +363,6 @@ export function ProjectBoard() {
           return 0;
       }
     });
-
-  const isFundingProjectType = currentProjectType?.name === 'Funding Project';
 
   function getStatusUpcomingCount(statusId: string) {
     if (!isFundingProjectType) return 0;
