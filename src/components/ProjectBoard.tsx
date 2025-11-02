@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -580,6 +580,34 @@ export function ProjectBoard() {
     }, 0);
   }
 
+  function getStatusPastDueCount(statusId: string) {
+    if (!isFundingProjectType) return 0;
+
+    const statusObj = statuses.find(s => s.id === statusId);
+    let relevantProjects: Project[] = [];
+
+    if (statusObj?.is_substatus) {
+      relevantProjects = projects.filter(p => p.status_id === statusId && p.project_type_id === selectedProjectType);
+    } else {
+      const substatusIds = statusObj?.substatus?.map(s => s.id) || [];
+      if (substatusIds.length > 0) {
+        relevantProjects = projects.filter(p => substatusIds.includes(p.status_id || '') && p.project_type_id === selectedProjectType);
+      } else {
+        relevantProjects = projects.filter(p => p.status_id === statusId && p.project_type_id === selectedProjectType);
+      }
+    }
+
+    return relevantProjects.reduce((count, project) => {
+      const pastDueTasks = project.tasks?.filter(task => {
+        if (!task.deadline || task.completed) return false;
+        if (!task.assigned_to || task.assigned_to !== user?.id) return false;
+        const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        return daysUntilDue < 0;
+      }) || [];
+      return count + (pastDueTasks.length > 0 ? 1 : 0);
+    }, 0);
+  }
+
   const filteredClients = clients
     .filter(client => {
       if (!searchQuery.trim()) return true;
@@ -767,16 +795,25 @@ export function ProjectBoard() {
                         >
                           <span className="flex items-center justify-between">
                             <span>{status.name}</span>
-                            {getStatusUpcomingCount(status.id) > 0 && (
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
-                                <Bell className="w-3 h-3" />
-                                {getStatusUpcomingCount(status.id)}
-                              </span>
-                            )}
+                            <span className="flex items-center gap-1">
+                              {getStatusPastDueCount(status.id) > 0 && (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                                  <AlertCircle className="w-3 h-3" />
+                                  {getStatusPastDueCount(status.id)}
+                                </span>
+                              )}
+                              {getStatusUpcomingCount(status.id) > 0 && (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                                  <Bell className="w-3 h-3" />
+                                  {getStatusUpcomingCount(status.id)}
+                                </span>
+                              )}
+                            </span>
                           </span>
                         </button>
                         {status.substatus.map((sub) => {
                           const upcomingCount = getStatusUpcomingCount(sub.id);
+                          const pastDueCount = getStatusPastDueCount(sub.id);
                           return (
                             <button
                               key={sub.id}
@@ -792,12 +829,20 @@ export function ProjectBoard() {
                                   <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
                                   {sub.name}
                                 </span>
-                                {upcomingCount > 0 && (
-                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
-                                    <Bell className="w-3 h-3" />
-                                    {upcomingCount}
-                                  </span>
-                                )}
+                                <span className="flex items-center gap-1">
+                                  {pastDueCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                                      <AlertCircle className="w-3 h-3" />
+                                      {pastDueCount}
+                                    </span>
+                                  )}
+                                  {upcomingCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                                      <Bell className="w-3 h-3" />
+                                      {upcomingCount}
+                                    </span>
+                                  )}
+                                </span>
                               </span>
                             </button>
                           );
@@ -814,12 +859,20 @@ export function ProjectBoard() {
                       >
                         <span className="flex items-center justify-between">
                           <span>{status.name}</span>
-                          {getStatusUpcomingCount(status.id) > 0 && (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
-                              <Bell className="w-3 h-3" />
-                              {getStatusUpcomingCount(status.id)}
-                            </span>
-                          )}
+                          <span className="flex items-center gap-1">
+                            {getStatusPastDueCount(status.id) > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                                <AlertCircle className="w-3 h-3" />
+                                {getStatusPastDueCount(status.id)}
+                              </span>
+                            )}
+                            {getStatusUpcomingCount(status.id) > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                                <Bell className="w-3 h-3" />
+                                {getStatusUpcomingCount(status.id)}
+                              </span>
+                            )}
+                          </span>
                         </span>
                       </button>
                     )}

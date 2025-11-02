@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, ChevronDown, Bell, Tag } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, Bell, Tag, AlertCircle } from 'lucide-react';
 import { ProjectCardFields } from './ProjectCardFields';
 
 interface Staff {
@@ -124,7 +124,15 @@ export function ProjectCard({
     return daysUntilDue >= 0 && daysUntilDue <= 7;
   }) || [];
 
+  const pastDueTasks = project.tasks?.filter(task => {
+    if (!task.deadline || task.completed) return false;
+    if (!task.assigned_to || task.assigned_to !== currentUserId) return false;
+    const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    return daysUntilDue < 0;
+  }) || [];
+
   const hasUpcomingDeadline = isFundingProject && upcomingTasks.length > 0;
+  const hasPastDueTasks = isFundingProject && pastDueTasks.length > 0;
 
   function getProjectTypeAndStatus(proj: Project) {
     const type = projectTypes?.find(pt => pt.id === proj.project_type_id);
@@ -144,6 +152,12 @@ export function ProjectCard({
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-medium text-slate-900">{project.title}</h3>
+              {hasPastDueTasks && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                  <AlertCircle className="w-3 h-3" />
+                  {pastDueTasks.length} overdue
+                </span>
+              )}
               {hasUpcomingDeadline && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
                   <Bell className="w-3 h-3" />
