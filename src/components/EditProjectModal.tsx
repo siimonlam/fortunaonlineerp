@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 
@@ -98,6 +98,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showQADatePicker, setShowQADatePicker] = useState(false);
+  const [qaDueDate, setQaDueDate] = useState('');
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [projectLabels, setProjectLabels] = useState<Label[]>([]);
 
@@ -273,6 +275,80 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     } catch (error: any) {
       console.error('Error removing label:', error);
       alert(`Failed to remove label: ${error.message}`);
+    }
+  }
+
+  async function handleNewQAReceived() {
+    if (!qaDueDate) {
+      alert('Please select a due date');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          next_hkpc_due_date: qaDueDate
+        })
+        .eq('id', project.id);
+
+      if (error) throw error;
+
+      setShowQADatePicker(false);
+      setQaDueDate('');
+      alert('Next HKPC due date updated successfully');
+      onSuccess();
+    } catch (error: any) {
+      console.error('Error updating due date:', error);
+      alert(`Failed to update due date: ${error.message}`);
+    }
+  }
+
+  async function handleUpdateFinalReport() {
+    try {
+      const { data: labelData } = await supabase
+        .from('labels')
+        .select('id')
+        .eq('name', 'Update Summary Report')
+        .maybeSingle();
+
+      let labelId = labelData?.id;
+
+      if (!labelId) {
+        const { data: newLabel, error: createError } = await supabase
+          .from('labels')
+          .insert({
+            name: 'Update Summary Report',
+            color: '#10b981',
+            order_index: 999
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        labelId = newLabel.id;
+      }
+
+      const { error } = await supabase
+        .from('project_labels')
+        .insert({
+          project_id: project.id,
+          label_id: labelId
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          alert('This label is already added to the project');
+        } else {
+          throw error;
+        }
+      } else {
+        await loadProjectLabels();
+        alert('Label "Update Summary Report" added successfully');
+      }
+    } catch (error: any) {
+      console.error('Error adding label:', error);
+      alert(`Failed to add label: ${error.message}`);
     }
   }
 
@@ -624,6 +700,27 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {canEdit && (
+              <div className="flex gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowQADatePicker(true)}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  New Q&A received
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpdateFinalReport}
+                  className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Update Final Report File
+                </button>
               </div>
             )}
           </div>
@@ -1311,6 +1408,45 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
           </div>
         </form>
       </div>
+
+      {showQADatePicker && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">New Q&A Received</h3>
+            <p className="text-slate-600 mb-4">
+              Set the next HKPC due date for this project
+            </p>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Next HKPC Due Date
+              </label>
+              <input
+                type="date"
+                value={qaDueDate}
+                onChange={(e) => setQaDueDate(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowQADatePicker(false);
+                  setQaDueDate('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleNewQAReceived}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Update Due Date
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showUnsavedWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
