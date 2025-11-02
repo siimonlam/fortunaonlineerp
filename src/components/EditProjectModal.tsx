@@ -452,6 +452,41 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     }
   }
 
+  async function handleUpdateTask(taskId: string, updates: { title: string; description: string; deadline: string; assigned_to: string }) {
+    if (!updates.title.trim()) {
+      alert('Task title is required');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: updates.title,
+          description: updates.description || null,
+          deadline: updates.deadline || null,
+          assigned_to: updates.assigned_to || null,
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      const { data: updatedTask } = await supabase
+        .from('tasks')
+        .select('*, staff:assigned_to(id, full_name, email)')
+        .eq('id', taskId)
+        .single();
+
+      if (updatedTask) {
+        setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
+      }
+      setEditingTaskId(null);
+    } catch (error: any) {
+      console.error('Error updating task:', error);
+      alert(`Failed to update task: ${error.message}`);
+    }
+  }
+
   async function handleDeleteTask(taskId: string) {
     if (!confirm('Are you sure you want to delete this task?')) return;
 
