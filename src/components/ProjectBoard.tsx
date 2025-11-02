@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -94,6 +94,7 @@ export function ProjectBoard() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [statusManagers, setStatusManagers] = useState<StatusManager[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [expandedStatuses, setExpandedStatuses] = useState<Set<string>>(new Set());
   const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list'>('grid');
@@ -608,6 +609,18 @@ export function ProjectBoard() {
     }, 0);
   }
 
+  function toggleStatusExpanded(statusId: string) {
+    setExpandedStatuses(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(statusId)) {
+        newSet.delete(statusId);
+      } else {
+        newSet.add(statusId);
+      }
+      return newSet;
+    });
+  }
+
   const filteredClients = clients
     .filter(client => {
       if (!searchQuery.trim()) return true;
@@ -786,7 +799,7 @@ export function ProjectBoard() {
                     {status.substatus && status.substatus.length > 0 ? (
                       <div className="space-y-1">
                         <button
-                          onClick={() => setSelectedStatus(status.id)}
+                          onClick={() => toggleStatusExpanded(status.id)}
                           className={`w-full text-left text-sm font-bold px-4 py-2 mt-2 rounded-lg border transition-all duration-150 ${
                             selectedStatus === status.id
                               ? 'bg-blue-600 text-white border-blue-600 shadow-md'
@@ -794,7 +807,14 @@ export function ProjectBoard() {
                           }`}
                         >
                           <span className="flex items-center justify-between">
-                            <span>{status.name}</span>
+                            <span className="flex items-center gap-2">
+                              {expandedStatuses.has(status.id) ? (
+                                <ChevronDown className="w-4 h-4" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4" />
+                              )}
+                              <span>{status.name}</span>
+                            </span>
                             <span className="flex items-center gap-1">
                               {getStatusPastDueCount(status.id) > 0 && (
                                 <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
@@ -811,7 +831,7 @@ export function ProjectBoard() {
                             </span>
                           </span>
                         </button>
-                        {status.substatus.map((sub) => {
+                        {expandedStatuses.has(status.id) && status.substatus.map((sub) => {
                           const upcomingCount = getStatusUpcomingCount(sub.id);
                           const pastDueCount = getStatusPastDueCount(sub.id);
                           return (
