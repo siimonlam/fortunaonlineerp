@@ -153,14 +153,14 @@ export function ProjectCard({
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-medium text-slate-900">{project.title}</h3>
               {hasPastDueTasks && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                  <AlertCircle className="w-3 h-3" />
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded-md shadow-sm">
+                  <AlertCircle className="w-3.5 h-3.5" />
                   {pastDueTasks.length} overdue
                 </span>
               )}
               {hasUpcomingDeadline && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
-                  <Bell className="w-3 h-3" />
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-800 bg-orange-100 px-2 py-1 rounded-md border border-orange-300">
+                  <Bell className="w-3.5 h-3.5" />
                   {upcomingTasks.length} due soon
                 </span>
               )}
