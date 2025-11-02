@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, X, Check, Lock, Tag } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
+import { AutomationPage } from './AutomationPage';
+
+type AdminView = 'permissions' | 'funding-auth' | 'labels' | 'automation';
 
 interface User {
   id: string;
@@ -27,8 +30,7 @@ interface ClientPermission {
 }
 
 export function AdminPage() {
-  const [showStatusAuth, setShowStatusAuth] = useState(false);
-  const [showLabels, setShowLabels] = useState(false);
+  const [currentView, setCurrentView] = useState<AdminView>('permissions');
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [permissions, setPermissions] = useState<ClientPermission[]>([]);
@@ -146,22 +148,53 @@ export function AdminPage() {
 
         <div className="flex gap-2 mb-6">
           <button
-            onClick={() => setShowStatusAuth(true)}
-            className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+            onClick={() => setCurrentView('permissions')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+              currentView === 'permissions'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
           >
-            <Lock className="w-4 h-4" />
-            Status Authorization
+            <Users className="w-4 h-4" />
+            Client Permissions
           </button>
           <button
-            onClick={() => setShowLabels(true)}
-            className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+            onClick={() => setCurrentView('funding-auth')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+              currentView === 'funding-auth'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Lock className="w-4 h-4" />
+            Funding Project Authorization
+          </button>
+          <button
+            onClick={() => setCurrentView('labels')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+              currentView === 'labels'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
           >
             <Tag className="w-4 h-4" />
             Labels
           </button>
+          <button
+            onClick={() => setCurrentView('automation')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+              currentView === 'automation'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Zap className="w-4 h-4" />
+            Automation
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {currentView === 'permissions' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg border border-slate-200 p-6">
             <div className="flex items-center gap-2 mb-6">
               <Users className="w-5 h-5 text-slate-600" />
@@ -312,39 +345,26 @@ export function AdminPage() {
             </div>
           </div>
           </div>
+        )}
+
+        {currentView === 'funding-auth' && (
+          <div>
+            <AuthorizationPage />
+          </div>
+        )}
+
+        {currentView === 'labels' && (
+          <div>
+            <LabelManagement />
+          </div>
+        )}
+
+        {currentView === 'automation' && (
+          <div>
+            <AutomationPage />
+          </div>
+        )}
       </div>
-
-      {showStatusAuth && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-slate-900">Status Authorization</h2>
-              <button onClick={() => setShowStatusAuth(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              <AuthorizationPage />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showLabels && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-slate-900">Label Management</h2>
-              <button onClick={() => setShowLabels(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              <LabelManagement />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
