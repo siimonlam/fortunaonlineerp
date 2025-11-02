@@ -133,10 +133,6 @@ export function AdminPage() {
     setLoading(false);
   }
 
-  if (activeTab === 'status') {
-    return <AuthorizationPage onBack={() => setActiveTab('client')} />;
-  }
-
   return (
     <div>
       <div className="px-6 py-8">
