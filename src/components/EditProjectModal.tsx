@@ -665,17 +665,72 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
   const projectStatuses = statuses?.filter(s => s.project_type_id === project.project_type_id) || [];
 
+  const now = new Date();
+  const incompleteTasks = tasks.filter(t => !t.completed && t.deadline);
+  const upcomingTask = incompleteTasks
+    .filter(t => new Date(t.deadline!) >= now)
+    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())[0];
+  const pastDueTasks = incompleteTasks
+    .filter(t => new Date(t.deadline!) < now)
+    .sort((a, b) => new Date(b.deadline!).getTime() - new Date(a.deadline!).getTime());
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-slate-900">
-              {canEdit ? 'Edit Project' : 'View Project'}
-            </h2>
-            <p className="text-sm text-slate-500 mt-1">
-              Created {new Date(project.created_at).toLocaleDateString()}
-            </p>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900">
+                {canEdit ? 'Edit Project' : 'View Project'}
+              </h2>
+              <p className="text-sm text-slate-500">
+                Created {new Date(project.created_at).toLocaleDateString()}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 mt-3 p-3 bg-slate-50 rounded-lg">
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">Next Upcoming Task</p>
+                {upcomingTask ? (
+                  <div>
+                    <p className="text-sm font-semibold text-blue-700">{upcomingTask.title}</p>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Due: {new Date(upcomingTask.deadline!).toLocaleDateString()}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">No upcoming tasks</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">Past Due Tasks</p>
+                {pastDueTasks.length > 0 ? (
+                  <div>
+                    <p className="text-sm font-semibold text-red-700">{pastDueTasks[0].title}</p>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Due: {new Date(pastDueTasks[0].deadline!).toLocaleDateString()}
+                    </p>
+                    {pastDueTasks.length > 1 && (
+                      <p className="text-xs text-red-600 mt-1">+{pastDueTasks.length - 1} more overdue</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">No overdue tasks</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">Next HKPC Due Date</p>
+                {project.next_hkpc_due_date ? (
+                  <p className="text-sm font-semibold text-slate-900">
+                    {new Date(project.next_hkpc_due_date).toLocaleDateString()}
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-400">Not set</p>
+                )}
+              </div>
+            </div>
             {!canEdit && (
               <p className="text-sm text-amber-600 mt-1">View-only mode</p>
             )}
@@ -708,7 +763,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                 <button
                   type="button"
                   onClick={() => setShowQADatePicker(true)}
-                  className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2"
                 >
                   <MessageSquare className="w-4 h-4" />
                   New Q&A received
@@ -716,7 +771,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                 <button
                   type="button"
                   onClick={handleUpdateFinalReport}
-                  className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2"
                 >
                   <FileText className="w-4 h-4" />
                   Update Final Report File
