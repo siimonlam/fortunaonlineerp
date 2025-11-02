@@ -32,6 +32,12 @@ interface Staff {
   full_name: string;
 }
 
+interface Status {
+  id: string;
+  name: string;
+  project_type_id: string;
+}
+
 const MAIN_STATUSES = ['Hi-Po', 'Pre-Submission', 'Q&A', 'Final Report'];
 
 const TRIGGER_TYPES = [
@@ -52,6 +58,7 @@ export function AutomationPage() {
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
   const [loading, setLoading] = useState(false);
   const [showNewRuleForm, setShowNewRuleForm] = useState(false);
 
@@ -70,17 +77,19 @@ export function AutomationPage() {
   }, []);
 
   async function loadData() {
-    const [rulesRes, typesRes, labelsRes, staffRes] = await Promise.all([
+    const [rulesRes, typesRes, labelsRes, staffRes, statusesRes] = await Promise.all([
       supabase.from('automation_rules').select('*').order('created_at', { ascending: false }),
       supabase.from('project_types').select('id, name'),
       supabase.from('labels').select('*').order('order_index'),
-      supabase.from('staff').select('id, email, full_name')
+      supabase.from('staff').select('id, email, full_name'),
+      supabase.from('project_statuses').select('id, name, project_type_id')
     ]);
 
     if (rulesRes.data) setRules(rulesRes.data);
     if (typesRes.data) setProjectTypes(typesRes.data);
     if (labelsRes.data) setLabels(labelsRes.data);
     if (staffRes.data) setStaff(staffRes.data);
+    if (statusesRes.data) setStatuses(statusesRes.data);
   }
 
   async function toggleRuleActive(ruleId: string, isActive: boolean) {
@@ -152,6 +161,15 @@ export function AutomationPage() {
 
   function renderTriggerDetails(rule: AutomationRule) {
     const triggerLabel = TRIGGER_TYPES.find(t => t.value === rule.trigger_type)?.label || rule.trigger_type;
+
+    if (rule.trigger_type === 'task_completed' && rule.trigger_config.task_name) {
+      return `${triggerLabel}: "${rule.trigger_config.task_name}"`;
+    }
+
+    if (rule.trigger_type === 'status_changed' && rule.trigger_config.status_id) {
+      const status = statuses.find(s => s.id === rule.trigger_config.status_id);
+      return `${triggerLabel}: ${status?.name || 'Unknown Status'}`;
+    }
 
     if (rule.trigger_type === 'periodic' && rule.trigger_config) {
       return `${triggerLabel} - Every ${rule.trigger_config.frequency || '?'} days from ${rule.trigger_config.date_field || 'project start'}`;
@@ -311,6 +329,41 @@ export function AutomationPage() {
                     ))}
                   </select>
                 </div>
+
+                {formData.trigger_type === 'task_completed' && (
+                  <div className="ml-4 p-3 bg-slate-50 rounded-lg">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Task Name</label>
+                    <input
+                      type="text"
+                      placeholder="Enter the task name"
+                      value={formData.trigger_config.task_name || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        trigger_config: { ...formData.trigger_config, task_name: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                {formData.trigger_type === 'status_changed' && (
+                  <div className="ml-4 p-3 bg-slate-50 rounded-lg">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
+                    <select
+                      value={formData.trigger_config.status_id || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        trigger_config: { ...formData.trigger_config, status_id: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select status...</option>
+                      {statuses.map(status => (
+                        <option key={status.id} value={status.id}>{status.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {formData.trigger_type === 'periodic' && (
                   <div className="space-y-3 ml-4 p-3 bg-slate-50 rounded-lg">
