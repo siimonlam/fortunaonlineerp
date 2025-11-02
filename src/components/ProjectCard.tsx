@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, ChevronDown, Bell } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, Bell, Tag } from 'lucide-react';
 import { ProjectCardFields } from './ProjectCardFields';
 
 interface Staff {
@@ -23,6 +23,12 @@ interface Client {
   client_number: number;
 }
 
+interface Label {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface Project {
   id: string;
   title: string;
@@ -38,6 +44,7 @@ interface Project {
   client_id?: string;
   tasks?: Task[];
   clients?: Client;
+  labels?: Label[];
   sales_source?: string;
   sales_person_id?: string;
   upload_link?: string;
@@ -180,6 +187,20 @@ export function ProjectCard({
           >
             {project.clients.name}
           </button>
+        )}
+        {project.labels && project.labels.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {project.labels.map(label => (
+              <div
+                key={label.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                style={{ backgroundColor: label.color }}
+              >
+                <Tag className="w-2.5 h-2.5" />
+                {label.name}
+              </div>
+            ))}
+          </div>
         )}
         {project.description && (
           <p className="text-sm text-slate-600 mb-3 line-clamp-2">{project.description}</p>

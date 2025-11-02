@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X } from 'lucide-react';
+import { X, Tag } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 
@@ -71,6 +71,13 @@ interface Task {
   staff?: Staff;
 }
 
+interface Label {
+  id: string;
+  name: string;
+  color: string;
+  order_index: number;
+}
+
 interface EditProjectModalProps {
   project: Project & { tasks?: Task[] };
   statuses?: Status[];
@@ -91,6 +98,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [allLabels, setAllLabels] = useState<Label[]>([]);
+  const [projectLabels, setProjectLabels] = useState<Label[]>([]);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -178,6 +187,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   useEffect(() => {
     loadStaff();
     checkPermissions();
+    loadLabels();
+    loadProjectLabels();
     if (isAdmin) {
       loadPermissions();
     }
@@ -191,6 +202,78 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
     if (data) setStaff(data);
+  }
+
+  async function loadLabels() {
+    const { data, error } = await supabase
+      .from('labels')
+      .select('*')
+      .order('order_index');
+
+    if (error) {
+      console.error('Error loading labels:', error);
+    } else if (data) {
+      setAllLabels(data);
+    }
+  }
+
+  async function loadProjectLabels() {
+    const { data, error } = await supabase
+      .from('project_labels')
+      .select(`
+        label_id,
+        labels:label_id (
+          id,
+          name,
+          color,
+          order_index
+        )
+      `)
+      .eq('project_id', project.id);
+
+    if (error) {
+      console.error('Error loading project labels:', error);
+    } else if (data) {
+      const labels = data.map(pl => pl.labels).filter(Boolean) as Label[];
+      setProjectLabels(labels);
+    }
+  }
+
+  async function handleAddLabel(labelId: string) {
+    if (!isAdmin) return;
+
+    try {
+      const { error } = await supabase
+        .from('project_labels')
+        .insert({
+          project_id: project.id,
+          label_id: labelId
+        });
+
+      if (error) throw error;
+      await loadProjectLabels();
+    } catch (error: any) {
+      console.error('Error adding label:', error);
+      alert(`Failed to add label: ${error.message}`);
+    }
+  }
+
+  async function handleRemoveLabel(labelId: string) {
+    if (!isAdmin) return;
+
+    try {
+      const { error } = await supabase
+        .from('project_labels')
+        .delete()
+        .eq('project_id', project.id)
+        .eq('label_id', labelId);
+
+      if (error) throw error;
+      await loadProjectLabels();
+    } catch (error: any) {
+      console.error('Error removing label:', error);
+      alert(`Failed to remove label: ${error.message}`);
+    }
   }
 
   async function checkPermissions() {
@@ -510,7 +593,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
-          <div>
+          <div className="flex-1">
             <h2 className="text-xl font-bold text-slate-900">
               {canEdit ? 'Edit Project' : 'View Project'}
             </h2>
@@ -519,6 +602,29 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             </p>
             {!canEdit && (
               <p className="text-sm text-amber-600 mt-1">View-only mode</p>
+            )}
+            {projectLabels.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {projectLabels.map(label => (
+                  <div
+                    key={label.id}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-white"
+                    style={{ backgroundColor: label.color }}
+                  >
+                    <Tag className="w-3 h-3" />
+                    {label.name}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLabel(label.id)}
+                        className="ml-1 hover:bg-black hover:bg-opacity-20 rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
           <button onClick={handleClose} className="text-slate-400 hover:text-slate-600">
@@ -1146,6 +1252,33 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
               )}
             </div>
           </div>
+
+          {isAdmin && allLabels.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
+                Labels
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {allLabels
+                  .filter(label => !projectLabels.some(pl => pl.id === label.id))
+                  .map(label => (
+                    <button
+                      key={label.id}
+                      type="button"
+                      onClick={() => handleAddLabel(label.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white hover:opacity-80 transition-opacity"
+                      style={{ backgroundColor: label.color }}
+                    >
+                      <Tag className="w-3 h-3" />
+                      {label.name}
+                    </button>
+                  ))}
+              </div>
+              {allLabels.filter(label => !projectLabels.some(pl => pl.id === label.id)).length === 0 && (
+                <p className="text-sm text-slate-500">All available labels have been added to this project.</p>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4 border-t border-slate-200">
             {isAdmin && (

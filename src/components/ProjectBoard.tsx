@@ -111,12 +111,14 @@ export function ProjectBoard() {
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterProjectSize, setFilterProjectSize] = useState<string[]>([]);
+  const [filterLabels, setFilterLabels] = useState<string[]>([]);
   const [filterStartDateFrom, setFilterStartDateFrom] = useState('');
   const [filterStartDateTo, setFilterStartDateTo] = useState('');
   const [filterEndDateFrom, setFilterEndDateFrom] = useState('');
   const [filterEndDateTo, setFilterEndDateTo] = useState('');
   const [filterSubmissionDateFrom, setFilterSubmissionDateFrom] = useState('');
   const [filterSubmissionDateTo, setFilterSubmissionDateTo] = useState('');
+  const [allLabels, setAllLabels] = useState<any[]>([]);
   const [filterWithReminder, setFilterWithReminder] = useState(false);
 
   useEffect(() => {
@@ -127,6 +129,7 @@ export function ProjectBoard() {
 
     console.log('🔄 Setting up realtime subscription for user:', user.email);
     loadData();
+    loadAllLabels();
 
     // Set up a single real-time channel with multiple table listeners
     // Using broadcast channel to work around RLS limitations with SECURITY DEFINER functions
@@ -233,6 +236,19 @@ export function ProjectBoard() {
     };
   }, [user]);
 
+  async function loadAllLabels() {
+    const { data, error } = await supabase
+      .from('labels')
+      .select('*')
+      .order('order_index');
+
+    if (error) {
+      console.error('Error loading labels:', error);
+    } else if (data) {
+      setAllLabels(data);
+    }
+  }
+
   async function loadData() {
     console.log('Current user ID:', user?.id);
 
@@ -324,7 +340,26 @@ export function ProjectBoard() {
         }
       }
     }
-    if (projectsRes.data) setProjects(projectsRes.data);
+    if (projectsRes.data) {
+      const projectsWithLabels = await Promise.all(
+        projectsRes.data.map(async (project) => {
+          const { data: labelData } = await supabase
+            .from('project_labels')
+            .select(`
+              labels:label_id (
+                id,
+                name,
+                color
+              )
+            `)
+            .eq('project_id', project.id);
+
+          const labels = labelData?.map(pl => pl.labels).filter(Boolean) || [];
+          return { ...project, labels };
+        })
+      );
+      setProjects(projectsWithLabels);
+    }
     if (staffRes.data) setStaff(staffRes.data);
     if (statusManagersRes.data) setStatusManagers(statusManagersRes.data);
 
@@ -414,6 +449,11 @@ export function ProjectBoard() {
 
         if (filterProjectSize.length > 0 && !filterProjectSize.includes(p.project_size || '')) {
           return false;
+        }
+
+        if (filterLabels.length > 0) {
+          const hasMatchingLabel = p.labels?.some(label => filterLabels.includes(label.id));
+          if (!hasMatchingLabel) return false;
         }
 
         if (filterStartDateFrom && p.project_start_date) {
@@ -855,16 +895,16 @@ export function ProjectBoard() {
                     <button
                       onClick={() => setShowFilters(!showFilters)}
                       className={`px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-colors inline-flex items-center gap-2 ${
-                        filterStatus.length > 0 || filterProjectSize.length > 0 || filterStartDateFrom || filterStartDateTo || filterEndDateFrom || filterEndDateTo || filterSubmissionDateFrom || filterSubmissionDateTo
+                        filterStatus.length > 0 || filterProjectSize.length > 0 || filterLabels.length > 0 || filterStartDateFrom || filterStartDateTo || filterEndDateFrom || filterEndDateTo || filterSubmissionDateFrom || filterSubmissionDateTo
                           ? 'bg-blue-600 text-white border-blue-600'
                           : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                       }`}
                     >
                       <Filter className="w-4 h-4" />
                       Filters
-                      {(filterStatus.length > 0 || filterProjectSize.length > 0 || filterStartDateFrom || filterStartDateTo || filterEndDateFrom || filterEndDateTo || filterSubmissionDateFrom || filterSubmissionDateTo) && (
+                      {(filterStatus.length > 0 || filterProjectSize.length > 0 || filterLabels.length > 0 || filterStartDateFrom || filterStartDateTo || filterEndDateFrom || filterEndDateTo || filterSubmissionDateFrom || filterSubmissionDateTo) && (
                         <span className="bg-white text-blue-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                          {filterStatus.length + filterProjectSize.length + (filterStartDateFrom ? 1 : 0) + (filterStartDateTo ? 1 : 0) + (filterEndDateFrom ? 1 : 0) + (filterEndDateTo ? 1 : 0) + (filterSubmissionDateFrom ? 1 : 0) + (filterSubmissionDateTo ? 1 : 0)}
+                          {filterStatus.length + filterProjectSize.length + filterLabels.length + (filterStartDateFrom ? 1 : 0) + (filterStartDateTo ? 1 : 0) + (filterEndDateFrom ? 1 : 0) + (filterEndDateTo ? 1 : 0) + (filterSubmissionDateFrom ? 1 : 0) + (filterSubmissionDateTo ? 1 : 0)}
                         </span>
                       )}
                     </button>
@@ -926,6 +966,35 @@ export function ProjectBoard() {
                               ))}
                             </div>
                           </div>
+
+                          {allLabels.length > 0 && (
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-2">Labels</label>
+                              <div className="space-y-1 max-h-48 overflow-y-auto border border-slate-200 rounded p-2">
+                                {allLabels.map((label) => (
+                                  <label key={label.id} className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={filterLabels.includes(label.id)}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setFilterLabels([...filterLabels, label.id]);
+                                        } else {
+                                          setFilterLabels(filterLabels.filter(l => l !== label.id));
+                                        }
+                                      }}
+                                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <div
+                                      className="w-3 h-3 rounded"
+                                      style={{ backgroundColor: label.color }}
+                                    />
+                                    <span className="text-sm text-slate-700">{label.name}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Other Filters</label>
@@ -1018,6 +1087,7 @@ export function ProjectBoard() {
                               setFilterSubmissionDateFrom('');
                               setFilterSubmissionDateTo('');
                               setFilterWithReminder(false);
+                              setFilterLabels([]);
                             }}
                             className="flex-1 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
                           >

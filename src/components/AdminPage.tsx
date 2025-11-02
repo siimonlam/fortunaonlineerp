@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, X, Check, Lock } from 'lucide-react';
+import { Shield, Users, X, Check, Lock, Tag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
+import { LabelManagement } from './LabelManagement';
 
 interface User {
   id: string;
@@ -26,7 +27,7 @@ interface ClientPermission {
 }
 
 export function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'client' | 'status'>('client');
+  const [activeTab, setActiveTab] = useState<'client' | 'status' | 'labels'>('client');
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [permissions, setPermissions] = useState<ClientPermission[]>([]);
@@ -169,9 +170,25 @@ export function AdminPage() {
             <Lock className="w-4 h-4" />
             Status Authorization
           </button>
+          <button
+            onClick={() => setActiveTab('labels')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+              activeTab === 'labels'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Tag className="w-4 h-4" />
+            Labels
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {activeTab === 'labels' ? (
+          <LabelManagement />
+        ) : activeTab === 'status' ? (
+          <AuthorizationPage />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg border border-slate-200 p-6">
             <div className="flex items-center gap-2 mb-6">
               <Users className="w-5 h-5 text-slate-600" />
@@ -263,12 +280,11 @@ export function AdminPage() {
               </button>
             </div>
           </div>
-        </div>
 
-        <div className="mt-8 bg-white rounded-lg border border-slate-200 p-6">
-          <h2 className="text-xl font-semibold text-slate-900 mb-6">Active Permissions</h2>
+          <div className="mt-8 bg-white rounded-lg border border-slate-200 p-6 col-span-2">
+            <h2 className="text-xl font-semibold text-slate-900 mb-6">Active Permissions</h2>
 
-          <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
@@ -320,8 +336,10 @@ export function AdminPage() {
                 <p className="text-slate-500">No permissions granted yet</p>
               </div>
             )}
+            </div>
           </div>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
