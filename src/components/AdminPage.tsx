@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
 import { AutomationPage } from './AutomationPage';
+import { ProjectTypeAuthorizationPage } from './ProjectTypeAuthorizationPage';
 
-type AdminView = 'permissions' | 'funding-auth' | 'labels' | 'automation';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'labels' | 'automation';
 
 interface User {
   id: string;
@@ -168,6 +169,28 @@ export function AdminPage() {
           >
             <Lock className="w-4 h-4" />
             Funding Project Authorization
+          </button>
+          <button
+            onClick={() => setCurrentView('comsec-auth')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+              currentView === 'comsec-auth'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Lock className="w-4 h-4" />
+            Com Sec Authorization
+          </button>
+          <button
+            onClick={() => setCurrentView('marketing-auth')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+              currentView === 'marketing-auth'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Lock className="w-4 h-4" />
+            Marketing Authorization
           </button>
           <button
             onClick={() => setCurrentView('labels')}
@@ -349,7 +372,31 @@ export function AdminPage() {
 
         {currentView === 'funding-auth' && (
           <div>
-            <AuthorizationPage />
+            <ProjectTypeAuthorizationPage
+              projectTypeName="Funding Project"
+              title="Funding Project Authorization"
+              description="Manage which users can see and access the Funding Project button"
+            />
+          </div>
+        )}
+
+        {currentView === 'comsec-auth' && (
+          <div>
+            <ProjectTypeAuthorizationPage
+              projectTypeName="Com Sec"
+              title="Com Sec Authorization"
+              description="Manage which users can see and access the Com Sec button"
+            />
+          </div>
+        )}
+
+        {currentView === 'marketing-auth' && (
+          <div>
+            <ProjectTypeAuthorizationPage
+              projectTypeName="Marketing"
+              title="Marketing Authorization"
+              description="Manage which users can see and access the Marketing button"
+            />
           </div>
         )}
 

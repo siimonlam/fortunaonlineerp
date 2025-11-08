@@ -121,6 +121,7 @@ export function ProjectBoard() {
   const [filterSubmissionDateTo, setFilterSubmissionDateTo] = useState('');
   const [allLabels, setAllLabels] = useState<any[]>([]);
   const [filterWithReminder, setFilterWithReminder] = useState(false);
+  const [projectTypePermissions, setProjectTypePermissions] = useState<string[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -253,7 +254,7 @@ export function ProjectBoard() {
   async function loadData() {
     console.log('Current user ID:', user?.id);
 
-    const [projectTypesRes, statusesRes, projectsRes, clientsRes, staffRes, statusManagersRes] = await Promise.all([
+    const [projectTypesRes, statusesRes, projectsRes, clientsRes, staffRes, statusManagersRes, projectTypePermsRes] = await Promise.all([
       supabase.from('project_types').select('*').order('name'),
       supabase.from('statuses').select('*').order('order_index'),
       supabase
@@ -277,6 +278,7 @@ export function ProjectBoard() {
         .order('created_at', { ascending: false }),
       supabase.from('staff').select('*'),
       supabase.from('status_managers').select('*, staff:user_id(id, full_name, email)'),
+      supabase.from('project_type_permissions').select('project_type_id').eq('user_id', user?.id || ''),
     ]);
 
     const userRoleRes = await supabase
@@ -286,6 +288,10 @@ export function ProjectBoard() {
       .maybeSingle();
 
     setIsAdmin(userRoleRes.data?.role === 'admin');
+
+    if (projectTypePermsRes.data) {
+      setProjectTypePermissions(projectTypePermsRes.data.map(p => p.project_type_id));
+    }
 
     console.log('Load data results:', {
       projectTypes: projectTypesRes.data?.length,
@@ -1282,6 +1288,8 @@ export function ProjectBoard() {
                         handleCreateProjectFromClient(client, targetProjectTypeId);
                       }}
                       onProjectClick={(project) => setSelectedProject(project)}
+                      projectTypePermissions={projectTypePermissions}
+                      isAdmin={isAdmin}
                     />
                   ))}
                   {filteredClients.length === 0 && (
@@ -1432,10 +1440,15 @@ interface ClientCardProps {
   onProjectClick?: (project: Project) => void;
 }
 
-function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectClick }: ClientCardProps) {
+function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectClick, projectTypePermissions, isAdmin }: ClientCardProps & { projectTypePermissions: string[]; isAdmin: boolean }) {
   const [showMenu, setShowMenu] = useState(false);
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
-  const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing Project');
+  const comSecProjectType = projectTypes.find(pt => pt.name === 'Com Sec');
+  const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing');
+
+  const canSeeFundingProject = isAdmin || projectTypePermissions.includes(fundingProjectType?.id || '');
+  const canSeeComSec = isAdmin || projectTypePermissions.includes(comSecProjectType?.id || '');
+  const canSeeMarketing = isAdmin || projectTypePermissions.includes(marketingProjectType?.id || '');
 
   return (
     <div
@@ -1479,7 +1492,7 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
           </button>
           {showMenu && (
             <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10 min-w-[180px]">
-              {fundingProjectType && (
+              {fundingProjectType && canSeeFundingProject && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1491,7 +1504,19 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
                   Funding Project
                 </button>
               )}
-              {marketingProjectType && (
+              {comSecProjectType && canSeeComSec && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onCreateProject(comSecProjectType.id);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Com Sec
+                </button>
+              )}
+              {marketingProjectType && canSeeMarketing && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1500,7 +1525,7 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  Marketing Project
+                  Marketing
                 </button>
               )}
             </div>
