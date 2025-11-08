@@ -73,10 +73,11 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
   }, [selectedProjectType]);
 
   async function loadData() {
-    const [staffData, typesData, statusesData] = await Promise.all([
+    const [staffData, typesData, statusesData, projectTypePermsData] = await Promise.all([
       supabase.from('staff').select('*').order('full_name'),
       supabase.from('project_types').select('*').order('name'),
-      supabase.from('statuses').select('*').order('order_index')
+      supabase.from('statuses').select('*').order('order_index'),
+      supabase.from('project_type_permissions').select('user_id, project_type_id')
     ]);
 
     if (staffData.data) setStaff(staffData.data);
@@ -88,6 +89,17 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
       }
     }
     if (statusesData.data) setStatuses(statusesData.data);
+
+    if (projectTypePermsData.data) {
+      const permsMap = new Map<string, Set<string>>();
+      projectTypePermsData.data.forEach(perm => {
+        if (!permsMap.has(perm.project_type_id)) {
+          permsMap.set(perm.project_type_id, new Set());
+        }
+        permsMap.get(perm.project_type_id)!.add(perm.user_id);
+      });
+      setProjectTypePermissions(permsMap);
+    }
   }
 
   async function loadUserPermissions() {
