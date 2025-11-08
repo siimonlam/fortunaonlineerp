@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Shield, Users, CheckSquare, Square, Save, X, ArrowLeft } from 'lucide-react';
+import { Shield, Users, CheckSquare, Square, Save, X, ArrowLeft, Lock } from 'lucide-react';
 
 interface Staff {
   id: string;
