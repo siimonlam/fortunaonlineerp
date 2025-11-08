@@ -372,11 +372,7 @@ export function AdminPage() {
 
         {currentView === 'funding-auth' && (
           <div>
-            <ProjectTypeAuthorizationPage
-              projectTypeName="Funding Project"
-              title="Funding Project Authorization"
-              description="Manage which users can see and access the Funding Project button"
-            />
+            <AuthorizationPage />
           </div>
         )}
 

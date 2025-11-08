@@ -758,19 +758,21 @@ export function ProjectBoard() {
 
         <div className="px-8 py-3 bg-slate-50 border-t border-slate-200">
           <div className="flex gap-2">
-            {projectTypes.map((type) => (
-              <button
-                key={type.id}
-                onClick={() => handleProjectTypeChange(type.id)}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                  selectedProjectType === type.id && selectedView === 'projects'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                {type.name}
-              </button>
-            ))}
+            {projectTypes
+              .filter((type) => isAdmin || projectTypePermissions.includes(type.id))
+              .map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => handleProjectTypeChange(type.id)}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    selectedProjectType === type.id && selectedView === 'projects'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  {type.name}
+                </button>
+              ))}
             <button
               onClick={() => handleViewChange('clients')}
               className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
