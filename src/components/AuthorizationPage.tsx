@@ -55,6 +55,7 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
   const [loading, setLoading] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<Map<string, StatusPermission>>(new Map());
   const [editingRole, setEditingRole] = useState<string | null>(null);
+  const [projectTypePermissions, setProjectTypePermissions] = useState<Map<string, Set<string>>>(new Map());
 
   useEffect(() => {
     loadData();
