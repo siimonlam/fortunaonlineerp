@@ -251,6 +251,45 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
     }
   }
 
+  async function toggleProjectTypeAccess(userId: string, projectTypeId: string) {
+    setLoading(true);
+    try {
+      const userHasAccess = projectTypePermissions.get(projectTypeId)?.has(userId);
+
+      if (userHasAccess) {
+        const { error } = await supabase
+          .from('project_type_permissions')
+          .delete()
+          .eq('user_id', userId)
+          .eq('project_type_id', projectTypeId);
+
+        if (error) throw error;
+
+        const newPerms = new Map(projectTypePermissions);
+        newPerms.get(projectTypeId)?.delete(userId);
+        setProjectTypePermissions(newPerms);
+      } else {
+        const { error } = await supabase
+          .from('project_type_permissions')
+          .insert({ user_id: userId, project_type_id: projectTypeId });
+
+        if (error) throw error;
+
+        const newPerms = new Map(projectTypePermissions);
+        if (!newPerms.has(projectTypeId)) {
+          newPerms.set(projectTypeId, new Set());
+        }
+        newPerms.get(projectTypeId)!.add(userId);
+        setProjectTypePermissions(newPerms);
+      }
+    } catch (error) {
+      console.error('Error toggling project type access:', error);
+      alert('Failed to update access');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function updateUserRole(userId: string, newRole: string) {
     setLoading(true);
     try {
