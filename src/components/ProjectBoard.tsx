@@ -1450,6 +1450,8 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
   const canSeeComSec = isAdmin || projectTypePermissions.includes(comSecProjectType?.id || '');
   const canSeeMarketing = isAdmin || projectTypePermissions.includes(marketingProjectType?.id || '');
 
+  const hasAnyButton = canSeeFundingProject || canSeeComSec || canSeeMarketing;
+
   return (
     <div
       className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
@@ -1479,20 +1481,21 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
             </p>
           )}
         </div>
-        <div className="relative">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1"
-          >
-            <Plus className="w-3 h-3" />
-            Create Project
-          </button>
-          {showMenu && (
-            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10 min-w-[180px]">
-              {fundingProjectType && canSeeFundingProject && (
+        {hasAnyButton && (
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" />
+              Create Project
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10 min-w-[180px]">
+                {fundingProjectType && canSeeFundingProject && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1530,7 +1533,8 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
               )}
             </div>
           )}
-        </div>
+          </div>
+        )}
       </div>
       {client.industry && (
         <div className="mb-2">
