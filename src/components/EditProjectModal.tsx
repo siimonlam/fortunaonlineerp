@@ -281,69 +281,20 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
   async function executeAutomations(triggerType: string) {
     try {
-      const currentStatus = statuses.find(s => s.id === project.status_id);
-      if (!currentStatus) return;
+      const { data, error } = await supabase.rpc('execute_project_automations', {
+        p_project_id: project.id,
+        p_trigger_type: triggerType
+      });
 
-      const parentStatus = statuses.find(s =>
-        currentStatus.parent_status_id === s.id
-      );
-      const mainStatusName = parentStatus ? parentStatus.name : currentStatus.name;
+      if (error) {
+        console.error('Error executing automations:', error);
+        return;
+      }
 
-      const { data: rules, error: rulesError } = await supabase
-        .from('automation_rules')
-        .select('*')
-        .eq('project_type_id', project.project_type_id)
-        .eq('main_status', mainStatusName)
-        .eq('trigger_type', triggerType)
-        .eq('is_active', true);
+      console.log('Automation execution result:', data);
 
-      if (rulesError) throw rulesError;
-      if (!rules || rules.length === 0) return;
-
-      for (const rule of rules) {
-        if (rule.action_type === 'add_label') {
-          const labelId = rule.action_config.label_id;
-          if (labelId) {
-            const { data: existingLabel } = await supabase
-              .from('project_labels')
-              .select('id')
-              .eq('project_id', project.id)
-              .eq('label_id', labelId)
-              .maybeSingle();
-
-            if (!existingLabel) {
-              await supabase
-                .from('project_labels')
-                .insert({
-                  project_id: project.id,
-                  label_id: labelId
-                });
-            }
-          }
-        } else if (rule.action_type === 'remove_label') {
-          const labelId = rule.action_config.label_id;
-          if (labelId) {
-            await supabase
-              .from('project_labels')
-              .delete()
-              .eq('project_id', project.id)
-              .eq('label_id', labelId);
-          }
-        } else if (rule.action_type === 'add_task') {
-          const taskConfig = rule.action_config;
-          if (taskConfig.title) {
-            await supabase
-              .from('project_tasks')
-              .insert({
-                project_id: project.id,
-                title: taskConfig.title,
-                description: taskConfig.description || '',
-                deadline: taskConfig.deadline || null,
-                assigned_to: taskConfig.assigned_to || null,
-                completed: false
-              });
-          }
-        }
+      if (data && data.executed > 0) {
+        console.log(`Successfully executed ${data.executed} automation rules`);
       }
     } catch (error: any) {
       console.error('Error executing automations:', error);

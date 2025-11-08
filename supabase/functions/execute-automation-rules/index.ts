@@ -1,0 +1,191 @@
+import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+};
+
+interface AutomationPayload {
+  project_id: string;
+  project_type_id: string | null;
+  status_id: string;
+  trigger_type: string;
+  trigger_data?: any;
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const payload: AutomationPayload = await req.json();
+    const { project_id, project_type_id, status_id, trigger_type, trigger_data } = payload;
+
+    console.log('Executing automation for:', { project_id, project_type_id, status_id, trigger_type });
+
+    const { data: status, error: statusError } = await supabase
+      .from('statuses')
+      .select('id, name, parent_status_id')
+      .eq('id', status_id)
+      .maybeSingle();
+
+    if (statusError) throw statusError;
+    if (!status) throw new Error('Status not found');
+
+    let mainStatusName = status.name;
+    if (status.parent_status_id) {
+      const { data: parentStatus } = await supabase
+        .from('statuses')
+        .select('name')
+        .eq('id', status.parent_status_id)
+        .maybeSingle();
+      
+      if (parentStatus) {
+        mainStatusName = parentStatus.name;
+      }
+    }
+
+    console.log('Main status name:', mainStatusName);
+
+    const query = supabase
+      .from('automation_rules')
+      .select('*')
+      .eq('main_status', mainStatusName)
+      .eq('trigger_type', trigger_type)
+      .eq('is_active', true);
+
+    if (project_type_id) {
+      query.or(`project_type_id.eq.${project_type_id},project_type_id.is.null`);
+    } else {
+      query.is('project_type_id', null);
+    }
+
+    const { data: rules, error: rulesError } = await query;
+
+    if (rulesError) throw rulesError;
+
+    console.log(`Found ${rules?.length || 0} automation rules`);
+
+    if (!rules || rules.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: 'No automation rules found', executed: 0 }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    let executedCount = 0;
+    const results = [];
+
+    for (const rule of rules) {
+      try {
+        console.log('Executing rule:', rule.name, 'Action:', rule.action_type);
+
+        if (rule.action_type === 'add_label') {
+          const labelId = rule.action_config.label_id;
+          if (labelId) {
+            const { data: existingLabel } = await supabase
+              .from('project_labels')
+              .select('id')
+              .eq('project_id', project_id)
+              .eq('label_id', labelId)
+              .maybeSingle();
+
+            if (!existingLabel) {
+              const { error: insertError } = await supabase
+                .from('project_labels')
+                .insert({
+                  project_id: project_id,
+                  label_id: labelId
+                });
+
+              if (insertError) throw insertError;
+              console.log('Label added successfully');
+              executedCount++;
+              results.push({ rule: rule.name, action: 'add_label', status: 'success' });
+            } else {
+              console.log('Label already exists');
+              results.push({ rule: rule.name, action: 'add_label', status: 'skipped' });
+            }
+          }
+        } else if (rule.action_type === 'remove_label') {
+          const labelId = rule.action_config.label_id;
+          if (labelId) {
+            const { error: deleteError } = await supabase
+              .from('project_labels')
+              .delete()
+              .eq('project_id', project_id)
+              .eq('label_id', labelId);
+
+            if (deleteError) throw deleteError;
+            console.log('Label removed successfully');
+            executedCount++;
+            results.push({ rule: rule.name, action: 'remove_label', status: 'success' });
+          }
+        } else if (rule.action_type === 'add_task') {
+          const taskConfig = rule.action_config;
+          if (taskConfig.title) {
+            const { error: taskError } = await supabase
+              .from('tasks')
+              .insert({
+                project_id: project_id,
+                title: taskConfig.title,
+                description: taskConfig.description || '',
+                deadline: taskConfig.deadline || null,
+                assigned_to: taskConfig.assigned_to || null,
+                completed: false
+              });
+
+            if (taskError) throw taskError;
+            console.log('Task added successfully');
+            executedCount++;
+            results.push({ rule: rule.name, action: 'add_task', status: 'success' });
+          }
+        }
+      } catch (error: any) {
+        console.error('Error executing rule:', rule.name, error);
+        results.push({ rule: rule.name, action: rule.action_type, status: 'error', error: error.message });
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: `Executed ${executedCount} automation rules`, 
+        executed: executedCount,
+        results 
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('Error in automation function:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  }
+});
