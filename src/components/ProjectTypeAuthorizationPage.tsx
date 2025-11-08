@@ -6,6 +6,7 @@ interface User {
   id: string;
   email: string;
   full_name: string;
+  role: string;
 }
 
 interface UserWithAccess extends User {
@@ -55,7 +56,7 @@ export function ProjectTypeAuthorizationPage({ projectTypeName, title, descripti
     if (!projectTypeId) return;
 
     const [usersRes, permsRes] = await Promise.all([
-      supabase.from('staff').select('id, email, full_name').order('full_name'),
+      supabase.from('staff').select('id, email, full_name, role').order('full_name'),
       supabase.from('project_type_permissions')
         .select('id, user_id')
         .eq('project_type_id', projectTypeId)
@@ -137,27 +138,33 @@ export function ProjectTypeAuthorizationPage({ projectTypeName, title, descripti
                 <div className="text-sm text-slate-500">{user.email}</div>
               </div>
 
-              <button
-                onClick={() => toggleAccess(user)}
-                disabled={loading}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
-                  user.hasAccess
-                    ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                {user.hasAccess ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Has Access
-                  </>
-                ) : (
-                  <>
-                    <X className="w-4 h-4" />
-                    No Access
-                  </>
-                )}
-              </button>
+              {user.role === 'admin' ? (
+                <div className="px-4 py-2 rounded-lg font-medium text-sm bg-green-100 text-green-700">
+                  Admin - Always Has Access
+                </div>
+              ) : (
+                <button
+                  onClick={() => toggleAccess(user)}
+                  disabled={loading}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                    user.hasAccess
+                      ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  {user.hasAccess ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Has Access
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-4 h-4" />
+                      No Access
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           ))}
           {users.length === 0 && (
