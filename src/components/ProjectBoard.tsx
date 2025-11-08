@@ -291,6 +291,8 @@ export function ProjectBoard() {
 
     if (projectTypePermsRes.data) {
       setProjectTypePermissions(projectTypePermsRes.data.map(p => p.project_type_id));
+    } else {
+      setProjectTypePermissions([]);
     }
 
     console.log('Load data results:', {
@@ -299,6 +301,8 @@ export function ProjectBoard() {
       projects: projectsRes.data?.length,
       clients: clientsRes.data?.length,
       staff: staffRes.data?.length,
+      projectTypePermissions: projectTypePermsRes.data?.map(p => p.project_type_id) || [],
+      projectTypePermsError: projectTypePermsRes.error,
       isAdmin: userRoleRes.data?.role === 'admin',
       errors: {
         projectTypes: projectTypesRes.error,
@@ -1446,11 +1450,23 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
   const comSecProjectType = projectTypes.find(pt => pt.name === 'Com Sec');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing');
 
-  const canSeeFundingProject = isAdmin || projectTypePermissions.includes(fundingProjectType?.id || '');
-  const canSeeComSec = isAdmin || projectTypePermissions.includes(comSecProjectType?.id || '');
-  const canSeeMarketing = isAdmin || projectTypePermissions.includes(marketingProjectType?.id || '');
+  const canSeeFundingProject = isAdmin || (fundingProjectType?.id ? projectTypePermissions.includes(fundingProjectType.id) : false);
+  const canSeeComSec = isAdmin || (comSecProjectType?.id ? projectTypePermissions.includes(comSecProjectType.id) : false);
+  const canSeeMarketing = isAdmin || (marketingProjectType?.id ? projectTypePermissions.includes(marketingProjectType.id) : false);
 
   const hasAnyButton = canSeeFundingProject || canSeeComSec || canSeeMarketing;
+
+  console.log('ClientCard Button Visibility:', {
+    isAdmin,
+    projectTypePermissions,
+    fundingProjectTypeId: fundingProjectType?.id,
+    comSecProjectTypeId: comSecProjectType?.id,
+    marketingProjectTypeId: marketingProjectType?.id,
+    canSeeFundingProject,
+    canSeeComSec,
+    canSeeMarketing,
+    hasAnyButton
+  });
 
   return (
     <div
