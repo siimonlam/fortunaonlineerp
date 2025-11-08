@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Check, X, UserPlus } from 'lucide-react';
+import { Check, X, Users } from 'lucide-react';
 
 interface User {
   id: string;
@@ -8,11 +8,9 @@ interface User {
   full_name: string;
 }
 
-interface Permission {
-  id: string;
-  user_id: string;
-  user_email?: string;
-  user_name?: string;
+interface UserWithAccess extends User {
+  hasAccess: boolean;
+  permissionId?: string;
 }
 
 interface Props {
@@ -22,9 +20,7 @@ interface Props {
 }
 
 export function ProjectTypeAuthorizationPage({ projectTypeName, title, description }: Props) {
-  const [users, setUsers] = useState<User[]>([]);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [selectedUser, setSelectedUser] = useState('');
+  const [users, setUsers] = useState<UserWithAccess[]>([]);
   const [loading, setLoading] = useState(false);
   const [projectTypeId, setProjectTypeId] = useState<string | null>(null);
 
@@ -59,78 +55,58 @@ export function ProjectTypeAuthorizationPage({ projectTypeName, title, descripti
     if (!projectTypeId) return;
 
     const [usersRes, permsRes] = await Promise.all([
-      supabase.from('staff').select('id, email, full_name').order('email'),
+      supabase.from('staff').select('id, email, full_name').order('full_name'),
       supabase.from('project_type_permissions')
         .select('id, user_id')
         .eq('project_type_id', projectTypeId)
     ]);
 
     if (usersRes.data) {
-      setUsers(usersRes.data);
-    }
-
-    if (permsRes.data) {
-      const permsWithDetails = permsRes.data.map(p => {
-        const user = usersRes.data?.find(u => u.id === p.user_id);
+      const usersWithAccess: UserWithAccess[] = usersRes.data.map(user => {
+        const permission = permsRes.data?.find(p => p.user_id === user.id);
         return {
-          ...p,
-          user_email: user?.email,
-          user_name: user?.full_name
+          ...user,
+          hasAccess: !!permission,
+          permissionId: permission?.id
         };
       });
-      setPermissions(permsWithDetails);
+      setUsers(usersWithAccess);
     }
   }
 
-  async function grantPermission() {
-    if (!selectedUser || !projectTypeId) {
-      alert('Please select a user');
-      return;
-    }
+  async function toggleAccess(user: UserWithAccess) {
+    if (!projectTypeId) return;
 
     setLoading(true);
-    const { error } = await supabase
-      .from('project_type_permissions')
-      .insert({
-        user_id: selectedUser,
-        project_type_id: projectTypeId
-      });
 
-    if (error) {
-      if (error.code === '23505') {
-        alert('This user already has permission');
+    if (user.hasAccess && user.permissionId) {
+      const { error } = await supabase
+        .from('project_type_permissions')
+        .delete()
+        .eq('id', user.permissionId);
+
+      if (error) {
+        alert('Error revoking access: ' + error.message);
       } else {
-        alert('Error granting permission: ' + error.message);
+        await loadData();
       }
     } else {
-      setSelectedUser('');
-      await loadData();
+      const { error } = await supabase
+        .from('project_type_permissions')
+        .insert({
+          user_id: user.id,
+          project_type_id: projectTypeId
+        });
+
+      if (error) {
+        alert('Error granting access: ' + error.message);
+      } else {
+        await loadData();
+      }
     }
+
     setLoading(false);
   }
-
-  async function revokePermission(permissionId: string) {
-    if (!confirm('Are you sure you want to revoke this permission?')) {
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await supabase
-      .from('project_type_permissions')
-      .delete()
-      .eq('id', permissionId);
-
-    if (error) {
-      alert('Error revoking permission: ' + error.message);
-    } else {
-      await loadData();
-    }
-    setLoading(false);
-  }
-
-  const usersWithoutPermission = users.filter(
-    u => !permissions.some(p => p.user_id === u.id)
-  );
 
   return (
     <div>
@@ -139,69 +115,68 @@ export function ProjectTypeAuthorizationPage({ projectTypeName, title, descripti
         <p className="text-slate-600 mt-1">{description}</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <UserPlus className="w-5 h-5 text-slate-600" />
-            <h3 className="text-xl font-semibold text-slate-900">Grant Access</h3>
+      <div className="bg-white rounded-lg border border-slate-200">
+        <div className="p-6 border-b border-slate-200">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-slate-600" />
+            <h3 className="text-xl font-semibold text-slate-900">User Access Control</h3>
           </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Select User
-              </label>
-              <select
-                value={selectedUser}
-                onChange={(e) => setSelectedUser(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Choose a user...</option>
-                {usersWithoutPermission.map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name} ({user.email})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={grantPermission}
-              disabled={loading || !selectedUser}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-            >
-              Grant Permission
-            </button>
-          </div>
+          <p className="text-sm text-slate-500 mt-1">
+            Toggle access for each user. Users with access can see and create this project type.
+          </p>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h3 className="text-xl font-semibold text-slate-900 mb-6">Authorized Users</h3>
+        <div className="divide-y divide-slate-200">
+          {users.map(user => (
+            <div
+              key={user.id}
+              className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex-1">
+                <div className="font-medium text-slate-900">{user.full_name}</div>
+                <div className="text-sm text-slate-500">{user.email}</div>
+              </div>
 
-          <div className="space-y-2">
-            {permissions.map(perm => (
-              <div
-                key={perm.id}
-                className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50"
+              <button
+                onClick={() => toggleAccess(user)}
+                disabled={loading}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                  user.hasAccess
+                    ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
               >
-                <div>
-                  <div className="font-medium text-slate-900">{perm.user_name}</div>
-                  <div className="text-sm text-slate-500">{perm.user_email}</div>
-                </div>
-                <button
-                  onClick={() => revokePermission(perm.id)}
-                  disabled={loading}
-                  className="text-red-600 hover:text-red-700 font-medium text-sm disabled:text-slate-400"
-                >
-                  Revoke
-                </button>
-              </div>
-            ))}
-            {permissions.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-slate-500">No users have access yet</p>
-              </div>
-            )}
+                {user.hasAccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Has Access
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4" />
+                    No Access
+                  </>
+                )}
+              </button>
+            </div>
+          ))}
+          {users.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-slate-500">No users found</p>
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 bg-slate-50 border-t border-slate-200">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-600">Total Users:</span>
+            <span className="font-semibold text-slate-900">{users.length}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm mt-2">
+            <span className="text-slate-600">Users with Access:</span>
+            <span className="font-semibold text-green-700">
+              {users.filter(u => u.hasAccess).length}
+            </span>
           </div>
         </div>
       </div>
