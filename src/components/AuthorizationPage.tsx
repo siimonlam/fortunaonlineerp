@@ -73,32 +73,52 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
   }, [selectedProjectType]);
 
   async function loadData() {
-    const [staffData, typesData, statusesData, projectTypePermsData] = await Promise.all([
-      supabase.from('staff').select('*').order('full_name'),
-      supabase.from('project_types').select('*').order('name'),
-      supabase.from('statuses').select('*').order('order_index'),
-      supabase.from('project_type_permissions').select('user_id, project_type_id')
-    ]);
+    try {
+      const [staffData, typesData, statusesData, projectTypePermsData] = await Promise.all([
+        supabase.from('staff').select('*').order('full_name'),
+        supabase.from('project_types').select('*').order('name'),
+        supabase.from('statuses').select('*').order('order_index'),
+        supabase.from('project_type_permissions').select('user_id, project_type_id')
+      ]);
 
-    if (staffData.data) setStaff(staffData.data);
-    if (typesData.data) {
-      setProjectTypes(typesData.data);
-      if (typesData.data.length > 0) {
-        const fundingType = typesData.data.find(t => t.name === 'Funding Project');
-        setSelectedProjectType(fundingType?.id || typesData.data[0].id);
+      console.log('Load data results:', { staffData, typesData, statusesData, projectTypePermsData });
+
+      if (staffData.error) {
+        console.error('Staff data error:', staffData.error);
       }
-    }
-    if (statusesData.data) setStatuses(statusesData.data);
+      if (typesData.error) {
+        console.error('Types data error:', typesData.error);
+      }
+      if (statusesData.error) {
+        console.error('Statuses data error:', statusesData.error);
+      }
+      if (projectTypePermsData.error) {
+        console.error('Project type perms error:', projectTypePermsData.error);
+      }
 
-    if (projectTypePermsData.data) {
-      const permsMap = new Map<string, Set<string>>();
-      projectTypePermsData.data.forEach(perm => {
-        if (!permsMap.has(perm.project_type_id)) {
-          permsMap.set(perm.project_type_id, new Set());
+      if (staffData.data) setStaff(staffData.data);
+      if (typesData.data) {
+        setProjectTypes(typesData.data);
+        if (typesData.data.length > 0) {
+          const fundingType = typesData.data.find(t => t.name === 'Funding Project');
+          setSelectedProjectType(fundingType?.id || typesData.data[0].id);
         }
-        permsMap.get(perm.project_type_id)!.add(perm.user_id);
-      });
-      setProjectTypePermissions(permsMap);
+      }
+      if (statusesData.data) setStatuses(statusesData.data);
+
+      if (projectTypePermsData.data) {
+        const permsMap = new Map<string, Set<string>>();
+        projectTypePermsData.data.forEach(perm => {
+          if (!permsMap.has(perm.project_type_id)) {
+            permsMap.set(perm.project_type_id, new Set());
+          }
+          permsMap.get(perm.project_type_id)!.add(perm.user_id);
+        });
+        setProjectTypePermissions(permsMap);
+      }
+    } catch (error) {
+      console.error('Critical error in loadData:', error);
+      alert('Error loading authorization data: ' + (error as Error).message);
     }
   }
 
