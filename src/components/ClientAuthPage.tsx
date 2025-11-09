@@ -61,12 +61,6 @@ export function ClientAuthPage({ onAuthenticated }: ClientAuthPageProps) {
         return;
       }
 
-      if (!clientData.is_approved) {
-        await supabase.auth.signOut();
-        setError('Your account is pending approval. Please contact our team.');
-        return;
-      }
-
       onAuthenticated();
     } catch (err: any) {
       console.error('Auth callback error:', err);
@@ -115,14 +109,14 @@ export function ClientAuthPage({ onAuthenticated }: ClientAuthPageProps) {
           email: user.email || registerData.email,
           phone: registerData.phone,
           industry: registerData.industry,
-          is_approved: false
+          is_approved: true
         });
 
       if (insertError) throw insertError;
 
       await supabase.auth.signOut();
       setShowAdditionalFields(false);
-      setMessage('Registration complete! Your account is pending approval. You will be notified once approved.');
+        setMessage('Registration complete! You can now log in.');
 
       setTimeout(() => {
         setMessage('');
@@ -176,11 +170,6 @@ export function ClientAuthPage({ onAuthenticated }: ClientAuthPageProps) {
           throw new Error('Account not found. Please register first.');
         }
 
-        if (!clientData.is_approved) {
-          await supabase.auth.signOut();
-          throw new Error('Your account is pending approval. Please contact our team.');
-        }
-
         onAuthenticated();
       }
     } catch (err: any) {
@@ -227,12 +216,12 @@ export function ClientAuthPage({ onAuthenticated }: ClientAuthPageProps) {
             email: registerData.email,
             phone: registerData.phone,
             industry: registerData.industry,
-            is_approved: false
+            is_approved: true
           });
 
         if (insertError) throw insertError;
 
-        setMessage('Registration successful! Your account is pending approval. You will be notified once approved.');
+        setMessage('Registration successful! You can now log in.');
         setRegisterData({
           company_name: '',
           contact_name: '',
