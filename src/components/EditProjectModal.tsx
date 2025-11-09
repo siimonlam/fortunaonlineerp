@@ -1723,12 +1723,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             <div className="flex-1"></div>
             <button
               type="button"
-              onClick={handleClose}
+              onClick={onClose}
               className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
-              {canEdit ? 'Cancel' : 'Close'}
+              Close
             </button>
-            {canEdit && (
+            {canEdit && hasUnsavedChanges && (
               <button
                 type="submit"
                 disabled={loading}
