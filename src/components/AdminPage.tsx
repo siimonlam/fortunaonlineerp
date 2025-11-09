@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, X, UserCheck } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
 import { AutomationPage } from './AutomationPage';
 import { ProjectTypeAuthorizationPage } from './ProjectTypeAuthorizationPage';
-import { FundingClientApproval } from './FundingClientApproval';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'labels' | 'automation' | 'client-approval';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'labels' | 'automation';
 
 interface User {
   id: string;
@@ -148,7 +147,7 @@ export function AdminPage() {
           <p className="text-slate-600">Manage user roles and permissions</p>
         </div>
 
-        <div className="flex gap-2 mb-6 flex-wrap">
+        <div className="flex gap-2 mb-6">
           <button
             onClick={() => setCurrentView('permissions')}
             className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
@@ -159,17 +158,6 @@ export function AdminPage() {
           >
             <Users className="w-4 h-4" />
             Client Permissions
-          </button>
-          <button
-            onClick={() => setCurrentView('client-approval')}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
-              currentView === 'client-approval'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <UserCheck className="w-4 h-4" />
-            Funding Client Approvals
           </button>
           <button
             onClick={() => setCurrentView('funding-auth')}
@@ -417,12 +405,6 @@ export function AdminPage() {
         {currentView === 'automation' && (
           <div>
             <AutomationPage />
-          </div>
-        )}
-
-        {currentView === 'client-approval' && (
-          <div>
-            <FundingClientApproval />
           </div>
         )}
       </div>
