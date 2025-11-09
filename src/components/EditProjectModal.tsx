@@ -594,6 +594,27 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     }
   }
 
+  async function loadTasks() {
+    try {
+      console.log('[loadTasks] Reloading tasks for project:', project.id);
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          staff:assigned_to (id, full_name, email)
+        `)
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      console.log('[loadTasks] Loaded tasks:', data?.length || 0);
+      setTasks(data || []);
+    } catch (error: any) {
+      console.error('[loadTasks] Error loading tasks:', error);
+    }
+  }
+
   async function handleAddTask() {
     if (!newTask.title.trim()) {
       alert('Task title is required');
