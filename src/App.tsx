@@ -9,15 +9,14 @@ import { supabase } from './lib/supabase';
 function AppContent() {
   const { user, loading } = useAuth();
   const [clientAuthenticated, setClientAuthenticated] = useState(false);
-  const [checkingClientAuth, setCheckingClientAuth] = useState(true);
+  const [checkingClientAuth, setCheckingClientAuth] = useState(false);
+  const isOnboardingPage = window.location.pathname === '/onboarding';
 
   useEffect(() => {
-    if (window.location.pathname === '/onboarding' && user) {
+    if (isOnboardingPage && user) {
       checkClientAccess();
-    } else {
-      setCheckingClientAuth(false);
     }
-  }, [user]);
+  }, [user, isOnboardingPage]);
 
   const checkClientAccess = async () => {
     if (!user) {
@@ -25,6 +24,7 @@ function AppContent() {
       return;
     }
 
+    setCheckingClientAuth(true);
     try {
       const { data, error } = await supabase
         .from('funding_clients')
