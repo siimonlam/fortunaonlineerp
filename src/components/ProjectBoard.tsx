@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2 } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -10,6 +10,7 @@ import { ClientTableView } from './ClientTableView';
 import { ProjectListView } from './ProjectListView';
 import { AdminPage } from './AdminPage';
 import { CreateProjectModal } from './CreateProjectModal';
+import { ComSecPage } from './ComSecPage';
 
 interface Status {
   id: string;
@@ -95,7 +96,7 @@ export function ProjectBoard() {
   const [statusManagers, setStatusManagers] = useState<StatusManager[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [expandedStatuses, setExpandedStatuses] = useState<Set<string>>(new Set());
-  const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin'>('projects');
+  const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin' | 'comsec'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list'>('grid');
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
@@ -434,6 +435,7 @@ export function ProjectBoard() {
   const currentProjectType = projectTypes.find(pt => pt.id === selectedProjectType);
   const isClientSection = selectedView === 'clients';
   const isAdminSection = selectedView === 'admin';
+  const isComSecSection = selectedView === 'comsec';
 
   const filteredStatuses = statuses.filter(
     (s) => s.project_type_id === selectedProjectType
@@ -801,6 +803,17 @@ export function ProjectBoard() {
               <Users className="w-4 h-4" />
               Clients
             </button>
+            <button
+              onClick={() => handleViewChange('comsec')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+                selectedView === 'comsec'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              Com Sec
+            </button>
             {isAdmin && (
               <button
                 onClick={() => handleViewChange('admin')}
@@ -819,7 +832,7 @@ export function ProjectBoard() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {!isClientSection && !isAdminSection && (
+        {!isClientSection && !isAdminSection && !isComSecSection && (
           <aside className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
             <div className="p-4">
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Status</h2>
@@ -1297,7 +1310,9 @@ export function ProjectBoard() {
               )}
             </div>
 
-            {isAdminSection ? (
+            {isComSecSection ? (
+              <ComSecPage />
+            ) : isAdminSection ? (
               <AdminPage />
             ) : isClientSection ? (
               clientViewMode === 'card' ? (
