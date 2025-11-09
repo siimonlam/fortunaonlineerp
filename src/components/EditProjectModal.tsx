@@ -635,17 +635,22 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
+      console.log(`[handleToggleTask] Updating task "${task.title}" to completed=${completed}`);
+
       const { error } = await supabase
         .from('tasks')
         .update({ completed, updated_at: new Date().toISOString() })
         .eq('id', taskId);
 
       if (error) throw error;
+
+      console.log('[handleToggleTask] Task updated in database successfully');
       setTasks(tasks.map(t => t.id === taskId ? { ...t, completed } : t));
 
       await logTaskHistory(taskId, task.title, 'completed', !completed, completed);
 
       if (completed) {
+        console.log(`[handleToggleTask] Task completed, triggering automation...`);
         await triggerTaskCompletedAutomation(task.title);
       }
     } catch (error: any) {
@@ -708,7 +713,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         console.log('Automation result:', result);
         if (result.executed > 0) {
           console.log('Reloading tasks after successful automation...');
-          setTimeout(() => loadTasks(), 1000);
+          await loadTasks();
+          console.log('Tasks reloaded successfully');
         }
       }
     } catch (error) {
