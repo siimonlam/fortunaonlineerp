@@ -150,7 +150,7 @@ export function AdminPage() {
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => setCurrentView('permissions')}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
               currentView === 'permissions'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
@@ -161,7 +161,7 @@ export function AdminPage() {
           </button>
           <button
             onClick={() => setCurrentView('funding-auth')}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
               currentView === 'funding-auth'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
@@ -172,7 +172,7 @@ export function AdminPage() {
           </button>
           <button
             onClick={() => setCurrentView('comsec-auth')}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
               currentView === 'comsec-auth'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
@@ -183,7 +183,7 @@ export function AdminPage() {
           </button>
           <button
             onClick={() => setCurrentView('marketing-auth')}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
               currentView === 'marketing-auth'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
@@ -194,7 +194,7 @@ export function AdminPage() {
           </button>
           <button
             onClick={() => setCurrentView('labels')}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
               currentView === 'labels'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
@@ -205,7 +205,7 @@ export function AdminPage() {
           </button>
           <button
             onClick={() => setCurrentView('automation')}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
               currentView === 'automation'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'

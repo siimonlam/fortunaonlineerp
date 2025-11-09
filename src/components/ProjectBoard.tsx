@@ -764,7 +764,7 @@ export function ProjectBoard() {
                 <button
                   key={type.id}
                   onClick={() => handleProjectTypeChange(type.id)}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap ${
                     selectedProjectType === type.id && selectedView === 'projects'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
@@ -775,7 +775,7 @@ export function ProjectBoard() {
               ))}
             <button
               onClick={() => handleViewChange('clients')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap ${
                 selectedView === 'clients'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
@@ -786,7 +786,7 @@ export function ProjectBoard() {
             {isAdmin && (
               <button
                 onClick={() => handleViewChange('admin')}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
                   selectedView === 'admin'
                     ? 'bg-red-600 text-white shadow-sm'
                     : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
@@ -858,7 +858,7 @@ export function ProjectBoard() {
                             <button
                               key={sub.id}
                               onClick={() => setSelectedStatus(sub.id)}
-                              className={`w-full text-left pl-6 pr-4 py-2.5 rounded-lg font-medium transition-all duration-150 ${
+                              className={`w-full text-left pl-6 pr-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-150 ${
                                 selectedStatus === sub.id
                                   ? 'bg-blue-600 text-white shadow-md'
                                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -891,7 +891,7 @@ export function ProjectBoard() {
                     ) : (
                       <button
                         onClick={() => setSelectedStatus(status.id)}
-                        className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all duration-150 ${
+                        className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
                           selectedStatus === status.id
                             ? 'bg-blue-600 text-white shadow-md'
                             : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
