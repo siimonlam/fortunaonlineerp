@@ -1,9 +1,14 @@
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './components/LoginPage';
 import { ProjectBoard } from './components/ProjectBoard';
+import { ClientOnboarding } from './components/ClientOnboarding';
 
 function AppContent() {
   const { user, loading } = useAuth();
+
+  if (window.location.pathname === '/onboarding') {
+    return <ClientOnboarding />;
+  }
 
   if (loading) {
     return (
