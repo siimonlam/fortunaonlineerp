@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Building2, User, Mail, Phone, Briefcase, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -13,6 +13,16 @@ export function ClientOnboarding() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadUserEmail = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setFormData(prev => ({ ...prev, email: user.email || '' }));
+      }
+    };
+    loadUserEmail();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -134,7 +144,8 @@ export function ClientOnboarding() {
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              disabled
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-600 cursor-not-allowed"
               placeholder="your.email@company.com"
             />
           </div>
