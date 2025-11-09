@@ -138,12 +138,62 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
   }
 
   async function handleToggleComplete(taskId: string, completed: boolean) {
+    const newCompletedStatus = !completed;
     const { error } = await supabase
       .from('tasks')
-      .update({ completed: !completed, updated_at: new Date().toISOString() })
+      .update({ completed: newCompletedStatus, updated_at: new Date().toISOString() })
       .eq('id', taskId);
 
-    if (!error) loadTasks();
+    if (!error) {
+      loadTasks();
+
+      if (newCompletedStatus) {
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+          await triggerTaskCompletedAutomation(task.title);
+        }
+      }
+    }
+  }
+
+  async function triggerTaskCompletedAutomation(taskTitle: string) {
+    try {
+      const { data: projectData } = await supabase
+        .from('projects')
+        .select('id, project_type_id, status_id')
+        .eq('id', project.id)
+        .maybeSingle();
+
+      if (!projectData || !projectData.status_id) return;
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/execute-automation-rules`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          project_id: project.id,
+          project_type_id: projectData.project_type_id,
+          status_id: projectData.status_id,
+          trigger_type: 'task_completed',
+          trigger_data: { task_name: taskTitle }
+        })
+      });
+
+      if (!response.ok) {
+        console.error('Failed to trigger automation:', await response.text());
+      } else {
+        const result = await response.json();
+        console.log('Automation triggered:', result);
+        if (result.executed > 0) {
+          setTimeout(() => loadTasks(), 1000);
+        }
+      }
+    } catch (error) {
+      console.error('Error triggering automation:', error);
+    }
   }
 
   async function handleDeleteTask(taskId: string) {
