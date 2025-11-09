@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, Edit2, Trash2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 
@@ -180,6 +180,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
   const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [showCompletedTasks, setShowCompletedTasks] = useState(true);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState({
+    title: '',
+    description: '',
+    deadline: '',
+    assignedTo: '',
+  });
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -612,6 +620,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       if (error) throw error;
       if (data) {
         setTasks([...tasks, data]);
+        await logTaskHistory(data.id, data.title, 'created', null, null);
         setNewTask({ title: '', description: '', deadline: '', assignedTo: '' });
         setShowAddTask(false);
       }
@@ -623,19 +632,21 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
   async function handleToggleTask(taskId: string, completed: boolean) {
     try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
       const { error } = await supabase
         .from('tasks')
-        .update({ completed })
+        .update({ completed, updated_at: new Date().toISOString() })
         .eq('id', taskId);
 
       if (error) throw error;
       setTasks(tasks.map(t => t.id === taskId ? { ...t, completed } : t));
 
+      await logTaskHistory(taskId, task.title, 'completed', !completed, completed);
+
       if (completed) {
-        const task = tasks.find(t => t.id === taskId);
-        if (task) {
-          await triggerTaskCompletedAutomation(task.title);
-        }
+        await triggerTaskCompletedAutomation(task.title);
       }
     } catch (error: any) {
       console.error('Error updating task:', error);
@@ -705,20 +716,31 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     }
   }
 
-  async function handleUpdateTask(taskId: string, updates: { title: string; description: string; deadline: string; assigned_to: string }) {
-    if (!updates.title.trim()) {
+  async function handleUpdateTask(taskId: string) {
+    if (!editingTask.title.trim()) {
       alert('Task title is required');
       return;
     }
 
     try {
+      const oldTask = tasks.find(t => t.id === taskId);
+      const changes: string[] = [];
+
+      if (oldTask) {
+        if (oldTask.title !== editingTask.title) changes.push(`title changed from "${oldTask.title}" to "${editingTask.title}"`);
+        if (oldTask.description !== editingTask.description) changes.push('description updated');
+        if (oldTask.deadline !== editingTask.deadline) changes.push('deadline updated');
+        if (oldTask.assigned_to !== editingTask.assignedTo) changes.push('assignee updated');
+      }
+
       const { error } = await supabase
         .from('tasks')
         .update({
-          title: updates.title,
-          description: updates.description || null,
-          deadline: updates.deadline || null,
-          assigned_to: updates.assigned_to || null,
+          title: editingTask.title,
+          description: editingTask.description || null,
+          deadline: editingTask.deadline || null,
+          assigned_to: editingTask.assignedTo || null,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', taskId);
 
@@ -733,6 +755,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       if (updatedTask) {
         setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
       }
+
+      if (changes.length > 0 && oldTask) {
+        await logTaskHistory(taskId, oldTask.title, 'updated', null, null, changes.join(', '));
+      }
+
       setEditingTaskId(null);
     } catch (error: any) {
       console.error('Error updating task:', error);
@@ -744,16 +771,56 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     if (!confirm('Are you sure you want to delete this task?')) return;
 
     try {
+      const task = tasks.find(t => t.id === taskId);
       const { error } = await supabase
         .from('tasks')
         .delete()
         .eq('id', taskId);
 
       if (error) throw error;
+
+      if (task) {
+        await logTaskHistory(taskId, task.title, 'deleted', null, null);
+      }
+
       setTasks(tasks.filter(t => t.id !== taskId));
     } catch (error: any) {
       console.error('Error deleting task:', error);
       alert(`Failed to delete task: ${error.message}`);
+    }
+  }
+
+  async function logTaskHistory(
+    taskId: string,
+    taskTitle: string,
+    action: string,
+    oldValue: any = null,
+    newValue: any = null,
+    details?: string
+  ) {
+    try {
+      let changeDescription = '';
+      if (action === 'completed') {
+        changeDescription = newValue ? `Task "${taskTitle}" marked as completed` : `Task "${taskTitle}" marked as incomplete`;
+      } else if (action === 'updated') {
+        changeDescription = `Task "${taskTitle}" updated: ${details}`;
+      } else if (action === 'deleted') {
+        changeDescription = `Task "${taskTitle}" deleted`;
+      } else if (action === 'created') {
+        changeDescription = `Task "${taskTitle}" created`;
+      }
+
+      await supabase.from('project_history').insert({
+        project_id: project.id,
+        user_id: user?.id,
+        action: 'task_' + action,
+        field_name: 'task',
+        old_value: oldValue !== null ? String(oldValue) : null,
+        new_value: newValue !== null ? String(newValue) : null,
+        change_description: changeDescription,
+      });
+    } catch (error) {
+      console.error('Error logging task history:', error);
     }
   }
 
@@ -1379,15 +1446,26 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
           <div className="space-y-4 mt-6">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <h3 className="text-lg font-semibold text-slate-900">Tasks</h3>
-              {canEdit && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddTask(!showAddTask)}
-                  className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:text-slate-900 text-sm rounded-lg hover:bg-slate-100 transition-colors"
+                  title={showCompletedTasks ? 'Hide completed tasks' : 'Show completed tasks'}
                 >
-                  {showAddTask ? 'Cancel' : '+ Add Task'}
+                  {showCompletedTasks ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showCompletedTasks ? 'Hide' : 'Show'} Completed
                 </button>
-              )}
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddTask(!showAddTask)}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    {showAddTask ? 'Cancel' : '+ Add Task'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {showAddTask && (
@@ -1451,50 +1529,155 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
               {tasks.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-4">No tasks yet</p>
               ) : (
-                tasks.map(task => (
-                  <div key={task.id} className="bg-white border border-slate-200 rounded-lg p-3">
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onChange={(e) => handleToggleTask(task.id, e.target.checked)}
-                        disabled={!canEdit}
-                        className="w-4 h-4 mt-1 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium ${task.completed ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
-                          {task.title}
-                        </p>
-                        {task.description && (
-                          <p className="text-xs text-slate-600 mt-1">{task.description}</p>
-                        )}
-                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
-                          {task.deadline && (
-                            <span className={
-                              new Date(task.deadline) < new Date() && !task.completed
-                                ? 'text-red-600 font-medium'
-                                : ''
-                            }>
-                              Due: {new Date(task.deadline).toLocaleDateString()}
-                            </span>
-                          )}
-                          {task.staff && (
-                            <span>Assigned to: {task.staff.full_name || task.staff.email}</span>
+                (() => {
+                  const now = new Date();
+                  const filteredTasks = showCompletedTasks
+                    ? tasks
+                    : tasks.filter(t => !t.completed);
+
+                  const sortedTasks = [...filteredTasks].sort((a, b) => {
+                    if (a.completed !== b.completed) {
+                      return a.completed ? 1 : -1;
+                    }
+
+                    if (!a.deadline && !b.deadline) return 0;
+                    if (!a.deadline) return 1;
+                    if (!b.deadline) return -1;
+
+                    const aDate = new Date(a.deadline);
+                    const bDate = new Date(b.deadline);
+
+                    return aDate.getTime() - bDate.getTime();
+                  });
+
+                  return sortedTasks.map(task => (
+                    <div key={task.id} className="bg-white border border-slate-200 rounded-lg p-3">
+                      {editingTaskId === task.id ? (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Task Title *</label>
+                            <input
+                              type="text"
+                              value={editingTask.title}
+                              onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                              className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">Description</label>
+                            <textarea
+                              value={editingTask.description}
+                              onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
+                              className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[50px]"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-700 mb-1">Due Date</label>
+                              <input
+                                type="date"
+                                value={editingTask.deadline}
+                                onChange={(e) => setEditingTask({ ...editingTask, deadline: e.target.value })}
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-700 mb-1">Assign To</label>
+                              <select
+                                value={editingTask.assignedTo}
+                                onChange={(e) => setEditingTask({ ...editingTask, assignedTo: e.target.value })}
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Unassigned</option>
+                                {staff.map(s => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.full_name || s.email}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateTask(task.id)}
+                              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingTaskId(null)}
+                              className="px-3 py-1.5 bg-slate-200 text-slate-700 text-sm rounded hover:bg-slate-300 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={task.completed}
+                            onChange={(e) => handleToggleTask(task.id, e.target.checked)}
+                            disabled={!canEdit}
+                            className="w-4 h-4 mt-1 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium ${task.completed ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                              {task.title}
+                            </p>
+                            {task.description && (
+                              <p className="text-xs text-slate-600 mt-1">{task.description}</p>
+                            )}
+                            <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                              {task.deadline && (
+                                <span className={
+                                  new Date(task.deadline) < now && !task.completed
+                                    ? 'text-red-600 font-medium'
+                                    : ''
+                                }>
+                                  Due: {new Date(task.deadline).toLocaleDateString()}
+                                </span>
+                              )}
+                              {task.staff && (
+                                <span>Assigned to: {task.staff.full_name || task.staff.email}</span>
+                              )}
+                            </div>
+                          </div>
+                          {canEdit && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingTaskId(task.id);
+                                  setEditingTask({
+                                    title: task.title,
+                                    description: task.description || '',
+                                    deadline: task.deadline || '',
+                                    assignedTo: task.assigned_to || '',
+                                  });
+                                }}
+                                className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Edit task"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="p-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Delete task"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           )}
                         </div>
-                      </div>
-                      {canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteTask(task.id)}
-                          className="text-red-600 hover:text-red-800 text-xs"
-                        >
-                          Delete
-                        </button>
                       )}
                     </div>
-                  </div>
-                ))
+                  ));
+                })()
               )}
             </div>
           </div>
