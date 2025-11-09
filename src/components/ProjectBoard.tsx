@@ -176,7 +176,8 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'tasks' },
         (payload) => {
           console.log('✅ Tasks changed:', payload.eventType);
-          loadData();
+          // Task changes don't affect the board view since tasks are loaded in the modal
+          // Skip reloading to prevent losing the current project type selection
         }
       )
       .on(
@@ -252,6 +253,7 @@ export function ProjectBoard() {
   }
 
   async function loadData() {
+    console.log('[loadData] Called. Current selectedProjectType:', selectedProjectType);
     console.log('Current user ID:', user?.id);
 
     const [projectTypesRes, statusesRes, projectsRes, clientsRes, staffRes, statusManagersRes, projectTypePermsRes] = await Promise.all([
@@ -327,8 +329,13 @@ export function ProjectBoard() {
 
     if (projectTypesRes.data) {
       setProjectTypes(projectTypesRes.data);
+      // Only set default project type if none is selected AND this is the initial load
+      // Preserve the current selection when reloading data
       if (!selectedProjectType && projectTypesRes.data.length > 0) {
+        console.log('[loadData] No project type selected, setting to first:', projectTypesRes.data[0].name);
         setSelectedProjectType(projectTypesRes.data[0].id);
+      } else {
+        console.log('[loadData] Preserving current project type selection:', selectedProjectType);
       }
     }
     if (statusesRes.data) {
