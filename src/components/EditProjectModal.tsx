@@ -630,9 +630,78 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
       if (error) throw error;
       setTasks(tasks.map(t => t.id === taskId ? { ...t, completed } : t));
+
+      if (completed) {
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+          await triggerTaskCompletedAutomation(task.title);
+        }
+      }
     } catch (error: any) {
       console.error('Error updating task:', error);
       alert(`Failed to update task: ${error.message}`);
+    }
+  }
+
+  async function triggerTaskCompletedAutomation(taskTitle: string) {
+    try {
+      console.log('Triggering automation for task:', taskTitle);
+
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('id, project_type_id, status_id')
+        .eq('id', project.id)
+        .maybeSingle();
+
+      if (projectError) {
+        console.error('Error fetching project data:', projectError);
+        return;
+      }
+
+      if (!projectData || !projectData.status_id) {
+        console.log('No project data or status_id found');
+        return;
+      }
+
+      console.log('Project data:', projectData);
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/execute-automation-rules`;
+      console.log('API URL:', apiUrl);
+
+      const payload = {
+        project_id: project.id,
+        project_type_id: projectData.project_type_id,
+        status_id: projectData.status_id,
+        trigger_type: 'task_completed',
+        trigger_data: { task_name: taskTitle }
+      };
+
+      console.log('Payload:', JSON.stringify(payload, null, 2));
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to trigger automation:', errorText);
+      } else {
+        const result = await response.json();
+        console.log('Automation result:', result);
+        if (result.executed > 0) {
+          console.log('Reloading tasks after successful automation...');
+          setTimeout(() => loadTasks(), 1000);
+        }
+      }
+    } catch (error) {
+      console.error('Error triggering automation:', error);
     }
   }
 
