@@ -21,35 +21,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+        console.log('Initial session:', session?.user?.email || 'No user');
+        setSession(session);
+        setUser(session?.user ?? null);
+      } catch (err) {
+        console.error('Error in initAuth:', err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     initAuth();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
+        console.log('Auth state change:', event, session?.user?.email || 'No user');
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          const { data: existingStaff } = await supabase
-            .from('staff')
-            .select('id')
-            .eq('id', session.user.id)
-            .maybeSingle();
+          try {
+            const { data: existingStaff, error: fetchError } = await supabase
+              .from('staff')
+              .select('id')
+              .eq('id', session.user.id)
+              .maybeSingle();
 
-          if (!existingStaff) {
-            await supabase.from('staff').insert({
-              id: session.user.id,
-              email: session.user.email!,
-              full_name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
-              avatar_url: session.user.user_metadata.avatar_url,
-            });
+            if (fetchError) {
+              console.error('Error fetching staff:', fetchError);
+            }
+
+            if (!existingStaff && !fetchError) {
+              const { error: insertError } = await supabase.from('staff').insert({
+                id: session.user.id,
+                email: session.user.email!,
+                full_name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
+                avatar_url: session.user.user_metadata.avatar_url,
+              });
+
+              if (insertError) {
+                console.error('Error inserting staff:', insertError);
+              }
+            }
+          } catch (err) {
+            console.error('Error in auth state change:', err);
           }
         }
       })();
@@ -69,10 +91,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    console.log('Sign in result:', data?.user?.email || 'No user', error);
     if (error) throw error;
   };
 
