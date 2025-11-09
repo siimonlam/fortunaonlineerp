@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -760,27 +760,38 @@ export function ProjectBoard() {
           <div className="flex gap-2">
             {projectTypes
               .filter((type) => isAdmin || projectTypePermissions.includes(type.id))
-              .map((type) => (
-                <button
-                  key={type.id}
-                  onClick={() => handleProjectTypeChange(type.id)}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap ${
-                    selectedProjectType === type.id && selectedView === 'projects'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                  }`}
-                >
-                  {type.name}
-                </button>
-              ))}
+              .map((type) => {
+                const getIcon = () => {
+                  if (type.name === 'Funding Project') return <DollarSign className="w-4 h-4" />;
+                  if (type.name === 'Com Sec') return <FileText className="w-4 h-4" />;
+                  if (type.name === 'Marketing') return <TrendingUp className="w-4 h-4" />;
+                  return <LayoutGrid className="w-4 h-4" />;
+                };
+
+                return (
+                  <button
+                    key={type.id}
+                    onClick={() => handleProjectTypeChange(type.id)}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
+                      selectedProjectType === type.id && selectedView === 'projects'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {getIcon()}
+                    {type.name}
+                  </button>
+                );
+              })}
             <button
               onClick={() => handleViewChange('clients')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
                 selectedView === 'clients'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
             >
+              <Users className="w-4 h-4" />
               Clients
             </button>
             {isAdmin && (
