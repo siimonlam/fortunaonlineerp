@@ -40,17 +40,26 @@ export function AdminPage() {
   const [canView, setCanView] = useState(true);
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fundingProjectTypeId, setFundingProjectTypeId] = useState<string>('');
 
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
-    const [staffRes, clientsRes, permissionsRes] = await Promise.all([
+    const [staffRes, clientsRes, permissionsRes, projectTypesRes] = await Promise.all([
       supabase.from('staff').select('id, email, full_name'),
       supabase.from('clients').select('id, name, client_number').order('client_number'),
       supabase.from('client_permissions').select('*'),
+      supabase.from('project_types').select('id, name')
     ]);
+
+    if (projectTypesRes.data) {
+      const fundingType = projectTypesRes.data.find(pt => pt.name === 'Funding Project');
+      if (fundingType) {
+        setFundingProjectTypeId(fundingType.id);
+      }
+    }
 
     if (staffRes.data) {
       const rolesRes = await supabase.from('user_roles').select('user_id, role');
@@ -404,7 +413,10 @@ export function AdminPage() {
 
         {currentView === 'automation' && (
           <div>
-            <AutomationPage />
+            <AutomationPage
+              projectTypeId={fundingProjectTypeId}
+              projectTypeName="Funding Project"
+            />
           </div>
         )}
       </div>

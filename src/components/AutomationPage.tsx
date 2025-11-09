@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Power, Calendar, CheckSquare, Tag, Zap } from 'lucide-react';
+import { Plus, Trash2, Power, Calendar, CheckSquare, Tag, Zap, Edit2 } from 'lucide-react';
 
 interface AutomationRule {
   id: string;
@@ -53,7 +53,12 @@ const ACTION_TYPES = [
   { value: 'remove_label', label: 'Remove a label' }
 ];
 
-export function AutomationPage() {
+interface AutomationPageProps {
+  projectTypeId?: string;
+  projectTypeName?: string;
+}
+
+export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Project' }: AutomationPageProps) {
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
@@ -61,15 +66,20 @@ export function AutomationPage() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [loading, setLoading] = useState(false);
   const [showNewRuleForm, setShowNewRuleForm] = useState(false);
+  const [editingRule, setEditingRule] = useState<AutomationRule | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
-    project_type_id: '',
+    project_type_id: projectTypeId || '',
     main_status: '',
     trigger_type: 'hkpc_date_set' as AutomationRule['trigger_type'],
     trigger_config: {},
     action_type: 'add_task' as AutomationRule['action_type'],
-    action_config: {}
+    action_config: {
+      due_date_base: '',
+      due_date_offset: 0,
+      due_date_direction: 'after'
+    }
   });
 
   useEffect(() => {
@@ -77,8 +87,14 @@ export function AutomationPage() {
   }, []);
 
   async function loadData() {
+    let rulesQuery = supabase.from('automation_rules').select('*').order('created_at', { ascending: false });
+
+    if (projectTypeId) {
+      rulesQuery = rulesQuery.eq('project_type_id', projectTypeId);
+    }
+
     const [rulesRes, typesRes, labelsRes, staffRes, statusesRes] = await Promise.all([
-      supabase.from('automation_rules').select('*').order('created_at', { ascending: false }),
+      rulesQuery,
       supabase.from('project_types').select('id, name'),
       supabase.from('labels').select('*').order('order_index'),
       supabase.from('staff').select('id, email, full_name'),
@@ -128,35 +144,62 @@ export function AutomationPage() {
 
     setLoading(true);
 
-    const { error } = await supabase
-      .from('automation_rules')
-      .insert({
-        name: formData.name,
-        project_type_id: formData.project_type_id || null,
-        main_status: formData.main_status,
-        trigger_type: formData.trigger_type,
-        trigger_config: formData.trigger_config,
-        action_type: formData.action_type,
-        action_config: formData.action_config
-      });
+    const ruleData = {
+      name: formData.name,
+      project_type_id: formData.project_type_id || null,
+      main_status: formData.main_status,
+      trigger_type: formData.trigger_type,
+      trigger_config: formData.trigger_config,
+      action_type: formData.action_type,
+      action_config: formData.action_config,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = editingRule
+      ? await supabase.from('automation_rules').update(ruleData).eq('id', editingRule.id)
+      : await supabase.from('automation_rules').insert(ruleData);
 
     if (error) {
-      alert('Error creating rule: ' + error.message);
+      alert(`Error ${editingRule ? 'updating' : 'creating'} rule: ` + error.message);
     } else {
       setShowNewRuleForm(false);
+      setEditingRule(null);
       setFormData({
         name: '',
-        project_type_id: '',
+        project_type_id: projectTypeId || '',
         main_status: '',
         trigger_type: 'hkpc_date_set',
         trigger_config: {},
         action_type: 'add_task',
-        action_config: {}
+        action_config: {
+          due_date_base: '',
+          due_date_offset: 0,
+          due_date_direction: 'after'
+        }
       });
       await loadData();
     }
 
     setLoading(false);
+  }
+
+  function editRule(rule: AutomationRule) {
+    setEditingRule(rule);
+    setFormData({
+      name: rule.name,
+      project_type_id: rule.project_type_id || '',
+      main_status: rule.main_status,
+      trigger_type: rule.trigger_type,
+      trigger_config: rule.trigger_config || {},
+      action_type: rule.action_type,
+      action_config: {
+        ...rule.action_config,
+        due_date_base: rule.action_config?.due_date_base || '',
+        due_date_offset: rule.action_config?.due_date_offset || 0,
+        due_date_direction: rule.action_config?.due_date_direction || 'after'
+      }
+    });
+    setShowNewRuleForm(true);
   }
 
   function renderTriggerDetails(rule: AutomationRule) {
@@ -182,7 +225,14 @@ export function AutomationPage() {
     const actionLabel = ACTION_TYPES.find(a => a.value === rule.action_type)?.label || rule.action_type;
 
     if (rule.action_type === 'add_task' && rule.action_config.title) {
-      return `${actionLabel}: "${rule.action_config.title}"`;
+      let details = `${actionLabel}: "${rule.action_config.title}"`;
+      if (rule.action_config.due_date_base) {
+        const offset = rule.action_config.due_date_offset || 0;
+        const direction = rule.action_config.due_date_direction || 'after';
+        const dateLabel = rule.action_config.due_date_base.replace(/_/g, ' ');
+        details += ` (Due: ${offset} days ${direction} ${dateLabel})`;
+      }
+      return details;
     }
 
     if ((rule.action_type === 'add_label' || rule.action_type === 'remove_label') && rule.action_config.label_id) {
@@ -197,8 +247,8 @@ export function AutomationPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Automation Rules</h2>
-          <p className="text-slate-600 text-sm mt-1">Configure automated actions for funding projects</p>
+          <h2 className="text-2xl font-bold text-slate-900">{projectTypeName} Automation</h2>
+          <p className="text-slate-600 text-sm mt-1">Configure automated actions for {projectTypeName.toLowerCase()} projects</p>
         </div>
         <button
           onClick={() => setShowNewRuleForm(true)}
@@ -251,6 +301,13 @@ export function AutomationPage() {
 
                 <div className="flex items-center gap-2 ml-4">
                   <button
+                    onClick={() => editRule(rule)}
+                    className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
                     onClick={() => toggleRuleActive(rule.id, rule.is_active)}
                     className={`p-2 rounded-lg transition-colors ${
                       rule.is_active
@@ -279,9 +336,12 @@ export function AutomationPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white">
-              <h3 className="text-xl font-bold text-slate-900">New Automation Rule</h3>
+              <h3 className="text-xl font-bold text-slate-900">{editingRule ? 'Edit Automation Rule' : 'New Automation Rule'}</h3>
               <button
-                onClick={() => setShowNewRuleForm(false)}
+                onClick={() => {
+                  setShowNewRuleForm(false);
+                  setEditingRule(null);
+                }}
                 className="text-slate-400 hover:text-slate-600"
               >
                 ✕
@@ -448,18 +508,60 @@ export function AutomationPage() {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Days Until Due</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.action_config.days_until_due || ''}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          action_config: { ...formData.action_config, days_until_due: parseInt(e.target.value) || 0 }
-                        })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                    <div className="border-t border-slate-300 pt-3 mt-3">
+                      <label className="block text-sm font-semibold text-slate-900 mb-3">Task Due Date (Optional)</label>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-2">Base Date Field</label>
+                          <select
+                            value={formData.action_config.due_date_base || ''}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              action_config: { ...formData.action_config, due_date_base: e.target.value }
+                            })}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          >
+                            <option value="">No due date</option>
+                            <option value="project_end_date">Project End Date</option>
+                            <option value="next_hkpc_due_date">Next HKPC Due Date</option>
+                            <option value="start_date">Start Date</option>
+                            <option value="project_start_date">Project Start Date</option>
+                            <option value="submission_date">Submission Date</option>
+                            <option value="approval_date">Approval Date</option>
+                          </select>
+                        </div>
+                        {formData.action_config.due_date_base && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-2">Number of Days</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.action_config.due_date_offset || 0}
+                                onChange={(e) => setFormData({
+                                  ...formData,
+                                  action_config: { ...formData.action_config, due_date_offset: parseInt(e.target.value) || 0 }
+                                })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-2">Before/After</label>
+                              <select
+                                value={formData.action_config.due_date_direction || 'after'}
+                                onChange={(e) => setFormData({
+                                  ...formData,
+                                  action_config: { ...formData.action_config, due_date_direction: e.target.value }
+                                })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              >
+                                <option value="before">Before</option>
+                                <option value="after">After</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -486,7 +588,10 @@ export function AutomationPage() {
 
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setShowNewRuleForm(false)}
+                  onClick={() => {
+                    setShowNewRuleForm(false);
+                    setEditingRule(null);
+                  }}
                   className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                 >
                   Cancel
@@ -496,7 +601,7 @@ export function AutomationPage() {
                   disabled={loading}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
-                  {loading ? 'Creating...' : 'Create Rule'}
+                  {loading ? (editingRule ? 'Updating...' : 'Creating...') : (editingRule ? 'Update Rule' : 'Create Rule')}
                 </button>
               </div>
             </div>
