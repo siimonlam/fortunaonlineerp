@@ -1023,7 +1023,7 @@ export function ProjectBoard() {
           <div className="p-8">
             <div className="flex justify-between items-center mb-6">
               <div className="flex-1">
-                {!isAdminSection && (
+                {!isAdminSection && !isComSecSection && (
                   <>
                     <h2 className="text-2xl font-bold text-slate-900">
                       {isClientSection ? 'Clients' : (
