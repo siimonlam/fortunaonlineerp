@@ -1,5 +1,5 @@
 import { X, Printer, Download } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 interface InvoiceItem {
@@ -31,6 +31,7 @@ export function InvoicePreview({
   onSave
 }: InvoicePreviewProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const total = items.reduce((sum, item) => sum + item.amount, 0);
 
@@ -69,25 +70,40 @@ export function InvoicePreview({
   };
 
   const generatePDF = async () => {
-    if (!printRef.current) return null;
+    if (!printRef.current) {
+      console.error('Print reference not available');
+      return null;
+    }
 
     try {
+      console.log('Starting PDF generation...');
       const html2pdf = (await import('html2pdf.js')).default;
+
+      if (!html2pdf) {
+        throw new Error('html2pdf library not loaded');
+      }
 
       const element = printRef.current;
       const opt = {
         margin: 10,
         filename: `invoice-${invoiceNumber}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
+      console.log('Generating PDF blob...');
       const pdfBlob = await html2pdf().set(opt).from(element).output('blob');
+      console.log('PDF blob generated successfully:', pdfBlob.size, 'bytes');
       return pdfBlob;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
+      console.error('Error details:', error.message, error.stack);
+      alert(`Failed to generate PDF: ${error.message || 'Unknown error'}. Please try again.`);
       return null;
     }
   };
@@ -104,15 +120,24 @@ export function InvoicePreview({
   };
 
   const handleSaveToDatabase = async () => {
-    if (!onSave) return;
+    if (!onSave || isSaving) return;
 
-    const pdfBlob = await generatePDF();
-    if (!pdfBlob) return;
-
+    setIsSaving(true);
     try {
+      const pdfBlob = await generatePDF();
+      if (!pdfBlob) {
+        setIsSaving(false);
+        return;
+      }
+
+      console.log('Saving invoice to database...');
       await onSave(invoiceNumber, pdfBlob);
-    } catch (error) {
+      console.log('Invoice saved successfully');
+    } catch (error: any) {
       console.error('Error saving invoice:', error);
+      alert(`Error saving invoice: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -124,9 +149,10 @@ export function InvoicePreview({
           <div className="flex gap-2">
             <button
               onClick={handleSaveToDatabase}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium"
+              disabled={isSaving}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              OK and Save
+              {isSaving ? 'Saving...' : 'OK and Save'}
             </button>
             <button
               onClick={handlePrint}
