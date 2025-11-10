@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt } from 'lucide-react';
 import { InvoicePreview } from './InvoicePreview';
+import { DocumentFolderModal } from './DocumentFolderModal';
 
 interface ComSecClient {
   id: string;
@@ -120,6 +121,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   const [selectedClientForInvoice, setSelectedClientForInvoice] = useState<ComSecClient | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [invoicePreviewData, setInvoicePreviewData] = useState<any>(null);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [documentModalCompanyCode, setDocumentModalCompanyCode] = useState('');
 
   useEffect(() => {
     loadStaff();
@@ -986,18 +989,18 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-semibold text-slate-900 uppercase">Quick Access</h3>
-                        <a
-                          href={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/comsec-documents/${editingItem.company_code}/`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => {
+                            setDocumentModalCompanyCode(editingItem.company_code!);
+                            setShowDocumentModal(true);
+                          }}
                           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                          onClick={(e) => e.stopPropagation()}
                         >
                           <FileText className="w-4 h-4" />
                           Open Document Folder
-                        </a>
+                        </button>
                       </div>
-                      <p className="text-xs text-slate-600">Access all documents for {editingItem.company_code}</p>
+                      <p className="text-xs text-slate-600">Browse and manage documents for {editingItem.company_code}</p>
                     </div>
                   )}
 
@@ -1391,6 +1394,16 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
               console.error('Error saving invoice:', error);
               alert(`Error saving invoice: ${error.message}`);
             }
+          }}
+        />
+      )}
+
+      {showDocumentModal && documentModalCompanyCode && (
+        <DocumentFolderModal
+          companyCode={documentModalCompanyCode}
+          onClose={() => {
+            setShowDocumentModal(false);
+            setDocumentModalCompanyCode('');
           }}
         />
       )}
