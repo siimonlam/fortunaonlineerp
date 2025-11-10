@@ -17,6 +17,7 @@ interface ComSecClient {
   directors: any;
   members: any;
   ar_due_date: string | null;
+  reminder_days: number | null;
   remarks: string | null;
   contact_person: string | null;
   email: string | null;
@@ -222,59 +223,100 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
         </div>
 
         <div className="grid gap-4">
-          {filteredClients.map(client => (
-            <div key={client.id} className="bg-white border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-bold text-slate-900">{client.company_name}</h3>
-                    {client.company_code && (
-                      <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded">
-                        {client.company_code}
+          {filteredClients.map(client => {
+            const clientInvoices = invoices.filter(inv => inv.comsec_client_id === client.id);
+            const totalInvoiced = clientInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+            const paidInvoices = clientInvoices.filter(inv => inv.status === 'Paid');
+            const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+            const pendingInvoices = clientInvoices.filter(inv => inv.status !== 'Paid');
+            const totalPending = pendingInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+
+            return (
+              <div
+                key={client.id}
+                className="bg-white border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-bold text-slate-900">{client.company_name}</h3>
+                      {client.company_code && (
+                        <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded">
+                          {client.company_code}
+                        </span>
+                      )}
+                      <span className={`px-2 py-1 text-xs font-medium rounded ${
+                        client.company_status === 'Active' ? 'bg-green-100 text-green-700' :
+                        client.company_status === 'Dormant' ? 'bg-gray-100 text-gray-700' :
+                        'bg-slate-100 text-slate-700'
+                      }`}>
+                        {client.company_status}
                       </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      {client.brn && <div><span className="text-slate-500">BRN:</span> <span className="text-slate-900">{client.brn}</span></div>}
+                      {client.incorporation_date && <div><span className="text-slate-500">Incorporated:</span> <span className="text-slate-900">{new Date(client.incorporation_date).toLocaleDateString()}</span></div>}
+                      {client.case_officer && <div><span className="text-slate-500">Case Officer:</span> <span className="text-slate-900">{client.case_officer.full_name}</span></div>}
+                      {client.anniversary_month && <div><span className="text-slate-500">Anniversary:</span> <span className="text-slate-900">{client.anniversary_month}</span></div>}
+                      {client.nar1_status && <div><span className="text-slate-500">NAR1 Status:</span> <span className="text-slate-900">{client.nar1_status}</span></div>}
+                      {client.ar_due_date && <div><span className="text-slate-500">AR Due:</span> <span className="text-slate-900">{new Date(client.ar_due_date).toLocaleDateString()}</span></div>}
+                    </div>
+                    {client.remarks && <p className="mt-3 text-sm text-slate-600">{client.remarks}</p>}
+
+                    {clientInvoices.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-slate-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <DollarSign className="w-4 h-4 text-slate-500" />
+                          <span className="text-xs font-semibold text-slate-600 uppercase">Invoice Summary</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <div className="text-xs text-slate-500">Total Invoiced</div>
+                            <div className="font-semibold text-slate-900">HKD ${totalInvoiced.toLocaleString()}</div>
+                            <div className="text-xs text-slate-500">{clientInvoices.length} invoice(s)</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500">Paid</div>
+                            <div className="font-semibold text-green-700">HKD ${totalPaid.toLocaleString()}</div>
+                            <div className="text-xs text-slate-500">{paidInvoices.length} invoice(s)</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500">Pending</div>
+                            <div className="font-semibold text-orange-700">HKD ${totalPending.toLocaleString()}</div>
+                            <div className="text-xs text-slate-500">{pendingInvoices.length} invoice(s)</div>
+                          </div>
+                        </div>
+                      </div>
                     )}
-                    <span className={`px-2 py-1 text-xs font-medium rounded ${
-                      client.company_status === 'Active' ? 'bg-green-100 text-green-700' :
-                      client.company_status === 'Dormant' ? 'bg-gray-100 text-gray-700' :
-                      'bg-slate-100 text-slate-700'
-                    }`}>
-                      {client.company_status}
-                    </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                    {client.brn && <div><span className="text-slate-500">BRN:</span> <span className="text-slate-900">{client.brn}</span></div>}
-                    {client.incorporation_date && <div><span className="text-slate-500">Incorporated:</span> <span className="text-slate-900">{new Date(client.incorporation_date).toLocaleDateString()}</span></div>}
-                    {client.case_officer && <div><span className="text-slate-500">Case Officer:</span> <span className="text-slate-900">{client.case_officer.full_name}</span></div>}
-                    {client.anniversary_month && <div><span className="text-slate-500">Anniversary:</span> <span className="text-slate-900">{client.anniversary_month}</span></div>}
-                    {client.nar1_status && <div><span className="text-slate-500">NAR1 Status:</span> <span className="text-slate-900">{client.nar1_status}</span></div>}
-                    {client.ar_due_date && <div><span className="text-slate-500">AR Due:</span> <span className="text-slate-900">{new Date(client.ar_due_date).toLocaleDateString()}</span></div>}
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => { setSelectedClientForInvoice(client); setShowInvoiceModal(true); }}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Create Invoice"
+                    >
+                      <Receipt className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                      className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete('comsec_clients', client.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  {client.remarks && <p className="mt-3 text-sm text-slate-600">{client.remarks}</p>}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { setSelectedClientForInvoice(client); setShowInvoiceModal(true); }}
-                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                    title="Create Invoice"
-                  >
-                    <Receipt className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => { setEditingItem(client); setShowAddModal(true); }}
-                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete('comsec_clients', client.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -735,12 +777,28 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                   activeModule === 'knowledge_base' ? 'Knowledge Base Article' :
                   'Reminder'}
               </h2>
-              <button
-                onClick={() => { setShowAddModal(false); setEditingItem(null); }}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {activeModule === 'clients' && editingItem && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedClientForInvoice(editingItem);
+                      setShowInvoiceModal(true);
+                      setShowAddModal(false);
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                  >
+                    <Receipt className="w-4 h-4" />
+                    Create Invoice
+                  </button>
+                )}
+                <button
+                  onClick={() => { setShowAddModal(false); setEditingItem(null); }}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <form onSubmit={(e) => {
@@ -868,6 +926,37 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">AR Due Date</label>
                       <input name="ar_due_date" type="date" defaultValue={editingItem?.ar_due_date || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    </div>
+                  </div>
+
+                  <div className="border-b border-slate-200 pb-4 mb-4">
+                    <h3 className="text-base font-semibold text-slate-900 mb-3">Important Date Reminders</h3>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-start gap-3">
+                        <Bell className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-blue-900 mb-1">AR Due Date Reminder</p>
+                          <p className="text-xs text-blue-700">
+                            {editingItem?.ar_due_date && editingItem?.reminder_days ? (
+                              <>Reminder will be sent on <strong>{new Date(new Date(editingItem.ar_due_date).getTime() - (editingItem.reminder_days * 24 * 60 * 60 * 1000)).toLocaleDateString()}</strong> ({editingItem.reminder_days} days before AR due date)</>
+                            ) : (
+                              'Set AR due date and reminder days to calculate reminder date'
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Reminder Days Before AR Due Date</label>
+                      <input
+                        name="reminder_days"
+                        type="number"
+                        min="1"
+                        defaultValue={editingItem?.reminder_days || 42}
+                        placeholder="e.g., 42"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">Number of days before AR due date to send reminder (default: 42 days)</p>
                     </div>
                   </div>
 
