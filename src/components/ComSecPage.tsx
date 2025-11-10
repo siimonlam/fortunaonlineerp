@@ -1548,16 +1548,22 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             try {
               const totalAmount = invoicePreviewData.items.reduce((sum: number, item: any) => sum + item.amount, 0);
 
+              const firstService = invoicePreviewData.items[0];
+              const hasServiceDates = firstService && (firstService.startDate || firstService.endDate);
+
               const { data: invoiceData, error: invoiceError } = await supabase
                 .from('comsec_invoices')
                 .insert([{
                   invoice_number: invoicePreviewData.invoiceNumber,
                   comsec_client_id: invoicePreviewData.clientId,
+                  service_id: firstService?.serviceId || null,
                   issue_date: invoicePreviewData.issueDate,
                   due_date: invoicePreviewData.dueDate,
                   amount: totalAmount,
                   status: 'Draft',
                   description: invoicePreviewData.items.map((item: any) => item.description).join(', '),
+                  start_date: firstService?.startDate || null,
+                  end_date: firstService?.endDate || null,
                   remarks: invoicePreviewData.notes,
                   created_by: user?.id
                 }])

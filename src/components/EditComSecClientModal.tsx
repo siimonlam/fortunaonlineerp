@@ -218,26 +218,36 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         status,
         payment_date,
         remarks,
+        description,
         service:comsec_services(*)
       `)
       .eq('comsec_client_id', client.id)
-      .not('service_id', 'is', null)
       .order('created_at', { ascending: false });
 
     if (data) {
-      const subscriptions = data.map(invoice => ({
-        id: invoice.id,
-        service_id: invoice.service_id!,
-        service: invoice.service,
-        company_code: invoice.company_code,
-        invoice_number: invoice.invoice_number,
-        service_date: invoice.service_date,
-        start_date: invoice.start_date,
-        end_date: invoice.end_date,
-        is_paid: invoice.status === 'Paid',
-        paid_date: invoice.payment_date,
-        remarks: invoice.remarks,
-      }));
+      const subscriptions = data
+        .filter(invoice => {
+          return invoice.service_id || invoice.start_date || invoice.end_date || invoice.service_date;
+        })
+        .map(invoice => ({
+          id: invoice.id,
+          service_id: invoice.service_id || 'manual',
+          service: invoice.service || {
+            id: 'manual',
+            service_name: invoice.description || 'Service',
+            service_type: 'manual',
+            description: null,
+            is_active: true
+          },
+          company_code: invoice.company_code,
+          invoice_number: invoice.invoice_number,
+          service_date: invoice.service_date,
+          start_date: invoice.start_date,
+          end_date: invoice.end_date,
+          is_paid: invoice.status === 'Paid',
+          paid_date: invoice.payment_date,
+          remarks: invoice.remarks,
+        }));
       setServiceSubscriptions(subscriptions);
     }
   }
