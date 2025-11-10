@@ -302,7 +302,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
     setIsGeneratingAR1(true);
     try {
-      const response = await fetch('/src/documents/ar1_fillable.pdf');
+      const response = await fetch('/ar1_fillable.pdf');
       const existingPdfBytes = await response.arrayBuffer();
 
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
