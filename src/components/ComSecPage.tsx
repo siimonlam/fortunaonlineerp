@@ -884,8 +884,11 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
       }
 
       if (activeModule === 'clients' && data && data.company_code) {
+        console.log('Attempting to create folders for company code:', data.company_code);
         try {
           const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-comsec-folders`;
+          console.log('Calling edge function:', apiUrl);
+
           const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
@@ -898,19 +901,24 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             })
           });
 
+          console.log('Response status:', response.status);
           const result = await response.json();
           console.log('Folder creation result:', result);
 
           if (!response.ok) {
             console.error('Folder creation failed:', result);
-            alert(`Warning: Client created but folder creation failed. ${result.error || 'Unknown error'}`);
+            alert(`⚠️ Client created but folder creation failed!\n\nError: ${result.error || 'Unknown error'}\n\nCheck console for details.`);
+          } else {
+            console.log('✅ Folders created successfully!');
+            alert(`✅ Client created successfully!\n\n${result.folders_created || 9} folders created for ${data.company_code}`);
           }
-        } catch (folderError) {
+        } catch (folderError: any) {
           console.error('Error creating folders:', folderError);
-          alert('Warning: Client created but folder creation encountered an error.');
+          alert(`⚠️ Warning: Client created but folder creation encountered an error.\n\nError: ${folderError.message}\n\nCheck console for details.`);
         }
       } else if (activeModule === 'clients' && data && !data.company_code) {
-        console.warn('Company code is required to create folders. Skipping folder creation.');
+        console.warn('⚠️ Company code is required to create folders. Skipping folder creation.');
+        alert('⚠️ Note: Company code is required to create document folders.\n\nPlease edit the client and add a company code to create folders.');
       }
     }
 
