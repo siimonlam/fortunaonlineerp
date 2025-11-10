@@ -71,6 +71,16 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
     approvalDate: '',
     nextDueDate: '',
     nextHkpcDueDate: '',
+    companyCode: '',
+    brn: '',
+    incorporationDate: '',
+    caseOfficerId: '',
+    anniversaryMonth: '',
+    companyStatus: 'Active',
+    nar1Status: '',
+    directors: '',
+    members: '',
+    arDueDate: '',
   });
 
   useEffect(() => {
@@ -97,8 +107,49 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !defaultStatus) return;
+    if (!user) return;
 
+    if (projectTypeName === 'Com Sec') {
+      setLoading(true);
+      try {
+        const directorsData = formData.directors.trim() ? JSON.parse(formData.directors) : null;
+        const membersData = formData.members.trim() ? JSON.parse(formData.members) : null;
+
+        const { data, error } = await supabase
+          .from('comsec_clients')
+          .insert({
+            company_code: formData.companyCode.trim() || null,
+            company_name: formData.companyName.trim(),
+            brn: formData.brn.trim() || null,
+            incorporation_date: formData.incorporationDate || null,
+            case_officer_id: formData.caseOfficerId || null,
+            anniversary_month: formData.anniversaryMonth ? parseInt(formData.anniversaryMonth) : null,
+            company_status: formData.companyStatus,
+            nar1_status: formData.nar1Status.trim() || null,
+            directors: directorsData,
+            members: membersData,
+            ar_due_date: formData.arDueDate || null,
+            remarks: formData.description.trim() || null,
+            client_id: client.id,
+            created_by: user.id,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        alert(`Com Sec client created successfully!`);
+        onSuccess();
+      } catch (error: any) {
+        console.error('Error creating Com Sec client:', error);
+        alert(`Failed to create Com Sec client: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (!defaultStatus) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -285,6 +336,133 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
               </select>
             </div>
           </div>
+
+          {projectTypeName === 'Com Sec' && (
+            <>
+              <div className="border-t border-slate-200 pt-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Company Secretary Details</h3>
+
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Company Code</label>
+                    <input
+                      type="text"
+                      value={formData.companyCode}
+                      onChange={(e) => setFormData({ ...formData, companyCode: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Enter company code"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">BRN</label>
+                    <input
+                      type="text"
+                      value={formData.brn}
+                      onChange={(e) => setFormData({ ...formData, brn: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Enter BRN"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Incorporation Date</label>
+                    <input
+                      type="date"
+                      value={formData.incorporationDate}
+                      onChange={(e) => setFormData({ ...formData, incorporationDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Case Officer</label>
+                    <select
+                      value={formData.caseOfficerId}
+                      onChange={(e) => setFormData({ ...formData, caseOfficerId: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="">Select case officer</option>
+                      {staff.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.full_name || s.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Anniversary Month</label>
+                    <select
+                      value={formData.anniversaryMonth}
+                      onChange={(e) => setFormData({ ...formData, anniversaryMonth: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="">Select month</option>
+                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(month => (
+                        <option key={month} value={month}>{new Date(2000, month-1).toLocaleString('default', { month: 'long' })}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Company Status</label>
+                    <select
+                      value={formData.companyStatus}
+                      onChange={(e) => setFormData({ ...formData, companyStatus: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Dormant">Dormant</option>
+                      <option value="Pending Renewal">Pending Renewal</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">NAR1 Status</label>
+                    <input
+                      type="text"
+                      value={formData.nar1Status}
+                      onChange={(e) => setFormData({ ...formData, nar1Status: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Enter NAR1 status"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">AR Due Date</label>
+                    <input
+                      type="date"
+                      value={formData.arDueDate}
+                      onChange={(e) => setFormData({ ...formData, arDueDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Directors (JSON array)</label>
+                    <textarea
+                      value={formData.directors}
+                      onChange={(e) => setFormData({ ...formData, directors: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[80px]"
+                      placeholder='[{"name": "John Doe", "id": "123"}]'
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Members (JSON array)</label>
+                    <textarea
+                      value={formData.members}
+                      onChange={(e) => setFormData({ ...formData, members: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[80px]"
+                      placeholder='[{"name": "Jane Smith", "shares": 100}]'
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           {projectTypeName === 'Funding Project' && (
             <>
