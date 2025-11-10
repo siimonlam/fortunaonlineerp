@@ -206,15 +206,40 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
   async function loadServiceSubscriptions() {
     const { data } = await supabase
-      .from('comsec_client_service_subscriptions')
+      .from('comsec_invoices')
       .select(`
-        *,
+        id,
+        service_id,
+        company_code,
+        invoice_number,
+        service_date,
+        start_date,
+        end_date,
+        status,
+        payment_date,
+        remarks,
         service:comsec_services(*)
       `)
       .eq('comsec_client_id', client.id)
+      .not('service_id', 'is', null)
       .order('created_at', { ascending: false });
 
-    if (data) setServiceSubscriptions(data);
+    if (data) {
+      const subscriptions = data.map(invoice => ({
+        id: invoice.id,
+        service_id: invoice.service_id!,
+        service: invoice.service,
+        company_code: invoice.company_code,
+        invoice_number: invoice.invoice_number,
+        service_date: invoice.service_date,
+        start_date: invoice.start_date,
+        end_date: invoice.end_date,
+        is_paid: invoice.status === 'Paid',
+        paid_date: invoice.payment_date,
+        remarks: invoice.remarks,
+      }));
+      setServiceSubscriptions(subscriptions);
+    }
   }
 
   async function loadInvoices() {
@@ -263,15 +288,15 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     try {
       if (subscriptionData.id) {
         const { error } = await supabase
-          .from('comsec_client_service_subscriptions')
+          .from('comsec_invoices')
           .update({
             company_code: subscriptionData.company_code || null,
             invoice_number: subscriptionData.invoice_number || null,
             service_date: subscriptionData.service_date || null,
             start_date: subscriptionData.start_date || null,
             end_date: subscriptionData.end_date || null,
-            is_paid: subscriptionData.is_paid,
-            paid_date: subscriptionData.paid_date || null,
+            status: subscriptionData.is_paid ? 'Paid' : 'Draft',
+            payment_date: subscriptionData.paid_date || null,
             remarks: subscriptionData.remarks || null,
           })
           .eq('id', subscriptionData.id);
@@ -279,18 +304,26 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         if (error) throw error;
         await logHistory('service_updated', undefined, undefined, 'Service subscription updated');
       } else {
+        const service = masterServices.find(s => s.id === subscriptionData.service_id);
+        const issueDate = subscriptionData.start_date || subscriptionData.service_date || new Date().toISOString().split('T')[0];
+        const dueDate = subscriptionData.end_date || subscriptionData.start_date || subscriptionData.service_date || new Date().toISOString().split('T')[0];
+
         const { error } = await supabase
-          .from('comsec_client_service_subscriptions')
+          .from('comsec_invoices')
           .insert({
             comsec_client_id: client.id,
             service_id: subscriptionData.service_id,
             company_code: subscriptionData.company_code || null,
-            invoice_number: subscriptionData.invoice_number || null,
+            invoice_number: subscriptionData.invoice_number || 'SVC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
             service_date: subscriptionData.service_date || null,
             start_date: subscriptionData.start_date || null,
             end_date: subscriptionData.end_date || null,
-            is_paid: subscriptionData.is_paid,
-            paid_date: subscriptionData.paid_date || null,
+            issue_date: issueDate,
+            due_date: dueDate,
+            amount: 0,
+            status: subscriptionData.is_paid ? 'Paid' : 'Draft',
+            description: service?.service_name || 'Service',
+            payment_date: subscriptionData.paid_date || null,
             remarks: subscriptionData.remarks || null,
             created_by: user.id,
           });
@@ -302,6 +335,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
       setShowSubscriptionForm(false);
       setEditingSubscription(null);
       loadServiceSubscriptions();
+      loadInvoices();
       loadHistory();
     } catch (error: any) {
       alert(`Error saving service subscription: ${error.message}`);
@@ -312,13 +346,14 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     if (!confirm('Are you sure you want to delete this service subscription?')) return;
 
     const { error } = await supabase
-      .from('comsec_client_service_subscriptions')
+      .from('comsec_invoices')
       .delete()
       .eq('id', subscriptionId);
 
     if (!error) {
       await logHistory('service_deleted', undefined, undefined, 'Service subscription deleted');
       loadServiceSubscriptions();
+      loadInvoices();
       loadHistory();
     }
   }
