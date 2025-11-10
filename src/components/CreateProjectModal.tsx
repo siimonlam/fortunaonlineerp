@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X } from 'lucide-react';
+import { X, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Staff {
@@ -42,6 +42,8 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [defaultStatus, setDefaultStatus] = useState<Status | null>(null);
+  const [directors, setDirectors] = useState<{name: string; id_number: string}[]>([{name: '', id_number: ''}]);
+  const [members, setMembers] = useState<{name: string; id_number: string}[]>([{name: '', id_number: ''}]);
 
   const [formData, setFormData] = useState({
     title: client.name || '',
@@ -54,7 +56,6 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
     salesSource: client.sales_source || '',
     salesPersonId: client.sales_person_id || '',
     abbreviation: '',
-    applicationNumber: '',
     projectSize: '',
     agreementRef: '',
     invoiceNumber: '',
@@ -78,8 +79,6 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
     anniversaryMonth: '',
     companyStatus: 'Active',
     nar1Status: '',
-    directors: '',
-    members: '',
     arDueDate: '',
   });
 
@@ -112,9 +111,6 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
     if (projectTypeName === 'Com Sec') {
       setLoading(true);
       try {
-        const directorsData = formData.directors.trim() ? JSON.parse(formData.directors) : null;
-        const membersData = formData.members.trim() ? JSON.parse(formData.members) : null;
-
         const { data, error } = await supabase
           .from('comsec_clients')
           .insert({
@@ -126,8 +122,6 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
             anniversary_month: formData.anniversaryMonth ? parseInt(formData.anniversaryMonth) : null,
             company_status: formData.companyStatus,
             nar1_status: formData.nar1Status.trim() || null,
-            directors: directorsData,
-            members: membersData,
             ar_due_date: formData.arDueDate || null,
             remarks: formData.description.trim() || null,
             contact_person: formData.contactName.trim() || null,
@@ -143,6 +137,36 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
           .single();
 
         if (error) throw error;
+
+        if (data) {
+          const validDirectors = directors.filter(d => d.name.trim());
+          if (validDirectors.length > 0) {
+            const { error: directorsError } = await supabase
+              .from('comsec_directors')
+              .insert(
+                validDirectors.map(d => ({
+                  comsec_client_id: data.id,
+                  name: d.name.trim(),
+                  id_number: d.id_number.trim() || null,
+                }))
+              );
+            if (directorsError) console.error('Error inserting directors:', directorsError);
+          }
+
+          const validMembers = members.filter(m => m.name.trim());
+          if (validMembers.length > 0) {
+            const { error: membersError } = await supabase
+              .from('comsec_members')
+              .insert(
+                validMembers.map(m => ({
+                  comsec_client_id: data.id,
+                  name: m.name.trim(),
+                  id_number: m.id_number.trim() || null,
+                }))
+              );
+            if (membersError) console.error('Error inserting members:', membersError);
+          }
+        }
 
         if (data && data.company_code) {
           console.log('Attempting to create folders for company code:', data.company_code);
@@ -213,7 +237,6 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
           sales_source: formData.salesSource.trim() || null,
           sales_person_id: formData.salesPersonId || null,
           abbreviation: formData.abbreviation.trim() || null,
-          application_number: formData.applicationNumber.trim() || null,
           project_size: formData.projectSize.trim() || null,
           agreement_ref: formData.agreementRef.trim() || null,
           invoice_number: formData.invoiceNumber.trim() || null,
@@ -286,27 +309,15 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Abbreviation</label>
-              <input
-                type="text"
-                value={formData.abbreviation}
-                onChange={(e) => setFormData({ ...formData, abbreviation: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter abbreviation"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Application Number</label>
-              <input
-                type="text"
-                value={formData.applicationNumber}
-                onChange={(e) => setFormData({ ...formData, applicationNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter application number"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Abbreviation</label>
+            <input
+              type="text"
+              value={formData.abbreviation}
+              onChange={(e) => setFormData({ ...formData, abbreviation: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter abbreviation"
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -484,24 +495,105 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Directors (JSON array)</label>
-                    <textarea
-                      value={formData.directors}
-                      onChange={(e) => setFormData({ ...formData, directors: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[80px]"
-                      placeholder='[{"name": "John Doe", "id": "123"}]'
-                    />
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">Directors</label>
+                    <button
+                      type="button"
+                      onClick={() => setDirectors([...directors, {name: '', id_number: ''}])}
+                      className="text-emerald-600 hover:text-emerald-700 text-sm font-medium flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Director
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Members (JSON array)</label>
-                    <textarea
-                      value={formData.members}
-                      onChange={(e) => setFormData({ ...formData, members: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[80px]"
-                      placeholder='[{"name": "Jane Smith", "shares": 100}]'
-                    />
+                  <div className="space-y-2">
+                    {directors.map((director, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={director.name}
+                          onChange={(e) => {
+                            const updated = [...directors];
+                            updated[index].name = e.target.value;
+                            setDirectors(updated);
+                          }}
+                          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          placeholder="Director name"
+                        />
+                        <input
+                          type="text"
+                          value={director.id_number}
+                          onChange={(e) => {
+                            const updated = [...directors];
+                            updated[index].id_number = e.target.value;
+                            setDirectors(updated);
+                          }}
+                          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          placeholder="ID / Passport number"
+                        />
+                        {directors.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setDirectors(directors.filter((_, i) => i !== index))}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">Members</label>
+                    <button
+                      type="button"
+                      onClick={() => setMembers([...members, {name: '', id_number: ''}])}
+                      className="text-emerald-600 hover:text-emerald-700 text-sm font-medium flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Member
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {members.map((member, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={member.name}
+                          onChange={(e) => {
+                            const updated = [...members];
+                            updated[index].name = e.target.value;
+                            setMembers(updated);
+                          }}
+                          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          placeholder="Member name"
+                        />
+                        <input
+                          type="text"
+                          value={member.id_number}
+                          onChange={(e) => {
+                            const updated = [...members];
+                            updated[index].id_number = e.target.value;
+                            setMembers(updated);
+                          }}
+                          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          placeholder="ID / Passport number"
+                        />
+                        {members.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setMembers(members.filter((_, i) => i !== index))}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
