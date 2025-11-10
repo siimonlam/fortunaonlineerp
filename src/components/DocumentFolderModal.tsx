@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Folder, FileText, Download, Upload, Trash2, ExternalLink } from 'lucide-react';
+import { X, Folder, FileText, Download, Upload, Trash2, ExternalLink, File, FileSpreadsheet, Image, FileCode, FileArchive, FileVideo, FileAudio } from 'lucide-react';
 
 interface DocumentFolderModalProps {
   companyCode: string;
@@ -53,7 +53,11 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
 
       if (error) throw error;
 
-      const filteredFiles = (data || []).filter(item => item.name !== '.keep');
+      const filteredFiles = (data || []).filter(item => {
+        if (item.name === '.keep') return false;
+        if (item.id === null) return false;
+        return true;
+      });
       setFiles(filteredFiles as FileItem[]);
     } catch (error: any) {
       console.error('Error loading files:', error);
@@ -160,6 +164,52 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   }
 
+  function getFileIcon(fileName: string) {
+    const ext = fileName.toLowerCase().split('.').pop();
+
+    switch (ext) {
+      case 'xls':
+      case 'xlsx':
+      case 'csv':
+        return <FileSpreadsheet className="w-5 h-5 text-green-600 flex-shrink-0" />;
+      case 'pdf':
+        return <FileText className="w-5 h-5 text-red-600 flex-shrink-0" />;
+      case 'doc':
+      case 'docx':
+        return <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'svg':
+      case 'webp':
+        return <Image className="w-5 h-5 text-purple-600 flex-shrink-0" />;
+      case 'zip':
+      case 'rar':
+      case '7z':
+      case 'tar':
+      case 'gz':
+        return <FileArchive className="w-5 h-5 text-orange-600 flex-shrink-0" />;
+      case 'mp4':
+      case 'avi':
+      case 'mov':
+      case 'mkv':
+        return <FileVideo className="w-5 h-5 text-pink-600 flex-shrink-0" />;
+      case 'mp3':
+      case 'wav':
+      case 'flac':
+        return <FileAudio className="w-5 h-5 text-indigo-600 flex-shrink-0" />;
+      case 'html':
+      case 'css':
+      case 'js':
+      case 'json':
+      case 'xml':
+        return <FileCode className="w-5 h-5 text-yellow-600 flex-shrink-0" />;
+      default:
+        return <File className="w-5 h-5 text-slate-600 flex-shrink-0" />;
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -196,7 +246,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
                     onClick={() => setCurrentFolder(folder)}
                     className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
                   >
-                    <Folder className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                    <Folder className="w-6 h-6 text-amber-500 flex-shrink-0" />
                     <span className="text-sm font-medium text-slate-900">{folder}</span>
                   </button>
                 ))}
@@ -239,7 +289,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
                   className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors"
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <FileText className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                    {getFileIcon(file.name)}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
                       <p className="text-xs text-slate-500">
