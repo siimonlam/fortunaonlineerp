@@ -609,6 +609,39 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
     }
   }
 
+  async function handleSave(formData: any) {
+    const table = activeModule === 'clients' ? 'comsec_clients' :
+                  activeModule === 'invoices' ? 'comsec_invoices' :
+                  activeModule === 'virtual_office' ? 'comsec_virtual_office' :
+                  activeModule === 'knowledge_base' ? 'comsec_knowledge_base' :
+                  'due_date_reminders';
+
+    if (editingItem) {
+      const { error } = await supabase
+        .from(table)
+        .update(formData)
+        .eq('id', editingItem.id);
+
+      if (error) {
+        alert(`Error: ${error.message}`);
+        return;
+      }
+    } else {
+      const { error } = await supabase
+        .from(table)
+        .insert([{ ...formData, created_by: user?.id }]);
+
+      if (error) {
+        alert(`Error: ${error.message}`);
+        return;
+      }
+    }
+
+    setShowAddModal(false);
+    setEditingItem(null);
+    loadData();
+  }
+
   return (
     <div className="p-6">
       {activeModule === 'clients' && renderClientsTab()}
@@ -616,6 +649,150 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
       {activeModule === 'virtual_office' && renderVirtualOfficeTab()}
       {activeModule === 'knowledge_base' && renderKnowledgeBaseTab()}
       {activeModule === 'reminders' && renderRemindersTab()}
+
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-slate-900">
+                {editingItem ? 'Edit' : 'Add'} {activeModule === 'clients' ? 'Client' :
+                  activeModule === 'invoices' ? 'Invoice' :
+                  activeModule === 'virtual_office' ? 'Virtual Office' :
+                  activeModule === 'knowledge_base' ? 'Knowledge Base Article' :
+                  'Reminder'}
+              </h2>
+              <button
+                onClick={() => { setShowAddModal(false); setEditingItem(null); }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const data: any = {};
+              formData.forEach((value, key) => {
+                if (key === 'directors' || key === 'members' || key === 'tags') {
+                  try {
+                    data[key] = value ? JSON.parse(value as string) : null;
+                  } catch {
+                    data[key] = null;
+                  }
+                } else if (key === 'is_public' || key === 'is_completed') {
+                  data[key] = value === 'true';
+                } else {
+                  data[key] = value || null;
+                }
+              });
+              handleSave(data);
+            }} className="p-6 space-y-4">
+              {activeModule === 'clients' && (
+                <>
+                  <input name="company_code" defaultValue={editingItem?.company_code || ''} placeholder="Company Code" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="company_name" defaultValue={editingItem?.company_name || ''} placeholder="Company Name *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="brn" defaultValue={editingItem?.brn || ''} placeholder="BRN" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="incorporation_date" type="date" defaultValue={editingItem?.incorporation_date || ''} placeholder="Incorporation Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <select name="case_officer_id" defaultValue={editingItem?.case_officer_id || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                    <option value="">Select Case Officer</option>
+                    {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                  </select>
+                  <input name="anniversary_month" type="number" min="1" max="12" defaultValue={editingItem?.anniversary_month || ''} placeholder="Anniversary Month (1-12)" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="company_status" defaultValue={editingItem?.company_status || 'Active'} placeholder="Company Status" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="nar1_status" defaultValue={editingItem?.nar1_status || ''} placeholder="NAR1 Status" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="ar_due_date" type="date" defaultValue={editingItem?.ar_due_date || ''} placeholder="AR Due Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <textarea name="remarks" defaultValue={editingItem?.remarks || ''} placeholder="Remarks" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={3}></textarea>
+                </>
+              )}
+
+              {activeModule === 'invoices' && (
+                <>
+                  <input name="invoice_number" defaultValue={editingItem?.invoice_number || ''} placeholder="Invoice Number *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <select name="comsec_client_id" defaultValue={editingItem?.comsec_client_id || ''} required className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                    <option value="">Select Client *</option>
+                    {comSecClients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+                  </select>
+                  <input name="issue_date" type="date" defaultValue={editingItem?.issue_date || ''} placeholder="Issue Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="due_date" type="date" defaultValue={editingItem?.due_date || ''} placeholder="Due Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="amount" type="number" step="0.01" defaultValue={editingItem?.amount || ''} placeholder="Amount" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <select name="status" defaultValue={editingItem?.status || 'Draft'} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                    <option value="Draft">Draft</option>
+                    <option value="Sent">Sent</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Overdue">Overdue</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                  <textarea name="description" defaultValue={editingItem?.description || ''} placeholder="Description" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={3}></textarea>
+                  <input name="payment_date" type="date" defaultValue={editingItem?.payment_date || ''} placeholder="Payment Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="payment_method" defaultValue={editingItem?.payment_method || ''} placeholder="Payment Method" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <textarea name="remarks" defaultValue={editingItem?.remarks || ''} placeholder="Remarks" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={2}></textarea>
+                </>
+              )}
+
+              {activeModule === 'virtual_office' && (
+                <>
+                  <select name="comsec_client_id" defaultValue={editingItem?.comsec_client_id || ''} required className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                    <option value="">Select Client *</option>
+                    {comSecClients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+                  </select>
+                  <input name="service_type" defaultValue={editingItem?.service_type || ''} placeholder="Service Type *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <textarea name="address" defaultValue={editingItem?.address || ''} placeholder="Address" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={2}></textarea>
+                  <input name="start_date" type="date" defaultValue={editingItem?.start_date || ''} placeholder="Start Date *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="end_date" type="date" defaultValue={editingItem?.end_date || ''} placeholder="End Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="renewal_date" type="date" defaultValue={editingItem?.renewal_date || ''} placeholder="Renewal Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="monthly_fee" type="number" step="0.01" defaultValue={editingItem?.monthly_fee || ''} placeholder="Monthly Fee" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <textarea name="remarks" defaultValue={editingItem?.remarks || ''} placeholder="Remarks" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={2}></textarea>
+                </>
+              )}
+
+              {activeModule === 'knowledge_base' && (
+                <>
+                  <input name="title" defaultValue={editingItem?.title || ''} placeholder="Title *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <textarea name="content" defaultValue={editingItem?.content || ''} placeholder="Content *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={8}></textarea>
+                  <input name="category" defaultValue={editingItem?.category || ''} placeholder="Category *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input name="tags" defaultValue={editingItem?.tags ? JSON.stringify(editingItem.tags) : ''} placeholder='Tags (JSON array, e.g., ["tag1", "tag2"])' className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <label className="flex items-center gap-2">
+                    <input name="is_public" type="checkbox" defaultChecked={editingItem?.is_public ?? true} value="true" className="rounded" />
+                    <span>Public</span>
+                  </label>
+                </>
+              )}
+
+              {activeModule === 'reminders' && (
+                <>
+                  <select name="comsec_client_id" defaultValue={editingItem?.comsec_client_id || ''} required className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                    <option value="">Select Client *</option>
+                    {comSecClients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+                  </select>
+                  <select name="reminder_type" defaultValue={editingItem?.reminder_type || 'Annual Return'} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                    <option value="Annual Return">Annual Return</option>
+                    <option value="AGM">AGM</option>
+                    <option value="Renewal">Renewal</option>
+                    <option value="Filing">Filing</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <input name="due_date" type="date" defaultValue={editingItem?.due_date || ''} placeholder="Due Date *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  <textarea name="description" defaultValue={editingItem?.description || ''} placeholder="Description" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={3}></textarea>
+                  <select name="assigned_to_id" defaultValue={editingItem?.assigned_to_id || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                    <option value="">Assign To</option>
+                    {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                  </select>
+                </>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button type="submit" className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                  {editingItem ? 'Update' : 'Create'}
+                </button>
+                <button type="button" onClick={() => { setShowAddModal(false); setEditingItem(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
