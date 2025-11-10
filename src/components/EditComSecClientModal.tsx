@@ -334,7 +334,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
       const response = await fetch('/ar1_fillable.pdf');
       const existingPdfBytes = await response.arrayBuffer();
 
-      const pdfDoc = await PDFDocument.load(existingPdfBytes);
+      const pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
       const form = pdfDoc.getForm();
 
       const today = new Date();
