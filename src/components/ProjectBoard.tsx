@@ -330,11 +330,11 @@ export function ProjectBoard() {
     }
 
     if (projectTypesRes.data) {
-      const filteredProjectTypes = projectTypesRes.data.filter(pt => pt.name !== 'Com Sec');
-      setProjectTypes(filteredProjectTypes);
+      setProjectTypes(projectTypesRes.data);
       // Only set default project type if none is selected AND this is the initial load
       // Preserve the current selection when reloading data
-      if (!selectedProjectType && filteredProjectTypes.length > 0) {
+      if (!selectedProjectType && projectTypesRes.data.length > 0) {
+        const filteredProjectTypes = projectTypesRes.data.filter(pt => pt.name !== 'Com Sec');
         const fundingProject = filteredProjectTypes.find(pt => pt.name === 'Funding Project');
         const defaultType = fundingProject || filteredProjectTypes[0];
         console.log('[loadData] No project type selected, setting to:', defaultType.name);
