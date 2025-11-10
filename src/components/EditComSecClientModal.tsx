@@ -332,10 +332,24 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     setIsGeneratingAR1(true);
     try {
       const response = await fetch('/ar1_fillable.pdf');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+      }
+
       const existingPdfBytes = await response.arrayBuffer();
 
-      const pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
+      if (existingPdfBytes.byteLength === 0) {
+        throw new Error('PDF file is empty');
+      }
+
+      const pdfDoc = await PDFDocument.load(existingPdfBytes, {
+        ignoreEncryption: true,
+        updateMetadata: false
+      });
+
       const form = pdfDoc.getForm();
+      const fields = form.getFields();
+      console.log('Available form fields:', fields.map(f => f.getName()));
 
       const today = new Date();
       const day = today.getDate().toString().padStart(2, '0');
@@ -351,10 +365,10 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         monthField.setText(month);
         yearField.setText(year);
       } catch (error) {
-        console.warn('Could not find expected form fields, trying alternative field names');
+        console.warn('Could not find expected form fields:', error);
       }
 
-      const pdfBytes = await pdfDoc.save();
+      const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
       setAr1PdfBytes(pdfBytes);
 
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
@@ -366,7 +380,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
       loadHistory();
     } catch (error: any) {
       console.error('Error generating AR1:', error);
-      alert(`Failed to generate AR1: ${error.message}`);
+      alert(`Failed to generate AR1: ${error.message || 'Unknown error occurred'}`);
     } finally {
       setIsGeneratingAR1(false);
     }
