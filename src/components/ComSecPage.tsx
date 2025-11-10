@@ -883,10 +883,10 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
         return;
       }
 
-      if (activeModule === 'clients' && data) {
+      if (activeModule === 'clients' && data && data.company_code) {
         try {
           const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-comsec-folders`;
-          await fetch(apiUrl, {
+          const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
@@ -897,9 +897,20 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
               client_id: data.id
             })
           });
+
+          const result = await response.json();
+          console.log('Folder creation result:', result);
+
+          if (!response.ok) {
+            console.error('Folder creation failed:', result);
+            alert(`Warning: Client created but folder creation failed. ${result.error || 'Unknown error'}`);
+          }
         } catch (folderError) {
           console.error('Error creating folders:', folderError);
+          alert('Warning: Client created but folder creation encountered an error.');
         }
+      } else if (activeModule === 'clients' && data && !data.company_code) {
+        console.warn('Company code is required to create folders. Skipping folder creation.');
       }
     }
 
