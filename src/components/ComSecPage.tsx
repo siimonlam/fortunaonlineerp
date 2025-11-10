@@ -690,19 +690,93 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             }} className="p-6 space-y-4">
               {activeModule === 'clients' && (
                 <>
-                  <input name="company_code" defaultValue={editingItem?.company_code || ''} placeholder="Company Code" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <input name="company_name" defaultValue={editingItem?.company_name || ''} placeholder="Company Name *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <input name="brn" defaultValue={editingItem?.brn || ''} placeholder="BRN" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <input name="incorporation_date" type="date" defaultValue={editingItem?.incorporation_date || ''} placeholder="Incorporation Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <select name="case_officer_id" defaultValue={editingItem?.case_officer_id || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                    <option value="">Select Case Officer</option>
-                    {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-                  </select>
-                  <input name="anniversary_month" type="number" min="1" max="12" defaultValue={editingItem?.anniversary_month || ''} placeholder="Anniversary Month (1-12)" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <input name="company_status" defaultValue={editingItem?.company_status || 'Active'} placeholder="Company Status" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <input name="nar1_status" defaultValue={editingItem?.nar1_status || ''} placeholder="NAR1 Status" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <input name="ar_due_date" type="date" defaultValue={editingItem?.ar_due_date || ''} placeholder="AR Due Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <textarea name="remarks" defaultValue={editingItem?.remarks || ''} placeholder="Remarks" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={3}></textarea>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Company Name *</label>
+                      <input name="company_name" defaultValue={editingItem?.company_name || ''} required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Company Code</label>
+                      <input name="company_code" defaultValue={editingItem?.company_code || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">BRN</label>
+                      <input name="brn" defaultValue={editingItem?.brn || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Incorporation Date</label>
+                      <input name="incorporation_date" type="date" defaultValue={editingItem?.incorporation_date || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Case Officer</label>
+                      <select name="case_officer_id" defaultValue={editingItem?.case_officer_id || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                        <option value="">Select Case Officer</option>
+                        {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Anniversary Month</label>
+                      <select name="anniversary_month" defaultValue={editingItem?.anniversary_month || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                        <option value="">Select month</option>
+                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(month => (
+                          <option key={month} value={month}>{new Date(2000, month-1).toLocaleString('default', { month: 'long' })}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Company Status</label>
+                      <select name="company_status" defaultValue={editingItem?.company_status || 'Active'} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                        <option value="Active">Active</option>
+                        <option value="Dormant">Dormant</option>
+                        <option value="Pending Renewal">Pending Renewal</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">NAR1 Status</label>
+                      <input name="nar1_status" defaultValue={editingItem?.nar1_status || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">AR Due Date</label>
+                    <input name="ar_due_date" type="date" defaultValue={editingItem?.ar_due_date || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Directors (JSON array)</label>
+                      <textarea
+                        name="directors"
+                        defaultValue={editingItem?.directors ? JSON.stringify(editingItem.directors) : ''}
+                        placeholder='[{"name": "John Doe", "id": "123"}]'
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg min-h-[80px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Members (JSON array)</label>
+                      <textarea
+                        name="members"
+                        defaultValue={editingItem?.members ? JSON.stringify(editingItem.members) : ''}
+                        placeholder='[{"name": "Jane Smith", "shares": 100}]'
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg min-h-[80px]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+                    <textarea name="remarks" defaultValue={editingItem?.remarks || ''} className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={3} />
+                  </div>
                 </>
               )}
 
