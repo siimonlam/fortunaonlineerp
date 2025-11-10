@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt } from 'lucide-react';
 import { InvoicePreview } from './InvoicePreview';
 import { DocumentFolderModal } from './DocumentFolderModal';
+import { EditComSecClientModal } from './EditComSecClientModal';
 
 interface ComSecClient {
   id: string;
@@ -117,6 +118,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [showEditClientModal, setShowEditClientModal] = useState(false);
+  const [editingClient, setEditingClient] = useState<ComSecClient | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedClientForInvoice, setSelectedClientForInvoice] = useState<ComSecClient | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
@@ -229,7 +232,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
               <div
                 key={client.id}
                 className="bg-white border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                onClick={() => { setEditingClient(client); setShowEditClientModal(true); }}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
@@ -293,7 +296,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                       <Receipt className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                      onClick={() => { setEditingClient(client); setShowEditClientModal(true); }}
                       className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                       title="Edit"
                     >
@@ -610,7 +613,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                 <div
                   key={client.id}
                   className="bg-red-50 border border-red-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                  onClick={() => { setEditingClient(client); setShowEditClientModal(true); }}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -647,7 +650,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                 <div
                   key={client.id}
                   className="bg-orange-50 border border-orange-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                  onClick={() => { setEditingClient(client); setShowEditClientModal(true); }}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -685,7 +688,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                 <div
                   key={client.id}
                   className="bg-blue-50 border border-blue-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                  onClick={() => { setEditingClient(client); setShowEditClientModal(true); }}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -1404,6 +1407,33 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
           onClose={() => {
             setShowDocumentModal(false);
             setDocumentModalCompanyCode('');
+          }}
+        />
+      )}
+
+      {showEditClientModal && editingClient && (
+        <EditComSecClientModal
+          client={editingClient}
+          staff={staff}
+          onClose={() => {
+            setShowEditClientModal(false);
+            setEditingClient(null);
+          }}
+          onSuccess={() => {
+            setShowEditClientModal(false);
+            setEditingClient(null);
+            loadData();
+          }}
+          onCreateInvoice={() => {
+            setSelectedClientForInvoice(editingClient);
+            setShowInvoiceModal(true);
+            setShowEditClientModal(false);
+          }}
+          onOpenDocuments={() => {
+            if (editingClient.company_code) {
+              setDocumentModalCompanyCode(editingClient.company_code);
+              setShowDocumentModal(true);
+            }
           }}
         />
       )}
