@@ -97,7 +97,11 @@ interface ComSecPageProps {
 
 export function ComSecPage({ activeModule }: ComSecPageProps) {
   const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTermClients, setSearchTermClients] = useState('');
+  const [searchTermInvoices, setSearchTermInvoices] = useState('');
+  const [searchTermVirtualOffice, setSearchTermVirtualOffice] = useState('');
+  const [searchTermKnowledgeBase, setSearchTermKnowledgeBase] = useState('');
+  const [searchTermReminders, setSearchTermReminders] = useState('');
   const [staff, setStaff] = useState<Staff[]>([]);
 
   const [comSecClients, setComSecClients] = useState<ComSecClient[]>([]);
@@ -184,8 +188,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
   function renderClientsTab() {
     const filteredClients = comSecClients.filter(client =>
-      client.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.company_code?.toLowerCase().includes(searchTerm.toLowerCase())
+      client.company_name.toLowerCase().includes(searchTermClients.toLowerCase()) ||
+      client.company_code?.toLowerCase().includes(searchTermClients.toLowerCase())
     );
 
     return (
@@ -196,8 +200,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             <input
               type="text"
               placeholder="Search companies..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTermClients}
+              onChange={(e) => setSearchTermClients(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -264,8 +268,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
   function renderInvoicesTab() {
     const filteredInvoices = invoices.filter(inv =>
-      inv.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.comsec_client?.company_name.toLowerCase().includes(searchTerm.toLowerCase())
+      inv.invoice_number.toLowerCase().includes(searchTermInvoices.toLowerCase()) ||
+      inv.comsec_client?.company_name.toLowerCase().includes(searchTermInvoices.toLowerCase())
     );
 
     return (
@@ -276,8 +280,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             <input
               type="text"
               placeholder="Search invoices..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTermInvoices}
+              onChange={(e) => setSearchTermInvoices(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -346,10 +350,24 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   }
 
   function renderVirtualOfficeTab() {
+    const filteredVirtualOffices = virtualOffices.filter(vo =>
+      vo.comsec_client?.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()) ||
+      vo.service_type.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())
+    );
+
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-slate-900">Virtual Office Services</h3>
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search virtual offices..."
+              value={searchTermVirtualOffice}
+              onChange={(e) => setSearchTermVirtualOffice(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           <button
             onClick={() => { setEditingItem(null); setShowAddModal(true); }}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -360,7 +378,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
         </div>
 
         <div className="grid gap-4">
-          {virtualOffices.map(vo => (
+          {filteredVirtualOffices.map(vo => (
             <div key={vo.id} className="bg-white border border-slate-200 rounded-xl p-6">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -399,8 +417,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
   function renderKnowledgeBaseTab() {
     const filteredKB = knowledgeBase.filter(kb =>
-      kb.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      kb.category.toLowerCase().includes(searchTerm.toLowerCase())
+      kb.title.toLowerCase().includes(searchTermKnowledgeBase.toLowerCase()) ||
+      kb.category.toLowerCase().includes(searchTermKnowledgeBase.toLowerCase())
     );
 
     return (
@@ -411,8 +429,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             <input
               type="text"
               placeholder="Search articles..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTermKnowledgeBase}
+              onChange={(e) => setSearchTermKnowledgeBase(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -470,13 +488,27 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
   function renderRemindersTab() {
     const now = new Date();
-    const pendingReminders = reminders.filter(r => !r.is_completed && new Date(r.due_date) >= now);
-    const overdueReminders = reminders.filter(r => !r.is_completed && new Date(r.due_date) < now);
+    const filteredReminders = reminders.filter(r =>
+      r.comsec_client?.company_name.toLowerCase().includes(searchTermReminders.toLowerCase()) ||
+      r.reminder_type.toLowerCase().includes(searchTermReminders.toLowerCase()) ||
+      r.description?.toLowerCase().includes(searchTermReminders.toLowerCase())
+    );
+    const pendingReminders = filteredReminders.filter(r => !r.is_completed && new Date(r.due_date) >= now);
+    const overdueReminders = filteredReminders.filter(r => !r.is_completed && new Date(r.due_date) < now);
 
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-slate-900">Due Date Reminders</h3>
+        <div className="flex justify-between items-center gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search reminders..."
+              value={searchTermReminders}
+              onChange={(e) => setSearchTermReminders(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           <button
             onClick={() => { setEditingItem(null); setShowAddModal(true); }}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
