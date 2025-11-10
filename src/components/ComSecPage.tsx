@@ -33,12 +33,14 @@ interface Invoice {
   id: string;
   comsec_client_id: string;
   invoice_number: string;
-  invoice_date: string;
+  issue_date: string;
   due_date: string;
   amount: number;
   status: string;
   description: string | null;
-  paid_date: string | null;
+  payment_date: string | null;
+  payment_method: string | null;
+  remarks: string | null;
   created_at: string;
   comsec_client?: { company_name: string };
 }
@@ -158,7 +160,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
     const { data } = await supabase
       .from('comsec_invoices')
       .select('*, comsec_client:comsec_clients(company_name)')
-      .order('invoice_date', { ascending: false });
+      .order('issue_date', { ascending: false });
     if (data) setInvoices(data);
   }
 
@@ -312,7 +314,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                 <tr key={invoice.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 text-sm font-medium text-slate-900">{invoice.invoice_number}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{invoice.comsec_client?.company_name}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{new Date(invoice.invoice_date).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{new Date(invoice.issue_date).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{new Date(invoice.due_date).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-sm font-medium text-slate-900">${invoice.amount.toFixed(2)}</td>
                   <td className="px-6 py-4">
