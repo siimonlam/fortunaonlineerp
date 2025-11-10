@@ -84,9 +84,12 @@ interface Staff {
 
 type TabType = 'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders';
 
-export function ComSecPage() {
+interface ComSecPageProps {
+  activeModule: TabType;
+}
+
+export function ComSecPage({ activeModule }: ComSecPageProps) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>('clients');
   const [searchTerm, setSearchTerm] = useState('');
   const [staff, setStaff] = useState<Staff[]>([]);
 
@@ -102,7 +105,7 @@ export function ComSecPage() {
   useEffect(() => {
     loadStaff();
     loadData();
-  }, [activeTab]);
+  }, [activeModule]);
 
   async function loadStaff() {
     const { data } = await supabase
@@ -113,7 +116,7 @@ export function ComSecPage() {
   }
 
   async function loadData() {
-    switch (activeTab) {
+    switch (activeModule) {
       case 'clients':
         await loadComSecClients();
         break;
@@ -607,85 +610,12 @@ export function ComSecPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Company Secretary Services</h1>
-            <p className="text-slate-600">Manage clients, invoices, virtual offices, knowledge base, and reminders</p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
-            <div className="border-b border-slate-200">
-              <div className="flex gap-1 p-2">
-                <button
-                  onClick={() => setActiveTab('clients')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    activeTab === 'clients'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <FileText className="w-4 h-4" />
-                  Clients
-                </button>
-                <button
-                  onClick={() => setActiveTab('invoices')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    activeTab === 'invoices'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <DollarSign className="w-4 h-4" />
-                  Invoices
-                </button>
-                <button
-                  onClick={() => setActiveTab('virtual_office')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    activeTab === 'virtual_office'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <Calendar className="w-4 h-4" />
-                  Virtual Office
-                </button>
-                <button
-                  onClick={() => setActiveTab('knowledge_base')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    activeTab === 'knowledge_base'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <Book className="w-4 h-4" />
-                  Knowledge Base
-                </button>
-                <button
-                  onClick={() => setActiveTab('reminders')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    activeTab === 'reminders'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <Bell className="w-4 h-4" />
-                  Due Date Reminders
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {activeTab === 'clients' && renderClientsTab()}
-              {activeTab === 'invoices' && renderInvoicesTab()}
-              {activeTab === 'virtual_office' && renderVirtualOfficeTab()}
-              {activeTab === 'knowledge_base' && renderKnowledgeBaseTab()}
-              {activeTab === 'reminders' && renderRemindersTab()}
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="p-6">
+      {activeModule === 'clients' && renderClientsTab()}
+      {activeModule === 'invoices' && renderInvoicesTab()}
+      {activeModule === 'virtual_office' && renderVirtualOfficeTab()}
+      {activeModule === 'knowledge_base' && renderKnowledgeBaseTab()}
+      {activeModule === 'reminders' && renderRemindersTab()}
     </div>
   );
 }

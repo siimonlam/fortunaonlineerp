@@ -99,6 +99,7 @@ export function ProjectBoard() {
   const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin' | 'comsec'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list'>('grid');
+  const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -832,7 +833,65 @@ export function ProjectBoard() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {!isClientSection && !isAdminSection && !isComSecSection && (
+        {isComSecSection ? (
+          <aside className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
+            <div className="p-4">
+              <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Modules</h2>
+              <nav className="space-y-2">
+                <button
+                  onClick={() => setComSecModule('clients')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'clients'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Clients
+                </button>
+                <button
+                  onClick={() => setComSecModule('invoices')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'invoices'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Invoices
+                </button>
+                <button
+                  onClick={() => setComSecModule('virtual_office')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'virtual_office'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Virtual Office
+                </button>
+                <button
+                  onClick={() => setComSecModule('knowledge_base')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'knowledge_base'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Knowledge Base
+                </button>
+                <button
+                  onClick={() => setComSecModule('reminders')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'reminders'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Due Date Reminders
+                </button>
+              </nav>
+            </div>
+          </aside>
+        ) : !isClientSection && !isAdminSection && (
           <aside className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
             <div className="p-4">
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Status</h2>
@@ -1311,7 +1370,7 @@ export function ProjectBoard() {
             </div>
 
             {isComSecSection ? (
-              <ComSecPage />
+              <ComSecPage activeModule={comSecModule} />
             ) : isAdminSection ? (
               <AdminPage />
             ) : isClientSection ? (
