@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare } from 'lucide-react';
+import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Director {
@@ -13,6 +13,38 @@ interface Member {
   id?: string;
   name: string;
   id_number: string;
+}
+
+interface Service {
+  id?: string;
+  service_type: 'company_bank_registration' | 'virtual_office' | 'company_secretary';
+  service_date?: string;
+  start_date?: string;
+  end_date?: string;
+  is_paid: boolean;
+  paid_date?: string;
+  remarks?: string;
+}
+
+interface Invoice {
+  id: string;
+  invoice_number: string;
+  issue_date: string;
+  due_date: string;
+  amount: number;
+  status: string;
+  description: string | null;
+  payment_date: string | null;
+}
+
+interface HistoryItem {
+  id: string;
+  action: string;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+  user_id: string | null;
 }
 
 interface Staff {
@@ -59,8 +91,14 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const [directors, setDirectors] = useState<Director[]>([{name: '', id_number: ''}]);
   const [members, setMembers] = useState<Member[]>([{name: '', id_number: ''}]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState<'history' | 'notes'>('history');
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [showServiceForm, setShowServiceForm] = useState(false);
 
   const [formData, setFormData] = useState({
     company_name: client.company_name || '',
@@ -86,6 +124,9 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     loadDirectors();
     loadMembers();
     loadComments();
+    loadHistory();
+    loadServices();
+    loadInvoices();
   }, [client.id]);
 
   async function loadDirectors() {
@@ -125,6 +166,36 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     if (data) setComments(data);
   }
 
+  async function loadHistory() {
+    const { data } = await supabase
+      .from('comsec_client_history')
+      .select('*')
+      .eq('comsec_client_id', client.id)
+      .order('created_at', { ascending: false });
+
+    if (data) setHistory(data);
+  }
+
+  async function loadServices() {
+    const { data } = await supabase
+      .from('comsec_client_services')
+      .select('*')
+      .eq('comsec_client_id', client.id)
+      .order('created_at', { ascending: false });
+
+    if (data) setServices(data);
+  }
+
+  async function loadInvoices() {
+    const { data } = await supabase
+      .from('comsec_invoices')
+      .select('*')
+      .eq('comsec_client_id', client.id)
+      .order('issue_date', { ascending: false });
+
+    if (data) setInvoices(data);
+  }
+
   async function handleAddComment() {
     if (!newComment.trim() || !user) return;
 
@@ -139,6 +210,82 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     if (!error) {
       setNewComment('');
       loadComments();
+    }
+  }
+
+  async function logHistory(action: string, fieldName?: string, oldValue?: string, newValue?: string) {
+    if (!user) return;
+
+    await supabase.from('comsec_client_history').insert({
+      comsec_client_id: client.id,
+      user_id: user.id,
+      action,
+      field_name: fieldName || null,
+      old_value: oldValue || null,
+      new_value: newValue || null,
+    });
+  }
+
+  async function handleSaveService(serviceData: Service) {
+    if (!user) return;
+
+    try {
+      if (serviceData.id) {
+        const { error } = await supabase
+          .from('comsec_client_services')
+          .update({
+            service_type: serviceData.service_type,
+            service_date: serviceData.service_date || null,
+            start_date: serviceData.start_date || null,
+            end_date: serviceData.end_date || null,
+            is_paid: serviceData.is_paid,
+            paid_date: serviceData.paid_date || null,
+            remarks: serviceData.remarks || null,
+          })
+          .eq('id', serviceData.id);
+
+        if (error) throw error;
+        await logHistory('service_updated', serviceData.service_type, undefined, 'Service updated');
+      } else {
+        const { error } = await supabase
+          .from('comsec_client_services')
+          .insert({
+            comsec_client_id: client.id,
+            service_type: serviceData.service_type,
+            service_date: serviceData.service_date || null,
+            start_date: serviceData.start_date || null,
+            end_date: serviceData.end_date || null,
+            is_paid: serviceData.is_paid,
+            paid_date: serviceData.paid_date || null,
+            remarks: serviceData.remarks || null,
+            created_by: user.id,
+          });
+
+        if (error) throw error;
+        await logHistory('service_added', serviceData.service_type, undefined, 'Service added');
+      }
+
+      setShowServiceForm(false);
+      setEditingService(null);
+      loadServices();
+      loadHistory();
+    } catch (error: any) {
+      alert(`Error saving service: ${error.message}`);
+    }
+  }
+
+  async function handleDeleteService(serviceId: string) {
+    if (!confirm('Are you sure you want to delete this service?')) return;
+
+    const { error } = await supabase
+      .from('comsec_client_services')
+      .delete()
+      .eq('id', serviceId);
+
+    if (!error) {
+      await logHistory('service_deleted', undefined, undefined, 'Service deleted');
+      loadServices();
+      loadHistory();
     }
   }
 
@@ -230,6 +377,8 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
             });
         }
       }
+
+      await logHistory('updated', undefined, undefined, 'Client information updated');
 
       alert('Com Sec client updated successfully!');
       onSuccess();
@@ -589,6 +738,88 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               />
             </div>
 
+            <div className="border-t border-slate-200 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-slate-900">Services</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingService({ service_type: 'company_bank_registration', is_paid: false });
+                    setShowServiceForm(true);
+                  }}
+                  className="text-emerald-600 hover:text-emerald-700 text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Service
+                </button>
+              </div>
+
+              {showServiceForm && editingService && (
+                <ServiceForm
+                  service={editingService}
+                  onSave={handleSaveService}
+                  onCancel={() => {
+                    setShowServiceForm(false);
+                    setEditingService(null);
+                  }}
+                />
+              )}
+
+              <div className="space-y-2">
+                {services.map((service) => (
+                  <ServiceCard
+                    key={service.id}
+                    service={service}
+                    onEdit={(s) => {
+                      setEditingService(s);
+                      setShowServiceForm(true);
+                    }}
+                    onDelete={handleDeleteService}
+                  />
+                ))}
+                {services.length === 0 && !showServiceForm && (
+                  <p className="text-sm text-slate-500 text-center py-4">No services added yet</p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 pt-4">
+              <h3 className="text-base font-semibold text-slate-900 mb-3">Invoice Summary</h3>
+              {invoices.length > 0 ? (
+                <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                  {invoices.map((invoice) => (
+                    <div key={invoice.id} className="flex items-center justify-between py-2 border-b border-slate-200 last:border-0">
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-900">{invoice.invoice_number}</div>
+                        <div className="text-xs text-slate-500">
+                          Issue: {new Date(invoice.issue_date).toLocaleDateString()} | Due: {new Date(invoice.due_date).toLocaleDateString()}
+                        </div>
+                        {invoice.description && <div className="text-xs text-slate-600 mt-1">{invoice.description}</div>}
+                      </div>
+                      <div className="text-right ml-4">
+                        <div className="font-semibold text-slate-900">${invoice.amount.toFixed(2)}</div>
+                        <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
+                          invoice.status === 'Paid' ? 'bg-green-100 text-green-700' :
+                          invoice.status === 'Overdue' ? 'bg-red-100 text-red-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {invoice.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="pt-2 flex justify-between items-center border-t-2 border-slate-300">
+                    <span className="font-semibold text-slate-700">Total</span>
+                    <span className="font-bold text-lg text-slate-900">
+                      ${invoices.reduce((sum, inv) => sum + inv.amount, 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500 text-center py-4">No invoices yet</p>
+              )}
+            </div>
+
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
@@ -611,43 +842,100 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         <div className={`transition-all duration-300 border-l border-slate-200 bg-slate-50 ${isSidebarOpen ? 'w-96' : 'w-0'} overflow-hidden`}>
           {isSidebarOpen && (
             <div className="h-full flex flex-col">
-              <div className="p-4 border-b border-slate-200 bg-white">
-                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
-                  Notes & Comments
-                </h3>
+              <div className="border-b border-slate-200 bg-white">
+                <div className="flex">
+                  <button
+                    onClick={() => setSidebarTab('history')}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                      sidebarTab === 'history'
+                        ? 'text-emerald-600 border-b-2 border-emerald-600'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4 inline mr-2" />
+                    History
+                  </button>
+                  <button
+                    onClick={() => setSidebarTab('notes')}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                      sidebarTab === 'notes'
+                        ? 'text-emerald-600 border-b-2 border-emerald-600'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4 inline mr-2" />
+                    Notes
+                  </button>
+                </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="bg-white rounded-lg p-3 border border-slate-200">
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs font-medium text-slate-600">{comment.user?.email || 'Unknown'}</span>
-                      <span className="text-xs text-slate-400">
-                        {new Date(comment.created_at).toLocaleDateString()}
-                      </span>
+              {sidebarTab === 'history' ? (
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {history.length > 0 ? history.map((item) => (
+                    <div key={item.id} className="bg-white rounded-lg p-3 border border-slate-200">
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="text-xs font-semibold text-emerald-600 uppercase">{item.action}</span>
+                        <span className="text-xs text-slate-400">
+                          {new Date(item.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      {item.field_name && (
+                        <div className="text-xs text-slate-600 mb-1">
+                          <span className="font-medium">Field:</span> {item.field_name}
+                        </div>
+                      )}
+                      {item.old_value && (
+                        <div className="text-xs text-red-600">
+                          <span className="font-medium">Old:</span> {item.old_value}
+                        </div>
+                      )}
+                      {item.new_value && (
+                        <div className="text-xs text-green-600">
+                          <span className="font-medium">New:</span> {item.new_value}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{comment.comment}</p>
+                  )) : (
+                    <p className="text-sm text-slate-500 text-center py-8">No history yet</p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="bg-white rounded-lg p-3 border border-slate-200">
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-xs font-medium text-slate-600">{comment.user?.email || 'Unknown'}</span>
+                          <span className="text-xs text-slate-400">
+                            {new Date(comment.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{comment.comment}</p>
+                      </div>
+                    ))}
+                    {comments.length === 0 && (
+                      <p className="text-sm text-slate-500 text-center py-8">No notes yet</p>
+                    )}
                   </div>
-                ))}
-              </div>
 
-              <div className="p-4 border-t border-slate-200 bg-white">
-                <textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Add a comment..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddComment}
-                  className="mt-2 w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
-                >
-                  Add Comment
-                </button>
-              </div>
+                  <div className="p-4 border-t border-slate-200 bg-white">
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Add a note..."
+                      rows={3}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddComment}
+                      className="mt-2 w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
+                    >
+                      Add Note
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -659,6 +947,188 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         >
           <MessageSquare className="w-5 h-5" />
         </button>
+      </div>
+    </div>
+  );
+}
+
+function ServiceForm({ service, onSave, onCancel }: { service: Service; onSave: (s: Service) => void; onCancel: () => void }) {
+  const [formData, setFormData] = useState(service);
+
+  const serviceTypeLabels = {
+    company_bank_registration: 'Company and Bank Registration',
+    virtual_office: 'Virtual Office',
+    company_secretary: 'Company Secretary',
+  };
+
+  return (
+    <div className="bg-slate-100 border border-slate-300 rounded-lg p-4 mb-4">
+      <h4 className="font-medium text-slate-900 mb-3">
+        {service.id ? 'Edit Service' : 'Add Service'}
+      </h4>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Service Type</label>
+          <select
+            value={formData.service_type}
+            onChange={(e) => setFormData({ ...formData, service_type: e.target.value as any })}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="company_bank_registration">Company and Bank Registration</option>
+            <option value="virtual_office">Virtual Office</option>
+            <option value="company_secretary">Company Secretary</option>
+          </select>
+        </div>
+
+        {formData.service_type === 'company_bank_registration' ? (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Service Date</label>
+            <input
+              type="date"
+              value={formData.service_date || ''}
+              onChange={(e) => setFormData({ ...formData, service_date: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={formData.start_date || ''}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+              <input
+                type="date"
+                value={formData.end_date || ''}
+                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={formData.is_paid}
+            onChange={(e) => setFormData({ ...formData, is_paid: e.target.checked, paid_date: e.target.checked ? formData.paid_date : undefined })}
+            className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+          />
+          <label className="text-sm font-medium text-slate-700">Service Paid</label>
+        </div>
+
+        {formData.is_paid && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Paid Date</label>
+            <input
+              type="date"
+              value={formData.paid_date || ''}
+              onChange={(e) => setFormData({ ...formData, paid_date: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+          <textarea
+            value={formData.remarks || ''}
+            onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+            rows={2}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            placeholder="Optional notes..."
+          />
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onSave(formData)}
+            className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
+            Save Service
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ServiceCard({ service, onEdit, onDelete }: { service: Service; onEdit: (s: Service) => void; onDelete: (id: string) => void }) {
+  const serviceTypeLabels = {
+    company_bank_registration: 'Company and Bank Registration',
+    virtual_office: 'Virtual Office',
+    company_secretary: 'Company Secretary',
+  };
+
+  const getDateDisplay = () => {
+    if (service.service_type === 'company_bank_registration') {
+      return service.service_date ? new Date(service.service_date).toLocaleDateString() : 'No date set';
+    }
+    const start = service.start_date ? new Date(service.start_date).toLocaleDateString() : 'N/A';
+    const end = service.end_date ? new Date(service.end_date).toLocaleDateString() : 'Ongoing';
+    return `${start} - ${end}`;
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h4 className="font-medium text-slate-900 text-sm">{serviceTypeLabels[service.service_type]}</h4>
+            {service.is_paid ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                <CheckCircle className="w-3 h-3" />
+                Paid
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
+                <XCircle className="w-3 h-3" />
+                Unpaid
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-600 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {getDateDisplay()}
+          </div>
+          {service.is_paid && service.paid_date && (
+            <div className="text-xs text-green-600 flex items-center gap-1 mt-1">
+              <DollarSign className="w-3 h-3" />
+              Paid on {new Date(service.paid_date).toLocaleDateString()}
+            </div>
+          )}
+          {service.remarks && (
+            <p className="text-xs text-slate-500 mt-2 italic">{service.remarks}</p>
+          )}
+        </div>
+        <div className="flex gap-1 ml-2">
+          <button
+            onClick={() => onEdit(service)}
+            className="p-1 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => service.id && onDelete(service.id)}
+            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

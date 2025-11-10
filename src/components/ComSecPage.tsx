@@ -221,13 +221,6 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
         <div className="grid gap-4">
           {filteredClients.map(client => {
-            const clientInvoices = invoices.filter(inv => inv.comsec_client_id === client.id);
-            const totalInvoiced = clientInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-            const paidInvoices = clientInvoices.filter(inv => inv.status === 'Paid');
-            const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-            const pendingInvoices = clientInvoices.filter(inv => inv.status !== 'Paid');
-            const totalPending = pendingInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-
             return (
               <div
                 key={client.id}
@@ -260,32 +253,6 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                       {client.ar_due_date && <div><span className="text-slate-500">AR Due:</span> <span className="text-slate-900">{new Date(client.ar_due_date).toLocaleDateString()}</span></div>}
                     </div>
                     {client.remarks && <p className="mt-3 text-sm text-slate-600">{client.remarks}</p>}
-
-                    {clientInvoices.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-slate-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <DollarSign className="w-4 h-4 text-slate-500" />
-                          <span className="text-xs font-semibold text-slate-600 uppercase">Invoice Summary</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                          <div>
-                            <div className="text-xs text-slate-500">Total Invoiced</div>
-                            <div className="font-semibold text-slate-900">HKD ${totalInvoiced.toLocaleString()}</div>
-                            <div className="text-xs text-slate-500">{clientInvoices.length} invoice(s)</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-slate-500">Paid</div>
-                            <div className="font-semibold text-green-700">HKD ${totalPaid.toLocaleString()}</div>
-                            <div className="text-xs text-slate-500">{paidInvoices.length} invoice(s)</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-slate-500">Pending</div>
-                            <div className="font-semibold text-orange-700">HKD ${totalPending.toLocaleString()}</div>
-                            <div className="text-xs text-slate-500">{pendingInvoices.length} invoice(s)</div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                   <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <button
