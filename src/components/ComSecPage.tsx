@@ -200,8 +200,81 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
       client.company_code?.toLowerCase().includes(searchTermClients.toLowerCase())
     );
 
+    const upcomingReminders = comSecClients
+      .filter(client => client.ar_due_date && client.reminder_days)
+      .map(client => {
+        const dueDate = new Date(client.ar_due_date!);
+        const reminderDate = new Date(dueDate.getTime() - (client.reminder_days! * 24 * 60 * 60 * 1000));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const daysUntilReminder = Math.ceil((reminderDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+        const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+
+        return {
+          client,
+          dueDate,
+          reminderDate,
+          daysUntilReminder,
+          daysUntilDue
+        };
+      })
+      .filter(item => item.daysUntilDue > 0)
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+      .slice(0, 5);
+
     return (
       <div className="space-y-4">
+        {upcomingReminders.length > 0 && (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-5 shadow-sm">
+            <div className="flex items-start gap-3 mb-4">
+              <Bell className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-amber-900 mb-1">Upcoming AR Due Date Reminders</h3>
+                <p className="text-sm text-amber-700">Clients with approaching Annual Return deadlines</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {upcomingReminders.map(({ client, dueDate, reminderDate, daysUntilReminder, daysUntilDue }) => (
+                <div
+                  key={client.id}
+                  className="bg-white rounded-lg p-3 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-slate-900">{client.company_name}</span>
+                      {client.company_code && (
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded">
+                          {client.company_code}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      <span>AR Due: <strong>{dueDate.toLocaleDateString()}</strong></span>
+                      <span className="mx-2">•</span>
+                      <span>Reminder: <strong>{reminderDate.toLocaleDateString()}</strong></span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {daysUntilReminder <= 0 ? (
+                      <div className="px-3 py-1 bg-red-100 text-red-700 text-sm font-semibold rounded-lg">
+                        Due in {daysUntilDue} days
+                      </div>
+                    ) : daysUntilReminder <= 7 ? (
+                      <div className="px-3 py-1 bg-orange-100 text-orange-700 text-sm font-semibold rounded-lg">
+                        Reminder in {daysUntilReminder} days
+                      </div>
+                    ) : (
+                      <div className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded-lg">
+                        {daysUntilDue} days until due
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex justify-between items-center">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -822,6 +895,42 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             }} className="p-6 space-y-4">
               {activeModule === 'clients' && (
                 <>
+                  {editingItem && editingItem.company_code && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-slate-900 uppercase">Quick Access</h3>
+                        <a
+                          href={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/comsec-documents/${editingItem.company_code}/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <FileText className="w-4 h-4" />
+                          Open Document Folder
+                        </a>
+                      </div>
+                      <p className="text-xs text-slate-600">Access all documents for {editingItem.company_code}</p>
+                    </div>
+                  )}
+
+                  {editingItem && editingItem.ar_due_date && editingItem.reminder_days && (
+                    <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-4">
+                      <div className="flex items-start gap-3">
+                        <Bell className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-amber-900 mb-1">Important Date Reminder</p>
+                          <p className="text-sm text-amber-800">
+                            <strong>AR Due Date:</strong> {new Date(editingItem.ar_due_date).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm text-amber-800 mt-1">
+                            <strong>Reminder Date:</strong> {new Date(new Date(editingItem.ar_due_date).getTime() - (editingItem.reminder_days * 24 * 60 * 60 * 1000)).toLocaleDateString()} ({editingItem.reminder_days} days before)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="border-b border-slate-200 pb-4 mb-4">
                     <h3 className="text-base font-semibold text-slate-900 mb-3">Basic Information</h3>
                     <div className="grid grid-cols-2 gap-4">
@@ -930,22 +1039,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                   </div>
 
                   <div className="border-b border-slate-200 pb-4 mb-4">
-                    <h3 className="text-base font-semibold text-slate-900 mb-3">Important Date Reminders</h3>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                      <div className="flex items-start gap-3">
-                        <Bell className="w-5 h-5 text-blue-600 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-blue-900 mb-1">AR Due Date Reminder</p>
-                          <p className="text-xs text-blue-700">
-                            {editingItem?.ar_due_date && editingItem?.reminder_days ? (
-                              <>Reminder will be sent on <strong>{new Date(new Date(editingItem.ar_due_date).getTime() - (editingItem.reminder_days * 24 * 60 * 60 * 1000)).toLocaleDateString()}</strong> ({editingItem.reminder_days} days before AR due date)</>
-                            ) : (
-                              'Set AR due date and reminder days to calculate reminder date'
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                    <h3 className="text-base font-semibold text-slate-900 mb-3">Reminder Settings</h3>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Reminder Days Before AR Due Date</label>
                       <input
