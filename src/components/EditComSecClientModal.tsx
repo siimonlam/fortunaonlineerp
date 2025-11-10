@@ -16,9 +16,20 @@ interface Member {
   id_number: string;
 }
 
-interface Service {
+interface MasterService {
+  id: string;
+  service_name: string;
+  service_type: string;
+  description: string | null;
+  is_active: boolean;
+}
+
+interface ServiceSubscription {
   id?: string;
-  service_type: 'company_bank_registration' | 'virtual_office' | 'company_secretary';
+  service_id: string;
+  service?: MasterService;
+  company_code?: string;
+  invoice_number?: string;
   service_date?: string;
   start_date?: string;
   end_date?: string;
@@ -96,10 +107,11 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
+  const [masterServices, setMasterServices] = useState<MasterService[]>([]);
+  const [serviceSubscriptions, setServiceSubscriptions] = useState<ServiceSubscription[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [editingService, setEditingService] = useState<Service | null>(null);
-  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [editingSubscription, setEditingSubscription] = useState<ServiceSubscription | null>(null);
+  const [showSubscriptionForm, setShowSubscriptionForm] = useState(false);
   const [showAR1Preview, setShowAR1Preview] = useState(false);
   const [ar1PdfUrl, setAr1PdfUrl] = useState<string | null>(null);
   const [ar1PdfBytes, setAr1PdfBytes] = useState<Uint8Array | null>(null);
@@ -130,7 +142,8 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     loadMembers();
     loadComments();
     loadHistory();
-    loadServices();
+    loadMasterServices();
+    loadServiceSubscriptions();
     loadInvoices();
   }, [client.id]);
 
@@ -181,14 +194,27 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     if (data) setHistory(data);
   }
 
-  async function loadServices() {
+  async function loadMasterServices() {
     const { data } = await supabase
-      .from('comsec_client_services')
+      .from('comsec_services')
       .select('*')
+      .eq('is_active', true)
+      .order('service_name');
+
+    if (data) setMasterServices(data);
+  }
+
+  async function loadServiceSubscriptions() {
+    const { data } = await supabase
+      .from('comsec_client_service_subscriptions')
+      .select(`
+        *,
+        service:comsec_services(*)
+      `)
       .eq('comsec_client_id', client.id)
       .order('created_at', { ascending: false });
 
-    if (data) setServices(data);
+    if (data) setServiceSubscriptions(data);
   }
 
   async function loadInvoices() {
@@ -231,65 +257,68 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     });
   }
 
-  async function handleSaveService(serviceData: Service) {
+  async function handleSaveSubscription(subscriptionData: ServiceSubscription) {
     if (!user) return;
 
     try {
-      if (serviceData.id) {
+      if (subscriptionData.id) {
         const { error } = await supabase
-          .from('comsec_client_services')
+          .from('comsec_client_service_subscriptions')
           .update({
-            service_type: serviceData.service_type,
-            service_date: serviceData.service_date || null,
-            start_date: serviceData.start_date || null,
-            end_date: serviceData.end_date || null,
-            is_paid: serviceData.is_paid,
-            paid_date: serviceData.paid_date || null,
-            remarks: serviceData.remarks || null,
+            company_code: subscriptionData.company_code || null,
+            invoice_number: subscriptionData.invoice_number || null,
+            service_date: subscriptionData.service_date || null,
+            start_date: subscriptionData.start_date || null,
+            end_date: subscriptionData.end_date || null,
+            is_paid: subscriptionData.is_paid,
+            paid_date: subscriptionData.paid_date || null,
+            remarks: subscriptionData.remarks || null,
           })
-          .eq('id', serviceData.id);
+          .eq('id', subscriptionData.id);
 
         if (error) throw error;
-        await logHistory('service_updated', serviceData.service_type, undefined, 'Service updated');
+        await logHistory('service_updated', undefined, undefined, 'Service subscription updated');
       } else {
         const { error } = await supabase
-          .from('comsec_client_services')
+          .from('comsec_client_service_subscriptions')
           .insert({
             comsec_client_id: client.id,
-            service_type: serviceData.service_type,
-            service_date: serviceData.service_date || null,
-            start_date: serviceData.start_date || null,
-            end_date: serviceData.end_date || null,
-            is_paid: serviceData.is_paid,
-            paid_date: serviceData.paid_date || null,
-            remarks: serviceData.remarks || null,
+            service_id: subscriptionData.service_id,
+            company_code: subscriptionData.company_code || null,
+            invoice_number: subscriptionData.invoice_number || null,
+            service_date: subscriptionData.service_date || null,
+            start_date: subscriptionData.start_date || null,
+            end_date: subscriptionData.end_date || null,
+            is_paid: subscriptionData.is_paid,
+            paid_date: subscriptionData.paid_date || null,
+            remarks: subscriptionData.remarks || null,
             created_by: user.id,
           });
 
         if (error) throw error;
-        await logHistory('service_added', serviceData.service_type, undefined, 'Service added');
+        await logHistory('service_added', undefined, undefined, 'Service subscription added');
       }
 
-      setShowServiceForm(false);
-      setEditingService(null);
-      loadServices();
+      setShowSubscriptionForm(false);
+      setEditingSubscription(null);
+      loadServiceSubscriptions();
       loadHistory();
     } catch (error: any) {
-      alert(`Error saving service: ${error.message}`);
+      alert(`Error saving service subscription: ${error.message}`);
     }
   }
 
-  async function handleDeleteService(serviceId: string) {
-    if (!confirm('Are you sure you want to delete this service?')) return;
+  async function handleDeleteSubscription(subscriptionId: string) {
+    if (!confirm('Are you sure you want to delete this service subscription?')) return;
 
     const { error } = await supabase
-      .from('comsec_client_services')
+      .from('comsec_client_service_subscriptions')
       .delete()
-      .eq('id', serviceId);
+      .eq('id', subscriptionId);
 
     if (!error) {
-      await logHistory('service_deleted', undefined, undefined, 'Service deleted');
-      loadServices();
+      await logHistory('service_deleted', undefined, undefined, 'Service subscription deleted');
+      loadServiceSubscriptions();
       loadHistory();
     }
   }
@@ -845,47 +874,66 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
             </div>
 
             <div className="border-t border-slate-200 pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-semibold text-slate-900">Services</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingService({ service_type: 'company_bank_registration', is_paid: false });
-                    setShowServiceForm(true);
-                  }}
-                  className="text-emerald-600 hover:text-emerald-700 text-sm font-medium flex items-center gap-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Service
-                </button>
-              </div>
+              <h3 className="text-base font-semibold text-slate-900 mb-3">Services</h3>
 
-              {showServiceForm && editingService && (
-                <ServiceForm
-                  service={editingService}
-                  onSave={handleSaveService}
+              {showSubscriptionForm && editingSubscription && (
+                <SubscriptionForm
+                  subscription={editingSubscription}
+                  masterServices={masterServices}
+                  clientCompanyCode={client.company_code || ''}
+                  onSave={handleSaveSubscription}
                   onCancel={() => {
-                    setShowServiceForm(false);
-                    setEditingService(null);
+                    setShowSubscriptionForm(false);
+                    setEditingSubscription(null);
                   }}
                 />
               )}
 
-              <div className="space-y-2">
-                {services.map((service) => (
-                  <ServiceCard
-                    key={service.id}
-                    service={service}
-                    onEdit={(s) => {
-                      setEditingService(s);
-                      setShowServiceForm(true);
-                    }}
-                    onDelete={handleDeleteService}
-                  />
-                ))}
-                {services.length === 0 && !showServiceForm && (
-                  <p className="text-sm text-slate-500 text-center py-4">No services added yet</p>
-                )}
+              <div className="space-y-3">
+                {masterServices.map((masterService) => {
+                  const subscription = serviceSubscriptions.find(sub => sub.service_id === masterService.id);
+
+                  return (
+                    <div key={masterService.id} className="bg-white border border-slate-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-medium text-slate-900">{masterService.service_name}</h4>
+                          {masterService.description && (
+                            <p className="text-xs text-slate-500 mt-1">{masterService.description}</p>
+                          )}
+                        </div>
+                        {!subscription && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingSubscription({
+                                service_id: masterService.id,
+                                service: masterService,
+                                is_paid: false,
+                              });
+                              setShowSubscriptionForm(true);
+                            }}
+                            className="px-3 py-1 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add
+                          </button>
+                        )}
+                      </div>
+
+                      {subscription && (
+                        <SubscriptionCard
+                          subscription={subscription}
+                          onEdit={(sub) => {
+                            setEditingSubscription(sub);
+                            setShowSubscriptionForm(true);
+                          }}
+                          onDelete={handleDeleteSubscription}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1090,35 +1138,52 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   );
 }
 
-function ServiceForm({ service, onSave, onCancel }: { service: Service; onSave: (s: Service) => void; onCancel: () => void }) {
-  const [formData, setFormData] = useState(service);
-
-  const serviceTypeLabels = {
-    company_bank_registration: 'Company and Bank Registration',
-    virtual_office: 'Virtual Office',
-    company_secretary: 'Company Secretary',
-  };
+function SubscriptionForm({
+  subscription,
+  masterServices,
+  clientCompanyCode,
+  onSave,
+  onCancel
+}: {
+  subscription: ServiceSubscription;
+  masterServices: MasterService[];
+  clientCompanyCode: string;
+  onSave: (s: ServiceSubscription) => void;
+  onCancel: () => void;
+}) {
+  const [formData, setFormData] = useState(subscription);
+  const selectedService = masterServices.find(s => s.id === formData.service_id);
 
   return (
     <div className="bg-slate-100 border border-slate-300 rounded-lg p-4 mb-4">
       <h4 className="font-medium text-slate-900 mb-3">
-        {service.id ? 'Edit Service' : 'Add Service'}
+        {subscription.id ? 'Edit Service Details' : `Add ${selectedService?.service_name}`}
       </h4>
       <div className="space-y-3">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Service Type</label>
-          <select
-            value={formData.service_type}
-            onChange={(e) => setFormData({ ...formData, service_type: e.target.value as any })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="company_bank_registration">Company and Bank Registration</option>
-            <option value="virtual_office">Virtual Office</option>
-            <option value="company_secretary">Company Secretary</option>
-          </select>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Company Code</label>
+            <input
+              type="text"
+              value={formData.company_code || clientCompanyCode}
+              onChange={(e) => setFormData({ ...formData, company_code: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Company code"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Number</label>
+            <input
+              type="text"
+              value={formData.invoice_number || ''}
+              onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Invoice number"
+            />
+          </div>
         </div>
 
-        {formData.service_type === 'company_bank_registration' ? (
+        {selectedService?.service_type === 'company_bank_registration' ? (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Service Date</label>
             <input
@@ -1197,7 +1262,7 @@ function ServiceForm({ service, onSave, onCancel }: { service: Service; onSave: 
             onClick={() => onSave(formData)}
             className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
           >
-            Save Service
+            Save
           </button>
         </div>
       </div>
@@ -1205,29 +1270,30 @@ function ServiceForm({ service, onSave, onCancel }: { service: Service; onSave: 
   );
 }
 
-function ServiceCard({ service, onEdit, onDelete }: { service: Service; onEdit: (s: Service) => void; onDelete: (id: string) => void }) {
-  const serviceTypeLabels = {
-    company_bank_registration: 'Company and Bank Registration',
-    virtual_office: 'Virtual Office',
-    company_secretary: 'Company Secretary',
-  };
-
+function SubscriptionCard({
+  subscription,
+  onEdit,
+  onDelete
+}: {
+  subscription: ServiceSubscription;
+  onEdit: (s: ServiceSubscription) => void;
+  onDelete: (id: string) => void;
+}) {
   const getDateDisplay = () => {
-    if (service.service_type === 'company_bank_registration') {
-      return service.service_date ? new Date(service.service_date).toLocaleDateString() : 'No date set';
+    if (subscription.service?.service_type === 'company_bank_registration') {
+      return subscription.service_date ? new Date(subscription.service_date).toLocaleDateString() : 'No date set';
     }
-    const start = service.start_date ? new Date(service.start_date).toLocaleDateString() : 'N/A';
-    const end = service.end_date ? new Date(service.end_date).toLocaleDateString() : 'Ongoing';
+    const start = subscription.start_date ? new Date(subscription.start_date).toLocaleDateString() : 'N/A';
+    const end = subscription.end_date ? new Date(subscription.end_date).toLocaleDateString() : 'Ongoing';
     return `${start} - ${end}`;
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
+    <div className="bg-slate-50 border border-slate-300 rounded-lg p-3 mt-2">
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-medium text-slate-900 text-sm">{serviceTypeLabels[service.service_type]}</h4>
-            {service.is_paid ? (
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center gap-2">
+            {subscription.is_paid ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
                 <CheckCircle className="w-3 h-3" />
                 Paid
@@ -1239,30 +1305,45 @@ function ServiceCard({ service, onEdit, onDelete }: { service: Service; onEdit: 
               </span>
             )}
           </div>
-          <div className="text-xs text-slate-600 flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {getDateDisplay()}
-          </div>
-          {service.is_paid && service.paid_date && (
-            <div className="text-xs text-green-600 flex items-center gap-1 mt-1">
-              <DollarSign className="w-3 h-3" />
-              Paid on {new Date(service.paid_date).toLocaleDateString()}
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            {subscription.company_code && (
+              <div className="text-slate-600">
+                <span className="font-medium">Code:</span> {subscription.company_code}
+              </div>
+            )}
+            {subscription.invoice_number && (
+              <div className="text-slate-600">
+                <span className="font-medium">Invoice:</span> {subscription.invoice_number}
+              </div>
+            )}
+            <div className="text-slate-600 col-span-2 flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {getDateDisplay()}
             </div>
-          )}
-          {service.remarks && (
-            <p className="text-xs text-slate-500 mt-2 italic">{service.remarks}</p>
+            {subscription.is_paid && subscription.paid_date && (
+              <div className="text-green-600 col-span-2 flex items-center gap-1">
+                <DollarSign className="w-3 h-3" />
+                Paid on {new Date(subscription.paid_date).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+
+          {subscription.remarks && (
+            <p className="text-xs text-slate-500 italic border-t border-slate-200 pt-2">{subscription.remarks}</p>
           )}
         </div>
+
         <div className="flex gap-1 ml-2">
           <button
-            onClick={() => onEdit(service)}
-            className="p-1 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+            onClick={() => onEdit(subscription)}
+            className="p-1 text-slate-600 hover:bg-slate-200 rounded transition-colors"
           >
             <Edit2 className="w-4 h-4" />
           </button>
           <button
-            onClick={() => service.id && onDelete(service.id)}
-            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+            onClick={() => subscription.id && onDelete(subscription.id)}
+            className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>
