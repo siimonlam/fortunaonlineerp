@@ -890,72 +890,50 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
             <div className="border-t border-slate-200 pt-4">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Services</h3>
 
-              {showSubscriptionForm && editingSubscription && (
-                <SubscriptionForm
-                  subscription={editingSubscription}
-                  masterServices={masterServices}
-                  clientCompanyCode={client.company_code || ''}
-                  onSave={handleSaveSubscription}
-                  onCancel={() => {
-                    setShowSubscriptionForm(false);
-                    setEditingSubscription(null);
-                  }}
-                />
-              )}
-
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {masterServices.map((masterService) => {
                   const subscription = serviceSubscriptions.find(sub => sub.service_id === masterService.id);
 
+                  const getStartDate = () => {
+                    if (!subscription) return '-';
+                    if (masterService.service_type === 'company_bank_registration') {
+                      return subscription.service_date ? new Date(subscription.service_date).toLocaleDateString() : '-';
+                    }
+                    return subscription.start_date ? new Date(subscription.start_date).toLocaleDateString() : '-';
+                  };
+
+                  const getEndDate = () => {
+                    if (!subscription) return '-';
+                    if (masterService.service_type === 'company_bank_registration') {
+                      return '-';
+                    }
+                    return subscription.end_date ? new Date(subscription.end_date).toLocaleDateString() : 'Ongoing';
+                  };
+
                   return (
-                    <div key={masterService.id} className="bg-white border border-slate-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
+                    <div key={masterService.id} className="bg-white border border-slate-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium text-slate-900">{masterService.service_name}</h4>
-                            {subscription ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded">
-                                ACTIVE
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded">
-                                INACTIVE
-                              </span>
-                            )}
+                          <div className="flex items-center gap-3">
+                            <h4 className="font-medium text-slate-900 min-w-[180px]">{masterService.service_name}</h4>
+                            <div className="flex items-center gap-4 text-sm text-slate-600">
+                              <span>Start: <strong>{getStartDate()}</strong></span>
+                              <span>End: <strong>{getEndDate()}</strong></span>
+                            </div>
                           </div>
-                          {masterService.description && (
-                            <p className="text-xs text-slate-500 mt-1">{masterService.description}</p>
+                        </div>
+                        <div>
+                          {subscription ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded">
+                              ACTIVE
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded">
+                              INACTIVE
+                            </span>
                           )}
                         </div>
-                        {!subscription && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingSubscription({
-                                service_id: masterService.id,
-                                service: masterService,
-                                is_paid: false,
-                              });
-                              setShowSubscriptionForm(true);
-                            }}
-                            className="px-3 py-1 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Activate
-                          </button>
-                        )}
                       </div>
-
-                      {subscription && (
-                        <SubscriptionCard
-                          subscription={subscription}
-                          onEdit={(sub) => {
-                            setEditingSubscription(sub);
-                            setShowSubscriptionForm(true);
-                          }}
-                          onDelete={handleDeleteSubscription}
-                        />
-                      )}
                     </div>
                   );
                 })}

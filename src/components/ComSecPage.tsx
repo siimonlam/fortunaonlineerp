@@ -115,6 +115,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   const [virtualOffices, setVirtualOffices] = useState<VirtualOffice[]>([]);
   const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase[]>([]);
   const [reminders, setReminders] = useState<DueDateReminder[]>([]);
+  const [masterServices, setMasterServices] = useState<any[]>([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -130,6 +131,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   useEffect(() => {
     loadStaff();
     loadData();
+    loadMasterServices();
   }, [activeModule]);
 
   async function loadStaff() {
@@ -198,6 +200,15 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
       .select('*, comsec_client:comsec_clients(company_name), assigned_to:staff!assigned_to_id(full_name)')
       .order('due_date', { ascending: true });
     if (data) setReminders(data);
+  }
+
+  async function loadMasterServices() {
+    const { data } = await supabase
+      .from('comsec_services')
+      .select('*')
+      .eq('is_active', true)
+      .order('service_name');
+    if (data) setMasterServices(data);
   }
 
   function ServiceSettingsTab() {
@@ -1465,12 +1476,14 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
               const notes = formData.get('notes') as string;
 
               const selectedItems = [];
-              if (formData.get('item_company_secretary') === 'on') {
-                selectedItems.push({ description: '1 Year Company Secretary Service', amount: 5000 });
-              }
-              if (formData.get('item_virtual_office') === 'on') {
-                selectedItems.push({ description: '1 Year Company Virtual Office Service', amount: 5000 });
-              }
+              masterServices.forEach(service => {
+                if (formData.get(`service_${service.id}`) === 'on') {
+                  selectedItems.push({
+                    description: service.service_name,
+                    amount: parseFloat(service.price) || 0
+                  });
+                }
+              });
 
               if (selectedItems.length === 0) {
                 alert('Please select at least one service item');
@@ -1496,16 +1509,16 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
               <div className="border border-slate-300 rounded-lg p-4 space-y-3">
                 <h3 className="font-semibold text-slate-800 mb-2">Select Services</h3>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" name="item_company_secretary" className="w-4 h-4" />
-                  <span className="flex-1">1 Year Company Secretary Service</span>
-                  <span className="font-semibold text-slate-800">HKD $5,000.00</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" name="item_virtual_office" className="w-4 h-4" />
-                  <span className="flex-1">1 Year Company Virtual Office Service</span>
-                  <span className="font-semibold text-slate-800">HKD $5,000.00</span>
-                </label>
+                {masterServices.map(service => (
+                  <label key={service.id} className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-2 rounded">
+                    <input type="checkbox" name={`service_${service.id}`} className="w-4 h-4" />
+                    <span className="flex-1">{service.service_name}</span>
+                    <span className="font-semibold text-slate-800">HKD ${service.price.toFixed(2)}</span>
+                  </label>
+                ))}
+                {masterServices.length === 0 && (
+                  <p className="text-sm text-slate-500 text-center py-2">No services available. Add services in Invoice → Service Settings</p>
+                )}
               </div>
 
               <textarea name="notes" placeholder="Notes (optional)" rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
