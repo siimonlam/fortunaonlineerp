@@ -330,12 +330,15 @@ export function ProjectBoard() {
     }
 
     if (projectTypesRes.data) {
-      setProjectTypes(projectTypesRes.data);
+      const filteredProjectTypes = projectTypesRes.data.filter(pt => pt.name !== 'Com Sec');
+      setProjectTypes(filteredProjectTypes);
       // Only set default project type if none is selected AND this is the initial load
       // Preserve the current selection when reloading data
-      if (!selectedProjectType && projectTypesRes.data.length > 0) {
-        console.log('[loadData] No project type selected, setting to first:', projectTypesRes.data[0].name);
-        setSelectedProjectType(projectTypesRes.data[0].id);
+      if (!selectedProjectType && filteredProjectTypes.length > 0) {
+        const fundingProject = filteredProjectTypes.find(pt => pt.name === 'Funding Project');
+        const defaultType = fundingProject || filteredProjectTypes[0];
+        console.log('[loadData] No project type selected, setting to:', defaultType.name);
+        setSelectedProjectType(defaultType.id);
       } else {
         console.log('[loadData] Preserving current project type selection:', selectedProjectType);
       }
@@ -351,8 +354,11 @@ export function ProjectBoard() {
 
       setStatuses(organizedStatuses);
       if (!selectedStatus && statusesRes.data.length > 0) {
+        const filteredTypes = projectTypesRes.data?.filter(pt => pt.name !== 'Com Sec') || [];
+        const fundingProject = filteredTypes.find(pt => pt.name === 'Funding Project');
+        const defaultType = fundingProject || filteredTypes[0];
         const firstStatusForType = statusesRes.data.find(
-          s => s.project_type_id === (projectTypesRes.data?.[0]?.id || '') && !s.is_substatus
+          s => s.project_type_id === defaultType?.id && !s.is_substatus
         );
         if (firstStatusForType) {
           const firstSubstatus = statusesRes.data.find(s => s.parent_status_id === firstStatusForType.id);
