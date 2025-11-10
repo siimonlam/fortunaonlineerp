@@ -1290,62 +1290,51 @@ function SubscriptionCard({
   onEdit: (s: ServiceSubscription) => void;
   onDelete: (id: string) => void;
 }) {
-  const getDateDisplay = () => {
+  const getStartDate = () => {
     if (subscription.service?.service_type === 'company_bank_registration') {
-      return subscription.service_date ? new Date(subscription.service_date).toLocaleDateString() : 'No date set';
+      return subscription.service_date ? new Date(subscription.service_date).toLocaleDateString() : '-';
     }
-    const start = subscription.start_date ? new Date(subscription.start_date).toLocaleDateString() : 'N/A';
-    const end = subscription.end_date ? new Date(subscription.end_date).toLocaleDateString() : 'Ongoing';
-    return `${start} - ${end}`;
+    return subscription.start_date ? new Date(subscription.start_date).toLocaleDateString() : '-';
+  };
+
+  const getEndDate = () => {
+    if (subscription.service?.service_type === 'company_bank_registration') {
+      return '-';
+    }
+    return subscription.end_date ? new Date(subscription.end_date).toLocaleDateString() : 'Ongoing';
   };
 
   return (
     <div className="bg-slate-50 border border-slate-300 rounded-lg p-3 mt-2">
-      <div className="flex items-start justify-between">
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center gap-2">
-            {subscription.is_paid ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
-                <CheckCircle className="w-3 h-3" />
-                Paid
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
-                <XCircle className="w-3 h-3" />
-                Unpaid
-              </span>
-            )}
+      <div className="flex items-center justify-between">
+        <div className="flex-1 grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <span className="text-slate-500 text-xs">Start Date</span>
+            <div className="font-medium text-slate-900">{getStartDate()}</div>
           </div>
-
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-            {subscription.company_code && (
-              <div className="text-slate-600">
-                <span className="font-medium">Code:</span> {subscription.company_code}
-              </div>
-            )}
-            {subscription.invoice_number && (
-              <div className="text-slate-600">
-                <span className="font-medium">Invoice:</span> {subscription.invoice_number}
-              </div>
-            )}
-            <div className="text-slate-600 col-span-2 flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {getDateDisplay()}
+          <div>
+            <span className="text-slate-500 text-xs">End Date</span>
+            <div className="font-medium text-slate-900">{getEndDate()}</div>
+          </div>
+          <div>
+            <span className="text-slate-500 text-xs">Paid Status</span>
+            <div>
+              {subscription.is_paid ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                  <CheckCircle className="w-3 h-3" />
+                  Paid
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
+                  <XCircle className="w-3 h-3" />
+                  Unpaid
+                </span>
+              )}
             </div>
-            {subscription.is_paid && subscription.paid_date && (
-              <div className="text-green-600 col-span-2 flex items-center gap-1">
-                <DollarSign className="w-3 h-3" />
-                Paid on {new Date(subscription.paid_date).toLocaleDateString()}
-              </div>
-            )}
           </div>
-
-          {subscription.remarks && (
-            <p className="text-xs text-slate-500 italic border-t border-slate-200 pt-2">{subscription.remarks}</p>
-          )}
         </div>
 
-        <div className="flex gap-1 ml-2">
+        <div className="flex gap-1 ml-4">
           <button
             onClick={() => onEdit(subscription)}
             className="p-1 text-slate-600 hover:bg-slate-200 rounded transition-colors"
