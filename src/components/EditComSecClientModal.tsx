@@ -947,7 +947,30 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                   {invoices.map((invoice) => (
                     <div key={invoice.id} className="flex items-center justify-between py-2 border-b border-slate-200 last:border-0">
                       <div className="flex-1">
-                        <div className="font-medium text-slate-900">{invoice.invoice_number}</div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const fileName = `invoices/${client.id}/${invoice.invoice_number}.pdf`;
+                              const { data, error } = await supabase.storage
+                                .from('comsec-documents')
+                                .createSignedUrl(fileName, 3600);
+
+                              if (error || !data) {
+                                alert('Invoice PDF not found');
+                                return;
+                              }
+
+                              window.open(data.signedUrl, '_blank');
+                            } catch (error) {
+                              console.error('Error opening invoice:', error);
+                              alert('Failed to open invoice');
+                            }
+                          }}
+                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
+                        >
+                          {invoice.invoice_number}
+                        </button>
                         <div className="text-xs text-slate-500">
                           Issue: {new Date(invoice.issue_date).toLocaleDateString()} | Due: {new Date(invoice.due_date).toLocaleDateString()}
                         </div>

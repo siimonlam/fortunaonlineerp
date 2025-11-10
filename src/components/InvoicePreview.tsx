@@ -68,8 +68,8 @@ export function InvoicePreview({
     }, 250);
   };
 
-  const handleDownload = async () => {
-    if (!printRef.current || !onSave) return;
+  const generatePDF = async () => {
+    if (!printRef.current) return null;
 
     try {
       const html2pdf = (await import('html2pdf.js')).default;
@@ -84,19 +84,35 @@ export function InvoicePreview({
       };
 
       const pdfBlob = await html2pdf().set(opt).from(element).output('blob');
-
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(pdfBlob);
-      link.download = `invoice-${invoiceNumber}.pdf`;
-      link.click();
-      URL.revokeObjectURL(link.href);
-
-      if (onSave) {
-        await onSave(invoiceNumber, pdfBlob);
-      }
+      return pdfBlob;
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF. Please try again.');
+      return null;
+    }
+  };
+
+  const handleDownload = async () => {
+    const pdfBlob = await generatePDF();
+    if (!pdfBlob) return;
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(pdfBlob);
+    link.download = `invoice-${invoiceNumber}.pdf`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const handleSaveToDatabase = async () => {
+    if (!onSave) return;
+
+    const pdfBlob = await generatePDF();
+    if (!pdfBlob) return;
+
+    try {
+      await onSave(invoiceNumber, pdfBlob);
+    } catch (error) {
+      console.error('Error saving invoice:', error);
     }
   };
 
@@ -107,6 +123,12 @@ export function InvoicePreview({
           <h2 className="text-xl font-semibold text-slate-800">Invoice Preview</h2>
           <div className="flex gap-2">
             <button
+              onClick={handleSaveToDatabase}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium"
+            >
+              OK and Save
+            </button>
+            <button
               onClick={handlePrint}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
@@ -115,10 +137,10 @@ export function InvoicePreview({
             </button>
             <button
               onClick={handleDownload}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
-              Save PDF
+              Download
             </button>
             <button
               onClick={onClose}

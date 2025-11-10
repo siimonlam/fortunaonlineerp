@@ -174,7 +174,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   async function loadInvoices() {
     const { data } = await supabase
       .from('comsec_invoices')
-      .select('*, comsec_client:comsec_clients(company_name)')
+      .select('*, comsec_client:comsec_clients(company_name, company_code, id)')
       .order('issue_date', { ascending: false });
     if (data) setInvoices(data);
   }
@@ -540,6 +540,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Invoice #</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Code</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Due Date</th>
@@ -551,8 +552,59 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                 <tbody className="divide-y divide-slate-200">
                   {filteredInvoices.map(invoice => (
                     <tr key={invoice.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-medium text-slate-900">{invoice.invoice_number}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{invoice.comsec_client?.company_name}</td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const fileName = `invoices/${invoice.comsec_client_id}/${invoice.invoice_number}.pdf`;
+                              const { data, error } = await supabase.storage
+                                .from('comsec-documents')
+                                .createSignedUrl(fileName, 3600);
+
+                              if (error || !data) {
+                                alert('Invoice PDF not found');
+                                return;
+                              }
+
+                              window.open(data.signedUrl, '_blank');
+                            } catch (error) {
+                              console.error('Error opening invoice:', error);
+                              alert('Failed to open invoice');
+                            }
+                          }}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
+                        >
+                          {invoice.invoice_number}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => {
+                            const client = comSecClients.find(c => c.id === invoice.comsec_client_id);
+                            if (client) {
+                              setEditingClient(client);
+                              setShowEditClientModal(true);
+                            }
+                          }}
+                          className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors font-medium"
+                        >
+                          {invoice.comsec_client?.company_code || '-'}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => {
+                            const client = comSecClients.find(c => c.id === invoice.comsec_client_id);
+                            if (client) {
+                              setEditingClient(client);
+                              setShowEditClientModal(true);
+                            }
+                          }}
+                          className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                        >
+                          {invoice.comsec_client?.company_name}
+                        </button>
+                      </td>
                       <td className="px-6 py-4 text-sm text-slate-600">{new Date(invoice.issue_date).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-sm text-slate-600">{new Date(invoice.due_date).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-sm font-medium text-slate-900">${invoice.amount.toFixed(2)}</td>
@@ -567,15 +619,19 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => { setEditingItem(invoice); setShowAddModal(true); }}
-                            className="p-1 text-slate-600 hover:bg-slate-100 rounded transition-colors"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
+                          {invoice.status !== 'Paid' && (
+                            <button
+                              onClick={() => { setEditingItem(invoice); setShowAddModal(true); }}
+                              className="p-1 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                              title="Edit invoice"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDelete('comsec_invoices', invoice.id)}
                             className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Delete invoice"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1459,81 +1515,19 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
       )}
 
       {showInvoiceModal && selectedClientForInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-slate-800">Create Invoice for {selectedClientForInvoice.company_name}</h2>
-              <button onClick={() => { setShowInvoiceModal(false); setSelectedClientForInvoice(null); }} className="text-slate-400 hover:text-slate-600">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const invoiceNumber = formData.get('invoice_number') as string;
-              const issueDate = formData.get('issue_date') as string;
-              const dueDate = formData.get('due_date') as string;
-              const notes = formData.get('notes') as string;
-
-              const selectedItems = [];
-              masterServices.forEach(service => {
-                if (formData.get(`service_${service.id}`) === 'on') {
-                  selectedItems.push({
-                    description: service.service_name,
-                    amount: parseFloat(service.price) || 0
-                  });
-                }
-              });
-
-              if (selectedItems.length === 0) {
-                alert('Please select at least one service item');
-                return;
-              }
-
-              setInvoicePreviewData({
-                invoiceNumber,
-                clientName: selectedClientForInvoice.company_name,
-                clientAddress: selectedClientForInvoice.address || '',
-                issueDate,
-                dueDate,
-                items: selectedItems,
-                notes,
-                clientId: selectedClientForInvoice.id
-              });
-              setShowInvoiceModal(false);
-              setShowInvoicePreview(true);
-            }} className="p-6 space-y-4">
-              <input name="invoice_number" placeholder="Invoice Number *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-              <input name="issue_date" type="date" required placeholder="Issue Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-              <input name="due_date" type="date" required placeholder="Due Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-
-              <div className="border border-slate-300 rounded-lg p-4 space-y-3">
-                <h3 className="font-semibold text-slate-800 mb-2">Select Services</h3>
-                {masterServices.map(service => (
-                  <label key={service.id} className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-2 rounded">
-                    <input type="checkbox" name={`service_${service.id}`} className="w-4 h-4" />
-                    <span className="flex-1">{service.service_name}</span>
-                    <span className="font-semibold text-slate-800">HKD ${service.price.toFixed(2)}</span>
-                  </label>
-                ))}
-                {masterServices.length === 0 && (
-                  <p className="text-sm text-slate-500 text-center py-2">No services available. Add services in Invoice → Service Settings</p>
-                )}
-              </div>
-
-              <textarea name="notes" placeholder="Notes (optional)" rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
-
-              <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                  Preview Invoice
-                </button>
-                <button type="button" onClick={() => { setShowInvoiceModal(false); setSelectedClientForInvoice(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <InvoiceCreateModal
+          client={selectedClientForInvoice}
+          masterServices={masterServices}
+          onClose={() => {
+            setShowInvoiceModal(false);
+            setSelectedClientForInvoice(null);
+          }}
+          onPreview={(data) => {
+            setInvoicePreviewData(data);
+            setShowInvoiceModal(false);
+            setShowInvoicePreview(true);
+          }}
+        />
       )}
 
       {showInvoicePreview && invoicePreviewData && (
@@ -1631,6 +1625,160 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
+  client: ComSecClient;
+  masterServices: any[];
+  onClose: () => void;
+  onPreview: (data: any) => void;
+}) {
+  const [selectedServices, setSelectedServices] = useState<Record<string, { checked: boolean; startDate: string; endDate: string }>>({});
+
+  const handleServiceToggle = (serviceId: string) => {
+    setSelectedServices(prev => ({
+      ...prev,
+      [serviceId]: {
+        checked: !prev[serviceId]?.checked,
+        startDate: prev[serviceId]?.startDate || '',
+        endDate: prev[serviceId]?.endDate || ''
+      }
+    }));
+  };
+
+  const handleDateChange = (serviceId: string, field: 'startDate' | 'endDate', value: string) => {
+    setSelectedServices(prev => ({
+      ...prev,
+      [serviceId]: {
+        ...prev[serviceId],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const invoiceNumber = formData.get('invoice_number') as string;
+    const issueDate = formData.get('issue_date') as string;
+    const dueDate = formData.get('due_date') as string;
+    const notes = formData.get('notes') as string;
+
+    const selectedItems: any[] = [];
+    masterServices.forEach(service => {
+      const serviceData = selectedServices[service.id];
+      if (serviceData?.checked) {
+        let description = service.service_name;
+
+        const needsDates = service.service_type === 'company_secretary' || service.service_type === 'virtual_office';
+        if (needsDates && serviceData.startDate && serviceData.endDate) {
+          description += ` (${new Date(serviceData.startDate).toLocaleDateString()} - ${new Date(serviceData.endDate).toLocaleDateString()})`;
+        }
+
+        selectedItems.push({
+          description,
+          amount: parseFloat(service.price) || 0,
+          serviceId: service.id,
+          startDate: serviceData.startDate,
+          endDate: serviceData.endDate
+        });
+      }
+    });
+
+    if (selectedItems.length === 0) {
+      alert('Please select at least one service item');
+      return;
+    }
+
+    onPreview({
+      invoiceNumber,
+      clientName: client.company_name,
+      clientAddress: client.address || '',
+      issueDate,
+      dueDate,
+      items: selectedItems,
+      notes,
+      clientId: client.id
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto m-4">
+        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-slate-800">Create Invoice for {client.company_name}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <input name="invoice_number" placeholder="Invoice Number *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+          <input name="issue_date" type="date" required placeholder="Issue Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+          <input name="due_date" type="date" required placeholder="Due Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+
+          <div className="border border-slate-300 rounded-lg p-4 space-y-4">
+            <h3 className="font-semibold text-slate-800 mb-2">Select Services</h3>
+            {masterServices.map(service => {
+              const needsDates = service.service_type === 'company_secretary' || service.service_type === 'virtual_office';
+              const isChecked = selectedServices[service.id]?.checked || false;
+
+              return (
+                <div key={service.id} className="border border-slate-200 rounded-lg p-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleServiceToggle(service.id)}
+                      className="w-4 h-4"
+                    />
+                    <span className="flex-1 font-medium">{service.service_name}</span>
+                    <span className="font-semibold text-slate-800">HKD ${service.price.toFixed(2)}</span>
+                  </label>
+
+                  {needsDates && isChecked && (
+                    <div className="mt-3 grid grid-cols-2 gap-3 pl-7">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Start Date</label>
+                        <input
+                          type="date"
+                          value={selectedServices[service.id]?.startDate || ''}
+                          onChange={(e) => handleDateChange(service.id, 'startDate', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">End Date</label>
+                        <input
+                          type="date"
+                          value={selectedServices[service.id]?.endDate || ''}
+                          onChange={(e) => handleDateChange(service.id, 'endDate', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {masterServices.length === 0 && (
+              <p className="text-sm text-slate-500 text-center py-2">No services available. Add services in Invoice → Service Settings</p>
+            )}
+          </div>
+
+          <textarea name="notes" placeholder="Notes (optional)" rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+
+          <div className="flex gap-3 pt-4">
+            <button type="submit" className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              Preview Invoice
+            </button>
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
