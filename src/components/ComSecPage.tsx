@@ -127,6 +127,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   const [invoicePreviewData, setInvoicePreviewData] = useState<any>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [documentModalCompanyCode, setDocumentModalCompanyCode] = useState('');
+  const [invoiceSubTab, setInvoiceSubTab] = useState<'invoices' | 'service_settings'>('invoices');
 
   useEffect(() => {
     loadStaff();
@@ -478,7 +479,6 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   }
 
   function renderInvoicesTab() {
-    const [invoiceSubTab, setInvoiceSubTab] = useState<'invoices' | 'service_settings'>('invoices');
     const filteredInvoices = invoices.filter(inv =>
       inv.invoice_number.toLowerCase().includes(searchTermInvoices.toLowerCase()) ||
       inv.comsec_client?.company_name.toLowerCase().includes(searchTermInvoices.toLowerCase())
