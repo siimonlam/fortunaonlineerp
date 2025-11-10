@@ -100,6 +100,7 @@ export function ProjectBoard() {
   const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin' | 'comsec'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list'>('grid');
+  const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel'>('company');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [addClientType, setAddClientType] = useState<'company' | 'channel'>('company');
@@ -1342,17 +1343,47 @@ export function ProjectBoard() {
                 </div>
               )}
               {isClientSection && (
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search clients..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-                    />
+                <div className="flex items-center justify-between w-full gap-3">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setActiveClientTab('company');
+                        setAddClientType('company');
+                      }}
+                      className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        activeClientTab === 'company'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Company Clients
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveClientTab('channel');
+                        setAddClientType('channel');
+                      }}
+                      className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        activeClientTab === 'channel'
+                          ? 'bg-emerald-600 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Channel Partners
+                    </button>
                   </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder={activeClientTab === 'company' ? 'Search clients...' : 'Search partners...'}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                      />
+                    </div>
                   <select
                     value={clientSortBy}
                     onChange={(e) => setClientSortBy(e.target.value as any)}
@@ -1387,13 +1418,18 @@ export function ProjectBoard() {
                       <Table className="w-4 h-4" />
                     </button>
                   </div>
-                  <button
-                    onClick={() => setIsAddClientModalOpen(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Add New Client
-                  </button>
+                    <button
+                      onClick={() => setIsAddClientModalOpen(true)}
+                      className={`${
+                        activeClientTab === 'company'
+                          ? 'bg-blue-600 hover:bg-blue-700'
+                          : 'bg-emerald-600 hover:bg-emerald-700'
+                      } text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md`}
+                    >
+                      <Plus className="w-5 h-5" />
+                      {activeClientTab === 'company' ? 'Add Company Client' : 'Add Channel Partner'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1405,7 +1441,12 @@ export function ProjectBoard() {
             ) : isClientSection ? (
               clientViewMode === 'card' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredClients.map((client) => (
+                  {(activeClientTab === 'company' ? filteredClients : channelPartners.filter(partner =>
+                    !searchQuery ||
+                    partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                  )).map((client) => (
                     <ClientCard
                       key={client.id}
                       client={client}
@@ -1419,10 +1460,17 @@ export function ProjectBoard() {
                       isAdmin={isAdmin}
                     />
                   ))}
-                  {filteredClients.length === 0 && (
+                  {(activeClientTab === 'company' ? filteredClients : channelPartners.filter(partner =>
+                    !searchQuery ||
+                    partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                  )).length === 0 && (
                     <div className="col-span-full text-center py-12">
                       <p className="text-slate-500">
-                        {searchQuery ? 'No clients found matching your search.' : 'No clients yet. Click "Add New Client" to get started.'}
+                        {searchQuery
+                          ? `No ${activeClientTab === 'company' ? 'clients' : 'partners'} found matching your search.`
+                          : `No ${activeClientTab === 'company' ? 'company clients' : 'channel partners'} yet. Click the add button to get started.`}
                       </p>
                     </div>
                   )}
@@ -1441,6 +1489,7 @@ export function ProjectBoard() {
                     setAddClientType(type);
                     setIsAddClientModalOpen(true);
                   }}
+                  activeTab={activeClientTab}
                 />
               )
             ) : isFundingProjectType && projectViewMode === 'list' ? (

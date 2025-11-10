@@ -39,52 +39,18 @@ interface ClientTableViewProps {
   onCreateProject: (client: Client, targetProjectTypeId: string) => void;
   onChannelPartnerClick: (partner: Client) => void;
   onAddClient: (type: 'company' | 'channel') => void;
+  activeTab: 'company' | 'channel';
 }
 
-export function ClientTableView({ clients, channelPartners, projectTypes, onClientClick, onCreateProject, onChannelPartnerClick, onAddClient }: ClientTableViewProps) {
+export function ClientTableView({ clients, channelPartners, projectTypes, onClientClick, onCreateProject, onChannelPartnerClick, onAddClient, activeTab }: ClientTableViewProps) {
   const [openMenuClientId, setOpenMenuClientId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'company' | 'channel'>('company');
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing Project');
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-      <div className="border-b border-slate-200">
-        <div className="flex gap-1 p-2">
-          <button
-            onClick={() => setActiveTab('company')}
-            className={`px-6 py-3 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === 'company'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Company Clients
-          </button>
-          <button
-            onClick={() => setActiveTab('channel')}
-            className={`px-6 py-3 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === 'channel'
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Channel Partners
-          </button>
-        </div>
-      </div>
-
       {activeTab === 'company' && (
-        <>
-          <div className="p-4 border-b border-slate-200 flex justify-end">
-            <button
-              onClick={() => onAddClient('company')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-            >
-              + Add Company Client
-            </button>
-          </div>
-          <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
             <table className="w-full">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
@@ -208,26 +174,16 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
             ))}
           </tbody>
         </table>
-          {clients.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-slate-500">No company clients yet. Click "Add Company Client" to get started.</p>
-            </div>
-          )}
+        {clients.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-slate-500">No company clients yet. Click "Add Company Client" to get started.</p>
           </div>
-        </>
+        )}
+        </div>
       )}
 
       {activeTab === 'channel' && (
-        <>
-          <div className="p-4 border-b border-slate-200 flex justify-end">
-            <button
-              onClick={() => onAddClient('channel')}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-            >
-              + Add Channel Partner
-            </button>
-          </div>
-          <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
             <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
@@ -321,13 +277,12 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
               ))}
             </tbody>
           </table>
-          {channelPartners.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-slate-500">No channel partners yet. Click "Add Channel Partner" to get started.</p>
-            </div>
-          )}
+        {channelPartners.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-slate-500">No channel partners yet. Click "Add Channel Partner" to get started.</p>
           </div>
-        </>
+        )}
+        </div>
       )}
     </div>
   );
