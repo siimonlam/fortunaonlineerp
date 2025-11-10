@@ -130,6 +130,12 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
             members: membersData,
             ar_due_date: formData.arDueDate || null,
             remarks: formData.description.trim() || null,
+            contact_person: formData.contactName.trim() || null,
+            email: formData.email.trim() || null,
+            phone: formData.contactNumber.trim() || null,
+            address: formData.address.trim() || null,
+            sales_source: formData.salesSource.trim() || null,
+            sales_person_id: formData.salesPersonId || null,
             client_id: client.id,
             created_by: user.id,
           })
