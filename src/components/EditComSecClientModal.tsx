@@ -936,52 +936,59 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               <h3 className="text-base font-semibold text-slate-900 mb-3">Services</h3>
 
               <div className="space-y-2">
-                {masterServices.map((masterService) => {
-                  const subscription = serviceSubscriptions.find(sub => sub.service_id === masterService.id);
+                {serviceSubscriptions.length > 0 ? (
+                  serviceSubscriptions.map((subscription) => {
+                    const serviceName = subscription.service?.service_name || 'Service';
+                    const serviceType = subscription.service?.service_type;
 
-                  const getStartDate = () => {
-                    if (!subscription) return '-';
-                    if (masterService.service_type === 'company_bank_registration') {
-                      return subscription.service_date ? new Date(subscription.service_date).toLocaleDateString() : '-';
-                    }
-                    return subscription.start_date ? new Date(subscription.start_date).toLocaleDateString() : '-';
-                  };
+                    const getStartDate = () => {
+                      if (serviceType === 'company_bank_registration') {
+                        return subscription.service_date ? new Date(subscription.service_date).toLocaleDateString() : '-';
+                      }
+                      return subscription.start_date ? new Date(subscription.start_date).toLocaleDateString() : '-';
+                    };
 
-                  const getEndDate = () => {
-                    if (!subscription) return '-';
-                    if (masterService.service_type === 'company_bank_registration') {
-                      return '-';
-                    }
-                    return subscription.end_date ? new Date(subscription.end_date).toLocaleDateString() : 'Ongoing';
-                  };
+                    const getEndDate = () => {
+                      if (serviceType === 'company_bank_registration') {
+                        return '-';
+                      }
+                      return subscription.end_date ? new Date(subscription.end_date).toLocaleDateString() : '-';
+                    };
 
-                  return (
-                    <div key={masterService.id} className="bg-white border border-slate-200 rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <h4 className="font-medium text-slate-900 min-w-[180px]">{masterService.service_name}</h4>
-                            <div className="flex items-center gap-4 text-sm text-slate-600">
-                              <span>Start: <strong>{getStartDate()}</strong></span>
-                              <span>End: <strong>{getEndDate()}</strong></span>
+                    return (
+                      <div key={subscription.id} className="bg-white border border-slate-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <h4 className="font-medium text-slate-900 min-w-[180px]">{serviceName}</h4>
+                              <div className="flex items-center gap-4 text-sm text-slate-600">
+                                <span>Start: <strong>{getStartDate()}</strong></span>
+                                <span>End: <strong>{getEndDate()}</strong></span>
+                              </div>
+                              {subscription.invoice_number && (
+                                <span className="text-xs text-slate-500">Invoice: {subscription.invoice_number}</span>
+                              )}
                             </div>
                           </div>
-                        </div>
-                        <div>
-                          {subscription ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded">
-                              ACTIVE
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded">
-                              INACTIVE
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {subscription.is_paid ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">
+                                <CheckCircle className="w-3 h-3" />
+                                PAID
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded">
+                                UNPAID
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-slate-500 text-center py-4">No services subscribed yet</p>
+                )}
               </div>
             </div>
 
