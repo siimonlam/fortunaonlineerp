@@ -200,81 +200,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
       client.company_code?.toLowerCase().includes(searchTermClients.toLowerCase())
     );
 
-    const upcomingReminders = comSecClients
-      .filter(client => client.ar_due_date && client.reminder_days)
-      .map(client => {
-        const dueDate = new Date(client.ar_due_date!);
-        const reminderDate = new Date(dueDate.getTime() - (client.reminder_days! * 24 * 60 * 60 * 1000));
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const daysUntilReminder = Math.ceil((reminderDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-        const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-
-        return {
-          client,
-          dueDate,
-          reminderDate,
-          daysUntilReminder,
-          daysUntilDue
-        };
-      })
-      .filter(item => item.daysUntilDue > 0)
-      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
-      .slice(0, 5);
-
     return (
       <div className="space-y-4">
-        {upcomingReminders.length > 0 && (
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-5 shadow-sm">
-            <div className="flex items-start gap-3 mb-4">
-              <Bell className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-amber-900 mb-1">Upcoming AR Due Date Reminders</h3>
-                <p className="text-sm text-amber-700">Clients with approaching Annual Return deadlines</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {upcomingReminders.map(({ client, dueDate, reminderDate, daysUntilReminder, daysUntilDue }) => (
-                <div
-                  key={client.id}
-                  className="bg-white rounded-lg p-3 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => { setEditingItem(client); setShowAddModal(true); }}
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-slate-900">{client.company_name}</span>
-                      {client.company_code && (
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded">
-                          {client.company_code}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm text-slate-600">
-                      <span>AR Due: <strong>{dueDate.toLocaleDateString()}</strong></span>
-                      <span className="mx-2">•</span>
-                      <span>Reminder: <strong>{reminderDate.toLocaleDateString()}</strong></span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    {daysUntilReminder <= 0 ? (
-                      <div className="px-3 py-1 bg-red-100 text-red-700 text-sm font-semibold rounded-lg">
-                        Due in {daysUntilDue} days
-                      </div>
-                    ) : daysUntilReminder <= 7 ? (
-                      <div className="px-3 py-1 bg-orange-100 text-orange-700 text-sm font-semibold rounded-lg">
-                        Reminder in {daysUntilReminder} days
-                      </div>
-                    ) : (
-                      <div className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded-lg">
-                        {daysUntilDue} days until due
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         <div className="flex justify-between items-center">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -617,6 +544,8 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
   function renderRemindersTab() {
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
     const filteredReminders = reminders.filter(r =>
       r.comsec_client?.company_name.toLowerCase().includes(searchTermReminders.toLowerCase()) ||
       r.reminder_type.toLowerCase().includes(searchTermReminders.toLowerCase()) ||
@@ -624,6 +553,35 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
     );
     const pendingReminders = filteredReminders.filter(r => !r.is_completed && new Date(r.due_date) >= now);
     const overdueReminders = filteredReminders.filter(r => !r.is_completed && new Date(r.due_date) < now);
+
+    const arReminders = comSecClients
+      .filter(client => {
+        if (!client.ar_due_date || !client.reminder_days) return false;
+        const matchesSearch = client.company_name.toLowerCase().includes(searchTermReminders.toLowerCase()) ||
+                             client.company_code?.toLowerCase().includes(searchTermReminders.toLowerCase());
+        return matchesSearch;
+      })
+      .map(client => {
+        const dueDate = new Date(client.ar_due_date!);
+        const reminderDate = new Date(dueDate.getTime() - (client.reminder_days! * 24 * 60 * 60 * 1000));
+        const daysUntilReminder = Math.ceil((reminderDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+        const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+
+        return {
+          client,
+          dueDate,
+          reminderDate,
+          daysUntilReminder,
+          daysUntilDue,
+          isPastReminder: daysUntilReminder <= 0,
+          isOverdue: daysUntilDue < 0
+        };
+      })
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+
+    const arOverdue = arReminders.filter(r => r.isOverdue);
+    const arPastReminder = arReminders.filter(r => !r.isOverdue && r.isPastReminder);
+    const arUpcoming = arReminders.filter(r => !r.isOverdue && !r.isPastReminder);
 
     return (
       <div className="space-y-6">
@@ -646,6 +604,125 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             Add Reminder
           </button>
         </div>
+
+        {arOverdue.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-red-600 uppercase mb-3 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Overdue AR Submissions
+            </h4>
+            <div className="space-y-2">
+              {arOverdue.map(({ client, dueDate, daysUntilDue }) => (
+                <div
+                  key={client.id}
+                  className="bg-red-50 border border-red-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded">AR OVERDUE</span>
+                        <span className="font-semibold text-slate-900">{client.company_name}</span>
+                        {client.company_code && (
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded">
+                            {client.company_code}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 mb-1">Annual Return submission is overdue</p>
+                      <div className="flex items-center gap-4 text-sm text-red-700 font-semibold">
+                        <span>Due Date: {dueDate.toLocaleDateString()}</span>
+                        <span>{Math.abs(daysUntilDue)} days overdue</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {arPastReminder.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-orange-600 uppercase mb-3 flex items-center gap-2">
+              <Bell className="w-4 h-4" />
+              AR Due Soon (Past Reminder Date)
+            </h4>
+            <div className="space-y-2">
+              {arPastReminder.map(({ client, dueDate, reminderDate, daysUntilDue }) => (
+                <div
+                  key={client.id}
+                  className="bg-orange-50 border border-orange-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="px-2 py-1 bg-orange-600 text-white text-xs font-bold rounded">AR DUE SOON</span>
+                        <span className="font-semibold text-slate-900">{client.company_name}</span>
+                        {client.company_code && (
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded">
+                            {client.company_code}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 mb-1">Annual Return submission deadline approaching</p>
+                      <div className="flex items-center gap-4 text-sm text-slate-600">
+                        <span>Due: <strong>{dueDate.toLocaleDateString()}</strong></span>
+                        <span>Reminder: {reminderDate.toLocaleDateString()}</span>
+                        <span className="text-orange-700 font-semibold">{daysUntilDue} days left</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {arUpcoming.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-blue-600 uppercase mb-3 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Upcoming AR Submissions
+            </h4>
+            <div className="space-y-2">
+              {arUpcoming.map(({ client, dueDate, reminderDate, daysUntilReminder, daysUntilDue }) => (
+                <div
+                  key={client.id}
+                  className="bg-blue-50 border border-blue-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => { setEditingItem(client); setShowAddModal(true); }}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded">AR UPCOMING</span>
+                        <span className="font-semibold text-slate-900">{client.company_name}</span>
+                        {client.company_code && (
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded">
+                            {client.company_code}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 mb-1">Annual Return submission scheduled</p>
+                      <div className="flex items-center gap-4 text-sm text-slate-600">
+                        <span>Due: <strong>{dueDate.toLocaleDateString()}</strong></span>
+                        <span>Reminder: {reminderDate.toLocaleDateString()}</span>
+                        <span className="text-blue-700 font-semibold">Reminder in {daysUntilReminder} days</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(arReminders.length > 0 && (overdueReminders.length > 0 || pendingReminders.length > 0)) && (
+          <div className="border-t-2 border-slate-200 pt-4">
+            <h3 className="text-base font-semibold text-slate-700 uppercase mb-3">Other Reminders</h3>
+          </div>
+        )}
 
         {overdueReminders.length > 0 && (
           <div>
