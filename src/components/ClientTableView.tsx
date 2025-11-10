@@ -33,20 +33,59 @@ interface ProjectType {
 
 interface ClientTableViewProps {
   clients: Client[];
+  channelPartners: Client[];
   projectTypes: ProjectType[];
   onClientClick: (client: Client) => void;
   onCreateProject: (client: Client, targetProjectTypeId: string) => void;
+  onChannelPartnerClick: (partner: Client) => void;
+  onAddClient: (type: 'company' | 'channel') => void;
 }
 
-export function ClientTableView({ clients, projectTypes, onClientClick, onCreateProject }: ClientTableViewProps) {
+export function ClientTableView({ clients, channelPartners, projectTypes, onClientClick, onCreateProject, onChannelPartnerClick, onAddClient }: ClientTableViewProps) {
   const [openMenuClientId, setOpenMenuClientId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'company' | 'channel'>('company');
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing Project');
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="border-b border-slate-200">
+        <div className="flex gap-1 p-2">
+          <button
+            onClick={() => setActiveTab('company')}
+            className={`px-6 py-3 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'company'
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Company Clients
+          </button>
+          <button
+            onClick={() => setActiveTab('channel')}
+            className={`px-6 py-3 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'channel'
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Channel Partners
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'company' && (
+        <>
+          <div className="p-4 border-b border-slate-200 flex justify-end">
+            <button
+              onClick={() => onAddClient('company')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+            >
+              + Add Company Client
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -169,11 +208,126 @@ export function ClientTableView({ clients, projectTypes, onClientClick, onCreate
             ))}
           </tbody>
         </table>
-      </div>
-      {clients.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-slate-500">No clients yet. Click "Add New Client" to get started.</p>
-        </div>
+          {clients.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-slate-500">No company clients yet. Click "Add Company Client" to get started.</p>
+            </div>
+          )}
+          </div>
+        </>
+      )}
+
+      {activeTab === 'channel' && (
+        <>
+          <div className="p-4 border-b border-slate-200 flex justify-end">
+            <button
+              onClick={() => onAddClient('channel')}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+            >
+              + Add Channel Partner
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Partner #
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Company Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Industry
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Contact Person
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Phone
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Created By
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Sales Person
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {channelPartners.map((partner) => (
+                <tr
+                  key={partner.id}
+                  className="hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => onChannelPartnerClick(partner)}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                      #CP{String(partner.client_number).padStart(4, '0')}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-slate-900">{partner.name}</div>
+                    {partner.notes && (
+                      <div className="text-sm text-slate-500 truncate max-w-xs">{partner.notes}</div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {partner.industry ? (
+                      <span className="text-sm text-slate-600">{partner.industry}</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {partner.contact_person ? (
+                      <span className="text-sm text-slate-900">{partner.contact_person}</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {partner.email ? (
+                      <span className="text-sm text-slate-600">{partner.email}</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {partner.phone ? (
+                      <span className="text-sm text-slate-600">{partner.phone}</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {partner.creator ? (
+                      <span className="text-sm text-slate-600">{partner.creator.full_name || partner.creator.email}</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {partner.sales_person ? (
+                      <span className="text-sm text-slate-600">{partner.sales_person.full_name || partner.sales_person.email}</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {channelPartners.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-slate-500">No channel partners yet. Click "Add Channel Partner" to get started.</p>
+            </div>
+          )}
+          </div>
+        </>
       )}
     </div>
   );

@@ -92,6 +92,7 @@ export function ProjectBoard() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [channelPartners, setChannelPartners] = useState<Client[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [statusManagers, setStatusManagers] = useState<StatusManager[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
@@ -101,6 +102,7 @@ export function ProjectBoard() {
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list'>('grid');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+  const [addClientType, setAddClientType] = useState<'company' | 'channel'>('company');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [draggedProject, setDraggedProject] = useState<Project | null>(null);
@@ -258,7 +260,7 @@ export function ProjectBoard() {
     console.log('[loadData] Called. Current selectedProjectType:', selectedProjectType);
     console.log('Current user ID:', user?.id);
 
-    const [projectTypesRes, statusesRes, projectsRes, clientsRes, staffRes, statusManagersRes, projectTypePermsRes] = await Promise.all([
+    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes] = await Promise.all([
       supabase.from('project_types').select('*').order('name'),
       supabase.from('statuses').select('*').order('order_index'),
       supabase
@@ -278,6 +280,10 @@ export function ProjectBoard() {
         .order('created_at', { ascending: false }),
       supabase
         .from('clients')
+        .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('channel_partners')
         .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number')
         .order('created_at', { ascending: false }),
       supabase.from('staff').select('*'),
@@ -410,6 +416,23 @@ export function ProjectBoard() {
       }
     } else {
       console.log('No clients data received');
+    }
+
+    if (channelPartnersRes.data) {
+      console.log('Processing channel partners:', channelPartnersRes.data);
+      if (staffRes.data) {
+        const enrichedPartners = channelPartnersRes.data.map(partner => ({
+          ...partner,
+          creator: staffRes.data.find(s => s.id === partner.created_by),
+          sales_person: partner.sales_person_id ? staffRes.data.find(s => s.id === partner.sales_person_id) : undefined,
+        }));
+        console.log('Setting enriched channel partners:', enrichedPartners);
+        setChannelPartners(enrichedPartners);
+      } else {
+        setChannelPartners(channelPartnersRes.data);
+      }
+    } else {
+      console.log('No channel partners data received');
     }
   }
 
@@ -1407,10 +1430,16 @@ export function ProjectBoard() {
               ) : (
                 <ClientTableView
                   clients={filteredClients}
+                  channelPartners={channelPartners}
                   projectTypes={projectTypes}
                   onClientClick={(client) => setSelectedClient(client)}
                   onCreateProject={(client, targetProjectTypeId) => {
                     handleCreateProjectFromClient(client, targetProjectTypeId);
+                  }}
+                  onChannelPartnerClick={(partner) => setSelectedClient(partner)}
+                  onAddClient={(type) => {
+                    setAddClientType(type);
+                    setIsAddClientModalOpen(true);
                   }}
                 />
               )
@@ -1458,6 +1487,7 @@ export function ProjectBoard() {
 
       {isAddClientModalOpen && (
         <AddClientModal
+          clientType={addClientType}
           onClose={() => setIsAddClientModalOpen(false)}
           onSuccess={() => {
             setIsAddClientModalOpen(false);
@@ -1703,9 +1733,10 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
 interface AddClientModalProps {
   onClose: () => void;
   onSuccess: () => void;
+  clientType?: 'company' | 'channel';
 }
 
-function AddClientModal({ onClose, onSuccess }: AddClientModalProps) {
+function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClientModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -1734,8 +1765,9 @@ function AddClientModal({ onClose, onSuccess }: AddClientModalProps) {
   }
 
   async function loadNextClientNumber() {
+    const tableName = clientType === 'channel' ? 'channel_partners' : 'clients';
     const { data } = await supabase
-      .from('clients')
+      .from(tableName)
       .select('client_number')
       .order('client_number', { ascending: false })
       .limit(1)
@@ -1754,8 +1786,9 @@ function AddClientModal({ onClose, onSuccess }: AddClientModalProps) {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('clients')
+      const tableName = clientType === 'channel' ? 'channel_partners' : 'clients';
+      const { data, error} = await supabase
+        .from(tableName)
         .insert({
           name: formData.name.trim(),
           contact_person: formData.contactPerson.trim() || null,
@@ -1794,10 +1827,14 @@ function AddClientModal({ onClose, onSuccess }: AddClientModalProps) {
         <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900">Add New Client</h2>
+              <h2 className="text-xl font-bold text-slate-900">
+                {clientType === 'channel' ? 'Add New Channel Partner' : 'Add New Client'}
+              </h2>
               {nextClientNumber !== null && (
-                <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded">
-                  #{String(nextClientNumber).padStart(4, '0')}
+                <span className={`text-sm font-semibold px-3 py-1 rounded ${
+                  clientType === 'channel' ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'
+                }`}>
+                  {clientType === 'channel' ? '#CP' : '#'}{String(nextClientNumber).padStart(4, '0')}
                 </span>
               )}
             </div>
