@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt } from 'lucide-react';
+import { InvoicePreview } from './InvoicePreview';
 
 interface ComSecClient {
   id: string;
@@ -114,6 +115,10 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [selectedClientForInvoice, setSelectedClientForInvoice] = useState<ComSecClient | null>(null);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [invoicePreviewData, setInvoicePreviewData] = useState<any>(null);
 
   useEffect(() => {
     loadStaff();
@@ -247,6 +252,13 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                   {client.remarks && <p className="mt-3 text-sm text-slate-600">{client.remarks}</p>}
                 </div>
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => { setSelectedClientForInvoice(client); setShowInvoiceModal(true); }}
+                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                    title="Create Invoice"
+                  >
+                    <Receipt className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => { setEditingItem(client); setShowAddModal(true); }}
                     className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -668,13 +680,34 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
         return;
       }
     } else {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from(table)
-        .insert([{ ...formData, created_by: user?.id }]);
+        .insert([{ ...formData, created_by: user?.id }])
+        .select()
+        .single();
 
       if (error) {
         alert(`Error: ${error.message}`);
         return;
+      }
+
+      if (activeModule === 'clients' && data) {
+        try {
+          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-comsec-folders`;
+          await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              company_code: data.company_code,
+              client_id: data.id
+            })
+          });
+        } catch (folderError) {
+          console.error('Error creating folders:', folderError);
+        }
       }
     }
 
@@ -955,6 +988,141 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             </form>
           </div>
         </div>
+      )}
+
+      {showInvoiceModal && selectedClientForInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-slate-800">Create Invoice for {selectedClientForInvoice.company_name}</h2>
+              <button onClick={() => { setShowInvoiceModal(false); setSelectedClientForInvoice(null); }} className="text-slate-400 hover:text-slate-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const invoiceNumber = formData.get('invoice_number') as string;
+              const issueDate = formData.get('issue_date') as string;
+              const dueDate = formData.get('due_date') as string;
+              const notes = formData.get('notes') as string;
+
+              const selectedItems = [];
+              if (formData.get('item_company_secretary') === 'on') {
+                selectedItems.push({ description: '1 Year Company Secretary Service', amount: 5000 });
+              }
+              if (formData.get('item_virtual_office') === 'on') {
+                selectedItems.push({ description: '1 Year Company Virtual Office Service', amount: 5000 });
+              }
+
+              if (selectedItems.length === 0) {
+                alert('Please select at least one service item');
+                return;
+              }
+
+              setInvoicePreviewData({
+                invoiceNumber,
+                clientName: selectedClientForInvoice.company_name,
+                clientAddress: selectedClientForInvoice.address || '',
+                issueDate,
+                dueDate,
+                items: selectedItems,
+                notes,
+                clientId: selectedClientForInvoice.id
+              });
+              setShowInvoiceModal(false);
+              setShowInvoicePreview(true);
+            }} className="p-6 space-y-4">
+              <input name="invoice_number" placeholder="Invoice Number *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+              <input name="issue_date" type="date" required placeholder="Issue Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+              <input name="due_date" type="date" required placeholder="Due Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+
+              <div className="border border-slate-300 rounded-lg p-4 space-y-3">
+                <h3 className="font-semibold text-slate-800 mb-2">Select Services</h3>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" name="item_company_secretary" className="w-4 h-4" />
+                  <span className="flex-1">1 Year Company Secretary Service</span>
+                  <span className="font-semibold text-slate-800">HKD $5,000.00</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" name="item_virtual_office" className="w-4 h-4" />
+                  <span className="flex-1">1 Year Company Virtual Office Service</span>
+                  <span className="font-semibold text-slate-800">HKD $5,000.00</span>
+                </label>
+              </div>
+
+              <textarea name="notes" placeholder="Notes (optional)" rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+
+              <div className="flex gap-3 pt-4">
+                <button type="submit" className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                  Preview Invoice
+                </button>
+                <button type="button" onClick={() => { setShowInvoiceModal(false); setSelectedClientForInvoice(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showInvoicePreview && invoicePreviewData && (
+        <InvoicePreview
+          invoiceNumber={invoicePreviewData.invoiceNumber}
+          clientName={invoicePreviewData.clientName}
+          clientAddress={invoicePreviewData.clientAddress}
+          issueDate={invoicePreviewData.issueDate}
+          dueDate={invoicePreviewData.dueDate}
+          items={invoicePreviewData.items}
+          notes={invoicePreviewData.notes}
+          onClose={() => {
+            setShowInvoicePreview(false);
+            setInvoicePreviewData(null);
+            setSelectedClientForInvoice(null);
+          }}
+          onSave={async (invoiceId, pdfBlob) => {
+            try {
+              const totalAmount = invoicePreviewData.items.reduce((sum: number, item: any) => sum + item.amount, 0);
+
+              const { data: invoiceData, error: invoiceError } = await supabase
+                .from('comsec_invoices')
+                .insert([{
+                  invoice_number: invoicePreviewData.invoiceNumber,
+                  comsec_client_id: invoicePreviewData.clientId,
+                  issue_date: invoicePreviewData.issueDate,
+                  due_date: invoicePreviewData.dueDate,
+                  amount: totalAmount,
+                  status: 'Draft',
+                  description: invoicePreviewData.items.map((item: any) => item.description).join(', '),
+                  remarks: invoicePreviewData.notes,
+                  created_by: user?.id
+                }])
+                .select()
+                .single();
+
+              if (invoiceError) throw invoiceError;
+
+              const fileName = `invoices/${invoicePreviewData.clientId}/${invoicePreviewData.invoiceNumber}.pdf`;
+              const { error: storageError } = await supabase.storage
+                .from('comsec-documents')
+                .upload(fileName, pdfBlob, {
+                  contentType: 'application/pdf',
+                  upsert: true
+                });
+
+              if (storageError) throw storageError;
+
+              alert('Invoice saved successfully!');
+              loadInvoices();
+              setShowInvoicePreview(false);
+              setInvoicePreviewData(null);
+              setSelectedClientForInvoice(null);
+            } catch (error: any) {
+              console.error('Error saving invoice:', error);
+              alert(`Error saving invoice: ${error.message}`);
+            }
+          }}
+        />
       )}
     </div>
   );
