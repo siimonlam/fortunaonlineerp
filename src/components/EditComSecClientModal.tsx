@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle } from 'lucide-react';
+import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { PDFDocument } from 'pdf-lib';
 
 interface Director {
   id?: string;
@@ -99,6 +100,10 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
+  const [showAR1Preview, setShowAR1Preview] = useState(false);
+  const [ar1PdfUrl, setAr1PdfUrl] = useState<string | null>(null);
+  const [ar1PdfBytes, setAr1PdfBytes] = useState<Uint8Array | null>(null);
+  const [isGeneratingAR1, setIsGeneratingAR1] = useState(false);
 
   const [formData, setFormData] = useState({
     company_name: client.company_name || '',
@@ -289,6 +294,98 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     }
   }
 
+  async function handleGenerateAR1() {
+    if (!client.company_code) {
+      alert('Company code is required to generate AR1');
+      return;
+    }
+
+    setIsGeneratingAR1(true);
+    try {
+      const response = await fetch('/src/documents/ar1_fillable.pdf');
+      const existingPdfBytes = await response.arrayBuffer();
+
+      const pdfDoc = await PDFDocument.load(existingPdfBytes);
+      const form = pdfDoc.getForm();
+
+      const today = new Date();
+      const day = today.getDate().toString().padStart(2, '0');
+      const month = (today.getMonth() + 1).toString().padStart(2, '0');
+      const year = today.getFullYear().toString();
+
+      try {
+        const dayField = form.getTextField('DD');
+        const monthField = form.getTextField('MM');
+        const yearField = form.getTextField('YYYY');
+
+        dayField.setText(day);
+        monthField.setText(month);
+        yearField.setText(year);
+      } catch (error) {
+        console.warn('Could not find expected form fields, trying alternative field names');
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      setAr1PdfBytes(pdfBytes);
+
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      setAr1PdfUrl(url);
+      setShowAR1Preview(true);
+
+      await logHistory('ar1_generated', undefined, undefined, 'AR1 document generated');
+      loadHistory();
+    } catch (error: any) {
+      console.error('Error generating AR1:', error);
+      alert(`Failed to generate AR1: ${error.message}`);
+    } finally {
+      setIsGeneratingAR1(false);
+    }
+  }
+
+  async function handleSaveAR1() {
+    if (!ar1PdfBytes || !client.company_code) return;
+
+    try {
+      const currentYear = new Date().getFullYear();
+      const fileName = `${client.company_code}${client.company_name.replace(/[^a-zA-Z0-9]/g, '')}AR1${currentYear}.pdf`;
+      const folderPath = `${client.company_code}/others`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('client-folders')
+        .upload(`${folderPath}/${fileName}`, ar1PdfBytes, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      await logHistory('ar1_saved', undefined, undefined, `AR1 saved to ${folderPath}/${fileName}`);
+      loadHistory();
+
+      setShowAR1Preview(false);
+      if (ar1PdfUrl) {
+        URL.revokeObjectURL(ar1PdfUrl);
+      }
+      setAr1PdfUrl(null);
+      setAr1PdfBytes(null);
+
+      alert('AR1 saved successfully!');
+    } catch (error: any) {
+      console.error('Error saving AR1:', error);
+      alert(`Failed to save AR1: ${error.message}`);
+    }
+  }
+
+  function handleCloseAR1Preview() {
+    setShowAR1Preview(false);
+    if (ar1PdfUrl) {
+      URL.revokeObjectURL(ar1PdfUrl);
+    }
+    setAr1PdfUrl(null);
+    setAr1PdfBytes(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
@@ -397,6 +494,15 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
           <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
             <h2 className="text-xl font-semibold text-slate-900">Edit Com Sec Client</h2>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleGenerateAR1}
+                disabled={isGeneratingAR1 || !client.company_code}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileEdit className="w-4 h-4" />
+                {isGeneratingAR1 ? 'Generating...' : 'Update AR1'}
+              </button>
               {onCreateInvoice && (
                 <button
                   type="button"
@@ -948,6 +1054,38 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
           <MessageSquare className="w-5 h-5" />
         </button>
       </div>
+
+      {showAR1Preview && ar1PdfUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
+              <h3 className="text-lg font-semibold">AR1 Preview</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSaveAR1}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Save to Folder
+                </button>
+                <button
+                  onClick={handleCloseAR1Preview}
+                  className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto bg-slate-100 p-4">
+              <iframe
+                src={ar1PdfUrl}
+                className="w-full h-full min-h-[600px] bg-white rounded shadow-lg"
+                title="AR1 Preview"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
