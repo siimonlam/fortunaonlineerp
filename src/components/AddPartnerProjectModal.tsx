@@ -20,8 +20,10 @@ interface AddPartnerProjectModalProps {
     project_reference?: string;
     company_name?: string;
     client_id?: string;
+    channel_partner_id?: string;
     channel_partner_name?: string;
     channel_partner_reference?: string;
+    project_content?: string;
   };
 }
 
@@ -33,7 +35,7 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
     projectReference: prefillData?.project_reference || '',
     companyName: prefillData?.company_name || '',
     clientId: prefillData?.client_id || '',
-    channelPartnerId: '',
+    channelPartnerId: prefillData?.channel_partner_id || '',
     channelPartnerName: prefillData?.channel_partner_name || '',
     channelPartnerReference: prefillData?.channel_partner_reference || '',
     projectAmount: '',
@@ -41,6 +43,7 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
     paidStatus: false,
     commissionRate: '',
     commissionPaidStatus: false,
+    projectContent: prefillData?.project_content || '',
   });
 
   useEffect(() => {
@@ -81,6 +84,7 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
         paid_status: formData.paidStatus,
         commission_rate: formData.commissionRate ? parseFloat(formData.commissionRate) : 0,
         commission_paid_status: formData.commissionPaidStatus,
+        project_content: formData.projectContent.trim() || null,
       });
 
       if (error) throw error;
@@ -266,6 +270,19 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
               />
               <span className="text-sm font-medium text-slate-700">Commission Paid</span>
             </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Project Content
+            </label>
+            <textarea
+              value={formData.projectContent}
+              onChange={(e) => setFormData({ ...formData, projectContent: e.target.value })}
+              rows={4}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Describe the project details..."
+            />
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-slate-200">

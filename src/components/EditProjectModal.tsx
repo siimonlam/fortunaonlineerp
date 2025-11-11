@@ -107,6 +107,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [projectLabels, setProjectLabels] = useState<Label[]>([]);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
+  const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -205,6 +206,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     checkPermissions();
     loadLabels();
     loadProjectLabels();
+    loadClientChannelPartner();
     if (isAdmin) {
       loadPermissions();
     }
@@ -226,6 +228,28 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       .select('id, name, reference_number')
       .order('reference_number');
     if (data) setChannelPartners(data);
+  }
+
+  async function loadClientChannelPartner() {
+    if (!project.client_id) return;
+
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('channel_partner_id')
+      .eq('id', project.client_id)
+      .maybeSingle();
+
+    if (clientData?.channel_partner_id) {
+      const { data: partnerData } = await supabase
+        .from('channel_partners')
+        .select('id, name, reference_number')
+        .eq('id', clientData.channel_partner_id)
+        .maybeSingle();
+
+      if (partnerData) {
+        setClientChannelPartner(partnerData);
+      }
+    }
   }
 
   async function loadLabels() {
@@ -1879,8 +1903,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             project_reference: project.project_reference || '',
             company_name: project.company_name || '',
             client_id: project.client_id || '',
-            channel_partner_name: '',
-            channel_partner_reference: '',
+            channel_partner_id: clientChannelPartner?.id || '',
+            channel_partner_name: clientChannelPartner?.name || '',
+            channel_partner_reference: clientChannelPartner?.reference_number || '',
+            project_content: project.description || '',
           }}
         />
       )}

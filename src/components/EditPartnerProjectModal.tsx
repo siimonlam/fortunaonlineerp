@@ -16,6 +16,7 @@ interface PartnerProject {
   commission_paid_status: boolean;
   client_name: string | null;
   client_reference: string | null;
+  project_content: string | null;
 }
 
 interface EditPartnerProjectModalProps {
@@ -38,6 +39,7 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
     commissionPaidStatus: project.commission_paid_status,
     clientName: project.client_name || '',
     clientReference: project.client_reference || '',
+    projectContent: project.project_content || '',
   });
 
   function calculateCommissionAmount() {
@@ -71,6 +73,7 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
         commission_paid_status: formData.commissionPaidStatus,
         client_name: formData.clientName || null,
         client_reference: formData.clientReference || null,
+        project_content: formData.projectContent || null,
       })
       .eq('id', project.id);
 
@@ -262,6 +265,19 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Project Content
+            </label>
+            <textarea
+              value={formData.projectContent}
+              onChange={(e) => setFormData({ ...formData, projectContent: e.target.value })}
+              rows={4}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Describe the project details..."
+            />
           </div>
 
           <div className="flex gap-3 pt-4">
