@@ -402,18 +402,47 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
     return (
       <div className="space-y-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search companies..."
-            value={searchTermClients}
-            onChange={(e) => setSearchTermClients(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        <div className="border-b border-slate-200">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setClientsSubTab('list')}
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                clientsSubTab === 'list'
+                  ? 'text-blue-600 border-blue-600'
+                  : 'text-slate-600 border-transparent hover:text-slate-900'
+              }`}
+            >
+              <Search className="w-4 h-4 inline mr-2" />
+              Clients
+            </button>
+            <button
+              onClick={() => setClientsSubTab('autofill_settings')}
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                clientsSubTab === 'autofill_settings'
+                  ? 'text-blue-600 border-blue-600'
+                  : 'text-slate-600 border-transparent hover:text-slate-900'
+              }`}
+            >
+              <FileText className="w-4 h-4 inline mr-2" />
+              Auto-Fill Settings
+            </button>
+          </div>
         </div>
 
-        <div className="grid gap-4">
+        {clientsSubTab === 'list' ? (
+          <>
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search companies..."
+                value={searchTermClients}
+                onChange={(e) => setSearchTermClients(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="grid gap-4">
           {filteredClients.map(client => {
             return (
               <div
@@ -475,7 +504,11 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
               </div>
             );
           })}
-        </div>
+            </div>
+          </>
+        ) : (
+          renderAutoFillSettings()
+        )}
       </div>
     );
   }
