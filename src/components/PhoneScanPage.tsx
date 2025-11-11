@@ -28,28 +28,41 @@ export function PhoneScanPage() {
 
     setIsUploading(true);
     try {
-      const blob = await fetch(capturedImage).then(r => r.blob());
+      // Convert base64 to blob
+      const response = await fetch(capturedImage);
+      const blob = await response.blob();
+
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const fileName = `scan_${timestamp}.jpg`;
       const filePath = `${companyCode}/Others/${fileName}`;
 
-      const { error } = await supabase.storage
+      console.log('Uploading to:', filePath);
+      console.log('Blob size:', blob.size, 'bytes');
+
+      const { data, error } = await supabase.storage
         .from('client-documents')
         .upload(filePath, blob, {
           contentType: 'image/jpeg',
           upsert: false
         });
 
-      if (error) throw error;
+      console.log('Upload result:', { data, error });
+
+      if (error) {
+        console.error('Upload error:', error);
+        alert(`Failed to upload image: ${error.message}`);
+        setIsUploading(false);
+        return;
+      }
 
       setUploadSuccess(true);
       setTimeout(() => {
         setCapturedImage(null);
         setUploadSuccess(false);
       }, 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      alert('Failed to upload image. Please try again.');
+      alert(`Failed to upload image: ${error.message || 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
