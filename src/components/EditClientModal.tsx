@@ -23,10 +23,17 @@ interface Client {
   abbreviation: string | null;
   created_by: string;
   sales_person_id: string | null;
+  channel_partner_id: string | null;
   created_at: string;
   creator?: Staff;
   sales_person?: Staff;
   projects?: any[];
+}
+
+interface ChannelPartner {
+  id: string;
+  name: string;
+  reference_number: string;
 }
 
 interface ClientPermission {
@@ -47,6 +54,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [channelPartners, setChannelPartners] = useState<ChannelPartner[]>([]);
   const [permissions, setPermissions] = useState<ClientPermission[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedUser, setSelectedUser] = useState('');
@@ -65,6 +73,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     industry: client.industry || '',
     abbreviation: client.abbreviation || '',
     salesPersonId: client.sales_person_id || '',
+    channelPartnerId: client.channel_partner_id || '',
   });
   const [originalData] = useState({
     name: client.name,
@@ -77,10 +86,12 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     industry: client.industry || '',
     abbreviation: client.abbreviation || '',
     salesPersonId: client.sales_person_id || '',
+    channelPartnerId: client.channel_partner_id || '',
   });
 
   useEffect(() => {
     loadStaff();
+    loadChannelPartners();
     checkAdminStatus();
     loadPermissions();
   }, []);
@@ -93,6 +104,14 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
     if (data) setStaff(data);
+  }
+
+  async function loadChannelPartners() {
+    const { data } = await supabase
+      .from('channel_partners')
+      .select('id, name, reference_number')
+      .order('reference_number');
+    if (data) setChannelPartners(data);
   }
 
   async function checkAdminStatus() {
@@ -186,6 +205,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
           industry: formData.industry.trim() || null,
           abbreviation: formData.abbreviation.trim() || null,
           sales_person_id: formData.salesPersonId || null,
+          channel_partner_id: formData.channelPartnerId || null,
         })
         .eq('id', client.id);
 
@@ -305,13 +325,34 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
-              <input
-                type="text"
+              <select
                 value={formData.salesSource}
-                onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({ ...formData, salesSource: value });
+
+                  const selectedPartner = channelPartners.find(cp => cp.reference_number === value);
+                  if (selectedPartner) {
+                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: selectedPartner.id }));
+                  } else {
+                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: '' }));
+                  }
+                }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter sales source"
-              />
+              >
+                <option value="">-- Select Sales Source --</option>
+                <option value="Direct">Direct</option>
+                <option value="Referral">Referral</option>
+                <option value="Website">Website</option>
+                <option value="Social Media">Social Media</option>
+                <optgroup label="Channel Partners">
+                  {channelPartners.map(partner => (
+                    <option key={partner.id} value={partner.reference_number}>
+                      {partner.reference_number} - {partner.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Industry</label>

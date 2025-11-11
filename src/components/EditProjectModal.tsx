@@ -90,6 +90,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [channelPartners, setChannelPartners] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [permissions, setPermissions] = useState<ProjectPermission[]>([]);
@@ -197,6 +198,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
   useEffect(() => {
     loadStaff();
+    loadChannelPartners();
     checkPermissions();
     loadLabels();
     loadProjectLabels();
@@ -213,6 +215,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
     if (data) setStaff(data);
+  }
+
+  async function loadChannelPartners() {
+    const { data } = await supabase
+      .from('channel_partners')
+      .select('id, name, reference_number')
+      .order('reference_number');
+    if (data) setChannelPartners(data);
   }
 
   async function loadLabels() {
@@ -1113,14 +1123,25 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
-                <input
-                  type="text"
+                <select
                   disabled={!canEdit}
                   value={formData.salesSource}
                   onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
-                  placeholder="e.g., referral, website"
-                />
+                >
+                  <option value="">-- Select Sales Source --</option>
+                  <option value="Direct">Direct</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Website">Website</option>
+                  <option value="Social Media">Social Media</option>
+                  <optgroup label="Channel Partners">
+                    {channelPartners.map(partner => (
+                      <option key={partner.id} value={partner.reference_number}>
+                        {partner.reference_number} - {partner.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Sales Person</label>

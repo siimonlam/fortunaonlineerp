@@ -44,11 +44,36 @@ interface ClientTableViewProps {
 
 export function ClientTableView({ clients, channelPartners, projectTypes, onClientClick, onCreateProject, onChannelPartnerClick, onAddClient, activeTab }: ClientTableViewProps) {
   const [openMenuClientId, setOpenMenuClientId] = useState<string | null>(null);
+  const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing Project');
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      {activeTab === 'channel' && (
+        <div className="border-b border-slate-200 bg-slate-50 px-6 py-2 flex gap-2">
+          <button
+            onClick={() => setChannelPartnerSubTab('partners')}
+            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+              channelPartnerSubTab === 'partners'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Channel Partners
+          </button>
+          <button
+            onClick={() => setChannelPartnerSubTab('projects')}
+            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+              channelPartnerSubTab === 'projects'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Partner Projects
+          </button>
+        </div>
+      )}
       {activeTab === 'company' && (
         <div className="overflow-x-auto">
             <table className="w-full">
@@ -182,7 +207,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
         </div>
       )}
 
-      {activeTab === 'channel' && (
+      {activeTab === 'channel' && channelPartnerSubTab === 'partners' && (
         <div className="overflow-x-auto">
             <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
@@ -282,6 +307,13 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
             <p className="text-slate-500">No channel partners yet. Click "Add Channel Partner" to get started.</p>
           </div>
         )}
+        </div>
+      )}
+
+      {activeTab === 'channel' && channelPartnerSubTab === 'projects' && (
+        <div className="p-12 text-center">
+          <p className="text-slate-500 text-lg">Partner Projects</p>
+          <p className="text-slate-400 text-sm mt-2">Coming soon - View all projects associated with channel partners</p>
         </div>
       )}
     </div>
