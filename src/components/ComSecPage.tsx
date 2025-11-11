@@ -181,8 +181,10 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
   async function loadVirtualOffices() {
     const { data } = await supabase
-      .from('virtual_office')
-      .select('*, comsec_client:comsec_clients(company_name)')
+      .from('comsec_invoices')
+      .select('*, comsec_client:comsec_clients(company_name, company_code), service:comsec_services(service_name)')
+      .not('start_date', 'is', null)
+      .not('end_date', 'is', null)
       .order('start_date', { ascending: false });
     if (data) setVirtualOffices(data);
   }
@@ -651,9 +653,12 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   }
 
   function renderVirtualOfficeTab() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const filteredVirtualOffices = virtualOffices.filter(vo =>
       vo.comsec_client?.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()) ||
-      vo.service_type.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())
+      vo.comsec_client?.company_code?.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())
     );
 
     return (
@@ -663,54 +668,70 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search virtual offices..."
+              placeholder="Search by company name or code..."
               value={searchTermVirtualOffice}
               onChange={(e) => setSearchTermVirtualOffice(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <button
-            onClick={() => { setEditingItem(null); setShowAddModal(true); }}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Add Service
-          </button>
         </div>
 
-        <div className="grid gap-4">
-          {filteredVirtualOffices.map(vo => (
-            <div key={vo.id} className="bg-white border border-slate-200 rounded-xl p-6">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h4 className="font-bold text-slate-900 mb-2">{vo.comsec_client?.company_name}</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><span className="text-slate-500">Service:</span> <span className="text-slate-900">{vo.service_type}</span></div>
-                    {vo.monthly_fee && <div><span className="text-slate-500">Monthly Fee:</span> <span className="text-slate-900">${vo.monthly_fee}</span></div>}
-                    <div><span className="text-slate-500">Start Date:</span> <span className="text-slate-900">{new Date(vo.start_date).toLocaleDateString()}</span></div>
-                    {vo.end_date && <div><span className="text-slate-500">End Date:</span> <span className="text-slate-900">{new Date(vo.end_date).toLocaleDateString()}</span></div>}
-                    {vo.renewal_date && <div><span className="text-slate-500">Renewal:</span> <span className="text-slate-900">{new Date(vo.renewal_date).toLocaleDateString()}</span></div>}
-                  </div>
-                  {vo.address && <p className="mt-2 text-sm text-slate-600">{vo.address}</p>}
-                  {vo.remarks && <p className="mt-2 text-sm text-slate-600 italic">{vo.remarks}</p>}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { setEditingItem(vo); setShowAddModal(true); }}
-                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete('virtual_office', vo.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Code</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Name</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Service</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Start Date</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">End Date</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {filteredVirtualOffices.map(vo => {
+                const startDate = new Date(vo.start_date);
+                const endDate = new Date(vo.end_date);
+                startDate.setHours(0, 0, 0, 0);
+                endDate.setHours(0, 0, 0, 0);
+                const isActive = today >= startDate && today <= endDate;
+
+                return (
+                  <tr key={vo.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                      {vo.comsec_client?.company_code || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-900">
+                      {vo.comsec_client?.company_name}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {vo.service?.service_name || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {new Date(vo.start_date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {new Date(vo.end_date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        isActive
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-slate-100 text-slate-800'
+                      }`}>
+                        {isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filteredVirtualOffices.length === 0 && (
+            <div className="text-center py-12 text-slate-500">
+              No virtual office services found
             </div>
-          ))}
+          )}
         </div>
       </div>
     );
@@ -1556,6 +1577,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                 .insert([{
                   invoice_number: invoicePreviewData.invoiceNumber,
                   comsec_client_id: invoicePreviewData.clientId,
+                  company_code: invoicePreviewData.companyCode || null,
                   service_id: firstService?.serviceId || null,
                   issue_date: invoicePreviewData.issueDate,
                   due_date: invoicePreviewData.dueDate,
@@ -1706,7 +1728,8 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
       dueDate,
       items: selectedItems,
       notes,
-      clientId: client.id
+      clientId: client.id,
+      companyCode: client.company_code
     });
   };
 
