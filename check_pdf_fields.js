@@ -12,7 +12,7 @@ import { PDFDocument } from 'pdf-lib';
     console.log('PDF size:', pdfBytes.length, 'bytes');
     console.log('First 10 bytes:', Array.from(pdfBytes.slice(0, 10)));
 
-    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
     const form = pdfDoc.getForm();
     const fields = form.getFields();
 
