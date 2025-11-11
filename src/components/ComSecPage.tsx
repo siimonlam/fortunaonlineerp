@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail } from 'lucide-react';
 import { InvoicePreview } from './InvoicePreview';
 import { DocumentFolderModal } from './DocumentFolderModal';
 import { EditComSecClientModal } from './EditComSecClientModal';
+import { LetterReceivedModal } from './LetterReceivedModal';
 
 interface ComSecClient {
   id: string;
@@ -129,6 +130,10 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   const [documentModalCompanyCode, setDocumentModalCompanyCode] = useState('');
   const [invoiceSubTab, setInvoiceSubTab] = useState<'invoices' | 'service_settings'>('invoices');
   const [clientsSubTab, setClientsSubTab] = useState<'list' | 'autofill_settings'>('list');
+  const [virtualOfficeSubTab, setVirtualOfficeSubTab] = useState<'virtual_office' | 'letters'>('virtual_office');
+  const [showLetterModal, setShowLetterModal] = useState(false);
+  const [selectedVOClient, setSelectedVOClient] = useState<{ id: string; code: string; name: string } | null>(null);
+  const [letters, setLetters] = useState<any[]>([]);
   const [showAddMappingModal, setShowAddMappingModal] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<any[]>([]);
   const [newMapping, setNewMapping] = useState({
@@ -164,6 +169,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
         break;
       case 'virtual_office':
         await loadVirtualOffices();
+        await loadLetters();
         break;
       case 'knowledge_base':
         await loadKnowledgeBase();
@@ -223,6 +229,14 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
       .eq('is_active', true)
       .order('service_name');
     if (data) setMasterServices(data);
+  }
+
+  async function loadLetters() {
+    const { data } = await supabase
+      .from('virtual_office_letters')
+      .select('*')
+      .order('letter_received_date', { ascending: false });
+    if (data) setLetters(data);
   }
 
   function ServiceSettingsTab() {
@@ -799,78 +813,197 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
       vo.comsec_client?.company_code?.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())
     );
 
+    const filteredLetters = letters.filter(letter =>
+      letter.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()) ||
+      letter.company_code.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()) ||
+      letter.sender_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())
+    );
+
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by company name or code..."
-              value={searchTermVirtualOffice}
-              onChange={(e) => setSearchTermVirtualOffice(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        <div className="flex gap-2 border-b border-slate-200 mb-4">
+          <button
+            onClick={() => setVirtualOfficeSubTab('virtual_office')}
+            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+              virtualOfficeSubTab === 'virtual_office'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Virtual Office
+          </button>
+          <button
+            onClick={() => setVirtualOfficeSubTab('letters')}
+            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+              virtualOfficeSubTab === 'letters'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Letters Received
+          </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Code</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Name</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Service</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Start Date</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">End Date</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {filteredVirtualOffices.map(vo => {
-                const startDate = new Date(vo.start_date);
-                const endDate = new Date(vo.end_date);
-                startDate.setHours(0, 0, 0, 0);
-                endDate.setHours(0, 0, 0, 0);
-                const isActive = today >= startDate && today <= endDate;
-
-                return (
-                  <tr key={vo.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900">
-                      {vo.comsec_client?.company_code || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-900">
-                      {vo.comsec_client?.company_name}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {vo.service?.service_name || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {new Date(vo.start_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {new Date(vo.end_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-slate-100 text-slate-800'
-                      }`}>
-                        {isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {filteredVirtualOffices.length === 0 && (
-            <div className="text-center py-12 text-slate-500">
-              No virtual office services found
+        {virtualOfficeSubTab === 'virtual_office' ? (
+          <>
+            <div className="flex justify-between items-center">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by company name or code..."
+                  value={searchTermVirtualOffice}
+                  onChange={(e) => setSearchTermVirtualOffice(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
-          )}
-        </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Code</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Service</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Start Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">End Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {filteredVirtualOffices.map(vo => {
+                    const startDate = new Date(vo.start_date);
+                    const endDate = new Date(vo.end_date);
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate.setHours(0, 0, 0, 0);
+                    const isActive = today >= startDate && today <= endDate;
+
+                    return (
+                      <tr key={vo.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                          {vo.comsec_client?.company_code || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-900">
+                          {vo.comsec_client?.company_name}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {vo.service?.service_name || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {new Date(vo.start_date).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {new Date(vo.end_date).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            isActive
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-slate-100 text-slate-800'
+                          }`}>
+                            {isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => {
+                              setSelectedVOClient({
+                                id: vo.comsec_client_id,
+                                code: vo.comsec_client?.company_code || '',
+                                name: vo.comsec_client?.company_name || ''
+                              });
+                              setShowLetterModal(true);
+                            }}
+                            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                          >
+                            <Mail className="w-4 h-4" />
+                            Letter Received
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {filteredVirtualOffices.length === 0 && (
+                <div className="text-center py-12 text-slate-500">
+                  No virtual office services found
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between items-center">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search letters..."
+                  value={searchTermVirtualOffice}
+                  onChange={(e) => setSearchTermVirtualOffice(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Code</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Received Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Sender</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Reference #</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Pickup</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {filteredLetters.map(letter => (
+                    <tr key={letter.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                        {letter.company_code}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-900">
+                        {letter.company_name}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {new Date(letter.letter_received_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {letter.sender_name}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {letter.letter_reference_number || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {letter.pickup_preference}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          letter.is_picked_up
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {letter.is_picked_up ? 'Picked Up' : 'Pending'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredLetters.length === 0 && (
+                <div className="text-center py-12 text-slate-500">
+                  No letters found
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -1789,6 +1922,22 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
               setShowDocumentModal(true);
             }
           }}
+        />
+      )}
+
+      {showLetterModal && selectedVOClient && (
+        <LetterReceivedModal
+          isOpen={showLetterModal}
+          onClose={() => {
+            setShowLetterModal(false);
+            setSelectedVOClient(null);
+          }}
+          onSuccess={() => {
+            loadLetters();
+          }}
+          clientId={selectedVOClient.id}
+          companyCode={selectedVOClient.code}
+          companyName={selectedVOClient.name}
         />
       )}
 
