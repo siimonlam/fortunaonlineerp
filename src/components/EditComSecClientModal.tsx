@@ -406,23 +406,40 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
       const form = pdfDoc.getForm();
       const fields = form.getFields();
-      console.log('Available form fields:', fields.map(f => f.getName()));
+      console.log('Total form fields found:', fields.length);
+      console.log('Available form fields:', fields.map(f => ({
+        name: f.getName(),
+        type: f.constructor.name
+      })));
 
       const today = new Date();
       const day = today.getDate().toString().padStart(2, '0');
       const month = (today.getMonth() + 1).toString().padStart(2, '0');
       const year = today.getFullYear().toString();
 
-      try {
-        const dayField = form.getTextField('DD');
-        const monthField = form.getTextField('MM');
-        const yearField = form.getTextField('YYYY');
+      let fieldsFilledCount = 0;
+      const fieldMapping = [
+        { expected: 'DD', value: day },
+        { expected: 'MM', value: month },
+        { expected: 'YYYY', value: year }
+      ];
 
-        dayField.setText(day);
-        monthField.setText(month);
-        yearField.setText(year);
-      } catch (error) {
-        console.warn('Could not find expected form fields:', error);
+      for (const mapping of fieldMapping) {
+        try {
+          const field = form.getTextField(mapping.expected);
+          field.setText(mapping.value);
+          console.log(`Successfully filled field "${mapping.expected}" with value "${mapping.value}"`);
+          fieldsFilledCount++;
+        } catch (error: any) {
+          console.error(`Failed to fill field "${mapping.expected}":`, error.message);
+        }
+      }
+
+      console.log(`Total fields filled: ${fieldsFilledCount} out of ${fieldMapping.length}`);
+
+      if (fieldsFilledCount === 0) {
+        console.warn('No fields were filled! The PDF may not have the expected form fields.');
+        console.warn('Available field names:', fields.map(f => f.getName()).join(', '));
       }
 
       const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
