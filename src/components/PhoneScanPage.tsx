@@ -40,7 +40,7 @@ export function PhoneScanPage() {
       console.log('Blob size:', blob.size, 'bytes');
 
       const { data, error } = await supabase.storage
-        .from('client-documents')
+        .from('comsec-documents')
         .upload(filePath, blob, {
           contentType: 'image/jpeg',
           upsert: false
