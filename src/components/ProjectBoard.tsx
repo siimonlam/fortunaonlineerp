@@ -55,6 +55,7 @@ interface Client {
   created_by: string;
   sales_person_id: string | null;
   created_at: string;
+  partner_project_count?: number;
   creator?: Staff;
   sales_person?: Staff;
   projects?: Project[];
@@ -297,7 +298,7 @@ export function ProjectBoard() {
     console.log('[loadData] Called. Current selectedProjectType:', selectedProjectType);
     console.log('Current user ID:', user?.id);
 
-    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes] = await Promise.all([
+    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes] = await Promise.all([
       supabase.from('project_types').select('*').order('name'),
       supabase.from('statuses').select('*').order('order_index'),
       supabase
@@ -326,6 +327,7 @@ export function ProjectBoard() {
       supabase.from('staff').select('*'),
       supabase.from('status_managers').select('*, staff:user_id(id, full_name, email)'),
       supabase.from('project_type_permissions').select('project_type_id').eq('user_id', user?.id || ''),
+      supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name'),
     ]);
 
     const userRoleRes = await supabase
@@ -457,16 +459,32 @@ export function ProjectBoard() {
 
     if (channelPartnersRes.data) {
       console.log('Processing channel partners:', channelPartnersRes.data);
+
+      const partnerProjectCounts = new Map<string, number>();
+      if (partnerProjectsRes.data) {
+        partnerProjectsRes.data.forEach(pp => {
+          if (pp.channel_partner_id) {
+            const count = partnerProjectCounts.get(pp.channel_partner_id) || 0;
+            partnerProjectCounts.set(pp.channel_partner_id, count + 1);
+          }
+        });
+      }
+
       if (staffRes.data) {
         const enrichedPartners = channelPartnersRes.data.map(partner => ({
           ...partner,
           creator: staffRes.data.find(s => s.id === partner.created_by),
           sales_person: partner.sales_person_id ? staffRes.data.find(s => s.id === partner.sales_person_id) : undefined,
+          partner_project_count: partnerProjectCounts.get(partner.id) || 0,
         }));
         console.log('Setting enriched channel partners:', enrichedPartners);
         setChannelPartners(enrichedPartners);
       } else {
-        setChannelPartners(channelPartnersRes.data);
+        const enrichedPartners = channelPartnersRes.data.map(partner => ({
+          ...partner,
+          partner_project_count: partnerProjectCounts.get(partner.id) || 0,
+        }));
+        setChannelPartners(enrichedPartners);
       }
     } else {
       console.log('No channel partners data received');
@@ -1479,8 +1497,7 @@ export function ProjectBoard() {
             ) : isAdminSection ? (
               <AdminPage />
             ) : isClientSection ? (
-              <div>
-                {activeClientTab === 'channel' && clientViewMode === 'card' && (
+              clientViewMode === 'card' ? (
                   <div className="bg-white rounded-t-lg border border-slate-200 border-b-0">
                     <div className="flex gap-2 px-6 py-2">
                       <button
@@ -1658,8 +1675,7 @@ export function ProjectBoard() {
                   activeTab={activeClientTab}
                 />
               )
-              </div>)
-            : isFundingProjectType && projectViewMode === 'list' ? (
+            ) : isFundingProjectType && projectViewMode === 'list' ? (
               <ProjectListView
                 projects={filteredProjects}
                 projectTypes={projectTypes}
@@ -1949,6 +1965,16 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
             {client.projects.length > 3 && (
               <p className="text-xs text-slate-500">+ {client.projects.length - 3} more</p>
             )}
+          </div>
+        </div>
+      )}
+      {client.partner_project_count !== undefined && client.partner_project_count > 0 && (
+        <div className="mt-3 pt-3 border-t border-slate-200">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-emerald-700">Partner Projects</p>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+              {client.partner_project_count}
+            </span>
           </div>
         </div>
       )}

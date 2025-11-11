@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
+import { EditPartnerProjectModal } from './EditPartnerProjectModal';
 
 interface Staff {
   id: string;
@@ -63,6 +64,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
   const [partnerProjects, setPartnerProjects] = useState<PartnerProject[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
+  const [selectedPartnerProject, setSelectedPartnerProject] = useState<PartnerProject | null>(null);
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing Project');
 
@@ -408,7 +410,11 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {partnerProjects.map((project) => (
-                  <tr key={project.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={project.id}
+                    onClick={() => setSelectedPartnerProject(project)}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
                         {project.project_reference || '-'}
@@ -478,6 +484,17 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
           onClose={() => setShowAddPartnerProjectModal(false)}
           onSuccess={() => {
             setShowAddPartnerProjectModal(false);
+            loadPartnerProjects();
+          }}
+        />
+      )}
+
+      {selectedPartnerProject && (
+        <EditPartnerProjectModal
+          project={selectedPartnerProject}
+          onClose={() => setSelectedPartnerProject(null)}
+          onSuccess={() => {
+            setSelectedPartnerProject(null);
             loadPartnerProjects();
           }}
         />

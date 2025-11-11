@@ -62,6 +62,8 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
   const [permissionEdit, setPermissionEdit] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [partnerProjects, setPartnerProjects] = useState<any[]>([]);
+  const [isChannelPartner, setIsChannelPartner] = useState(false);
   const [formData, setFormData] = useState({
     name: client.name,
     contactPerson: client.contact_person || '',
@@ -94,6 +96,8 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     loadChannelPartners();
     checkAdminStatus();
     loadPermissions();
+    checkIfChannelPartner();
+    loadPartnerProjects();
   }, []);
 
   useEffect(() => {
@@ -131,6 +135,28 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
 
     if (data) {
       setPermissions(data);
+    }
+  }
+
+  async function checkIfChannelPartner() {
+    const { data, error } = await supabase
+      .from('channel_partners')
+      .select('id')
+      .eq('id', client.id)
+      .maybeSingle();
+
+    setIsChannelPartner(!!data);
+  }
+
+  async function loadPartnerProjects() {
+    const { data } = await supabase
+      .from('partner_projects')
+      .select('*')
+      .eq('channel_partner_id', client.id)
+      .order('date', { ascending: false });
+
+    if (data) {
+      setPartnerProjects(data);
     }
   }
 
@@ -532,6 +558,41 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
                     <p className="text-sm text-slate-500 py-2">No additional permissions granted</p>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {isChannelPartner && partnerProjects.length > 0 && (
+            <div className="mb-6 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+              <h4 className="font-semibold text-emerald-900 mb-3 flex items-center justify-between">
+                Partner Projects
+                <span className="text-sm font-normal text-emerald-700">
+                  {partnerProjects.length} project{partnerProjects.length !== 1 ? 's' : ''}
+                </span>
+              </h4>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {partnerProjects.map((project) => (
+                  <div key={project.id} className="bg-white p-3 rounded border border-emerald-100">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-xs text-slate-500">Project Ref:</span>
+                        <div className="font-medium text-slate-900">{project.project_reference || '-'}</div>
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500">Partner Ref:</span>
+                        <div className="font-medium text-emerald-700">{project.channel_partner_reference || '-'}</div>
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500">Amount:</span>
+                        <div className="font-medium text-slate-900">${project.project_amount?.toLocaleString() || '0'}</div>
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500">Commission:</span>
+                        <div className="font-medium text-slate-900">${project.commission_amount?.toLocaleString() || '0'} ({project.commission_rate}%)</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
