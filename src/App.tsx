@@ -4,6 +4,7 @@ import { LoginPage } from './components/LoginPage';
 import { ProjectBoard } from './components/ProjectBoard';
 import { ClientOnboarding } from './components/ClientOnboarding';
 import { ClientAuthPage } from './components/ClientAuthPage';
+import { PhoneScanPage } from './components/PhoneScanPage';
 import { supabase } from './lib/supabase';
 
 function AppContent() {
@@ -41,6 +42,10 @@ function AppContent() {
       setCheckingClientAuth(false);
     }
   };
+
+  if (window.location.pathname === '/phone-scan') {
+    return <PhoneScanPage />;
+  }
 
   if (window.location.pathname === '/onboarding') {
     if (checkingClientAuth) {

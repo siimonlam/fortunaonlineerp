@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit } from 'lucide-react';
+import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit, Camera, QrCode } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PDFDocument } from 'pdf-lib';
 
@@ -120,6 +120,8 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const [nar1PdfUrl, setNar1PdfUrl] = useState<string | null>(null);
   const [nar1PdfBytes, setNar1PdfBytes] = useState<Uint8Array | null>(null);
   const [isGeneratingNAR1, setIsGeneratingNAR1] = useState(false);
+  const [showPhoneScanModal, setShowPhoneScanModal] = useState(false);
+  const [phoneScanUrl, setPhoneScanUrl] = useState('');
 
   const [formData, setFormData] = useState({
     company_name: client.company_name || '',
@@ -803,14 +805,29 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-slate-900 uppercase">Quick Access</h3>
-                  <button
-                    type="button"
-                    onClick={onOpenDocuments}
-                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Open Document Folder
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sessionId = Math.random().toString(36).substring(7);
+                        const url = `${window.location.origin}/phone-scan?session=${sessionId}&company=${client.company_code}`;
+                        setPhoneScanUrl(url);
+                        setShowPhoneScanModal(true);
+                      }}
+                      className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                      <Camera className="w-4 h-4" />
+                      Phone Scan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onOpenDocuments}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Open Document Folder
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-slate-600">Browse and manage documents for {client.company_code}</p>
               </div>
@@ -1428,6 +1445,63 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                 className="w-full h-full min-h-[600px] bg-white rounded shadow-lg"
                 title="NAR1 Preview"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPhoneScanModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full m-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <QrCode className="w-5 h-5" />
+                Phone Scan QR Code
+              </h3>
+              <button
+                onClick={() => setShowPhoneScanModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-center space-y-4">
+              <p className="text-sm text-slate-600">
+                Scan this QR code with your phone to open the camera and upload photos directly to:
+              </p>
+              <div className="bg-slate-100 p-3 rounded-lg">
+                <p className="text-sm font-mono text-slate-800">{client.company_code}/Others</p>
+              </div>
+
+              <div className="bg-white border-4 border-slate-200 rounded-lg p-4 inline-block">
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: `<div id="qrcode-${client.id}"></div>`
+                  }}
+                />
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(phoneScanUrl)}`}
+                  alt="QR Code"
+                  className="w-64 h-64"
+                />
+              </div>
+
+              <div className="text-xs text-slate-500 space-y-1">
+                <p>1. Scan the QR code with your phone</p>
+                <p>2. Take photos with your camera</p>
+                <p>3. Review and upload to folder</p>
+              </div>
+
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(phoneScanUrl);
+                  alert('Link copied to clipboard!');
+                }}
+                className="text-sm text-blue-600 hover:text-blue-700 underline"
+              >
+                Copy Link
+              </button>
             </div>
           </div>
         </div>
