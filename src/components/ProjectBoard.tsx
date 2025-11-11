@@ -784,10 +784,14 @@ export function ProjectBoard() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSelectedView('projects')}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+              title="Go to Home"
+            >
               <img src="/512x512.jpg" alt="Logo" className="w-10 h-10 rounded-lg" />
               <h1 className="text-xl font-bold text-slate-900">Project Manager</h1>
-            </div>
+            </button>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <User className="w-4 h-4" />
