@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2 } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -11,6 +11,7 @@ import { ProjectListView } from './ProjectListView';
 import { AdminPage } from './AdminPage';
 import { CreateProjectModal } from './CreateProjectModal';
 import { ComSecPage } from './ComSecPage';
+import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 
 interface Status {
   id: string;
@@ -101,6 +102,7 @@ export function ProjectBoard() {
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list'>('grid');
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel'>('company');
+  const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [addClientType, setAddClientType] = useState<'company' | 'channel'>('company');
@@ -127,6 +129,9 @@ export function ProjectBoard() {
   const [allLabels, setAllLabels] = useState<any[]>([]);
   const [filterWithReminder, setFilterWithReminder] = useState(false);
   const [projectTypePermissions, setProjectTypePermissions] = useState<string[]>([]);
+  const [partnerProjects, setPartnerProjects] = useState<any[]>([]);
+  const [loadingPartnerProjects, setLoadingPartnerProjects] = useState(false);
+  const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -252,6 +257,12 @@ export function ProjectBoard() {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (activeClientTab === 'channel' && channelPartnerSubTab === 'projects') {
+      loadPartnerProjects();
+    }
+  }, [activeClientTab, channelPartnerSubTab]);
+
   async function loadAllLabels() {
     const { data, error } = await supabase
       .from('labels')
@@ -262,6 +273,23 @@ export function ProjectBoard() {
       console.error('Error loading labels:', error);
     } else if (data) {
       setAllLabels(data);
+    }
+  }
+
+  async function loadPartnerProjects() {
+    setLoadingPartnerProjects(true);
+    try {
+      const { data, error } = await supabase
+        .from('partner_projects')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      setPartnerProjects(data || []);
+    } catch (error) {
+      console.error('Error loading partner projects:', error);
+    } finally {
+      setLoadingPartnerProjects(false);
     }
   }
 
@@ -1451,43 +1479,169 @@ export function ProjectBoard() {
             ) : isAdminSection ? (
               <AdminPage />
             ) : isClientSection ? (
-              clientViewMode === 'card' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {(activeClientTab === 'company' ? filteredClients : channelPartners.filter(partner =>
-                    !searchQuery ||
-                    partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
-                  )).map((client) => (
-                    <ClientCard
-                      key={client.id}
-                      client={client}
-                      projectTypes={projectTypes}
-                      onClick={() => setSelectedClient(client)}
-                      onCreateProject={(targetProjectTypeId) => {
-                        handleCreateProjectFromClient(client, targetProjectTypeId);
-                      }}
-                      onProjectClick={(project) => setSelectedProject(project)}
-                      projectTypePermissions={projectTypePermissions}
-                      isAdmin={isAdmin}
-                    />
-                  ))}
-                  {(activeClientTab === 'company' ? filteredClients : channelPartners.filter(partner =>
-                    !searchQuery ||
-                    partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
-                  )).length === 0 && (
-                    <div className="col-span-full text-center py-12">
-                      <p className="text-slate-500">
-                        {searchQuery
-                          ? `No ${activeClientTab === 'company' ? 'clients' : 'partners'} found matching your search.`
-                          : `No ${activeClientTab === 'company' ? 'company clients' : 'channel partners'} yet. Click the add button to get started.`}
-                      </p>
+              <div>
+                {activeClientTab === 'channel' && clientViewMode === 'card' && (
+                  <div className="bg-white rounded-t-lg border border-slate-200 border-b-0">
+                    <div className="flex gap-2 px-6 py-2">
+                      <button
+                        onClick={() => setChannelPartnerSubTab('partners')}
+                        className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                          channelPartnerSubTab === 'partners'
+                            ? 'border-emerald-600 text-emerald-600'
+                            : 'border-transparent text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Channel Partners
+                      </button>
+                      <button
+                        onClick={() => setChannelPartnerSubTab('projects')}
+                        className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                          channelPartnerSubTab === 'projects'
+                            ? 'border-emerald-600 text-emerald-600'
+                            : 'border-transparent text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Partner Projects
+                      </button>
                     </div>
-                  )}
-                </div>
-              ) : (
+                  </div>
+                )}
+                {clientViewMode === 'card' ? (
+                  activeClientTab === 'channel' && channelPartnerSubTab === 'projects' ? (
+                    <div className="bg-white rounded-lg border border-slate-200">
+                      <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                        <h3 className="text-lg font-semibold text-slate-900">Partner Projects</h3>
+                        <button
+                          onClick={() => setShowAddPartnerProjectModal(true)}
+                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Partner Project
+                        </button>
+                      </div>
+                      <div className="p-6">
+                        {loadingPartnerProjects ? (
+                          <div className="text-center py-12">
+                            <p className="text-slate-500">Loading partner projects...</p>
+                          </div>
+                        ) : partnerProjects.length === 0 ? (
+                          <div className="text-center py-12">
+                            <p className="text-slate-500 text-lg">No Partner Projects Yet</p>
+                            <p className="text-slate-400 text-sm mt-2">Click "Add Partner Project" to get started</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-4">
+                            {partnerProjects.map((project) => (
+                              <div key={project.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                  <div>
+                                    <div className="text-xs text-slate-500 mb-1">Project Ref</div>
+                                    <div className="font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block">
+                                      {project.project_reference || '-'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-slate-500 mb-1">Partner</div>
+                                    <div className="font-medium text-slate-900">{project.channel_partner_name}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-slate-500 mb-1">Partner Ref</div>
+                                    <div className="font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
+                                      {project.channel_partner_reference || '-'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-slate-500 mb-1">Project Amount</div>
+                                    <div className="font-medium text-slate-900">
+                                      ${project.project_amount?.toLocaleString() || '0'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-slate-500 mb-1">Date</div>
+                                    <div className="text-sm text-slate-600">
+                                      {project.date ? new Date(project.date).toLocaleDateString() : '-'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-slate-500 mb-1">Paid Status</div>
+                                    {project.paid_status ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        Paid
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        <XCircle className="w-3 h-3" />
+                                        Unpaid
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-slate-500 mb-1">Commission Rate</div>
+                                    <div className="text-sm font-medium text-slate-900">{project.commission_rate}%</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-slate-500 mb-1">Commission</div>
+                                    <div className="font-medium text-slate-900">
+                                      ${project.commission_amount?.toLocaleString() || '0'}
+                                    </div>
+                                    {project.commission_paid_status ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        Paid
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                                        <XCircle className="w-3 h-3" />
+                                        Unpaid
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {(activeClientTab === 'company' ? filteredClients : channelPartners.filter(partner =>
+                        !searchQuery ||
+                        partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                      )).map((client) => (
+                        <ClientCard
+                          key={client.id}
+                          client={client}
+                          projectTypes={projectTypes}
+                          onClick={() => setSelectedClient(client)}
+                          onCreateProject={(targetProjectTypeId) => {
+                            handleCreateProjectFromClient(client, targetProjectTypeId);
+                          }}
+                          onProjectClick={(project) => setSelectedProject(project)}
+                          projectTypePermissions={projectTypePermissions}
+                          isAdmin={isAdmin}
+                        />
+                      ))}
+                      {(activeClientTab === 'company' ? filteredClients : channelPartners.filter(partner =>
+                        !searchQuery ||
+                        partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                      )).length === 0 && (
+                        <div className="col-span-full text-center py-12">
+                          <p className="text-slate-500">
+                            {searchQuery
+                              ? `No ${activeClientTab === 'company' ? 'clients' : 'partners'} found matching your search.`
+                              : `No ${activeClientTab === 'company' ? 'company clients' : 'channel partners'} yet. Click the add button to get started.`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                ) : (
                 <ClientTableView
                   clients={filteredClients}
                   channelPartners={channelPartners}
@@ -1504,7 +1658,8 @@ export function ProjectBoard() {
                   activeTab={activeClientTab}
                 />
               )
-            ) : isFundingProjectType && projectViewMode === 'list' ? (
+              </div>)
+            : isFundingProjectType && projectViewMode === 'list' ? (
               <ProjectListView
                 projects={filteredProjects}
                 projectTypes={projectTypes}
@@ -1623,6 +1778,16 @@ export function ProjectBoard() {
           />
         );
       })()}
+
+      {showAddPartnerProjectModal && (
+        <AddPartnerProjectModal
+          onClose={() => setShowAddPartnerProjectModal(false)}
+          onSuccess={() => {
+            setShowAddPartnerProjectModal(false);
+            loadPartnerProjects();
+          }}
+        />
+      )}
     </div>
   );
 }
