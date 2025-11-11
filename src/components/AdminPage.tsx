@@ -361,9 +361,7 @@ export function AdminPage() {
           </div>
         )}
 
-        {currentView === 'funding-auth' && (
-          <ProjectTypeAuthorizationPage projectTypeName="Funding Project" />
-        )}
+        {currentView === 'funding-auth' && <AuthorizationPage />}
 
         {currentView === 'comsec-auth' && (
           <ProjectTypeAuthorizationPage projectTypeName="Com Sec" />
