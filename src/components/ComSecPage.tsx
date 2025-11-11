@@ -129,6 +129,16 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   const [documentModalCompanyCode, setDocumentModalCompanyCode] = useState('');
   const [invoiceSubTab, setInvoiceSubTab] = useState<'invoices' | 'service_settings'>('invoices');
   const [clientsSubTab, setClientsSubTab] = useState<'list' | 'autofill_settings'>('list');
+  const [showAddMappingModal, setShowAddMappingModal] = useState(false);
+  const [fieldMappings, setFieldMappings] = useState<any[]>([]);
+  const [newMapping, setNewMapping] = useState({
+    field_label: '',
+    pdf_field_name: '',
+    client_field: '',
+    field_type: 'text',
+    display_order: 1,
+    is_active: true
+  });
 
   useEffect(() => {
     loadStaff();
@@ -526,7 +536,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
           <div className="flex justify-between items-center mb-4">
             <h4 className="text-sm font-semibold text-slate-700">Field Mappings</h4>
             <button
-              onClick={() => {/* TODO: Add mapping modal */}}
+              onClick={() => setShowAddMappingModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -584,13 +594,23 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h5 className="text-sm font-semibold text-blue-900 mb-2">Available Client Fields:</h5>
-            <div className="grid grid-cols-2 gap-2 text-sm text-blue-800">
+            <div className="grid grid-cols-3 gap-2 text-sm text-blue-800">
               <div><code className="bg-blue-100 px-2 py-1 rounded">company_name</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">company_code</code></div>
               <div><code className="bg-blue-100 px-2 py-1 rounded">brn</code></div>
               <div><code className="bg-blue-100 px-2 py-1 rounded">incorporation_date</code></div>
-              <div><code className="bg-blue-100 px-2 py-1 rounded">address</code></div>
-              <div><code className="bg-blue-100 px-2 py-1 rounded">company_code</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">company_status</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">nar1_status</code></div>
               <div><code className="bg-blue-100 px-2 py-1 rounded">anniversary_month</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">ar_due_date</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">address</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">contact_person</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">email</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">phone</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">remarks</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">sales_source</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">directors</code></div>
+              <div><code className="bg-blue-100 px-2 py-1 rounded">members</code></div>
             </div>
           </div>
         </div>
@@ -1770,6 +1790,167 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             }
           }}
         />
+      )}
+
+      {showAddMappingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+            <div className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-slate-900">Add Field Mapping</h2>
+              <button
+                onClick={() => {
+                  setShowAddMappingModal(false);
+                  setNewMapping({
+                    field_label: '',
+                    pdf_field_name: '',
+                    client_field: '',
+                    field_type: 'text',
+                    display_order: 1,
+                    is_active: true
+                  });
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              console.log('New mapping:', newMapping);
+              setShowAddMappingModal(false);
+              setNewMapping({
+                field_label: '',
+                pdf_field_name: '',
+                client_field: '',
+                field_type: 'text',
+                display_order: 1,
+                is_active: true
+              });
+            }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Field Label</label>
+                <input
+                  type="text"
+                  value={newMapping.field_label}
+                  onChange={(e) => setNewMapping({...newMapping, field_label: e.target.value})}
+                  placeholder="e.g., Company Name"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+                <p className="text-xs text-slate-500 mt-1">A human-readable name for this mapping</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">PDF Field Name</label>
+                <input
+                  type="text"
+                  value={newMapping.pdf_field_name}
+                  onChange={(e) => setNewMapping({...newMapping, pdf_field_name: e.target.value})}
+                  placeholder="e.g., fill_2_P.1"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  required
+                />
+                <p className="text-xs text-slate-500 mt-1">The exact field name in the NAR1 PDF form</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Client Field</label>
+                <select
+                  value={newMapping.client_field}
+                  onChange={(e) => setNewMapping({...newMapping, client_field: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select a field...</option>
+                  <option value="company_name">company_name</option>
+                  <option value="company_code">company_code</option>
+                  <option value="brn">brn</option>
+                  <option value="incorporation_date">incorporation_date</option>
+                  <option value="company_status">company_status</option>
+                  <option value="nar1_status">nar1_status</option>
+                  <option value="anniversary_month">anniversary_month</option>
+                  <option value="ar_due_date">ar_due_date</option>
+                  <option value="address">address</option>
+                  <option value="contact_person">contact_person</option>
+                  <option value="email">email</option>
+                  <option value="phone">phone</option>
+                  <option value="remarks">remarks</option>
+                  <option value="sales_source">sales_source</option>
+                  <option value="directors">directors</option>
+                  <option value="members">members</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">The client database field to pull data from</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Field Type</label>
+                  <select
+                    value={newMapping.field_type}
+                    onChange={(e) => setNewMapping({...newMapping, field_type: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="text">Text</option>
+                    <option value="date">Date</option>
+                    <option value="number">Number</option>
+                    <option value="checkbox">Checkbox</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+                  <input
+                    type="number"
+                    value={newMapping.display_order}
+                    onChange={(e) => setNewMapping({...newMapping, display_order: parseInt(e.target.value)})}
+                    min="1"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={newMapping.is_active}
+                  onChange={(e) => setNewMapping({...newMapping, is_active: e.target.checked})}
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="is_active" className="text-sm font-medium text-slate-700">
+                  Active (enable this mapping)
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Add Mapping
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddMappingModal(false);
+                    setNewMapping({
+                      field_label: '',
+                      pdf_field_name: '',
+                      client_field: '',
+                      field_type: 'text',
+                      display_order: 1,
+                      is_active: true
+                    });
+                  }}
+                  className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
