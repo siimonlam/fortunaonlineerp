@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, X } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
@@ -12,78 +12,67 @@ interface User {
   id: string;
   email: string;
   role?: string;
+  client_view_all?: boolean;
+  client_edit_all?: boolean;
+  channel_partner_view_all?: boolean;
+  channel_partner_edit_all?: boolean;
 }
 
-interface Client {
-  id: string;
-  name: string;
-  client_number: number;
-}
-
-interface ClientPermission {
-  id: string;
-  client_id: string;
+interface UserPermission {
   user_id: string;
-  can_view: boolean;
-  can_edit: boolean;
-  user_email?: string;
-  client_name?: string;
+  email: string;
+  client_view_all: boolean;
+  client_edit_all: boolean;
+  channel_partner_view_all: boolean;
+  channel_partner_edit_all: boolean;
 }
 
 export function AdminPage() {
   const [currentView, setCurrentView] = useState<AdminView>('permissions');
   const [users, setUsers] = useState<User[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [permissions, setPermissions] = useState<ClientPermission[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string>('');
-  const [selectedClient, setSelectedClient] = useState<string>('');
-  const [canView, setCanView] = useState(true);
-  const [canEdit, setCanEdit] = useState(false);
+  const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
   const [loading, setLoading] = useState(false);
-  const [fundingProjectTypeId, setFundingProjectTypeId] = useState<string>('');
 
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
-    const [staffRes, clientsRes, permissionsRes, projectTypesRes] = await Promise.all([
+    const [staffRes, rolesRes, permsRes] = await Promise.all([
       supabase.from('staff').select('id, email, full_name'),
-      supabase.from('clients').select('id, name, client_number').order('client_number'),
-      supabase.from('client_permissions').select('*'),
-      supabase.from('project_types').select('id, name')
+      supabase.from('user_roles').select('user_id, role'),
+      supabase.from('user_global_permissions').select('*')
     ]);
 
-    if (projectTypesRes.data) {
-      const fundingType = projectTypesRes.data.find(pt => pt.name === 'Funding Project');
-      if (fundingType) {
-        setFundingProjectTypeId(fundingType.id);
-      }
-    }
-
     if (staffRes.data) {
-      const rolesRes = await supabase.from('user_roles').select('user_id, role');
       const rolesMap = new Map(rolesRes.data?.map(r => [r.user_id, r.role]) || []);
+      const permsMap = new Map(permsRes.data?.map(p => [p.user_id, p]) || []);
 
-      setUsers(staffRes.data.map(s => ({
-        id: s.id,
-        email: s.email,
-        role: rolesMap.get(s.id) || 'user'
-      })));
-    }
-
-    if (clientsRes.data) setClients(clientsRes.data);
-    if (permissionsRes.data) {
-      const permsWithDetails = permissionsRes.data.map(p => {
-        const user = users.find(u => u.id === p.user_id);
-        const client = clientsRes.data?.find(c => c.id === p.client_id);
+      const usersWithPerms = staffRes.data.map(s => {
+        const perm = permsMap.get(s.id);
         return {
-          ...p,
-          user_email: user?.email,
-          client_name: client?.name
+          id: s.id,
+          email: s.email,
+          role: rolesMap.get(s.id) || 'user',
+          client_view_all: perm?.client_view_all || false,
+          client_edit_all: perm?.client_edit_all || false,
+          channel_partner_view_all: perm?.channel_partner_view_all || false,
+          channel_partner_edit_all: perm?.channel_partner_edit_all || false,
         };
       });
-      setPermissions(permsWithDetails);
+
+      setUsers(usersWithPerms);
+
+      const permsList: UserPermission[] = usersWithPerms.map(u => ({
+        user_id: u.id,
+        email: u.email,
+        client_view_all: u.client_view_all || false,
+        client_edit_all: u.client_edit_all || false,
+        channel_partner_view_all: u.channel_partner_view_all || false,
+        channel_partner_edit_all: u.channel_partner_edit_all || false,
+      }));
+
+      setUserPermissions(permsList);
     }
   }
 
@@ -101,44 +90,18 @@ export function AdminPage() {
     setLoading(false);
   }
 
-  async function grantPermission() {
-    if (!selectedUser || !selectedClient) {
-      alert('Please select both a user and a client');
-      return;
-    }
-
+  async function togglePermission(userId: string, permissionType: 'client_view_all' | 'client_edit_all' | 'channel_partner_view_all' | 'channel_partner_edit_all', currentValue: boolean) {
     setLoading(true);
     const { error } = await supabase
-      .from('client_permissions')
+      .from('user_global_permissions')
       .upsert({
-        client_id: selectedClient,
-        user_id: selectedUser,
-        can_view: canView,
-        can_edit: canEdit,
-        granted_by: (await supabase.auth.getUser()).data.user?.id
+        user_id: userId,
+        [permissionType]: !currentValue,
+        updated_at: new Date().toISOString()
       });
 
     if (error) {
-      alert('Error granting permission: ' + error.message);
-    } else {
-      setSelectedUser('');
-      setSelectedClient('');
-      setCanView(true);
-      setCanEdit(false);
-      await loadData();
-    }
-    setLoading(false);
-  }
-
-  async function revokePermission(permissionId: string) {
-    setLoading(true);
-    const { error } = await supabase
-      .from('client_permissions')
-      .delete()
-      .eq('id', permissionId);
-
-    if (error) {
-      alert('Error revoking permission: ' + error.message);
+      alert('Error updating permission: ' + error.message);
     } else {
       await loadData();
     }
@@ -226,199 +189,180 @@ export function AdminPage() {
         </div>
 
         {currentView === 'permissions' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-lg border border-slate-200 p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Users className="w-5 h-5 text-slate-600" />
-              <h2 className="text-xl font-semibold text-slate-900">User Roles</h2>
-            </div>
+          <div className="space-y-8">
+            {/* User Roles Section */}
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <Users className="w-5 h-5 text-slate-600" />
+                <h2 className="text-xl font-semibold text-slate-900">User Roles</h2>
+              </div>
 
-            <div className="space-y-3">
-              {users.map(user => (
-                <div key={user.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                  <div>
-                    <div className="font-medium text-slate-900">{user.email}</div>
-                    <div className="text-sm text-slate-500">User ID: {user.id.slice(0, 8)}...</div>
+              <div className="space-y-3">
+                {users.map(user => (
+                  <div key={user.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                    <div>
+                      <div className="font-medium text-slate-900">{user.email}</div>
+                      <div className="text-sm text-slate-500">User ID: {user.id.slice(0, 8)}...</div>
+                    </div>
+                    <select
+                      value={user.role}
+                      onChange={(e) => updateUserRole(user.id, e.target.value)}
+                      disabled={loading}
+                      className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
                   </div>
-                  <select
-                    value={user.role}
-                    onChange={(e) => updateUserRole(user.id, e.target.value)}
-                    disabled={loading}
-                    className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-slate-200 p-6">
-            <h2 className="text-xl font-semibold text-slate-900 mb-6">Grant Client Access</h2>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">User</label>
-                <select
-                  value={selectedUser}
-                  onChange={(e) => setSelectedUser(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select a user...</option>
-                  {users.filter(u => u.role !== 'admin').map(user => (
-                    <option key={user.id} value={user.id}>{user.email}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Client</label>
-                <select
-                  value={selectedClient}
-                  onChange={(e) => setSelectedClient(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select a client...</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      #{String(client.client_number).padStart(4, '0')} - {client.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={canView}
-                    onChange={(e) => setCanView(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">Can View</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={canEdit}
-                    onChange={(e) => setCanEdit(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">Can Edit</span>
-                </label>
-              </div>
-
-              <button
-                onClick={grantPermission}
-                disabled={loading || !selectedUser || !selectedClient}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-              >
-                Grant Permission
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-8 bg-white rounded-lg border border-slate-200 p-6 col-span-2">
-            <h2 className="text-xl font-semibold text-slate-900 mb-6">Active Permissions</h2>
-
-            <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">User</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">View</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Edit</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {permissions.map(perm => (
-                  <tr key={perm.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 text-sm text-slate-700">
-                      {users.find(u => u.id === perm.user_id)?.email || 'Unknown'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-700">
-                      {clients.find(c => c.id === perm.client_id)?.name || 'Unknown'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {perm.can_view ? (
-                        <Check className="w-5 h-5 text-green-600 mx-auto" />
-                      ) : (
-                        <X className="w-5 h-5 text-slate-300 mx-auto" />
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {perm.can_edit ? (
-                        <Check className="w-5 h-5 text-green-600 mx-auto" />
-                      ) : (
-                        <X className="w-5 h-5 text-slate-300 mx-auto" />
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => revokePermission(perm.id)}
-                        disabled={loading}
-                        className="text-red-600 hover:text-red-700 disabled:opacity-50 font-medium text-sm"
-                      >
-                        Revoke
-                      </button>
-                    </td>
-                  </tr>
                 ))}
-              </tbody>
-            </table>
-            {permissions.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-slate-500">No permissions granted yet</p>
               </div>
-            )}
             </div>
-          </div>
+
+            {/* Grant Client Access Section */}
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Eye className="w-5 h-5 text-slate-600" />
+                <h2 className="text-xl font-semibold text-slate-900">Grant Client Access</h2>
+              </div>
+              <p className="text-sm text-slate-600 mb-6">
+                Some users don't have view and edit all client access, but creators and sales persons automatically have view and edit access to their clients. No user can delete clients.
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        View All Clients
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Edit All Clients
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {userPermissions.map(perm => (
+                      <tr key={perm.user_id} className="hover:bg-slate-50">
+                        <td className="px-4 py-4">
+                          <div className="font-medium text-slate-900">{perm.email}</div>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <button
+                            onClick={() => togglePermission(perm.user_id, 'client_view_all', perm.client_view_all)}
+                            disabled={loading}
+                            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                              perm.client_view_all
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                            }`}
+                          >
+                            <Check className={`w-5 h-5 ${perm.client_view_all ? '' : 'opacity-30'}`} />
+                          </button>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <button
+                            onClick={() => togglePermission(perm.user_id, 'client_edit_all', perm.client_edit_all)}
+                            disabled={loading}
+                            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                              perm.client_edit_all
+                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                            }`}
+                          >
+                            <Edit className={`w-5 h-5 ${perm.client_edit_all ? '' : 'opacity-30'}`} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Grant Channel Partner Access Section */}
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-5 h-5 text-slate-600" />
+                <h2 className="text-xl font-semibold text-slate-900">Grant Channel Partner Access</h2>
+              </div>
+              <p className="text-sm text-slate-600 mb-6">
+                Some users don't have view and edit all channel partner access, but creators and sales persons automatically have view and edit access to their channel partners. No user can delete channel partners.
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        View All Channel Partners
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Edit All Channel Partners
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {userPermissions.map(perm => (
+                      <tr key={perm.user_id} className="hover:bg-slate-50">
+                        <td className="px-4 py-4">
+                          <div className="font-medium text-slate-900">{perm.email}</div>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <button
+                            onClick={() => togglePermission(perm.user_id, 'channel_partner_view_all', perm.channel_partner_view_all)}
+                            disabled={loading}
+                            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                              perm.channel_partner_view_all
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                            }`}
+                          >
+                            <Check className={`w-5 h-5 ${perm.channel_partner_view_all ? '' : 'opacity-30'}`} />
+                          </button>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <button
+                            onClick={() => togglePermission(perm.user_id, 'channel_partner_edit_all', perm.channel_partner_edit_all)}
+                            disabled={loading}
+                            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                              perm.channel_partner_edit_all
+                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                            }`}
+                          >
+                            <Edit className={`w-5 h-5 ${perm.channel_partner_edit_all ? '' : 'opacity-30'}`} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
         {currentView === 'funding-auth' && (
-          <div>
-            <AuthorizationPage />
-          </div>
+          <ProjectTypeAuthorizationPage projectTypeName="Funding Project" />
         )}
 
         {currentView === 'comsec-auth' && (
-          <div>
-            <ProjectTypeAuthorizationPage
-              projectTypeName="Com Sec"
-              title="Com Sec Authorization"
-              description="Manage which users can see and access the Com Sec button"
-            />
-          </div>
+          <ProjectTypeAuthorizationPage projectTypeName="Com Sec" />
         )}
 
         {currentView === 'marketing-auth' && (
-          <div>
-            <ProjectTypeAuthorizationPage
-              projectTypeName="Marketing"
-              title="Marketing Authorization"
-              description="Manage which users can see and access the Marketing button"
-            />
-          </div>
+          <ProjectTypeAuthorizationPage projectTypeName="Marketing Project" />
         )}
 
-        {currentView === 'labels' && (
-          <div>
-            <LabelManagement />
-          </div>
-        )}
+        {currentView === 'labels' && <LabelManagement />}
 
-        {currentView === 'automation' && (
-          <div>
-            <AutomationPage
-              projectTypeId={fundingProjectTypeId}
-              projectTypeName="Funding Project"
-            />
-          </div>
-        )}
+        {currentView === 'automation' && <AutomationPage />}
       </div>
     </div>
   );
