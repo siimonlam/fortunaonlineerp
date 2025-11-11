@@ -325,8 +325,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
       if (error) throw error;
 
-      await executeAutomations('hkpc_date_set');
-
       setShowQADatePicker(false);
       setQaDueDate('');
       alert('Next HKPC due date updated successfully');

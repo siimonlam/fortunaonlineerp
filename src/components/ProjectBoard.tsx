@@ -225,6 +225,14 @@ export function ProjectBoard() {
           loadData();
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'project_labels' },
+        (payload) => {
+          console.log('✅ Project labels changed:', payload.eventType);
+          loadData();
+        }
+      )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log('✅ Real-time subscription active');
