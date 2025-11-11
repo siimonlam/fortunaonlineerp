@@ -570,12 +570,12 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
       let fieldsFilledCount = 0;
 
       try {
-        const field = form.getTextField('company_name');
+        const field = form.getTextField('fill_1_P.1');
         field.setText(client.company_name);
-        console.log(`✓ Successfully filled "company_name" with "${client.company_name}"`);
+        console.log(`✓ Successfully filled "fill_1_P.1" with "${client.company_name}"`);
         fieldsFilledCount++;
       } catch (error: any) {
-        console.error('✗ Failed to fill company_name field:', error.message);
+        console.error('✗ Failed to fill fill_1_P.1 field:', error.message);
       }
 
       console.log(`Summary: ${fieldsFilledCount} field(s) filled`);
@@ -584,6 +584,8 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         console.warn('⚠️ WARNING: No fields were filled!');
         console.warn('Available fields:', fieldNames.join(', '));
       }
+
+      form.flatten();
 
       const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
       setNar1PdfBytes(pdfBytes);
@@ -612,7 +614,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     try {
       const currentYear = new Date().getFullYear();
       const fileName = `${client.company_code}_NAR1_${currentYear}.pdf`;
-      const folderPath = `${client.company_code}/others`;
+      const folderPath = `${client.company_code}/Others`;
 
       const { error: uploadError } = await supabase.storage
         .from('client-folders')
