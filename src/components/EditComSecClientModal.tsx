@@ -376,21 +376,33 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
     setIsGeneratingAR1(true);
     try {
+      console.log('Fetching AR1 PDF template...');
       const response = await fetch('/ar1_fillable.pdf');
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response Content-Type:', response.headers.get('content-type'));
+
       if (!response.ok) {
         throw new Error(`Failed to fetch PDF: ${response.statusText}`);
       }
 
+      console.log('Reading PDF as ArrayBuffer...');
       const existingPdfBytes = await response.arrayBuffer();
+      console.log('PDF ArrayBuffer size:', existingPdfBytes.byteLength, 'bytes');
 
       if (existingPdfBytes.byteLength === 0) {
         throw new Error('PDF file is empty');
       }
 
+      const uint8Array = new Uint8Array(existingPdfBytes);
+      console.log('First 10 bytes:', Array.from(uint8Array.slice(0, 10)));
+      console.log('PDF header check:', String.fromCharCode(...uint8Array.slice(0, 5)));
+
+      console.log('Loading PDF document with pdf-lib...');
       const pdfDoc = await PDFDocument.load(existingPdfBytes, {
         ignoreEncryption: true,
         updateMetadata: false
       });
+      console.log('PDF loaded successfully');
 
       const form = pdfDoc.getForm();
       const fields = form.getFields();
