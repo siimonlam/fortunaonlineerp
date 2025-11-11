@@ -570,21 +570,17 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
       let fieldsFilledCount = 0;
 
       const companyName = client.company_name || '';
-      const companyNameChars = companyName.split('');
 
-      for (let i = 0; i < companyNameChars.length && i < 15; i++) {
-        const fieldName = `fill_2_P.${i + 1}`;
-        try {
-          const field = form.getTextField(fieldName);
-          field.setText(companyNameChars[i]);
-          console.log(`✓ Successfully filled "${fieldName}" with "${companyNameChars[i]}"`);
-          fieldsFilledCount++;
-        } catch (error: any) {
-          console.error(`✗ Failed to fill ${fieldName}:`, error.message);
-        }
+      try {
+        const field = form.getTextField('fill_2_P.1');
+        field.setText(companyName);
+        console.log(`✓ Successfully filled "fill_2_P.1" with "${companyName}"`);
+        fieldsFilledCount++;
+      } catch (error: any) {
+        console.error('✗ Failed to fill fill_2_P.1:', error.message);
       }
 
-      console.log(`Summary: ${fieldsFilledCount} field(s) filled from company name "${companyName}"`);
+      console.log(`Summary: ${fieldsFilledCount} field(s) filled`);
 
       if (fieldsFilledCount === 0) {
         console.warn('⚠️ WARNING: No fields were filled!');
