@@ -537,14 +537,16 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
           )}
 
           <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={loading}
-              className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Delete
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={loading}
+                className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Delete
+              </button>
+            )}
             <div className="flex-1"></div>
             <button
               type="button"
