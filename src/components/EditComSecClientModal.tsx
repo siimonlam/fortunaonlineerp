@@ -116,6 +116,10 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const [ar1PdfUrl, setAr1PdfUrl] = useState<string | null>(null);
   const [ar1PdfBytes, setAr1PdfBytes] = useState<Uint8Array | null>(null);
   const [isGeneratingAR1, setIsGeneratingAR1] = useState(false);
+  const [showNAR1Preview, setShowNAR1Preview] = useState(false);
+  const [nar1PdfUrl, setNar1PdfUrl] = useState<string | null>(null);
+  const [nar1PdfBytes, setNar1PdfBytes] = useState<Uint8Array | null>(null);
+  const [isGeneratingNAR1, setIsGeneratingNAR1] = useState(false);
 
   const [formData, setFormData] = useState({
     company_name: client.company_name || '',
@@ -514,6 +518,137 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     setAr1PdfBytes(null);
   }
 
+  async function handleGenerateNAR1() {
+    if (!client.company_name) {
+      alert('Company name is required to generate NAR1');
+      return;
+    }
+
+    setIsGeneratingNAR1(true);
+    try {
+      console.log('Fetching NAR1 PDF template...');
+      const response = await fetch('/NAR1_fillable.pdf');
+      console.log('Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+      }
+
+      const existingPdfBytes = await response.arrayBuffer();
+      console.log('PDF ArrayBuffer size:', existingPdfBytes.byteLength, 'bytes');
+
+      if (existingPdfBytes.byteLength === 0) {
+        throw new Error('PDF file is empty');
+      }
+
+      const uint8Array = new Uint8Array(existingPdfBytes);
+      console.log('First 10 bytes:', Array.from(uint8Array.slice(0, 10)));
+
+      const pdfDoc = await PDFDocument.load(existingPdfBytes, {
+        ignoreEncryption: true,
+        updateMetadata: false
+      });
+      console.log('PDF loaded successfully');
+
+      const form = pdfDoc.getForm();
+      const fields = form.getFields();
+      console.log('Total form fields found:', fields.length);
+
+      const fieldNames: string[] = [];
+      fields.forEach(field => {
+        const name = field.getName();
+        fieldNames.push(name);
+        console.log('Field found:', name, '| Type:', field.constructor.name);
+      });
+
+      if (fields.length === 0) {
+        throw new Error('The NAR1 PDF template has no fillable form fields. Please use a fillable PDF form.');
+      }
+
+      console.log('All field names:', fieldNames.join(', '));
+
+      let fieldsFilledCount = 0;
+
+      try {
+        const field = form.getTextField('company_name');
+        field.setText(client.company_name);
+        console.log(`✓ Successfully filled "company_name" with "${client.company_name}"`);
+        fieldsFilledCount++;
+      } catch (error: any) {
+        console.error('✗ Failed to fill company_name field:', error.message);
+      }
+
+      console.log(`Summary: ${fieldsFilledCount} field(s) filled`);
+
+      if (fieldsFilledCount === 0) {
+        console.warn('⚠️ WARNING: No fields were filled!');
+        console.warn('Available fields:', fieldNames.join(', '));
+      }
+
+      const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
+      setNar1PdfBytes(pdfBytes);
+
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      setNar1PdfUrl(url);
+      setShowNAR1Preview(true);
+
+      await logHistory('nar1_generated', undefined, undefined, 'NAR1 document generated');
+      loadHistory();
+    } catch (error: any) {
+      console.error('Error generating NAR1:', error);
+      alert(`Failed to generate NAR1: ${error.message || 'Unknown error occurred'}`);
+    } finally {
+      setIsGeneratingNAR1(false);
+    }
+  }
+
+  async function handleSaveNAR1() {
+    if (!nar1PdfBytes || !client.company_code) {
+      alert('Company code is required to save NAR1');
+      return;
+    }
+
+    try {
+      const currentYear = new Date().getFullYear();
+      const fileName = `${client.company_code}_NAR1_${currentYear}.pdf`;
+      const folderPath = `${client.company_code}/others`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('client-folders')
+        .upload(`${folderPath}/${fileName}`, nar1PdfBytes, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      await logHistory('nar1_saved', undefined, undefined, `NAR1 saved to ${folderPath}/${fileName}`);
+      loadHistory();
+
+      setShowNAR1Preview(false);
+      if (nar1PdfUrl) {
+        URL.revokeObjectURL(nar1PdfUrl);
+      }
+      setNar1PdfUrl(null);
+      setNar1PdfBytes(null);
+
+      alert('NAR1 saved successfully!');
+    } catch (error: any) {
+      console.error('Error saving NAR1:', error);
+      alert(`Failed to save NAR1: ${error.message}`);
+    }
+  }
+
+  function handleCloseNAR1Preview() {
+    setShowNAR1Preview(false);
+    if (nar1PdfUrl) {
+      URL.revokeObjectURL(nar1PdfUrl);
+    }
+    setNar1PdfUrl(null);
+    setNar1PdfBytes(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
@@ -630,6 +765,15 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               >
                 <FileEdit className="w-4 h-4" />
                 {isGeneratingAR1 ? 'Generating...' : 'Update AR1'}
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateNAR1}
+                disabled={isGeneratingNAR1 || !client.company_name}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileEdit className="w-4 h-4" />
+                {isGeneratingNAR1 ? 'Generating...' : 'Update NAR1'}
               </button>
               {onCreateInvoice && (
                 <button
@@ -1247,6 +1391,38 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                 src={ar1PdfUrl}
                 className="w-full h-full min-h-[600px] bg-white rounded shadow-lg"
                 title="AR1 Preview"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNAR1Preview && nar1PdfUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
+              <h3 className="text-lg font-semibold">NAR1 Preview</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSaveNAR1}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Save to Folder
+                </button>
+                <button
+                  onClick={handleCloseNAR1Preview}
+                  className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto bg-slate-100 p-4">
+              <iframe
+                src={nar1PdfUrl}
+                className="w-full h-full min-h-[600px] bg-white rounded shadow-lg"
+                title="NAR1 Preview"
               />
             </div>
           </div>
