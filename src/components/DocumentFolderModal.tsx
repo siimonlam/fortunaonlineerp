@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Folder, FileText, Download, Upload, Trash2, ExternalLink, File, FileSpreadsheet, Image, FileCode, FileArchive, FileVideo, FileAudio } from 'lucide-react';
+import { X, Folder, FileText, Download, Upload, Trash2, ExternalLink, File, FileSpreadsheet, Image, FileCode, FileArchive, FileVideo, FileAudio, Edit3, FolderInput } from 'lucide-react';
 
 interface DocumentFolderModalProps {
   companyCode: string;
@@ -22,6 +22,10 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
   const [files, setFiles] = useState<FileItem[]>([]);
   const [currentFolder, setCurrentFolder] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [renamingFile, setRenamingFile] = useState<string | null>(null);
+  const [newFileName, setNewFileName] = useState('');
+  const [movingFile, setMovingFile] = useState<string | null>(null);
+  const [targetFolder, setTargetFolder] = useState('');
 
   const folders = [
     'Register of Directors',
@@ -144,6 +148,97 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
     }
   }
 
+  async function handleRenameFile(oldFileName: string) {
+    if (!newFileName.trim()) {
+      alert('Please enter a new file name');
+      return;
+    }
+
+    try {
+      const oldPath = currentFolder
+        ? `${companyCode}/${currentFolder}/${oldFileName}`
+        : `${companyCode}/${oldFileName}`;
+
+      const extension = oldFileName.split('.').pop();
+      const newFileNameWithExt = newFileName.includes('.') ? newFileName : `${newFileName}.${extension}`;
+
+      const newPath = currentFolder
+        ? `${companyCode}/${currentFolder}/${newFileNameWithExt}`
+        : `${companyCode}/${newFileNameWithExt}`;
+
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('comsec-documents')
+        .download(oldPath);
+
+      if (downloadError) throw downloadError;
+
+      const { error: uploadError } = await supabase.storage
+        .from('comsec-documents')
+        .upload(newPath, fileData, {
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { error: deleteError } = await supabase.storage
+        .from('comsec-documents')
+        .remove([oldPath]);
+
+      if (deleteError) throw deleteError;
+
+      alert('File renamed successfully!');
+      setRenamingFile(null);
+      setNewFileName('');
+      loadFiles();
+    } catch (error: any) {
+      console.error('Error renaming file:', error);
+      alert(`Failed to rename file: ${error.message}`);
+    }
+  }
+
+  async function handleMoveFile(fileName: string) {
+    if (!targetFolder) {
+      alert('Please select a target folder');
+      return;
+    }
+
+    try {
+      const oldPath = currentFolder
+        ? `${companyCode}/${currentFolder}/${fileName}`
+        : `${companyCode}/${fileName}`;
+
+      const newPath = `${companyCode}/${targetFolder}/${fileName}`;
+
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('comsec-documents')
+        .download(oldPath);
+
+      if (downloadError) throw downloadError;
+
+      const { error: uploadError } = await supabase.storage
+        .from('comsec-documents')
+        .upload(newPath, fileData, {
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { error: deleteError } = await supabase.storage
+        .from('comsec-documents')
+        .remove([oldPath]);
+
+      if (deleteError) throw deleteError;
+
+      alert(`File moved to ${targetFolder} successfully!`);
+      setMovingFile(null);
+      setTargetFolder('');
+      loadFiles();
+    } catch (error: any) {
+      console.error('Error moving file:', error);
+      alert(`Failed to move file: ${error.message}`);
+    }
+  }
+
   function getPublicUrl(fileName: string) {
     const filePath = currentFolder
       ? `${companyCode}/${currentFolder}/${fileName}`
@@ -211,7 +306,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div>
@@ -315,6 +410,26 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
                       <Download className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => {
+                        setRenamingFile(file.name);
+                        setNewFileName(file.name.split('.').slice(0, -1).join('.'));
+                      }}
+                      className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Rename"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMovingFile(file.name);
+                        setTargetFolder('');
+                      }}
+                      className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      title="Move to folder"
+                    >
+                      <FolderInput className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleDeleteFile(file.name)}
                       className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete"
@@ -328,6 +443,94 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
           )}
         </div>
       </div>
+
+      {renamingFile && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[70]">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Rename File</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Current name: <span className="font-medium">{renamingFile}</span>
+            </p>
+            <input
+              type="text"
+              value={newFileName}
+              onChange={(e) => setNewFileName(e.target.value)}
+              placeholder="Enter new file name"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleRenameFile(renamingFile);
+                }
+              }}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setRenamingFile(null);
+                  setNewFileName('');
+                }}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleRenameFile(renamingFile)}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {movingFile && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[70]">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Move File</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Moving: <span className="font-medium">{movingFile}</span>
+            </p>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Select target folder:
+            </label>
+            <select
+              value={targetFolder}
+              onChange={(e) => setTargetFolder(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              autoFocus
+            >
+              <option value="">-- Select Folder --</option>
+              {folders
+                .filter(folder => folder !== currentFolder)
+                .map((folder) => (
+                  <option key={folder} value={folder}>
+                    {folder}
+                  </option>
+                ))}
+            </select>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setMovingFile(null);
+                  setTargetFolder('');
+                }}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleMoveFile(movingFile)}
+                disabled={!targetFolder}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Move
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
