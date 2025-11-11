@@ -31,6 +31,9 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [channelPartners, setChannelPartners] = useState<ChannelPartner[]>([]);
+  const [clientSearchQuery, setClientSearchQuery] = useState(prefillData?.company_name || '');
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [formData, setFormData] = useState({
     projectReference: prefillData?.project_reference || '',
     companyName: prefillData?.company_name || '',
@@ -50,6 +53,17 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
     loadClients();
     loadChannelPartners();
   }, []);
+
+  useEffect(() => {
+    if (clientSearchQuery.trim()) {
+      const filtered = clients.filter(client =>
+        client.name.toLowerCase().includes(clientSearchQuery.toLowerCase())
+      );
+      setFilteredClients(filtered);
+    } else {
+      setFilteredClients([]);
+    }
+  }, [clientSearchQuery, clients]);
 
   async function loadClients() {
     const { data } = await supabase
@@ -108,15 +122,24 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
     }
   }
 
-  function handleClientChange(clientId: string) {
-    const client = clients.find(c => c.id === clientId);
-    if (client) {
-      setFormData({
-        ...formData,
-        clientId: clientId,
-        companyName: client.name,
-      });
-    }
+  function handleClientSelect(client: Client) {
+    setFormData({
+      ...formData,
+      clientId: client.id,
+      companyName: client.name,
+    });
+    setClientSearchQuery(client.name);
+    setShowClientSuggestions(false);
+  }
+
+  function handleClientSearchChange(value: string) {
+    setClientSearchQuery(value);
+    setFormData({
+      ...formData,
+      companyName: value,
+      clientId: '',
+    });
+    setShowClientSuggestions(true);
   }
 
   return (
@@ -147,23 +170,33 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
               />
             </div>
 
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Client <span className="text-red-500">*</span>
+                Client
               </label>
-              <select
-                required
-                value={formData.clientId}
-                onChange={(e) => handleClientChange(e.target.value)}
+              <input
+                type="text"
+                value={clientSearchQuery}
+                onChange={(e) => handleClientSearchChange(e.target.value)}
+                onFocus={() => setShowClientSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowClientSuggestions(false), 200)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">-- Select Client --</option>
-                {clients.map(client => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="Type to search clients..."
+              />
+              {showClientSuggestions && filteredClients.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredClients.map((client) => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      onClick={() => handleClientSelect(client)}
+                      className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors text-sm"
+                    >
+                      {client.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
