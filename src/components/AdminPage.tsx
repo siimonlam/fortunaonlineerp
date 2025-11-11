@@ -92,13 +92,26 @@ export function AdminPage() {
 
   async function togglePermission(userId: string, permissionType: 'client_view_all' | 'client_edit_all' | 'channel_partner_view_all' | 'channel_partner_edit_all', currentValue: boolean) {
     setLoading(true);
+
+    const { data: existing } = await supabase
+      .from('user_global_permissions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const updatedPermissions = {
+      user_id: userId,
+      client_view_all: existing?.client_view_all || false,
+      client_edit_all: existing?.client_edit_all || false,
+      channel_partner_view_all: existing?.channel_partner_view_all || false,
+      channel_partner_edit_all: existing?.channel_partner_edit_all || false,
+      [permissionType]: !currentValue,
+      updated_at: new Date().toISOString()
+    };
+
     const { error } = await supabase
       .from('user_global_permissions')
-      .upsert({
-        user_id: userId,
-        [permissionType]: !currentValue,
-        updated_at: new Date().toISOString()
-      });
+      .upsert(updatedPermissions);
 
     if (error) {
       alert('Error updating permission: ' + error.message);
