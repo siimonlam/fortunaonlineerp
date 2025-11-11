@@ -1498,32 +1498,6 @@ export function ProjectBoard() {
               <AdminPage />
             ) : isClientSection ? (
               clientViewMode === 'card' ? (
-                  <div className="bg-white rounded-t-lg border border-slate-200 border-b-0">
-                    <div className="flex gap-2 px-6 py-2">
-                      <button
-                        onClick={() => setChannelPartnerSubTab('partners')}
-                        className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-                          channelPartnerSubTab === 'partners'
-                            ? 'border-emerald-600 text-emerald-600'
-                            : 'border-transparent text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        Channel Partners
-                      </button>
-                      <button
-                        onClick={() => setChannelPartnerSubTab('projects')}
-                        className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-                          channelPartnerSubTab === 'projects'
-                            ? 'border-emerald-600 text-emerald-600'
-                            : 'border-transparent text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        Partner Projects
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {clientViewMode === 'card' ? (
                   activeClientTab === 'channel' && channelPartnerSubTab === 'projects' ? (
                     <div className="bg-white rounded-lg border border-slate-200">
                       <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
