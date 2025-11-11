@@ -407,10 +407,20 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
       const form = pdfDoc.getForm();
       const fields = form.getFields();
       console.log('Total form fields found:', fields.length);
-      console.log('Available form fields:', fields.map(f => ({
-        name: f.getName(),
-        type: f.constructor.name
-      })));
+
+      const fieldNames: string[] = [];
+      fields.forEach(field => {
+        const name = field.getName();
+        fieldNames.push(name);
+        console.log('Field found:', name, '| Type:', field.constructor.name);
+      });
+
+      if (fields.length === 0) {
+        console.error('ERROR: This PDF has NO form fields!');
+        throw new Error('The AR1 PDF template has no fillable form fields. Please use a fillable PDF form.');
+      }
+
+      console.log('All field names:', fieldNames.join(', '));
 
       const today = new Date();
       const day = today.getDate().toString().padStart(2, '0');
@@ -428,18 +438,19 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         try {
           const field = form.getTextField(mapping.expected);
           field.setText(mapping.value);
-          console.log(`Successfully filled field "${mapping.expected}" with value "${mapping.value}"`);
+          console.log(`✓ Successfully filled field "${mapping.expected}" with value "${mapping.value}"`);
           fieldsFilledCount++;
         } catch (error: any) {
-          console.error(`Failed to fill field "${mapping.expected}":`, error.message);
+          console.error(`✗ Failed to fill field "${mapping.expected}":`, error.message);
         }
       }
 
-      console.log(`Total fields filled: ${fieldsFilledCount} out of ${fieldMapping.length}`);
+      console.log(`Summary: ${fieldsFilledCount} out of ${fieldMapping.length} fields filled`);
 
       if (fieldsFilledCount === 0) {
-        console.warn('No fields were filled! The PDF may not have the expected form fields.');
-        console.warn('Available field names:', fields.map(f => f.getName()).join(', '));
+        console.warn('⚠️ WARNING: No fields were filled!');
+        console.warn('This means the expected field names (DD, MM, YYYY) do not exist in the PDF.');
+        console.warn('Please check if the PDF field names match. Available fields:', fieldNames.join(', '));
       }
 
       const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
