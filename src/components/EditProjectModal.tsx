@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText, Edit2, Trash2, Eye, EyeOff } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, Edit2, Trash2, Eye, EyeOff, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
+import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 
 interface Staff {
   id: string;
@@ -26,6 +27,7 @@ interface Project {
   project_type_id: string;
   created_by: string;
   client_id?: string;
+  project_reference?: string;
   company_name?: string;
   contact_name?: string;
   contact_number?: string;
@@ -104,6 +106,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [qaDueDate, setQaDueDate] = useState('');
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [projectLabels, setProjectLabels] = useState<Label[]>([]);
+  const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -971,6 +974,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                 >
                   <FileText className="w-4 h-4" />
                   Update Final Report File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPartnerProjectModal(true)}
+                  className="px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                >
+                  <Users className="w-4 h-4" />
+                  Partner Project
                 </button>
               </div>
             )}
@@ -1856,6 +1867,23 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
       />
+
+      {showAddPartnerProjectModal && (
+        <AddPartnerProjectModal
+          onClose={() => setShowAddPartnerProjectModal(false)}
+          onSuccess={() => {
+            setShowAddPartnerProjectModal(false);
+            alert('Partner project created successfully!');
+          }}
+          prefillData={{
+            project_reference: project.project_reference || '',
+            company_name: project.company_name || '',
+            client_id: project.client_id || '',
+            channel_partner_name: '',
+            channel_partner_reference: '',
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 
 interface Staff {
   id: string;
@@ -61,6 +62,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [partnerProjects, setPartnerProjects] = useState<PartnerProject[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
+  const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing Project');
 
@@ -350,19 +352,30 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
       )}
 
       {activeTab === 'channel' && channelPartnerSubTab === 'projects' && (
-        <div className="overflow-x-auto">
-          {loadingProjects ? (
-            <div className="p-12 text-center">
-              <p className="text-slate-500">Loading partner projects...</p>
-            </div>
-          ) : partnerProjects.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-slate-500 text-lg">No Partner Projects Yet</p>
-              <p className="text-slate-400 text-sm mt-2">Partner projects will appear here once created</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
+        <div>
+          <div className="px-6 py-4 border-b border-slate-200 flex justify-end">
+            <button
+              onClick={() => setShowAddPartnerProjectModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Create Partner Project
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            {loadingProjects ? (
+              <div className="p-12 text-center">
+                <p className="text-slate-500">Loading partner projects...</p>
+              </div>
+            ) : partnerProjects.length === 0 ? (
+              <div className="p-12 text-center">
+                <p className="text-slate-500 text-lg">No Partner Projects Yet</p>
+                <p className="text-slate-400 text-sm mt-2">Click "Create Partner Project" to get started</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                     Project Ref
@@ -454,9 +467,20 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                   </tr>
                 ))}
               </tbody>
-            </table>
-          )}
+              </table>
+            )}
+          </div>
         </div>
+      )}
+
+      {showAddPartnerProjectModal && (
+        <AddPartnerProjectModal
+          onClose={() => setShowAddPartnerProjectModal(false)}
+          onSuccess={() => {
+            setShowAddPartnerProjectModal(false);
+            loadPartnerProjects();
+          }}
+        />
       )}
     </div>
   );
