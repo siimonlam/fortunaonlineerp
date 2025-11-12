@@ -43,7 +43,7 @@ const MAIN_STATUSES = ['Hi-Po', 'Pre-Submission', 'Q&A', 'Final Report'];
 const TRIGGER_TYPES = [
   { value: 'hkpc_date_set', label: 'New Next HKPC Date is set' },
   { value: 'task_completed', label: 'A Project task is completed' },
-  { value: 'status_changed', label: 'Project converts to a main status' },
+  { value: 'status_changed', label: 'Project converts to a new status' },
   { value: 'periodic', label: 'Periodically Action' }
 ];
 
@@ -146,7 +146,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
 
   async function saveRule() {
     if (!formData.name || !formData.main_status) {
-      alert('Please fill in the rule name and main status');
+      alert('Please fill in the rule name and status');
       return;
     }
 
@@ -369,7 +369,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Main Status *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Status *</label>
                 <select
                   value={formData.main_status}
                   onChange={(e) => setFormData({ ...formData, main_status: e.target.value })}
