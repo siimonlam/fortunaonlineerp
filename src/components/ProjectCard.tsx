@@ -66,6 +66,7 @@ interface Project {
   approval_date?: string;
   next_hkpc_due_date?: string;
   next_due_date?: string;
+  project_reference?: string;
 }
 
 interface ProjectType {
@@ -189,6 +190,11 @@ export function ProjectCard({
             >
               #{String(project.clients.client_number).padStart(4, '0')}
             </button>
+          )}
+          {isFundingProject && project.project_reference && (
+            <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-1 rounded ml-2 flex-shrink-0">
+              {project.project_reference}
+            </span>
           )}
         </div>
         {project.clients && (
