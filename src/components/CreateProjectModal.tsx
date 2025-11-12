@@ -97,11 +97,24 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
       .from('statuses')
       .select('*')
       .eq('project_type_id', projectTypeId)
+      .eq('is_substatus', true)
       .order('order_index')
       .limit(1)
       .maybeSingle();
 
-    if (data) setDefaultStatus(data);
+    if (data) {
+      setDefaultStatus(data);
+    } else {
+      const { data: fallbackData } = await supabase
+        .from('statuses')
+        .select('*')
+        .eq('project_type_id', projectTypeId)
+        .order('order_index')
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackData) setDefaultStatus(fallbackData);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
