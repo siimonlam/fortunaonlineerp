@@ -1136,34 +1136,33 @@ export function ProjectBoard() {
                         </div>
                       </div>
                     )}
+                    {isFundingProjectType && !isClientSection && (
+                      <div className="flex gap-2 mt-4">
+                        <button
+                          onClick={() => setFundingProjectTab('projects')}
+                          className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
+                            fundingProjectTab === 'projects'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                          }`}
+                        >
+                          Projects
+                        </button>
+                        <button
+                          onClick={() => setFundingProjectTab('invoices')}
+                          className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
+                            fundingProjectTab === 'invoices'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                          }`}
+                        >
+                          Invoices
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
-
-              {isFundingProjectType && !isClientSection && !isAdminSection && !isComSecSection && (
-                <div className="flex gap-2 mb-6">
-                  <button
-                    onClick={() => setFundingProjectTab('projects')}
-                    className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      fundingProjectTab === 'projects'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                    }`}
-                  >
-                    Projects
-                  </button>
-                  <button
-                    onClick={() => setFundingProjectTab('invoices')}
-                    className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      fundingProjectTab === 'invoices'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                    }`}
-                  >
-                    Invoices
-                  </button>
-                </div>
-              )}
 
               {!isClientSection && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab === 'projects' && (
                 <div className="flex items-center gap-3">
@@ -1737,7 +1736,7 @@ export function ProjectBoard() {
                   activeTab={activeClientTab}
                 />
               )
-            ) : isFundingProjectType && fundingProjectTab === 'invoices' ? (
+            ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
               <div className="bg-white rounded-lg shadow-sm border border-slate-200">
                 <div className="p-6">
                   <h3 className="text-lg font-semibold text-slate-900 mb-4">Invoice Summary</h3>
