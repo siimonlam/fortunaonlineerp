@@ -530,6 +530,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                           >
                             <option value="">No due date</option>
+                            <option value="current_day">Current Day</option>
                             <option value="project_end_date">Project End Date</option>
                             <option value="next_hkpc_due_date">Next HKPC Due Date</option>
                             <option value="start_date">Start Date</option>

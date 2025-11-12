@@ -105,6 +105,7 @@ export function ProjectBoard() {
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
+  const [fundingProjectTab, setFundingProjectTab] = useState<'projects' | 'invoices'>('projects');
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [addClientType, setAddClientType] = useState<'company' | 'channel'>('company');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -1138,7 +1139,33 @@ export function ProjectBoard() {
                   </>
                 )}
               </div>
-              {!isClientSection && !isAdminSection && !isComSecSection && isFundingProjectType && (
+
+              {isFundingProjectType && !isClientSection && !isAdminSection && !isComSecSection && (
+                <div className="flex gap-2 mb-6">
+                  <button
+                    onClick={() => setFundingProjectTab('projects')}
+                    className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      fundingProjectTab === 'projects'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    Projects
+                  </button>
+                  <button
+                    onClick={() => setFundingProjectTab('invoices')}
+                    className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      fundingProjectTab === 'invoices'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    Invoices
+                  </button>
+                </div>
+              )}
+
+              {!isClientSection && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab === 'projects' && (
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1710,6 +1737,69 @@ export function ProjectBoard() {
                   activeTab={activeClientTab}
                 />
               )
+            ) : isFundingProjectType && fundingProjectTab === 'invoices' ? (
+              <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Invoice Summary</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Project</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Client</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
+                          <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Service Fee %</th>
+                          <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Deposit Amount</th>
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Deposit Paid</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Invoice Number</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredProjects.map((project) => {
+                          const projectStatus = statuses.find(s => s.id === project.status_id);
+                          const projectClient = clients.find(c => c.id === project.client_id);
+                          return (
+                            <tr key={project.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedProject(project)}>
+                              <td className="py-3 px-4 text-sm text-slate-900">{project.title}</td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{projectClient?.name || '-'}</td>
+                              <td className="py-3 px-4 text-sm">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                  {projectStatus?.name || '-'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-right text-slate-900">
+                                {project.service_fee_percentage ? `${project.service_fee_percentage}%` : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-right text-slate-900">
+                                {project.deposit_amount ? `$${project.deposit_amount.toLocaleString()}` : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                {project.deposit_paid ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                    Paid
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                    Pending
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{project.invoice_number || '-'}</td>
+                            </tr>
+                          );
+                        })}
+                        {filteredProjects.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="py-12 text-center text-slate-500">
+                              No projects found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             ) : isFundingProjectType && projectViewMode === 'list' ? (
               <ProjectListView
                 projects={filteredProjects}

@@ -546,6 +546,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
     setLoading(true);
     try {
+      const statusChanged = formData.statusId !== project.status_id;
+
       const { error } = await supabase
         .from('projects')
         .update({
@@ -583,6 +585,34 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         .eq('id', project.id);
 
       if (error) throw error;
+
+      if (statusChanged) {
+        try {
+          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/execute-automation-rules`;
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              project_id: project.id,
+              project_type_id: project.project_type_id,
+              status_id: formData.statusId,
+              trigger_type: 'status_changed',
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log('Automation executed:', result);
+          } else {
+            console.error('Failed to execute automation:', await response.text());
+          }
+        } catch (automationError) {
+          console.error('Error executing automation:', automationError);
+        }
+      }
 
       // Broadcast the change to all connected clients
       const broadcastChannel = supabase.channel('db-changes');

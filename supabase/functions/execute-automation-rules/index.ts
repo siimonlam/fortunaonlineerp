@@ -149,27 +149,42 @@ Deno.serve(async (req: Request) => {
             let calculatedDeadline = taskConfig.deadline || null;
 
             if (taskConfig.due_date_base && taskConfig.due_date_offset !== undefined) {
-              const { data: project } = await supabase
-                .from('projects')
-                .select('project_end_date, next_hkpc_due_date, start_date, project_start_date, submission_date, approval_date')
-                .eq('id', project_id)
-                .maybeSingle();
+              if (taskConfig.due_date_base === 'current_day') {
+                const baseDateObj = new Date();
+                const offsetDays = taskConfig.due_date_offset || 0;
+                const direction = taskConfig.due_date_direction || 'after';
 
-              if (project) {
-                const baseDate = project[taskConfig.due_date_base as keyof typeof project];
-                if (baseDate) {
-                  const baseDateObj = new Date(baseDate);
-                  const offsetDays = taskConfig.due_date_offset || 0;
-                  const direction = taskConfig.due_date_direction || 'after';
+                if (direction === 'before') {
+                  baseDateObj.setDate(baseDateObj.getDate() - offsetDays);
+                } else {
+                  baseDateObj.setDate(baseDateObj.getDate() + offsetDays);
+                }
 
-                  if (direction === 'before') {
-                    baseDateObj.setDate(baseDateObj.getDate() - offsetDays);
-                  } else {
-                    baseDateObj.setDate(baseDateObj.getDate() + offsetDays);
+                calculatedDeadline = baseDateObj.toISOString();
+                console.log(`Calculated deadline: ${calculatedDeadline} (${offsetDays} days ${direction} current day)`);
+              } else {
+                const { data: project } = await supabase
+                  .from('projects')
+                  .select('project_end_date, next_hkpc_due_date, start_date, project_start_date, submission_date, approval_date')
+                  .eq('id', project_id)
+                  .maybeSingle();
+
+                if (project) {
+                  const baseDate = project[taskConfig.due_date_base as keyof typeof project];
+                  if (baseDate) {
+                    const baseDateObj = new Date(baseDate);
+                    const offsetDays = taskConfig.due_date_offset || 0;
+                    const direction = taskConfig.due_date_direction || 'after';
+
+                    if (direction === 'before') {
+                      baseDateObj.setDate(baseDateObj.getDate() - offsetDays);
+                    } else {
+                      baseDateObj.setDate(baseDateObj.getDate() + offsetDays);
+                    }
+
+                    calculatedDeadline = baseDateObj.toISOString();
+                    console.log(`Calculated deadline: ${calculatedDeadline} (${offsetDays} days ${direction} ${taskConfig.due_date_base})`);
                   }
-
-                  calculatedDeadline = baseDateObj.toISOString();
-                  console.log(`Calculated deadline: ${calculatedDeadline} (${offsetDays} days ${direction} ${taskConfig.due_date_base})`);
                 }
               }
             }
