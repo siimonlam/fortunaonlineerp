@@ -124,6 +124,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     description: project.description || '',
     statusId: project.status_id,
     projectName: project.project_name || '',
+    projectReference: project.project_reference || '',
     companyName: project.company_name || '',
     contactName: project.contact_name || '',
     contactNumber: project.contact_number || '',
@@ -156,6 +157,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     description: project.description || '',
     statusId: project.status_id,
     projectName: project.project_name || '',
+    projectReference: project.project_reference || '',
     companyName: project.company_name || '',
     contactName: project.contact_name || '',
     contactNumber: project.contact_number || '',
@@ -555,6 +557,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
           description: formData.description.trim() || null,
           status_id: formData.statusId,
           project_name: formData.projectName.trim() || null,
+          project_reference: formData.projectReference.trim() || null,
           company_name: formData.companyName.trim() || null,
           contact_name: formData.contactName.trim() || null,
           contact_number: formData.contactNumber.trim() || null,
@@ -1102,6 +1105,19 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                   placeholder="Alternative project name"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Project Reference Number</label>
+                <input
+                  type="text"
+                  disabled={!canEdit}
+                  value={formData.projectReference}
+                  onChange={(e) => setFormData({ ...formData, projectReference: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder="Project reference number"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Abbreviation</label>
                 <input
