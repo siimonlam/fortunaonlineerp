@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText, Edit2, Trash2, Eye, EyeOff, Users } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, Edit2, Trash2, Eye, EyeOff, Users, Download } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
