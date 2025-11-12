@@ -1068,7 +1068,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     }
   }
 
-  const projectStatuses = statuses?.filter(s => s.project_type_id === project.project_type_id) || [];
+  const projectStatuses = statuses?.filter(s => s.project_type_id === project.project_type_id && s.is_substatus === true) || [];
 
   const now = new Date();
   const incompleteTasks = tasks.filter(t => !t.completed && t.deadline);
