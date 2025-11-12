@@ -216,15 +216,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   });
 
   useEffect(() => {
-    console.log('[useEffect] EditProjectModal mounted, project:', project.id, project.project_type_id);
     loadStaff();
     loadChannelPartners();
     checkPermissions();
     loadLabels();
     loadProjectLabels();
     loadClientChannelPartner();
-    loadInvoices();
-    loadProjectType();
+    if (project.project_type_id) {
+      loadProjectType();
+      loadInvoices();
+    }
     if (isAdmin) {
       loadPermissions();
     }
@@ -254,12 +255,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       .select('*')
       .eq('id', project.project_type_id)
       .maybeSingle();
-    console.log('[loadProjectType] Project type:', data);
     if (data) setProjectType(data);
   }
 
   async function loadInvoices() {
-    console.log('[loadInvoices] Loading invoices for project:', project.id);
     const { data, error } = await supabase
       .from('funding_invoice')
       .select('*')
@@ -267,9 +266,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[loadInvoices] Error loading invoices:', error);
+      console.error('Error loading invoices:', error);
     } else {
-      console.log('[loadInvoices] Loaded invoices:', data);
       setInvoices(data || []);
     }
   }
@@ -1510,13 +1508,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
               </div>
             </div>
           </div>
-
-          {(() => {
-            console.log('[Render] projectType:', projectType, 'name:', projectType?.name);
-            console.log('[Render] Is Funding Project?', projectType?.name === 'Funding Project');
-            console.log('[Render] Invoices:', invoices);
-            return null;
-          })()}
 
           {projectType?.name === 'Funding Project' && (
             <div className="space-y-4">
