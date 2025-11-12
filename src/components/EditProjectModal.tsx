@@ -110,6 +110,20 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
   const [projectType, setProjectType] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'project' | 'invoices'>('project');
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [showAddInvoice, setShowAddInvoice] = useState(false);
+  const [newInvoice, setNewInvoice] = useState({
+    invoiceNumber: '',
+    issueDate: '',
+    dueDate: '',
+    paymentStatus: 'Pending',
+    amount: '',
+    paymentMethod: '',
+    paymentType: 'Deposit',
+  });
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<any>({});
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -214,6 +228,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     if (project.project_type_id) {
       loadProjectType();
     }
+    loadInvoices();
     if (isAdmin) {
       loadPermissions();
     }
@@ -235,6 +250,117 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       .select('id, name, reference_number')
       .order('reference_number');
     if (data) setChannelPartners(data);
+  }
+
+  async function loadInvoices() {
+    const { data, error } = await supabase
+      .from('funding_invoice')
+      .select('*')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading invoices:', error);
+    } else {
+      setInvoices(data || []);
+    }
+  }
+
+  async function handleAddInvoice() {
+    if (!newInvoice.invoiceNumber || !newInvoice.amount) {
+      alert('Invoice number and amount are required');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('funding_invoice')
+        .insert({
+          project_id: project.id,
+          client_id: project.client_id,
+          invoice_number: newInvoice.invoiceNumber,
+          issue_date: newInvoice.issueDate || null,
+          due_date: newInvoice.dueDate || null,
+          payment_status: newInvoice.paymentStatus,
+          amount: parseFloat(newInvoice.amount),
+          project_reference: project.project_reference || null,
+          company_name: project.company_name || null,
+          payment_method: newInvoice.paymentMethod || null,
+          payment_type: newInvoice.paymentType,
+          created_by: user?.id,
+        });
+
+      if (error) throw error;
+
+      setNewInvoice({
+        invoiceNumber: '',
+        issueDate: '',
+        dueDate: '',
+        paymentStatus: 'Pending',
+        amount: '',
+        paymentMethod: '',
+        paymentType: 'Deposit',
+      });
+      setShowAddInvoice(false);
+      loadInvoices();
+    } catch (error: any) {
+      console.error('Error adding invoice:', error);
+      alert('Failed to add invoice: ' + error.message);
+    }
+  }
+
+  async function handleEditInvoice(invoice: any) {
+    setEditingInvoiceId(invoice.id);
+    setEditingInvoice({
+      invoiceNumber: invoice.invoice_number,
+      amount: invoice.amount,
+      issueDate: invoice.issue_date || '',
+      dueDate: invoice.due_date || '',
+      paymentStatus: invoice.payment_status,
+      paymentType: invoice.payment_type,
+    });
+  }
+
+  async function handleUpdateInvoice() {
+    try {
+      const { error } = await supabase
+        .from('funding_invoice')
+        .update({
+          invoice_number: editingInvoice.invoiceNumber,
+          amount: parseFloat(editingInvoice.amount),
+          issue_date: editingInvoice.issueDate || null,
+          due_date: editingInvoice.dueDate || null,
+          payment_status: editingInvoice.paymentStatus,
+          payment_type: editingInvoice.paymentType,
+        })
+        .eq('id', editingInvoiceId);
+
+      if (error) throw error;
+
+      setEditingInvoiceId(null);
+      setEditingInvoice({});
+      loadInvoices();
+    } catch (error: any) {
+      console.error('Error updating invoice:', error);
+      alert('Failed to update invoice: ' + error.message);
+    }
+  }
+
+  async function handleDeleteInvoice(invoiceId: string) {
+    if (!confirm('Are you sure you want to delete this invoice?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('funding_invoice')
+        .delete()
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+      loadInvoices();
+    } catch (error: any) {
+      console.error('Error deleting invoice:', error);
+      alert('Failed to delete invoice: ' + error.message);
+    }
   }
 
   async function loadProjectType() {
@@ -1063,6 +1189,34 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
           </button>
         </div>
 
+        {projectType?.name === 'Funding Project' && (
+          <div className="flex gap-2 px-6 pt-4 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab('project')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeTab === 'project'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Project
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('invoices')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeTab === 'invoices'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Invoices
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'project' ? (
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
@@ -1314,27 +1468,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
           </div>
 
 
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-              Status
-            </h3>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Current Status *</label>
-              <select
-                required
-                disabled={!canEdit}
-                value={formData.statusId}
-                onChange={(e) => setFormData({ ...formData, statusId: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
-              >
-                {projectStatuses.map(status => (
-                  <option key={status.id} value={status.id}>
-                    {status.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
 
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
@@ -1904,6 +2037,265 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             )}
           </div>
         </form>
+        ) : (
+          <div className="p-6 space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2 flex-1">
+                  Invoices
+                </h3>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddInvoice(!showAddInvoice)}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    {showAddInvoice ? 'Cancel' : 'Add Invoice'}
+                  </button>
+                )}
+              </div>
+
+              {showAddInvoice && (
+                <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Number *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newInvoice.invoiceNumber}
+                        onChange={(e) => setNewInvoice({ ...newInvoice, invoiceNumber: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="INV-001"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Amount *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        value={newInvoice.amount}
+                        onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Issue Date</label>
+                      <input
+                        type="date"
+                        value={newInvoice.issueDate}
+                        onChange={(e) => setNewInvoice({ ...newInvoice, issueDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
+                      <input
+                        type="date"
+                        value={newInvoice.dueDate}
+                        onChange={(e) => setNewInvoice({ ...newInvoice, dueDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Payment Status</label>
+                      <select
+                        value={newInvoice.paymentStatus}
+                        onChange={(e) => setNewInvoice({ ...newInvoice, paymentStatus: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Overdue">Overdue</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Payment Type</label>
+                      <select
+                        value={newInvoice.paymentType}
+                        onChange={(e) => setNewInvoice({ ...newInvoice, paymentType: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="Deposit">Deposit</option>
+                        <option value="2nd Payment">2nd Payment</option>
+                        <option value="3rd Payment">3rd Payment</option>
+                        <option value="Final Payment">Final Payment</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
+                      <input
+                        type="text"
+                        value={newInvoice.paymentMethod}
+                        onChange={(e) => setNewInvoice({ ...newInvoice, paymentMethod: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Bank Transfer, Cheque, Cash, etc."
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddInvoice}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Add Invoice
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {invoices.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-4">No invoices yet</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-100 border-b border-slate-200">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Invoice #</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Amount</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Issue Date</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Due Date</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Payment Type</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Status</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoices.map((invoice) => (
+                          editingInvoiceId === invoice.id ? (
+                            <tr key={invoice.id} className="border-b border-slate-200 bg-blue-50">
+                              <td className="px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={editingInvoice.invoiceNumber}
+                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, invoiceNumber: e.target.value })}
+                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editingInvoice.amount}
+                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, amount: e.target.value })}
+                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="date"
+                                  value={editingInvoice.issueDate}
+                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, issueDate: e.target.value })}
+                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="date"
+                                  value={editingInvoice.dueDate}
+                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, dueDate: e.target.value })}
+                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <select
+                                  value={editingInvoice.paymentType}
+                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, paymentType: e.target.value })}
+                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                                >
+                                  <option value="Deposit">Deposit</option>
+                                  <option value="2nd Payment">2nd Payment</option>
+                                  <option value="3rd Payment">3rd Payment</option>
+                                  <option value="Final Payment">Final Payment</option>
+                                </select>
+                              </td>
+                              <td className="px-3 py-2">
+                                <select
+                                  value={editingInvoice.paymentStatus}
+                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, paymentStatus: e.target.value })}
+                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                                >
+                                  <option value="Pending">Pending</option>
+                                  <option value="Paid">Paid</option>
+                                  <option value="Overdue">Overdue</option>
+                                </select>
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleUpdateInvoice}
+                                    className="text-green-600 hover:text-green-800 text-xs font-medium"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingInvoiceId(null)}
+                                    className="text-slate-600 hover:text-slate-800 text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                            <tr key={invoice.id} className="border-b border-slate-200 hover:bg-slate-50">
+                              <td className="px-3 py-2 text-slate-900">{invoice.invoice_number}</td>
+                              <td className="px-3 py-2 text-slate-900">${Number(invoice.amount).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-slate-600">
+                                {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-600">
+                                {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-600">{invoice.payment_type || '-'}</td>
+                              <td className="px-3 py-2">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  invoice.payment_status === 'Paid'
+                                    ? 'bg-green-100 text-green-700'
+                                    : invoice.payment_status === 'Overdue'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {invoice.payment_status}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  {canEdit && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEditInvoice(invoice)}
+                                        className="text-blue-600 hover:text-blue-800 text-xs"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteInvoice(invoice.id)}
+                                        className="text-red-600 hover:text-red-800 text-xs"
+                                      >
+                                        Delete
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {showQADatePicker && (
