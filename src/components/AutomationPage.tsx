@@ -9,6 +9,8 @@ interface AutomationRule {
   main_status: string;
   trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic';
   trigger_config: any;
+  condition_type?: 'no_condition' | 'sales_source' | 'sales_person';
+  condition_config?: any;
   action_type: 'add_task' | 'add_label' | 'remove_label';
   action_config: any;
   is_active: boolean;
@@ -54,6 +56,12 @@ const ACTION_TYPES = [
   { value: 'remove_label', label: 'Remove a label' }
 ];
 
+const CONDITION_TYPES = [
+  { value: 'no_condition', label: 'No Condition' },
+  { value: 'sales_source', label: 'Sales Source' },
+  { value: 'sales_person', label: 'Sales Person' }
+];
+
 interface AutomationPageProps {
   projectTypeId?: string;
   projectTypeName?: string;
@@ -75,6 +83,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
     main_status: '',
     trigger_type: 'hkpc_date_set' as AutomationRule['trigger_type'],
     trigger_config: {},
+    condition_type: 'no_condition' as AutomationRule['condition_type'],
+    condition_config: {},
     action_type: 'add_task' as AutomationRule['action_type'],
     action_config: {
       due_date_base: '',
@@ -159,6 +169,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
       main_status: formData.main_status,
       trigger_type: formData.trigger_type,
       trigger_config: formData.trigger_config,
+      condition_type: formData.condition_type || 'no_condition',
+      condition_config: formData.condition_config || {},
       action_type: formData.action_type,
       action_config: formData.action_config,
       updated_at: new Date().toISOString()
@@ -179,6 +191,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
         main_status: '',
         trigger_type: 'hkpc_date_set',
         trigger_config: {},
+        condition_type: 'no_condition',
+        condition_config: {},
         action_type: 'add_task',
         action_config: {
           due_date_base: '',
@@ -200,6 +214,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
       main_status: rule.main_status,
       trigger_type: rule.trigger_type,
       trigger_config: rule.trigger_config || {},
+      condition_type: rule.condition_type || 'no_condition',
+      condition_config: rule.condition_config || {},
       action_type: rule.action_type,
       action_config: {
         ...rule.action_config,
@@ -467,6 +483,58 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                         <option value="next_hkpc_due_date">Next HKPC Due Date</option>
                       </select>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-200 pt-4">
+                <h4 className="text-sm font-semibold text-slate-900 mb-3">Condition (If)</h4>
+
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Condition Type</label>
+                  <select
+                    value={formData.condition_type}
+                    onChange={(e) => setFormData({ ...formData, condition_type: e.target.value as any, condition_config: {} })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {CONDITION_TYPES.map(condition => (
+                      <option key={condition.value} value={condition.value}>{condition.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {formData.condition_type === 'sales_source' && (
+                  <div className="ml-4 p-3 bg-slate-50 rounded-lg">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Sales Source</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Direct, CP0001, CP0002"
+                      value={formData.condition_config.sales_source || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        condition_config: { ...formData.condition_config, sales_source: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                {formData.condition_type === 'sales_person' && (
+                  <div className="ml-4 p-3 bg-slate-50 rounded-lg">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Sales Person</label>
+                    <select
+                      value={formData.condition_config.sales_person_id || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        condition_config: { ...formData.condition_config, sales_person_id: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select sales person...</option>
+                      {staff.map(person => (
+                        <option key={person.id} value={person.id}>{person.full_name || person.email}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>

@@ -102,6 +102,39 @@ Deno.serve(async (req: Request) => {
           }
         }
 
+        // Check conditions
+        if (rule.condition_type && rule.condition_type !== 'no_condition') {
+          const { data: project } = await supabase
+            .from('projects')
+            .select('sales_source, sales_person_id')
+            .eq('id', project_id)
+            .maybeSingle();
+
+          if (!project) {
+            console.log('Project not found for condition check');
+            results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'project_not_found' });
+            continue;
+          }
+
+          if (rule.condition_type === 'sales_source') {
+            const expectedSource = rule.condition_config?.sales_source;
+            if (expectedSource && project.sales_source !== expectedSource) {
+              console.log(`Skipping rule - sales source mismatch: "${project.sales_source}" !== "${expectedSource}"`);
+              results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'sales_source_mismatch' });
+              continue;
+            }
+          }
+
+          if (rule.condition_type === 'sales_person') {
+            const expectedSalesPerson = rule.condition_config?.sales_person_id;
+            if (expectedSalesPerson && project.sales_person_id !== expectedSalesPerson) {
+              console.log(`Skipping rule - sales person mismatch: "${project.sales_person_id}" !== "${expectedSalesPerson}"`);
+              results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'sales_person_mismatch' });
+              continue;
+            }
+          }
+        }
+
         if (rule.action_type === 'add_label') {
           const labelId = rule.action_config.label_id;
           if (labelId) {
