@@ -93,12 +93,20 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
       rulesQuery = rulesQuery.eq('project_type_id', projectTypeId);
     }
 
+    const fundingProjectType = await supabase
+      .from('project_types')
+      .select('id')
+      .eq('name', 'Funding Project')
+      .maybeSingle();
+
     const [rulesRes, typesRes, labelsRes, staffRes, statusesRes] = await Promise.all([
       rulesQuery,
       supabase.from('project_types').select('id, name'),
       supabase.from('labels').select('*').order('order_index'),
       supabase.from('staff').select('id, email, full_name'),
-      supabase.from('project_statuses').select('id, name, project_type_id')
+      fundingProjectType.data
+        ? supabase.from('statuses').select('id, name, project_type_id').eq('project_type_id', fundingProjectType.data.id)
+        : supabase.from('statuses').select('id, name, project_type_id')
     ]);
 
     if (rulesRes.data) setRules(rulesRes.data);
