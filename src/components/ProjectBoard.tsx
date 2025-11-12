@@ -87,6 +87,21 @@ interface StatusManager {
   staff?: Staff;
 }
 
+interface FundingInvoice {
+  id: string;
+  invoice_number: string;
+  client_id: string | null;
+  project_id: string | null;
+  issue_date: string | null;
+  due_date: string | null;
+  payment_status: string;
+  amount: number;
+  project_reference: string | null;
+  company_name: string | null;
+  payment_type: string | null;
+  created_at: string;
+}
+
 export function ProjectBoard() {
   const { user, signOut } = useAuth();
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
@@ -106,6 +121,7 @@ export function ProjectBoard() {
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
   const [fundingProjectTab, setFundingProjectTab] = useState<'projects' | 'invoices'>('projects');
+  const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [addClientType, setAddClientType] = useState<'company' | 'channel'>('company');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -299,7 +315,7 @@ export function ProjectBoard() {
     console.log('[loadData] Called. Current selectedProjectType:', selectedProjectType);
     console.log('Current user ID:', user?.id);
 
-    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes] = await Promise.all([
+    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes] = await Promise.all([
       supabase.from('project_types').select('*').order('name'),
       supabase.from('statuses').select('*').order('order_index'),
       supabase
@@ -329,6 +345,7 @@ export function ProjectBoard() {
       supabase.from('status_managers').select('*, staff:user_id(id, full_name, email)'),
       supabase.from('project_type_permissions').select('project_type_id').eq('user_id', user?.id || ''),
       supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name'),
+      supabase.from('funding_invoice').select('*').order('created_at', { ascending: false }),
     ]);
 
     const userRoleRes = await supabase
@@ -489,6 +506,13 @@ export function ProjectBoard() {
       }
     } else {
       console.log('No channel partners data received');
+    }
+
+    if (fundingInvoicesRes.data) {
+      console.log('Loading funding invoices:', fundingInvoicesRes.data.length);
+      setFundingInvoices(fundingInvoicesRes.data);
+    } else {
+      console.log('No funding invoices data received');
     }
   }
 
