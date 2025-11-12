@@ -93,6 +93,21 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
   }
 
   async function loadDefaultStatus() {
+    if (projectTypeName === 'Funding Project') {
+      const { data } = await supabase
+        .from('statuses')
+        .select('*')
+        .eq('project_type_id', projectTypeId)
+        .eq('is_substatus', true)
+        .eq('name', 'Hi-Po')
+        .maybeSingle();
+
+      if (data) {
+        setDefaultStatus(data);
+        return;
+      }
+    }
+
     const { data } = await supabase
       .from('statuses')
       .select('*')
@@ -303,7 +318,11 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
         }
       }
 
-      alert(`${projectTypeName} created successfully!`);
+      if (projectTypeName === 'Funding Project') {
+        alert(`${projectTypeName} created successfully in Hi-Po status!`);
+      } else {
+        alert(`${projectTypeName} created successfully!`);
+      }
       onSuccess();
     } catch (error: any) {
       console.error('Error creating project:', error);
