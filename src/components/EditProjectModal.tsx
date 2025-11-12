@@ -4,6 +4,7 @@ import { X, Tag, MessageSquare, FileText, Edit2, Trash2, Eye, EyeOff, Users } fr
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
+import html2pdf from 'html2pdf.js';
 
 interface Staff {
   id: string;
