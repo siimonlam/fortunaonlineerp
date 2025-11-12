@@ -862,11 +862,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       console.log('[handleAddTask] Task created successfully:', data);
 
       if (data) {
-        setTasks([...tasks, data]);
         console.log('[handleAddTask] Logging task history...');
         await logTaskHistory(data.id, data.title, 'created', null, null);
         setNewTask({ title: '', description: '', deadline: '', assignedTo: '' });
         setShowAddTask(false);
+        console.log('[handleAddTask] Reloading tasks...');
+        await loadTasks();
         console.log('[handleAddTask] Task addition complete!');
       }
     } catch (error: any) {
@@ -890,7 +891,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       if (error) throw error;
 
       console.log('[handleToggleTask] Task updated in database successfully');
-      setTasks(tasks.map(t => t.id === taskId ? { ...t, completed } : t));
 
       await logTaskHistory(taskId, task.title, 'completed', !completed, completed);
 
@@ -898,6 +898,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         console.log(`[handleToggleTask] Task completed, triggering automation...`);
         await triggerTaskCompletedAutomation(task.title);
       }
+
+      await loadTasks();
     } catch (error: any) {
       console.error('Error updating task:', error);
       alert(`Failed to update task: ${error.message}`);
@@ -997,21 +999,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
       if (error) throw error;
 
-      const { data: updatedTask } = await supabase
-        .from('tasks')
-        .select('*, staff:assigned_to(id, full_name, email)')
-        .eq('id', taskId)
-        .single();
-
-      if (updatedTask) {
-        setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
-      }
-
       if (changes.length > 0 && oldTask) {
         await logTaskHistory(taskId, oldTask.title, 'updated', null, null, changes.join(', '));
       }
 
       setEditingTaskId(null);
+      await loadTasks();
     } catch (error: any) {
       console.error('Error updating task:', error);
       alert(`Failed to update task: ${error.message}`);
@@ -1034,7 +1027,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         await logTaskHistory(taskId, task.title, 'deleted', null, null);
       }
 
-      setTasks(tasks.filter(t => t.id !== taskId));
+      await loadTasks();
     } catch (error: any) {
       console.error('Error deleting task:', error);
       alert(`Failed to delete task: ${error.message}`);
