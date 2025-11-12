@@ -425,8 +425,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                       })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">Select status...</option>
-                      {statuses.map(status => (
+                      <option value="">Select substatus...</option>
+                      {statuses.filter(status => status.is_substatus).map(status => (
                         <option key={status.id} value={status.id}>{status.name}</option>
                       ))}
                     </select>

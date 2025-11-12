@@ -272,6 +272,37 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
 
       if (error) throw error;
 
+      if (data) {
+        try {
+          console.log('Triggering automation for new project:', data.id);
+          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/execute-automation-rules`;
+
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              project_id: data.id,
+              project_type_id: projectTypeId,
+              status_id: defaultStatus.id,
+              trigger_type: 'status_changed',
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Failed to trigger automation:', errorText);
+          } else {
+            const result = await response.json();
+            console.log('Automation result:', result);
+          }
+        } catch (automationError) {
+          console.error('Error triggering automation:', automationError);
+        }
+      }
+
       alert(`${projectTypeName} created successfully!`);
       onSuccess();
     } catch (error: any) {
