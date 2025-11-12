@@ -108,6 +108,18 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [projectLabels, setProjectLabels] = useState<Label[]>([]);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [showAddInvoice, setShowAddInvoice] = useState(false);
+  const [newInvoice, setNewInvoice] = useState({
+    invoiceNumber: '',
+    issueDate: '',
+    dueDate: '',
+    paymentStatus: 'Pending',
+    amount: '',
+    paymentMethod: '',
+    paymentType: 'Deposit',
+  });
+  const [projectType, setProjectType] = useState<any>(null);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -209,6 +221,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     loadLabels();
     loadProjectLabels();
     loadClientChannelPartner();
+    loadInvoices();
+    loadProjectType();
     if (isAdmin) {
       loadPermissions();
     }
@@ -230,6 +244,200 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       .select('id, name, reference_number')
       .order('reference_number');
     if (data) setChannelPartners(data);
+  }
+
+  async function loadProjectType() {
+    const { data } = await supabase
+      .from('project_types')
+      .select('*')
+      .eq('id', project.project_type_id)
+      .maybeSingle();
+    if (data) setProjectType(data);
+  }
+
+  async function loadInvoices() {
+    const { data, error } = await supabase
+      .from('funding_invoice')
+      .select('*')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading invoices:', error);
+    } else {
+      setInvoices(data || []);
+    }
+  }
+
+  async function handleAddInvoice() {
+    if (!newInvoice.invoiceNumber || !newInvoice.amount) {
+      alert('Invoice number and amount are required');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('funding_invoice')
+        .insert({
+          project_id: project.id,
+          client_id: project.client_id,
+          invoice_number: newInvoice.invoiceNumber,
+          issue_date: newInvoice.issueDate || null,
+          due_date: newInvoice.dueDate || null,
+          payment_status: newInvoice.paymentStatus,
+          amount: parseFloat(newInvoice.amount),
+          project_reference: project.project_reference || null,
+          company_name: project.company_name || null,
+          payment_method: newInvoice.paymentMethod || null,
+          payment_type: newInvoice.paymentType,
+          created_by: user?.id,
+        });
+
+      if (error) throw error;
+
+      setNewInvoice({
+        invoiceNumber: '',
+        issueDate: '',
+        dueDate: '',
+        paymentStatus: 'Pending',
+        amount: '',
+        paymentMethod: '',
+        paymentType: 'Deposit',
+      });
+      setShowAddInvoice(false);
+      loadInvoices();
+    } catch (error: any) {
+      console.error('Error adding invoice:', error);
+      alert('Failed to add invoice: ' + error.message);
+    }
+  }
+
+  async function handleDeleteInvoice(invoiceId: string) {
+    if (!confirm('Are you sure you want to delete this invoice?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('funding_invoice')
+        .delete()
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+      loadInvoices();
+    } catch (error: any) {
+      console.error('Error deleting invoice:', error);
+      alert('Failed to delete invoice: ' + error.message);
+    }
+  }
+
+  async function handleGenerateInvoice(invoice: any) {
+    const invoiceHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+          .header { text-align: center; margin-bottom: 40px; }
+          .header h1 { color: #2563eb; margin: 0; font-size: 32px; }
+          .header p { color: #64748b; margin: 5px 0; }
+          .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
+          .section { margin-bottom: 20px; }
+          .section-title { font-weight: bold; color: #475569; margin-bottom: 10px; font-size: 14px; text-transform: uppercase; }
+          .info-row { margin: 5px 0; }
+          .info-label { font-weight: 600; color: #64748b; }
+          .table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+          .table th { background-color: #f1f5f9; padding: 12px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+          .table td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+          .total-section { margin-top: 30px; text-align: right; }
+          .total-row { margin: 10px 0; font-size: 18px; }
+          .total-amount { font-weight: bold; color: #2563eb; font-size: 24px; }
+          .footer { margin-top: 50px; text-align: center; color: #94a3b8; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>INVOICE</h1>
+          <p>Invoice #${invoice.invoice_number}</p>
+        </div>
+
+        <div class="invoice-details">
+          <div class="section">
+            <div class="section-title">Bill To:</div>
+            <div class="info-row"><strong>${project.company_name || 'N/A'}</strong></div>
+            ${project.contact_name ? `<div class="info-row">${project.contact_name}</div>` : ''}
+            ${project.email ? `<div class="info-row">${project.email}</div>` : ''}
+            ${project.contact_number ? `<div class="info-row">${project.contact_number}</div>` : ''}
+            ${project.address ? `<div class="info-row">${project.address}</div>` : ''}
+          </div>
+
+          <div class="section">
+            <div class="section-title">Invoice Details:</div>
+            <div class="info-row"><span class="info-label">Issue Date:</span> ${invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : 'N/A'}</div>
+            <div class="info-row"><span class="info-label">Due Date:</span> ${invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'N/A'}</div>
+            <div class="info-row"><span class="info-label">Payment Type:</span> ${invoice.payment_type}</div>
+            <div class="info-row"><span class="info-label">Status:</span> ${invoice.payment_status}</div>
+            ${invoice.payment_method ? `<div class="info-row"><span class="info-label">Payment Method:</span> ${invoice.payment_method}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Project Information:</div>
+          <div class="info-row"><span class="info-label">Project:</span> ${project.title}</div>
+          ${project.project_reference ? `<div class="info-row"><span class="info-label">Reference:</span> ${project.project_reference}</div>` : ''}
+          ${project.description ? `<div class="info-row"><span class="info-label">Description:</span> ${project.description}</div>` : ''}
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style="text-align: right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${invoice.payment_type} - ${project.title}</td>
+              <td style="text-align: right;">$${invoice.amount?.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="total-section">
+          <div class="total-row">
+            <span>Subtotal:</span>
+            <span style="margin-left: 20px;">$${invoice.amount?.toFixed(2)}</span>
+          </div>
+          <div class="total-row">
+            <span>Total:</span>
+            <span class="total-amount" style="margin-left: 20px;">$${invoice.amount?.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Thank you for your business!</p>
+          <p>This is a computer-generated invoice.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const element = document.createElement('div');
+    element.innerHTML = invoiceHtml;
+
+    const opt = {
+      margin: 0.5,
+      filename: `invoice_${invoice.invoice_number}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate invoice PDF');
+    }
   }
 
   async function loadClientChannelPartner() {
