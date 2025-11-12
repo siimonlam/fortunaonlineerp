@@ -216,12 +216,12 @@ export function ProjectCard({
             ))}
           </div>
         )}
-        {project.description && (
+        {!isFundingProject && project.description && (
           <p className="text-sm text-slate-600 mb-3 line-clamp-2">{project.description}</p>
         )}
 
         <ProjectCardFields project={project} />
-        {totalTasks > 0 && (
+        {!isFundingProject && totalTasks > 0 && (
           <div className="mt-3 space-y-2">
             <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
               {completedTasks === totalTasks ? (
@@ -294,16 +294,6 @@ export function ProjectCard({
           </div>
         )}
       </div>
-
-      {isFundingProject && !isClientSection && (
-        <button
-          onClick={onClick}
-          className="w-full px-4 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium flex items-center justify-center gap-2 transition-colors border-t border-emerald-200"
-        >
-          <FileText className="w-4 h-4" />
-          <span>View Invoices</span>
-        </button>
-      )}
 
       {isClientSection && onCreateProject && (
         <div className="relative">
