@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, ChevronDown, Bell, Tag, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, Bell, Tag, AlertCircle, FileText } from 'lucide-react';
 import { ProjectCardFields } from './ProjectCardFields';
 
 interface Staff {
@@ -294,6 +294,16 @@ export function ProjectCard({
           </div>
         )}
       </div>
+
+      {isFundingProject && !isClientSection && (
+        <button
+          onClick={onClick}
+          className="w-full px-4 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium flex items-center justify-center gap-2 transition-colors border-t border-emerald-200"
+        >
+          <FileText className="w-4 h-4" />
+          <span>View Invoices</span>
+        </button>
+      )}
 
       {isClientSection && onCreateProject && (
         <div className="relative">
