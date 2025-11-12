@@ -1498,7 +1498,34 @@ export function ProjectBoard() {
               <AdminPage />
             ) : isClientSection ? (
               clientViewMode === 'card' ? (
-                  activeClientTab === 'channel' && channelPartnerSubTab === 'projects' ? (
+                <>
+                  {activeClientTab === 'channel' && (
+                    <div className="bg-white rounded-t-lg border border-slate-200 border-b-0">
+                      <div className="flex gap-2 px-6 py-2">
+                        <button
+                          onClick={() => setChannelPartnerSubTab('partners')}
+                          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                            channelPartnerSubTab === 'partners'
+                              ? 'border-emerald-600 text-emerald-600'
+                              : 'border-transparent text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Channel Partners
+                        </button>
+                        <button
+                          onClick={() => setChannelPartnerSubTab('projects')}
+                          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                            channelPartnerSubTab === 'projects'
+                              ? 'border-emerald-600 text-emerald-600'
+                              : 'border-transparent text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Partner Projects
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {activeClientTab === 'channel' && channelPartnerSubTab === 'projects' ? (
                     <div className="bg-white rounded-lg border border-slate-200">
                       <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
                         <h3 className="text-lg font-semibold text-slate-900">Partner Projects</h3>
@@ -1523,7 +1550,11 @@ export function ProjectBoard() {
                         ) : (
                           <div className="grid grid-cols-1 gap-4">
                             {partnerProjects.map((project) => (
-                              <div key={project.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                              <div
+                                key={project.id}
+                                onClick={() => setSelectedPartnerProject(project)}
+                                className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                              >
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                   <div>
                                     <div className="text-xs text-slate-500 mb-1">Project Ref</div>
@@ -1595,14 +1626,48 @@ export function ProjectBoard() {
                         )}
                       </div>
                     </div>
+                  ) : activeClientTab === 'channel' && channelPartnerSubTab === 'partners' ? (
+                    <div className="bg-white rounded-lg border border-slate-200 rounded-t-none border-t-0 p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {channelPartners.filter(partner =>
+                          !searchQuery ||
+                          partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                        ).map((client) => (
+                          <ClientCard
+                            key={client.id}
+                            client={client}
+                            projectTypes={projectTypes}
+                            onClick={() => setSelectedClient(client)}
+                            onCreateProject={(targetProjectTypeId) => {
+                              handleCreateProjectFromClient(client, targetProjectTypeId);
+                            }}
+                            onProjectClick={(project) => setSelectedProject(project)}
+                            projectTypePermissions={projectTypePermissions}
+                            isAdmin={isAdmin}
+                            isChannelPartner={true}
+                          />
+                        ))}
+                        {channelPartners.filter(partner =>
+                          !searchQuery ||
+                          partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                        ).length === 0 && (
+                          <div className="col-span-full text-center py-12">
+                            <p className="text-slate-500">
+                              {searchQuery
+                                ? 'No partners found matching your search.'
+                                : 'No channel partners yet. Click the add button to get started.'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {(activeClientTab === 'company' ? filteredClients : channelPartners.filter(partner =>
-                        !searchQuery ||
-                        partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
-                      )).map((client) => (
+                      {filteredClients.map((client) => (
                         <ClientCard
                           key={client.id}
                           client={client}
@@ -1616,23 +1681,19 @@ export function ProjectBoard() {
                           isAdmin={isAdmin}
                         />
                       ))}
-                      {(activeClientTab === 'company' ? filteredClients : channelPartners.filter(partner =>
-                        !searchQuery ||
-                        partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
-                      )).length === 0 && (
+                      {filteredClients.length === 0 && (
                         <div className="col-span-full text-center py-12">
                           <p className="text-slate-500">
                             {searchQuery
-                              ? `No ${activeClientTab === 'company' ? 'clients' : 'partners'} found matching your search.`
-                              : `No ${activeClientTab === 'company' ? 'company clients' : 'channel partners'} yet. Click the add button to get started.`}
+                              ? 'No clients found matching your search.'
+                              : 'No company clients yet. Click the add button to get started.'}
                           </p>
                         </div>
                       )}
                     </div>
-                  )
-                ) : (
+                  )}
+                </>
+              ) : (
                 <ClientTableView
                   clients={filteredClients}
                   channelPartners={channelPartners}
@@ -1788,9 +1849,10 @@ interface ClientCardProps {
   onClick: () => void;
   onCreateProject: (targetProjectTypeId: string) => void;
   onProjectClick?: (project: Project) => void;
+  isChannelPartner?: boolean;
 }
 
-function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectClick, projectTypePermissions, isAdmin }: ClientCardProps & { projectTypePermissions: string[]; isAdmin: boolean }) {
+function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectClick, projectTypePermissions, isAdmin, isChannelPartner = false }: ClientCardProps & { projectTypePermissions: string[]; isAdmin: boolean }) {
   const [showMenu, setShowMenu] = useState(false);
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
   const comSecProjectType = projectTypes.find(pt => pt.name === 'Com Sec');
@@ -1800,7 +1862,7 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
   const canSeeComSec = isAdmin || (comSecProjectType?.id ? projectTypePermissions.includes(comSecProjectType.id) : false);
   const canSeeMarketing = isAdmin || (marketingProjectType?.id ? projectTypePermissions.includes(marketingProjectType.id) : false);
 
-  const hasAnyButton = canSeeFundingProject || canSeeComSec || canSeeMarketing;
+  const hasAnyButton = !isChannelPartner && (canSeeFundingProject || canSeeComSec || canSeeMarketing);
 
   console.log('ClientCard Button Visibility:', {
     isAdmin,
