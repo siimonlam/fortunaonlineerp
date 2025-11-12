@@ -824,12 +824,20 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   }
 
   async function handleAddTask() {
+    console.log('[handleAddTask] Starting task creation...');
+    console.log('[handleAddTask] New task data:', newTask);
+    console.log('[handleAddTask] Project ID:', project.id);
+    console.log('[handleAddTask] User ID:', user?.id);
+    console.log('[handleAddTask] Can edit:', canEdit);
+
     if (!newTask.title.trim()) {
+      console.log('[handleAddTask] Validation failed: Title is empty');
       alert('Task title is required');
       return;
     }
 
     try {
+      console.log('[handleAddTask] Attempting to insert task...');
       const { data, error } = await supabase
         .from('tasks')
         .insert({
@@ -846,15 +854,23 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[handleAddTask] Supabase error:', error);
+        throw error;
+      }
+
+      console.log('[handleAddTask] Task created successfully:', data);
+
       if (data) {
         setTasks([...tasks, data]);
+        console.log('[handleAddTask] Logging task history...');
         await logTaskHistory(data.id, data.title, 'created', null, null);
         setNewTask({ title: '', description: '', deadline: '', assignedTo: '' });
         setShowAddTask(false);
+        console.log('[handleAddTask] Task addition complete!');
       }
     } catch (error: any) {
-      console.error('Error adding task:', error);
+      console.error('[handleAddTask] Error adding task:', error);
       alert(`Failed to add task: ${error.message}`);
     }
   }
