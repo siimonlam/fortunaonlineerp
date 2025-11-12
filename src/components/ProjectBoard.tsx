@@ -1745,53 +1745,55 @@ export function ProjectBoard() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-slate-200">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Invoice #</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Project</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Client</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
-                          <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Service Fee %</th>
-                          <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Deposit Amount</th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Deposit Paid</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Invoice Number</th>
+                          <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Amount</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Issue Date</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Due Date</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Type</th>
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredProjects.map((project) => {
-                          const projectStatus = statuses.find(s => s.id === project.status_id);
-                          const projectClient = clients.find(c => c.id === project.client_id);
+                        {fundingInvoices.map((invoice) => {
+                          const invoiceProject = projects.find(p => p.id === invoice.project_id);
+                          const invoiceClient = clients.find(c => c.id === invoice.client_id);
                           return (
-                            <tr key={project.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedProject(project)}>
-                              <td className="py-3 px-4 text-sm text-slate-900">{project.title}</td>
-                              <td className="py-3 px-4 text-sm text-slate-600">{projectClient?.name || '-'}</td>
-                              <td className="py-3 px-4 text-sm">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                                  {projectStatus?.name || '-'}
+                            <tr key={invoice.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onClick={() => {
+                              if (invoiceProject) setSelectedProject(invoiceProject);
+                            }}>
+                              <td className="py-3 px-4 text-sm font-medium text-slate-900">{invoice.invoice_number}</td>
+                              <td className="py-3 px-4 text-sm text-slate-900">{invoice.project_reference || invoiceProject?.title || '-'}</td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{invoice.company_name || invoiceClient?.name || '-'}</td>
+                              <td className="py-3 px-4 text-sm text-right text-slate-900">
+                                ${invoice.amount ? Number(invoice.amount).toFixed(2) : '0.00'}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-slate-600">
+                                {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-slate-600">
+                                {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{invoice.payment_type || '-'}</td>
+                              <td className="py-3 px-4 text-center">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  invoice.payment_status === 'Paid'
+                                    ? 'bg-green-100 text-green-700'
+                                    : invoice.payment_status === 'Overdue'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {invoice.payment_status}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 text-sm text-right text-slate-900">
-                                {project.service_fee_percentage ? `${project.service_fee_percentage}%` : '-'}
-                              </td>
-                              <td className="py-3 px-4 text-sm text-right text-slate-900">
-                                {project.deposit_amount ? `$${project.deposit_amount.toLocaleString()}` : '-'}
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                {project.deposit_paid ? (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                    Paid
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-                                    Pending
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-sm text-slate-600">{project.invoice_number || '-'}</td>
                             </tr>
                           );
                         })}
-                        {filteredProjects.length === 0 && (
+                        {fundingInvoices.length === 0 && (
                           <tr>
-                            <td colSpan={7} className="py-12 text-center text-slate-500">
-                              No projects found.
+                            <td colSpan={8} className="py-12 text-center text-slate-500">
+                              No invoices found.
                             </td>
                           </tr>
                         )}
