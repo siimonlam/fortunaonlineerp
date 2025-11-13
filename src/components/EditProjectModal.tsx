@@ -1070,7 +1070,22 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     }
   }
 
-  const projectStatuses = statuses?.filter(s => s.project_type_id === project.project_type_id && s.is_substatus === true) || [];
+  const currentStatus = statuses?.find(s => s.id === project.status_id);
+  const currentParentStatusId = currentStatus?.parent_status_id;
+
+  let projectStatuses: Status[];
+  if (currentParentStatusId) {
+    projectStatuses = statuses?.filter(s =>
+      s.project_type_id === project.project_type_id &&
+      s.is_substatus === true &&
+      s.parent_status_id === currentParentStatusId
+    ) || [];
+  } else {
+    projectStatuses = statuses?.filter(s =>
+      s.project_type_id === project.project_type_id &&
+      s.is_substatus === true
+    ) || [];
+  }
 
   const now = new Date();
   const incompleteTasks = tasks.filter(t => !t.completed && t.deadline);
