@@ -222,6 +222,19 @@ Deno.serve(async (req: Request) => {
               }
             }
 
+            // Resolve assigned_to value
+            let assignedTo = taskConfig.assigned_to || null;
+            if (assignedTo === '__project_sales_person__') {
+              const { data: project } = await supabase
+                .from('projects')
+                .select('sales_person_id')
+                .eq('id', project_id)
+                .maybeSingle();
+
+              assignedTo = project?.sales_person_id || null;
+              console.log('Assigning task to project sales person:', assignedTo);
+            }
+
             const { error: taskError } = await supabase
               .from('tasks')
               .insert({
@@ -229,7 +242,7 @@ Deno.serve(async (req: Request) => {
                 title: taskConfig.title,
                 description: taskConfig.description || '',
                 deadline: calculatedDeadline,
-                assigned_to: taskConfig.assigned_to || null,
+                assigned_to: assignedTo,
                 completed: false
               });
 
