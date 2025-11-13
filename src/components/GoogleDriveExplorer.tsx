@@ -179,15 +179,19 @@ export function GoogleDriveExplorer({ onClose, projectReference }: GoogleDriveEx
     setError(null);
 
     try {
+      console.log('Loading files from folder:', folderId);
       const response = await window.gapi.client.drive.files.list({
         q: `'${folderId}' in parents and trashed=false`,
         fields: 'files(id, name, mimeType, modifiedTime, size, webViewLink, iconLink, parents)',
         orderBy: 'folder,name',
-        pageSize: 100
+        pageSize: 1000
       });
 
+      console.log('Files loaded:', response.result.files?.length || 0, 'files');
+      console.log('Files:', response.result.files);
       setFiles(response.result.files || []);
     } catch (err: any) {
+      console.error('Error loading files:', err);
       setError(`Failed to load files: ${err.message}`);
     } finally {
       setLoading(false);
@@ -351,6 +355,9 @@ export function GoogleDriveExplorer({ onClose, projectReference }: GoogleDriveEx
             {projectReference && (
               <p className="text-sm text-slate-500 mt-1">Project: {projectReference}</p>
             )}
+            <p className="text-xs text-slate-400 mt-1">
+              Current Folder ID: {currentFolderId} | Files: {files.length}
+            </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X className="w-5 h-5" />
