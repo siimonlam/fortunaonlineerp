@@ -4,6 +4,7 @@ import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeO
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
+import { GoogleDriveExplorer } from './GoogleDriveExplorer';
 import html2pdf from 'html2pdf.js';
 
 interface Staff {
@@ -113,6 +114,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files'>('project');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [showAddInvoice, setShowAddInvoice] = useState(false);
+  const [showGoogleDrive, setShowGoogleDrive] = useState(false);
   const [newInvoice, setNewInvoice] = useState({
     invoiceNumber: '',
     issueDate: '',
@@ -2323,18 +2325,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
               </h3>
               <div className="bg-white border border-slate-200 rounded-lg p-4">
                 <p className="text-sm text-slate-600 mb-4 text-center">
-                  Access project documents on Google Drive
+                  Browse and manage project documents on Google Drive
                 </p>
                 <div className="text-center">
                   <button
                     type="button"
                     className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
-                    onClick={() => {
-                      window.open('https://drive.google.com/drive/u/0/my-drive', '_blank');
-                    }}
+                    onClick={() => setShowGoogleDrive(true)}
                   >
                     <FileText className="w-5 h-5" />
-                    Open Google Drive
+                    Open Google Drive Explorer
                   </button>
                 </div>
               </div>
@@ -2429,6 +2429,13 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             channel_partner_reference: clientChannelPartner?.reference_number || '',
             project_content: project.description || '',
           }}
+        />
+      )}
+
+      {showGoogleDrive && (
+        <GoogleDriveExplorer
+          onClose={() => setShowGoogleDrive(false)}
+          projectReference={project.project_reference}
         />
       )}
     </div>
