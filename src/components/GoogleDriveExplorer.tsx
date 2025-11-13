@@ -147,7 +147,7 @@ export function GoogleDriveExplorer({ onClose, projectReference }: GoogleDriveEx
 
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/drive.file',
+        scope: 'https://www.googleapis.com/auth/drive',
         callback: (response: any) => {
           if (response.error) {
             console.error('Token error:', response);
