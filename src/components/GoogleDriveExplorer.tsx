@@ -23,11 +23,14 @@ interface BreadcrumbItem {
 }
 
 export function GoogleDriveExplorer({ onClose, projectReference }: GoogleDriveExplorerProps) {
+  const budFolderId = import.meta.env.VITE_GOOGLE_DRIVE_BUD_FOLDER_ID || 'root';
+  const budFolderName = 'BUD';
+
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentFolderId, setCurrentFolderId] = useState<string>('root');
-  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([{ id: 'root', name: 'My Drive' }]);
+  const [currentFolderId, setCurrentFolderId] = useState<string>(budFolderId);
+  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([{ id: budFolderId, name: budFolderName }]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
