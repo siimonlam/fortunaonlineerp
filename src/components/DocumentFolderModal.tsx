@@ -5,6 +5,7 @@ import { X, Folder, FileText, Download, Upload, Trash2, ExternalLink, File, File
 interface DocumentFolderModalProps {
   companyCode: string;
   onClose: () => void;
+  bucketName?: string;
 }
 
 interface FileItem {
@@ -17,7 +18,7 @@ interface FileItem {
   };
 }
 
-export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModalProps) {
+export function DocumentFolderModal({ companyCode, onClose, bucketName = 'comsec-documents' }: DocumentFolderModalProps) {
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [currentFolder, setCurrentFolder] = useState('');
@@ -48,7 +49,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
     try {
       const path = currentFolder ? `${companyCode}/${currentFolder}` : companyCode;
       const { data, error } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .list(path, {
           limit: 100,
           offset: 0,
@@ -82,7 +83,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
         : `${companyCode}/${file.name}`;
 
       const { error } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .upload(filePath, file, {
           upsert: true,
         });
@@ -109,7 +110,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
         : `${companyCode}/${fileName}`;
 
       const { error } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .remove([filePath]);
 
       if (error) throw error;
@@ -129,7 +130,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
         : `${companyCode}/${fileName}`;
 
       const { data, error } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .download(filePath);
 
       if (error) throw error;
@@ -167,13 +168,13 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
         : `${companyCode}/${newFileNameWithExt}`;
 
       const { data: fileData, error: downloadError } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .download(oldPath);
 
       if (downloadError) throw downloadError;
 
       const { error: uploadError } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .upload(newPath, fileData, {
           upsert: false,
         });
@@ -181,7 +182,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
       if (uploadError) throw uploadError;
 
       const { error: deleteError } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .remove([oldPath]);
 
       if (deleteError) throw deleteError;
@@ -210,13 +211,13 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
       const newPath = `${companyCode}/${targetFolder}/${fileName}`;
 
       const { data: fileData, error: downloadError } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .download(oldPath);
 
       if (downloadError) throw downloadError;
 
       const { error: uploadError } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .upload(newPath, fileData, {
           upsert: false,
         });
@@ -224,7 +225,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
       if (uploadError) throw uploadError;
 
       const { error: deleteError } = await supabase.storage
-        .from('comsec-documents')
+        .from(bucketName)
         .remove([oldPath]);
 
       if (deleteError) throw deleteError;
@@ -245,7 +246,7 @@ export function DocumentFolderModal({ companyCode, onClose }: DocumentFolderModa
       : `${companyCode}/${fileName}`;
 
     const { data } = supabase.storage
-      .from('comsec-documents')
+      .from(bucketName)
       .getPublicUrl(filePath);
 
     return data.publicUrl;
