@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -152,6 +152,9 @@ export function ProjectBoard() {
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [myTasks, setMyTasks] = useState<any[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState<string>('');
 
   useEffect(() => {
     if (!user) {
@@ -1555,6 +1558,15 @@ export function ProjectBoard() {
                       <Table className="w-4 h-4" />
                     </button>
                   </div>
+                    {activeClientTab === 'company' && (
+                      <button
+                        onClick={() => setShowImportModal(true)}
+                        className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
+                      >
+                        <Upload className="w-5 h-5" />
+                        Import CSV
+                      </button>
+                    )}
                     <button
                       onClick={() => setIsAddClientModalOpen(true)}
                       className={`${
@@ -1994,6 +2006,166 @@ export function ProjectBoard() {
         <CheckSquare className="w-5 h-5" />
         My Tasks
       </button>
+
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-slate-900">Import Clients from CSV</h2>
+              <button
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportFile(null);
+                  setImportProgress('');
+                }}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-blue-900 mb-2">CSV Format Instructions</h3>
+                <p className="text-sm text-blue-800 mb-2">Your CSV file should have the following columns:</p>
+                <code className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded block">
+                  name, contact_person, email, phone, address, industry, abbreviation
+                </code>
+                <p className="text-xs text-blue-700 mt-2">
+                  • Client numbers will be assigned automatically<br />
+                  • All fields are optional except 'name'<br />
+                  • First row should be headers
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  const csvContent = 'name,contact_person,email,phone,address,industry,abbreviation\n"Example Company Ltd","John Doe","john@example.com","+1234567890","123 Main St","Technology","EXM"';
+                  const blob = new Blob([csvContent], { type: 'text/csv' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'client_import_template.csv';
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                }}
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download CSV Template
+              </button>
+
+              <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setImportFile(e.target.files[0]);
+                    }
+                  }}
+                  className="hidden"
+                  id="csv-upload"
+                />
+                <label
+                  htmlFor="csv-upload"
+                  className="cursor-pointer flex flex-col items-center gap-2"
+                >
+                  <Upload className="w-12 h-12 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-700">
+                    {importFile ? importFile.name : 'Click to select CSV file'}
+                  </span>
+                  <span className="text-xs text-slate-500">or drag and drop</span>
+                </label>
+              </div>
+
+              {importProgress && (
+                <div className="bg-slate-100 border border-slate-300 rounded-lg p-4">
+                  <p className="text-sm text-slate-700">{importProgress}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setImportFile(null);
+                    setImportProgress('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!importFile) {
+                      alert('Please select a CSV file');
+                      return;
+                    }
+
+                    try {
+                      setImportProgress('Reading CSV file...');
+                      const text = await importFile.text();
+                      const lines = text.split('\n').filter(line => line.trim());
+
+                      if (lines.length < 2) {
+                        alert('CSV file is empty or has no data rows');
+                        return;
+                      }
+
+                      const headers = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+                      const clients = [];
+
+                      for (let i = 1; i < lines.length; i++) {
+                        const values = lines[i].match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => v.trim().replace(/^"(.*)"$/, '$1')) || [];
+                        const client: any = { created_by: user?.id };
+
+                        headers.forEach((header, index) => {
+                          if (values[index]) {
+                            client[header] = values[index];
+                          }
+                        });
+
+                        if (client.name) {
+                          clients.push(client);
+                        }
+                      }
+
+                      if (clients.length === 0) {
+                        alert('No valid clients found in CSV');
+                        return;
+                      }
+
+                      setImportProgress(`Importing ${clients.length} clients...`);
+
+                      const { data, error } = await supabase
+                        .from('clients')
+                        .insert(clients)
+                        .select();
+
+                      if (error) throw error;
+
+                      setImportProgress(`Successfully imported ${data.length} clients!`);
+                      setTimeout(() => {
+                        setShowImportModal(false);
+                        setImportFile(null);
+                        setImportProgress('');
+                        window.location.reload();
+                      }, 2000);
+                    } catch (error: any) {
+                      console.error('Import error:', error);
+                      setImportProgress(`Error: ${error.message}`);
+                    }
+                  }}
+                  disabled={!importFile}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Import Clients
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showMyTasks && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

@@ -1751,25 +1751,97 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
               {activeModule === 'invoices' && (
                 <>
-                  <input name="invoice_number" defaultValue={editingItem?.invoice_number || ''} placeholder="Invoice Number *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <select name="comsec_client_id" defaultValue={editingItem?.comsec_client_id || ''} required className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                    <option value="">Select Client *</option>
-                    {comSecClients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-                  </select>
-                  <input name="issue_date" type="date" defaultValue={editingItem?.issue_date || ''} placeholder="Issue Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <input name="due_date" type="date" defaultValue={editingItem?.due_date || ''} placeholder="Due Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <input name="amount" type="number" step="0.01" defaultValue={editingItem?.amount || ''} placeholder="Amount" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <select name="status" defaultValue={editingItem?.status || 'Draft'} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                    <option value="Draft">Draft</option>
-                    <option value="Sent">Sent</option>
-                    <option value="Paid">Paid</option>
-                    <option value="Overdue">Overdue</option>
-                    <option value="Cancelled">Cancelled</option>
-                  </select>
-                  <textarea name="description" defaultValue={editingItem?.description || ''} placeholder="Description" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={3}></textarea>
-                  <input name="payment_date" type="date" defaultValue={editingItem?.payment_date || ''} placeholder="Payment Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <input name="payment_method" defaultValue={editingItem?.payment_method || ''} placeholder="Payment Method" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  <textarea name="remarks" defaultValue={editingItem?.remarks || ''} placeholder="Remarks" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={2}></textarea>
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
+                    <h3 className="text-sm font-semibold text-slate-900 mb-2">Invoice Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Invoice Number</label>
+                        <input name="invoice_number" defaultValue={editingItem?.invoice_number || ''} placeholder="Invoice Number *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Client</label>
+                        <select name="comsec_client_id" defaultValue={editingItem?.comsec_client_id || ''} required className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                          <option value="">Select Client *</option>
+                          {comSecClients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Issue Date</label>
+                        <input name="issue_date" type="date" defaultValue={editingItem?.issue_date || ''} placeholder="Issue Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Due Date</label>
+                        <input name="due_date" type="date" defaultValue={editingItem?.due_date || ''} placeholder="Due Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+                        <select name="status" defaultValue={editingItem?.status || 'Draft'} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                          <option value="Draft">Draft</option>
+                          <option value="Sent">Sent</option>
+                          <option value="Paid">Paid</option>
+                          <option value="Overdue">Overdue</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Payment Date</label>
+                        <input name="payment_date" type="date" defaultValue={editingItem?.payment_date || ''} placeholder="Payment Date" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Payment Method</label>
+                      <input name="payment_method" defaultValue={editingItem?.payment_method || ''} placeholder="Payment Method" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    </div>
+                  </div>
+
+                  {editingItem?.items && editingItem.items.length > 1 ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                      <h3 className="text-sm font-semibold text-slate-900 mb-3">Invoice Items ({editingItem.items.length})</h3>
+                      <div className="space-y-2">
+                        {editingItem.items.map((item: any, index: number) => (
+                          <div key={item.id} className="bg-white border border-slate-200 rounded p-3">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-slate-900">{item.description}</p>
+                                {item.start_date && item.end_date && (
+                                  <p className="text-xs text-slate-600 mt-1">
+                                    {new Date(item.start_date).toLocaleDateString()} - {new Date(item.end_date).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-sm font-semibold text-slate-900">${item.amount?.toFixed(2) || '0.00'}</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="bg-slate-100 border border-slate-300 rounded p-3 flex justify-between items-center">
+                          <span className="text-sm font-semibold text-slate-900">Total Amount</span>
+                          <span className="text-base font-bold text-slate-900">${editingItem.total_amount?.toFixed(2) || '0.00'}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-3">
+                        Note: This invoice has multiple items. Editing will update all items with the same invoice number.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
+                      <h3 className="text-sm font-semibold text-slate-900 mb-2">Item Details</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Amount</label>
+                          <input name="amount" type="number" step="0.01" defaultValue={editingItem?.amount || ''} placeholder="Amount" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Description</label>
+                          <textarea name="description" defaultValue={editingItem?.description || ''} placeholder="Description" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={3}></textarea>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Remarks</label>
+                    <textarea name="remarks" defaultValue={editingItem?.remarks || ''} placeholder="Remarks" className="w-full px-3 py-2 border border-slate-300 rounded-lg" rows={2}></textarea>
+                  </div>
                 </>
               )}
 
