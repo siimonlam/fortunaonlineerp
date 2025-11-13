@@ -56,9 +56,12 @@ interface ClientTableViewProps {
   onChannelPartnerClick: (partner: Client) => void;
   onAddClient: (type: 'company' | 'channel') => void;
   activeTab: 'company' | 'channel';
+  selectedClientIds?: Set<string>;
+  onToggleClientSelection?: (clientId: string) => void;
+  onSelectAll?: (selectAll: boolean) => void;
 }
 
-export function ClientTableView({ clients, channelPartners, projectTypes, onClientClick, onCreateProject, onChannelPartnerClick, onAddClient, activeTab }: ClientTableViewProps) {
+export function ClientTableView({ clients, channelPartners, projectTypes, onClientClick, onCreateProject, onChannelPartnerClick, onAddClient, activeTab, selectedClientIds, onToggleClientSelection, onSelectAll }: ClientTableViewProps) {
   const [openMenuClientId, setOpenMenuClientId] = useState<string | null>(null);
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [partnerProjects, setPartnerProjects] = useState<PartnerProject[]>([]);
@@ -122,6 +125,16 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
             <table className="w-full">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
+              {activeTab === 'company' && onSelectAll && (
+                <th className="px-3 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedClientIds && clients.length > 0 && clients.every(c => selectedClientIds.has(c.id))}
+                    onChange={(e) => onSelectAll(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                  />
+                </th>
+              )}
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Client #
               </th>
@@ -156,9 +169,18 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
               <tr
                 key={client.id}
                 className="hover:bg-slate-50 cursor-pointer transition-colors"
-                onClick={() => onClientClick(client)}
               >
-                <td className="px-6 py-4 whitespace-nowrap">
+                {activeTab === 'company' && onToggleClientSelection && (
+                  <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedClientIds?.has(client.id) || false}
+                      onChange={() => onToggleClientSelection(client.id)}
+                      className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                    />
+                  </td>
+                )}
+                <td className="px-6 py-4 whitespace-nowrap" onClick={() => onClientClick(client)}>
                   <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
                     #{String(client.client_number).padStart(4, '0')}
                   </span>

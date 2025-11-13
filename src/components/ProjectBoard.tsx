@@ -155,6 +155,8 @@ export function ProjectBoard() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importProgress, setImportProgress] = useState<string>('');
+  const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
+  const [showExportOptions, setShowExportOptions] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -1559,13 +1561,51 @@ export function ProjectBoard() {
                     </button>
                   </div>
                     {activeClientTab === 'company' && (
-                      <button
-                        onClick={() => setShowImportModal(true)}
-                        className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
-                      >
-                        <Upload className="w-5 h-5" />
-                        Import CSV
-                      </button>
+                      <>
+                        {selectedClientIds.size > 0 && (
+                          <button
+                            onClick={() => {
+                              const selectedClients = clients.filter(c => selectedClientIds.has(c.id));
+                              const headers = ['client_number', 'name', 'contact_person', 'email', 'phone', 'address', 'industry', 'abbreviation'];
+                              const csvRows = [headers.join(',')];
+
+                              selectedClients.forEach(client => {
+                                const row = [
+                                  client.client_number || '',
+                                  `"${(client.name || '').replace(/"/g, '""')}"`,
+                                  `"${(client.contact_person || '').replace(/"/g, '""')}"`,
+                                  client.email || '',
+                                  client.phone || '',
+                                  `"${(client.address || '').replace(/"/g, '""')}"`,
+                                  client.industry || '',
+                                  client.abbreviation || ''
+                                ];
+                                csvRows.push(row.join(','));
+                              });
+
+                              const csvContent = csvRows.join('\n');
+                              const blob = new Blob([csvContent], { type: 'text/csv' });
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `clients_export_${new Date().toISOString().split('T')[0]}.csv`;
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                            }}
+                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
+                          >
+                            <Download className="w-5 h-5" />
+                            Export {selectedClientIds.size} Selected
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowImportModal(true)}
+                          className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
+                        >
+                          <Upload className="w-5 h-5" />
+                          Import/Update CSV
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() => setIsAddClientModalOpen(true)}
@@ -1799,6 +1839,23 @@ export function ProjectBoard() {
                     setIsAddClientModalOpen(true);
                   }}
                   activeTab={activeClientTab}
+                  selectedClientIds={selectedClientIds}
+                  onToggleClientSelection={(clientId) => {
+                    const newSelected = new Set(selectedClientIds);
+                    if (newSelected.has(clientId)) {
+                      newSelected.delete(clientId);
+                    } else {
+                      newSelected.add(clientId);
+                    }
+                    setSelectedClientIds(newSelected);
+                  }}
+                  onSelectAll={(selectAll) => {
+                    if (selectAll) {
+                      setSelectedClientIds(new Set(filteredClients.map(c => c.id)));
+                    } else {
+                      setSelectedClientIds(new Set());
+                    }
+                  }}
                 />
               )
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
@@ -2028,18 +2085,22 @@ export function ProjectBoard() {
                 <h3 className="text-sm font-semibold text-blue-900 mb-2">CSV Format Instructions</h3>
                 <p className="text-sm text-blue-800 mb-2">Your CSV file should have the following columns:</p>
                 <code className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded block">
-                  name, contact_person, email, phone, address, industry, abbreviation
+                  client_number, name, contact_person, email, phone, address, industry, abbreviation
                 </code>
-                <p className="text-xs text-blue-700 mt-2">
-                  • Client numbers will be assigned automatically<br />
-                  • All fields are optional except 'name'<br />
-                  • First row should be headers
-                </p>
+                <div className="text-xs text-blue-700 mt-2 space-y-1">
+                  <p><strong>For New Clients:</strong></p>
+                  <p>• Leave <code className="bg-blue-100 px-1 rounded">client_number</code> empty - will be auto-assigned</p>
+                  <p>• Only 'name' field is required</p>
+                  <p className="mt-2"><strong>For Updating Existing Clients:</strong></p>
+                  <p>• Include <code className="bg-blue-100 px-1 rounded">client_number</code> of the client to update</p>
+                  <p>• System will match by client_number and update those records</p>
+                  <p>• Empty fields will not overwrite existing data</p>
+                </div>
               </div>
 
               <button
                 onClick={() => {
-                  const csvContent = 'name,contact_person,email,phone,address,industry,abbreviation\n"Example Company Ltd","John Doe","john@example.com","+1234567890","123 Main St","Technology","EXM"';
+                  const csvContent = 'client_number,name,contact_person,email,phone,address,industry,abbreviation\n,"New Company Ltd","Jane Smith","jane@example.com","+1234567890","123 Main St","Technology","NEW"\nCL001,"Existing Company Ltd","John Doe","john@example.com","+0987654321","456 Oak Ave","Finance","EXS"';
                   const blob = new Blob([csvContent], { type: 'text/csv' });
                   const url = window.URL.createObjectURL(blob);
                   const a = document.createElement('a');
@@ -2113,11 +2174,12 @@ export function ProjectBoard() {
                       }
 
                       const headers = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1'));
-                      const clients = [];
+                      const newClients = [];
+                      const updateClients = [];
 
                       for (let i = 1; i < lines.length; i++) {
                         const values = lines[i].match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => v.trim().replace(/^"(.*)"$/, '$1')) || [];
-                        const client: any = { created_by: user?.id };
+                        const client: any = {};
 
                         headers.forEach((header, index) => {
                           if (values[index]) {
@@ -2126,25 +2188,61 @@ export function ProjectBoard() {
                         });
 
                         if (client.name) {
-                          clients.push(client);
+                          if (client.client_number && client.client_number.trim()) {
+                            updateClients.push(client);
+                          } else {
+                            client.created_by = user?.id;
+                            newClients.push(client);
+                          }
                         }
                       }
 
-                      if (clients.length === 0) {
+                      if (newClients.length === 0 && updateClients.length === 0) {
                         alert('No valid clients found in CSV');
                         return;
                       }
 
-                      setImportProgress(`Importing ${clients.length} clients...`);
+                      let insertedCount = 0;
+                      let updatedCount = 0;
 
-                      const { data, error } = await supabase
-                        .from('clients')
-                        .insert(clients)
-                        .select();
+                      if (newClients.length > 0) {
+                        setImportProgress(`Importing ${newClients.length} new clients...`);
+                        const { data, error } = await supabase
+                          .from('clients')
+                          .insert(newClients)
+                          .select();
 
-                      if (error) throw error;
+                        if (error) throw error;
+                        insertedCount = data.length;
+                      }
 
-                      setImportProgress(`Successfully imported ${data.length} clients!`);
+                      if (updateClients.length > 0) {
+                        setImportProgress(`Updating ${updateClients.length} existing clients...`);
+                        for (const client of updateClients) {
+                          const clientNumber = client.client_number;
+                          delete client.client_number;
+
+                          const updateData: any = {};
+                          Object.keys(client).forEach(key => {
+                            if (client[key]) {
+                              updateData[key] = client[key];
+                            }
+                          });
+
+                          const { error } = await supabase
+                            .from('clients')
+                            .update(updateData)
+                            .eq('client_number', clientNumber);
+
+                          if (!error) updatedCount++;
+                        }
+                      }
+
+                      const successMsg = [];
+                      if (insertedCount > 0) successMsg.push(`${insertedCount} new clients imported`);
+                      if (updatedCount > 0) successMsg.push(`${updatedCount} clients updated`);
+
+                      setImportProgress(`Success! ${successMsg.join(', ')}!`);
                       setTimeout(() => {
                         setShowImportModal(false);
                         setImportFile(null);
