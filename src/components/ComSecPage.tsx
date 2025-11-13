@@ -193,7 +193,32 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
       .from('comsec_invoices')
       .select('*, comsec_client:comsec_clients(company_name, company_code, id)')
       .order('issue_date', { ascending: false });
-    if (data) setInvoices(data);
+
+    if (data) {
+      // Group invoices by invoice_number and sum amounts
+      const groupedInvoices = Object.values(
+        data.reduce((acc: any, invoice: any) => {
+          const key = invoice.invoice_number;
+          if (!acc[key]) {
+            acc[key] = {
+              ...invoice,
+              items: [],
+              total_amount: 0
+            };
+          }
+          acc[key].items.push(invoice);
+          acc[key].total_amount += invoice.amount || 0;
+          // Keep the first item's details for display
+          if (acc[key].items.length === 1) {
+            acc[key].amount = invoice.amount;
+          } else {
+            acc[key].amount = acc[key].total_amount;
+          }
+          return acc;
+        }, {})
+      );
+      setInvoices(groupedInvoices);
+    }
   }
 
   async function loadVirtualOffices() {
@@ -694,6 +719,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Invoice #</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Items</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Code</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
@@ -730,6 +756,11 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
                         >
                           {invoice.invoice_number}
                         </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-slate-600">
+                          {invoice.items?.length || 1} {invoice.items?.length === 1 ? 'item' : 'items'}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <button
@@ -1840,30 +1871,66 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
             try {
               const totalAmount = invoicePreviewData.items.reduce((sum: number, item: any) => sum + item.amount, 0);
 
-              const firstService = invoicePreviewData.items[0];
-              const hasServiceDates = firstService && (firstService.startDate || firstService.endDate);
+              // Insert multiple invoice records - one for each service item
+              const invoiceRecords = invoicePreviewData.items.map((item: any) => ({
+                invoice_number: invoicePreviewData.invoiceNumber,
+                comsec_client_id: invoicePreviewData.clientId,
+                company_code: invoicePreviewData.companyCode || null,
+                service_id: item.serviceId || null,
+                issue_date: invoicePreviewData.issueDate,
+                due_date: invoicePreviewData.dueDate,
+                amount: item.amount,
+                status: 'Draft',
+                description: item.description,
+                start_date: item.startDate || null,
+                end_date: item.endDate || null,
+                remarks: invoicePreviewData.notes,
+                created_by: user?.id
+              }));
 
               const { data: invoiceData, error: invoiceError } = await supabase
                 .from('comsec_invoices')
-                .insert([{
-                  invoice_number: invoicePreviewData.invoiceNumber,
-                  comsec_client_id: invoicePreviewData.clientId,
-                  company_code: invoicePreviewData.companyCode || null,
-                  service_id: firstService?.serviceId || null,
-                  issue_date: invoicePreviewData.issueDate,
-                  due_date: invoicePreviewData.dueDate,
-                  amount: totalAmount,
-                  status: 'Draft',
-                  description: invoicePreviewData.items.map((item: any) => item.description).join(', '),
-                  start_date: firstService?.startDate || null,
-                  end_date: firstService?.endDate || null,
-                  remarks: invoicePreviewData.notes,
-                  created_by: user?.id
-                }])
-                .select()
-                .single();
+                .insert(invoiceRecords)
+                .select();
 
               if (invoiceError) throw invoiceError;
+
+              // Get service details for each item and insert into virtual_office table
+              const virtualOfficeRecords = await Promise.all(
+                invoicePreviewData.items.map(async (item: any) => {
+                  // Fetch service details from master services
+                  const { data: serviceData } = await supabase
+                    .from('comsec_services')
+                    .select('service_name, service_description, service_type')
+                    .eq('id', item.serviceId)
+                    .maybeSingle();
+
+                  return {
+                    comsec_client_id: invoicePreviewData.clientId,
+                    company_code: invoicePreviewData.companyCode || null,
+                    company_name: invoicePreviewData.clientName,
+                    service_name: serviceData?.service_name || item.description,
+                    service_description: serviceData?.service_description || item.description,
+                    service_type: serviceData?.service_type || 'other',
+                    invoice_number: invoicePreviewData.invoiceNumber,
+                    service_id: item.serviceId,
+                    start_date: item.startDate || null,
+                    end_date: item.endDate || null,
+                    status: 'Active',
+                    monthly_fee: item.amount,
+                    created_by: user?.id
+                  };
+                })
+              );
+
+              const { error: voError } = await supabase
+                .from('virtual_office')
+                .insert(virtualOfficeRecords);
+
+              if (voError) {
+                console.error('Error saving to virtual_office:', voError);
+                // Don't fail the whole operation if virtual_office insert fails
+              }
 
               const fileName = `invoices/${invoicePreviewData.clientId}/${invoicePreviewData.invoiceNumber}.pdf`;
               const { error: storageError } = await supabase.storage
