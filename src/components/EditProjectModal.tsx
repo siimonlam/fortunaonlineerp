@@ -4,7 +4,6 @@ import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeO
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
-import { DocumentFolderModal } from './DocumentFolderModal';
 import html2pdf from 'html2pdf.js';
 
 interface Staff {
@@ -114,7 +113,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files'>('project');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [showAddInvoice, setShowAddInvoice] = useState(false);
-  const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [newInvoice, setNewInvoice] = useState({
     invoiceNumber: '',
     issueDate: '',
@@ -2321,29 +2319,25 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
           <div className="p-6 space-y-6">
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-                Project Files
+                Google Drive Files
               </h3>
-              {project.project_reference ? (
-                <div className="bg-white border border-slate-200 rounded-lg p-4">
-                  <p className="text-sm text-slate-600 mb-4">
-                    Browse and manage documents for project: <strong>{project.project_reference}</strong>
-                  </p>
+              <div className="bg-white border border-slate-200 rounded-lg p-4">
+                <p className="text-sm text-slate-600 mb-4 text-center">
+                  Access project documents on Google Drive
+                </p>
+                <div className="text-center">
                   <button
                     type="button"
-                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                    onClick={() => setShowDocumentModal(true)}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                    onClick={() => {
+                      window.open('https://drive.google.com/drive/u/0/my-drive', '_blank');
+                    }}
                   >
                     <FileText className="w-5 h-5" />
-                    Open Document Folder
+                    Open Google Drive
                   </button>
                 </div>
-              ) : (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-800">
-                    Please add a Project Reference to enable document management for this project.
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         )}
@@ -2435,14 +2429,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             channel_partner_reference: clientChannelPartner?.reference_number || '',
             project_content: project.description || '',
           }}
-        />
-      )}
-
-      {showDocumentModal && project.project_reference && (
-        <DocumentFolderModal
-          companyCode={project.project_reference}
-          bucketName="client-documents"
-          onClose={() => setShowDocumentModal(false)}
         />
       )}
     </div>
