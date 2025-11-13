@@ -44,16 +44,46 @@ export function GoogleDriveExplorer({ onClose, projectReference }: GoogleDriveEx
   async function loadGoogleDriveAPI() {
     try {
       await new Promise((resolve, reject) => {
-        if (window.gapi) {
+        if (window.gapi && window.gapi.client) {
+          console.log('Google API already loaded');
           resolve(window.gapi);
           return;
         }
 
+        const existingScript = document.querySelector('script[src="https://apis.google.com/js/api.js"]');
+        if (existingScript) {
+          console.log('Script tag exists, waiting for gapi...');
+          const checkInterval = setInterval(() => {
+            if (window.gapi && window.gapi.load) {
+              clearInterval(checkInterval);
+              resolve(window.gapi);
+            }
+          }, 100);
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            reject(new Error('Timeout waiting for Google API to load'));
+          }, 10000);
+          return;
+        }
+
+        console.log('Loading Google API script...');
         const script = document.createElement('script');
         script.src = 'https://apis.google.com/js/api.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.body.appendChild(script);
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          console.log('Google API script loaded');
+          if (window.gapi && window.gapi.load) {
+            resolve(window.gapi);
+          } else {
+            reject(new Error('Google API script loaded but gapi not available'));
+          }
+        };
+        script.onerror = (error) => {
+          console.error('Script load error:', error);
+          reject(new Error('Failed to load Google API script from CDN'));
+        };
+        document.head.appendChild(script);
       });
 
       await new Promise((resolve, reject) => {
