@@ -2355,7 +2355,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                       type="button"
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                       onClick={() => {
-                        window.open(`https://drive.google.com/drive/folders/`, '_blank');
+                        window.open('https://drive.google.com/drive/u/0/my-drive', '_blank');
                       }}
                     >
                       Open Google Drive
