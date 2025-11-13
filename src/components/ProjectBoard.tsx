@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -150,6 +150,8 @@ export function ProjectBoard() {
   const [partnerProjects, setPartnerProjects] = useState<any[]>([]);
   const [loadingPartnerProjects, setLoadingPartnerProjects] = useState(false);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
+  const [showMyTasks, setShowMyTasks] = useState(false);
+  const [myTasks, setMyTasks] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -291,6 +293,33 @@ export function ProjectBoard() {
       console.error('Error loading labels:', error);
     } else if (data) {
       setAllLabels(data);
+    }
+  }
+
+  async function loadMyTasks() {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .select(`
+        *,
+        projects!inner (
+          id,
+          title,
+          clients (
+            name,
+            client_number
+          )
+        )
+      `)
+      .eq('assigned_to', user.id)
+      .eq('completed', false)
+      .order('deadline', { ascending: true, nullsFirst: false });
+
+    if (error) {
+      console.error('Error loading my tasks:', error);
+    } else if (data) {
+      setMyTasks(data);
     }
   }
 
@@ -1953,6 +1982,91 @@ export function ProjectBoard() {
             loadPartnerProjects();
           }}
         />
+      )}
+
+      <button
+        onClick={() => {
+          setShowMyTasks(true);
+          loadMyTasks();
+        }}
+        className="fixed bottom-6 left-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105 z-50"
+      >
+        <CheckSquare className="w-5 h-5" />
+        My Tasks
+      </button>
+
+      {showMyTasks && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-slate-900">My Tasks</h2>
+              <button
+                onClick={() => setShowMyTasks(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {myTasks.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <CheckSquare className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                  <p className="text-lg">No tasks assigned to you</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {myTasks.map((task: any) => {
+                    const isPastDue = task.deadline && new Date(task.deadline) < new Date();
+                    const companyName = task.projects?.clients?.name || 'No Company';
+                    const clientNumber = task.projects?.clients?.client_number;
+
+                    return (
+                      <div
+                        key={task.id}
+                        className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
+                          isPastDue
+                            ? 'border-red-200 bg-red-50'
+                            : 'border-slate-200 bg-white'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-semibold text-slate-500">
+                                {clientNumber ? `#${clientNumber}` : ''} {companyName}
+                              </span>
+                              {isPastDue && (
+                                <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium">
+                                  PAST DUE
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                              {task.title}
+                            </h3>
+                            {task.description && (
+                              <p className="text-sm text-slate-600 mb-2">{task.description}</p>
+                            )}
+                            <div className="flex items-center gap-4 text-sm">
+                              <span className="text-slate-500">
+                                Project: {task.projects?.title}
+                              </span>
+                              {task.deadline && (
+                                <span className={`font-medium ${isPastDue ? 'text-red-600' : 'text-slate-700'}`}>
+                                  Due: {new Date(task.deadline).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
