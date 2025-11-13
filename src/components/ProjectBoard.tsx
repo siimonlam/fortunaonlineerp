@@ -157,6 +157,7 @@ export function ProjectBoard() {
   const [importProgress, setImportProgress] = useState<string>('');
   const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
   const [showExportOptions, setShowExportOptions] = useState(false);
+  const [showBulkProjectMenu, setShowBulkProjectMenu] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -1563,40 +1564,110 @@ export function ProjectBoard() {
                     {activeClientTab === 'company' && (
                       <>
                         {selectedClientIds.size > 0 && (
-                          <button
-                            onClick={() => {
-                              const selectedClients = clients.filter(c => selectedClientIds.has(c.id));
-                              const headers = ['client_number', 'name', 'contact_person', 'email', 'phone', 'address', 'industry', 'abbreviation'];
-                              const csvRows = [headers.join(',')];
+                          <>
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowBulkProjectMenu(!showBulkProjectMenu)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
+                              >
+                                <Plus className="w-5 h-5" />
+                                Add Project to {selectedClientIds.size} Client{selectedClientIds.size > 1 ? 's' : ''}
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                              {showBulkProjectMenu && (
+                                <div className="absolute top-full mt-2 right-0 bg-white border border-slate-200 rounded-lg shadow-xl py-2 z-50 min-w-[220px]">
+                                  {projectTypes.map((projectType) => (
+                                    <button
+                                      key={projectType.id}
+                                      onClick={async () => {
+                                        setShowBulkProjectMenu(false);
+                                        const selectedClients = clients.filter(c => selectedClientIds.has(c.id));
 
-                              selectedClients.forEach(client => {
-                                const row = [
-                                  client.client_number || '',
-                                  `"${(client.name || '').replace(/"/g, '""')}"`,
-                                  `"${(client.contact_person || '').replace(/"/g, '""')}"`,
-                                  client.email || '',
-                                  client.phone || '',
-                                  `"${(client.address || '').replace(/"/g, '""')}"`,
-                                  client.industry || '',
-                                  client.abbreviation || ''
-                                ];
-                                csvRows.push(row.join(','));
-                              });
+                                        if (confirm(`Create ${projectType.name} for ${selectedClients.length} client${selectedClients.length > 1 ? 's' : ''}?`)) {
+                                          try {
+                                            const { data: statusData } = await supabase
+                                              .from('statuses')
+                                              .select('id')
+                                              .eq('project_type_id', projectType.id)
+                                              .eq('is_substatus', false)
+                                              .order('order_index', { ascending: true })
+                                              .limit(1)
+                                              .maybeSingle();
 
-                              const csvContent = csvRows.join('\n');
-                              const blob = new Blob([csvContent], { type: 'text/csv' });
-                              const url = window.URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `clients_export_${new Date().toISOString().split('T')[0]}.csv`;
-                              a.click();
-                              window.URL.revokeObjectURL(url);
-                            }}
-                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
-                          >
-                            <Download className="w-5 h-5" />
-                            Export {selectedClientIds.size} Selected
-                          </button>
+                                            if (!statusData) {
+                                              alert('No default status found for this project type');
+                                              return;
+                                            }
+
+                                            const projectsToCreate = selectedClients.map(client => ({
+                                              title: client.name,
+                                              description: client.notes || '',
+                                              status_id: statusData.id,
+                                              project_type_id: projectType.id,
+                                              client_id: client.id,
+                                              created_at: new Date().toISOString()
+                                            }));
+
+                                            const { error } = await supabase
+                                              .from('projects')
+                                              .insert(projectsToCreate);
+
+                                            if (error) {
+                                              alert('Error creating projects: ' + error.message);
+                                            } else {
+                                              alert(`Successfully created ${projectsToCreate.length} ${projectType.name}${projectsToCreate.length > 1 ? 's' : ''}`);
+                                              setSelectedClientIds(new Set());
+                                              loadData();
+                                            }
+                                          } catch (err: any) {
+                                            alert('Error: ' + err.message);
+                                          }
+                                        }
+                                      }}
+                                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                    >
+                                      <FileText className="w-4 h-4 text-slate-500" />
+                                      {projectType.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => {
+                                const selectedClients = clients.filter(c => selectedClientIds.has(c.id));
+                                const headers = ['client_number', 'name', 'contact_person', 'email', 'phone', 'address', 'industry', 'abbreviation'];
+                                const csvRows = [headers.join(',')];
+
+                                selectedClients.forEach(client => {
+                                  const row = [
+                                    client.client_number || '',
+                                    `"${(client.name || '').replace(/"/g, '""')}"`,
+                                    `"${(client.contact_person || '').replace(/"/g, '""')}"`,
+                                    client.email || '',
+                                    client.phone || '',
+                                    `"${(client.address || '').replace(/"/g, '""')}"`,
+                                    client.industry || '',
+                                    client.abbreviation || ''
+                                  ];
+                                  csvRows.push(row.join(','));
+                                });
+
+                                const csvContent = csvRows.join('\n');
+                                const blob = new Blob([csvContent], { type: 'text/csv' });
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `clients_export_${new Date().toISOString().split('T')[0]}.csv`;
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                              }}
+                              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
+                            >
+                              <Download className="w-5 h-5" />
+                              Export {selectedClientIds.size} Selected
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => setShowImportModal(true)}
