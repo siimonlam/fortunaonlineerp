@@ -7,11 +7,11 @@ interface AutomationRule {
   name: string;
   project_type_id: string;
   main_status: string;
-  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic';
+  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date';
   trigger_config: any;
   condition_type?: 'no_condition' | 'sales_source' | 'sales_person';
   condition_config?: any;
-  action_type: 'add_task' | 'add_label' | 'remove_label';
+  action_type: 'add_task' | 'add_label' | 'remove_label' | 'change_status';
   action_config: any;
   is_active: boolean;
   created_at: string;
@@ -47,13 +47,15 @@ const TRIGGER_TYPES = [
   { value: 'hkpc_date_set', label: 'New Next HKPC Date is set' },
   { value: 'task_completed', label: 'A Project task is completed' },
   { value: 'status_changed', label: 'Project converts to a new status' },
-  { value: 'periodic', label: 'Periodically Action' }
+  { value: 'periodic', label: 'Periodically Action' },
+  { value: 'days_after_date', label: 'X days after a date field' }
 ];
 
 const ACTION_TYPES = [
   { value: 'add_task', label: 'Add a task' },
   { value: 'add_label', label: 'Add a label' },
-  { value: 'remove_label', label: 'Remove a label' }
+  { value: 'remove_label', label: 'Remove a label' },
+  { value: 'change_status', label: 'Change project status' }
 ];
 
 const CONDITION_TYPES = [
@@ -89,7 +91,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
     action_config: {
       due_date_base: '',
       due_date_offset: 0,
-      due_date_direction: 'after'
+      due_date_direction: 'after',
+      status_id: ''
     }
   });
 
@@ -485,6 +488,44 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                     </div>
                   </div>
                 )}
+
+                {formData.trigger_type === 'days_after_date' && (
+                  <div className="space-y-3 ml-4 p-3 bg-slate-50 rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Number of days</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g., 7"
+                        value={formData.trigger_config.days_offset || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          trigger_config: { ...formData.trigger_config, days_offset: parseInt(e.target.value) || 0 }
+                        })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">After date field</label>
+                      <select
+                        value={formData.trigger_config.date_field || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          trigger_config: { ...formData.trigger_config, date_field: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select date field...</option>
+                        <option value="created_at">Project Create Date</option>
+                        <option value="start_date">Start Date</option>
+                        <option value="project_start_date">Project Start Date</option>
+                        <option value="project_end_date">Project End Date</option>
+                        <option value="submission_date">Submission Date</option>
+                        <option value="approval_date">Approval Date</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-slate-200 pt-4">
@@ -660,6 +701,40 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                       {labels.map(label => (
                         <option key={label.id} value={label.id}>{label.name}</option>
                       ))}
+                    </select>
+                  </div>
+                )}
+
+                {formData.action_type === 'change_status' && (
+                  <div className="ml-4 p-3 bg-slate-50 rounded-lg">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Change to Status</label>
+                    <select
+                      value={formData.action_config.status_id || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        action_config: { ...formData.action_config, status_id: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select status...</option>
+                      {statuses
+                        .filter(s => s.project_type_id === formData.project_type_id && !s.is_substatus)
+                        .sort((a, b) => a.order_index - b.order_index)
+                        .map(parentStatus => {
+                          const substatuses = statuses.filter(s => s.parent_status_id === parentStatus.id).sort((a, b) => a.order_index - b.order_index);
+                          return (
+                            <optgroup key={parentStatus.id} label={parentStatus.name}>
+                              <option key={`parent-${parentStatus.id}`} value={parentStatus.id}>
+                                {parentStatus.name} (Main)
+                              </option>
+                              {substatuses.map(substatus => (
+                                <option key={substatus.id} value={substatus.id}>
+                                  {substatus.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
                     </select>
                   </div>
                 )}

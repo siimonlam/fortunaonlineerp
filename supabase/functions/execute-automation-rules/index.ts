@@ -251,6 +251,22 @@ Deno.serve(async (req: Request) => {
             executedCount++;
             results.push({ rule: rule.name, action: 'add_task', status: 'success' });
           }
+        } else if (rule.action_type === 'change_status') {
+          const statusId = rule.action_config.status_id;
+          if (statusId) {
+            const { error: statusError } = await supabase
+              .from('projects')
+              .update({
+                status_id: statusId,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', project_id);
+
+            if (statusError) throw statusError;
+            console.log('Project status changed successfully');
+            executedCount++;
+            results.push({ rule: rule.name, action: 'change_status', status: 'success' });
+          }
         }
       } catch (error: any) {
         console.error('Error executing rule:', rule.name, error);
