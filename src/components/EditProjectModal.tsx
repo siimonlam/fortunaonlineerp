@@ -110,7 +110,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
   const [projectType, setProjectType] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'project' | 'invoices'>('project');
+  const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files'>('project');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [showAddInvoice, setShowAddInvoice] = useState(false);
   const [newInvoice, setNewInvoice] = useState({
@@ -1222,6 +1222,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             >
               Invoices
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('files')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeTab === 'files'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Files
+            </button>
           </div>
         )}
 
@@ -2046,7 +2057,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
             )}
           </div>
         </form>
-        ) : (
+        ) : activeTab === 'invoices' ? (
           <div className="p-6 space-y-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -2302,6 +2313,60 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
+                Google Drive Files
+              </h3>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <p className="text-sm text-slate-700">
+                  To connect this project to Google Drive, you'll need to set up Google Drive API credentials.
+                </p>
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-slate-900">Setup Instructions:</h4>
+                  <ol className="text-sm text-slate-700 space-y-1 list-decimal list-inside">
+                    <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Cloud Console</a></li>
+                    <li>Create a new project or select an existing one</li>
+                    <li>Enable the Google Drive API</li>
+                    <li>Create OAuth 2.0 credentials (Client ID)</li>
+                    <li>Add your application URL to authorized JavaScript origins</li>
+                    <li>Add the Client ID to your environment variables as VITE_GOOGLE_DRIVE_CLIENT_ID</li>
+                  </ol>
+                </div>
+                {!import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mt-3">
+                    <p className="text-sm text-yellow-800 font-medium">
+                      Google Drive Client ID not configured. Please add VITE_GOOGLE_DRIVE_CLIENT_ID to your .env file.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID ? (
+                <div className="bg-white border border-slate-200 rounded-lg p-4">
+                  <p className="text-sm text-slate-600 text-center py-8">
+                    Google Drive integration is configured. File browser will be implemented here.
+                  </p>
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      onClick={() => {
+                        window.open(`https://drive.google.com/drive/folders/`, '_blank');
+                      }}
+                    >
+                      Open Google Drive
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-slate-500">Configure Google Drive API to enable file access</p>
+                </div>
+              )}
             </div>
           </div>
         )}
