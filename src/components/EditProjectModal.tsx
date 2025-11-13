@@ -113,6 +113,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [projectType, setProjectType] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files'>('project');
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [depositStatus, setDepositStatus] = useState<'paid' | 'unpaid'>('unpaid');
   const [showAddInvoice, setShowAddInvoice] = useState(false);
   const [showGoogleDrive, setShowGoogleDrive] = useState(false);
   const [newInvoice, setNewInvoice] = useState({
@@ -265,6 +266,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       console.error('Error loading invoices:', error);
     } else {
       setInvoices(data || []);
+
+      // Check for deposit invoice and its payment status
+      const depositInvoice = data?.find(inv => inv.payment_type === 'Deposit');
+      if (depositInvoice && depositInvoice.payment_status === 'Paid') {
+        setDepositStatus('paid');
+      } else {
+        setDepositStatus('unpaid');
+      }
     }
   }
 
@@ -1454,17 +1463,30 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
               Financial Details
             </h3>
             <div className="grid grid-cols-3 gap-4">
-              <div className="flex items-center gap-3 col-span-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    disabled={!canEdit}
-                    checked={formData.depositPaid}
-                    onChange={(e) => setFormData({ ...formData, depositPaid: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  />
-                  <span className="text-sm font-medium text-slate-700">Deposit Paid</span>
-                </label>
+              <div className="col-span-3">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Deposit Status</label>
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm ${
+                  depositStatus === 'paid'
+                    ? 'bg-green-100 text-green-800 border border-green-200'
+                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                }`}>
+                  {depositStatus === 'paid' ? (
+                    <>
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Deposit Paid
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      Deposit Unpaid
+                    </>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Status is determined by deposit invoice payment</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Deposit Amount</label>
