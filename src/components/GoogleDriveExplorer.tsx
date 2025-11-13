@@ -56,39 +56,51 @@ export function GoogleDriveExplorer({ onClose, projectReference }: GoogleDriveEx
         document.body.appendChild(script);
       });
 
-      window.gapi.load('client:auth2', async () => {
-        try {
-          const clientId = import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID;
-          const apiKey = import.meta.env.VITE_GOOGLE_DRIVE_API_KEY;
+      await new Promise((resolve, reject) => {
+        window.gapi.load('client:auth2', async () => {
+          try {
+            const clientId = import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID;
+            const apiKey = import.meta.env.VITE_GOOGLE_DRIVE_API_KEY;
 
-          if (!clientId || !apiKey) {
-            setError('Google Drive API credentials not configured. Please add VITE_GOOGLE_DRIVE_CLIENT_ID and VITE_GOOGLE_DRIVE_API_KEY to your .env file.');
-            return;
+            if (!clientId || !apiKey) {
+              setError('Google Drive API credentials not configured. Please add VITE_GOOGLE_DRIVE_CLIENT_ID and VITE_GOOGLE_DRIVE_API_KEY to your .env file.');
+              reject(new Error('Missing Google Drive credentials'));
+              return;
+            }
+
+            await window.gapi.client.init({
+              apiKey: apiKey,
+              clientId: clientId,
+              discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+              scope: 'https://www.googleapis.com/auth/drive.file'
+            });
+
+            const authInstance = window.gapi.auth2.getAuthInstance();
+            setIsAuthenticated(authInstance.isSignedIn.get());
+
+            authInstance.isSignedIn.listen((signedIn: boolean) => {
+              setIsAuthenticated(signedIn);
+            });
+
+            if (!authInstance.isSignedIn.get()) {
+              await authInstance.signIn();
+            }
+
+            resolve(true);
+          } catch (err: any) {
+            console.error('Google Drive API initialization error:', err);
+            setError(`Failed to initialize Google Drive API: ${err?.message || err?.error || JSON.stringify(err) || 'Unknown error. Please check console for details.'}`);
+            reject(err);
           }
-
-          await window.gapi.client.init({
-            apiKey: apiKey,
-            clientId: clientId,
-            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-            scope: 'https://www.googleapis.com/auth/drive.file'
-          });
-
-          const authInstance = window.gapi.auth2.getAuthInstance();
-          setIsAuthenticated(authInstance.isSignedIn.get());
-
-          authInstance.isSignedIn.listen((signedIn: boolean) => {
-            setIsAuthenticated(signedIn);
-          });
-
-          if (!authInstance.isSignedIn.get()) {
-            await authInstance.signIn();
-          }
-        } catch (err: any) {
-          setError(`Failed to initialize Google Drive API: ${err.message}`);
-        }
+        }, (err: any) => {
+          console.error('Failed to load gapi client:auth2:', err);
+          setError(`Failed to load Google API modules: ${err?.message || err?.error || 'Unknown error'}`);
+          reject(err);
+        });
       });
     } catch (err: any) {
-      setError(`Failed to load Google Drive API: ${err.message}`);
+      console.error('Failed to load Google Drive API script:', err);
+      setError(`Failed to load Google Drive API: ${err?.message || 'Could not load Google APIs script'}`);
     }
   }
 
