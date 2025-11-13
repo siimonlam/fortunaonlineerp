@@ -649,8 +649,7 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
               .sort((a, b) => a.order_index - b.order_index)
               .map(parentStatus => {
                 const substatuses = statuses.filter(s => s.parent_status_id === parentStatus.id).sort((a, b) => a.order_index - b.order_index);
-                const hasManagers = substatuses.some(s => statusManagers.some(m => m.status_id === s.id));
-                if (!hasManagers) return null;
+                const allStatuses = [parentStatus, ...substatuses];
 
                 return (
                   <div key={parentStatus.id} className="border border-slate-200 rounded-lg overflow-hidden">
@@ -658,36 +657,42 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
                       {parentStatus.name}
                     </div>
                     <div className="p-4 space-y-3">
-                      {substatuses.map(substatus => {
-                        const managers = statusManagers.filter(m => m.status_id === substatus.id);
-                        if (managers.length === 0) return null;
+                      {allStatuses.map(status => {
+                        const managers = statusManagers.filter(m => m.status_id === status.id);
 
                         return (
-                          <div key={substatus.id} className="border border-slate-200 rounded-lg p-3">
-                            <div className="font-medium text-slate-900 mb-2 text-sm">
-                              {substatus.name}
+                          <div key={status.id} className="border border-slate-200 rounded-lg p-3">
+                            <div className="font-medium text-slate-900 mb-2 text-sm flex items-center justify-between">
+                              <span>
+                                {status.id === parentStatus.id ? `${status.name} (Main)` : status.name}
+                              </span>
+                              {managers.length === 0 && (
+                                <span className="text-xs text-slate-400 italic">No managers assigned</span>
+                              )}
                             </div>
-                            <div className="space-y-2">
-                              {managers.map(manager => (
-                                <div key={manager.id} className="flex items-center justify-between bg-slate-50 p-2 rounded">
-                                  <div>
-                                    <div className="font-medium text-sm text-slate-900">
-                                      {manager.staff?.full_name || 'Unknown User'}
+                            {managers.length > 0 && (
+                              <div className="space-y-2">
+                                {managers.map(manager => (
+                                  <div key={manager.id} className="flex items-center justify-between bg-slate-50 p-2 rounded">
+                                    <div>
+                                      <div className="font-medium text-sm text-slate-900">
+                                        {manager.staff?.full_name || 'Unknown User'}
+                                      </div>
+                                      <div className="text-xs text-slate-500">
+                                        {manager.staff?.email}
+                                      </div>
                                     </div>
-                                    <div className="text-xs text-slate-500">
-                                      {manager.staff?.email}
-                                    </div>
+                                    <button
+                                      onClick={() => removeStatusManager(manager.id)}
+                                      disabled={loading}
+                                      className="text-red-600 hover:text-red-700 disabled:opacity-50 text-sm font-medium"
+                                    >
+                                      Remove
+                                    </button>
                                   </div>
-                                  <button
-                                    onClick={() => removeStatusManager(manager.id)}
-                                    disabled={loading}
-                                    className="text-red-600 hover:text-red-700 disabled:opacity-50 text-sm font-medium"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
