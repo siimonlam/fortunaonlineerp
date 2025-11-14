@@ -100,9 +100,10 @@ type TabType = 'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'r
 
 interface ComSecPageProps {
   activeModule: TabType;
+  onClientClick?: (clientId: string) => void;
 }
 
-export function ComSecPage({ activeModule }: ComSecPageProps) {
+export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const { user } = useAuth();
   const [searchTermClients, setSearchTermClients] = useState('');
   const [searchTermInvoices, setSearchTermInvoices] = useState('');
@@ -2159,6 +2160,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
               setShowDocumentModal(true);
             }
           }}
+          onClientClick={onClientClick}
         />
       )}
 

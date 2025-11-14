@@ -103,9 +103,10 @@ interface EditComSecClientModalProps {
   onSuccess: () => void;
   onCreateInvoice?: () => void;
   onOpenDocuments?: () => void;
+  onClientClick?: (clientId: string) => void;
 }
 
-export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCreateInvoice, onOpenDocuments }: EditComSecClientModalProps) {
+export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCreateInvoice, onOpenDocuments, onClientClick }: EditComSecClientModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [directors, setDirectors] = useState<Director[]>([{name: '', id_number: ''}]);
@@ -883,9 +884,13 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                 <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-blue-900">Linked Client:</span>
-                    <span className="text-xs font-semibold text-blue-600 bg-white px-2 py-1 rounded">
+                    <button
+                      type="button"
+                      onClick={() => onClientClick?.(client.client!.id)}
+                      className="text-xs font-semibold text-blue-600 bg-white px-2 py-1 rounded hover:bg-blue-100 transition-colors cursor-pointer"
+                    >
                       #{String(client.client.client_number).padStart(4, '0')}
-                    </span>
+                    </button>
                     <span className="text-sm text-blue-800">{client.client.name}</span>
                   </div>
                 </div>

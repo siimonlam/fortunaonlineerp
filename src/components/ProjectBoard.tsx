@@ -1724,7 +1724,16 @@ export function ProjectBoard() {
             </div>
 
             {isComSecSection ? (
-              <ComSecPage activeModule={comSecModule} />
+              <ComSecPage
+                activeModule={comSecModule}
+                onClientClick={(clientId) => {
+                  const client = clients.find(c => c.id === clientId);
+                  if (client) {
+                    setSelectedClient(client);
+                    setSelectedView('clients');
+                  }
+                }}
+              />
             ) : isAdminSection ? (
               <AdminPage />
             ) : isClientSection ? (
