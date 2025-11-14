@@ -65,6 +65,12 @@ interface Staff {
   email: string;
 }
 
+interface Client {
+  id: string;
+  name: string;
+  client_number: number;
+}
+
 interface ComSecClient {
   id: string;
   company_code: string | null;
@@ -86,6 +92,8 @@ interface ComSecClient {
   sales_person_id: string | null;
   created_at: string;
   created_by: string;
+  client_id: string | null;
+  client?: Client;
 }
 
 interface EditComSecClientModalProps {
@@ -871,6 +879,17 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                   />
                 </div>
               </div>
+              {client.client && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-blue-900">Linked Client:</span>
+                    <span className="text-xs font-semibold text-blue-600 bg-white px-2 py-1 rounded">
+                      #{String(client.client.client_number).padStart(4, '0')}
+                    </span>
+                    <span className="text-sm text-blue-800">{client.client.name}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="border-b border-slate-200 pb-4">

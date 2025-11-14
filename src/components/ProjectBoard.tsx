@@ -350,7 +350,7 @@ export function ProjectBoard() {
     console.log('[loadData] Called. Current selectedProjectType:', selectedProjectType);
     console.log('Current user ID:', user?.id);
 
-    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes] = await Promise.all([
+    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes, comSecClientsRes] = await Promise.all([
       supabase.from('project_types').select('*').order('name'),
       supabase.from('statuses').select('*').order('order_index'),
       supabase
@@ -381,6 +381,7 @@ export function ProjectBoard() {
       supabase.from('project_type_permissions').select('project_type_id').eq('user_id', user?.id || ''),
       supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name'),
       supabase.from('funding_invoice').select('*').order('created_at', { ascending: false }),
+      supabase.from('comsec_clients').select('id, company_code, company_name, client_id').order('created_at', { ascending: false }),
     ]);
 
     const userRoleRes = await supabase
@@ -489,20 +490,48 @@ export function ProjectBoard() {
 
     if (clientsRes.data) {
       console.log('Processing clients:', clientsRes.data);
+      const comSecProjectTypeId = projectTypesRes.data?.find(pt => pt.name === 'Com Sec')?.id;
+
       if (staffRes.data) {
-        const enrichedClients = clientsRes.data.map(client => ({
-          ...client,
-          creator: staffRes.data.find(s => s.id === client.created_by),
-          sales_person: client.sales_person_id ? staffRes.data.find(s => s.id === client.sales_person_id) : undefined,
-          projects: projectsRes.data?.filter(p => p.client_id === client.id) || [],
-        }));
+        const enrichedClients = clientsRes.data.map(client => {
+          const clientProjects = projectsRes.data?.filter(p => p.client_id === client.id) || [];
+          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.client_id === client.id) || [];
+
+          const comSecProjectsFromClients = comSecClientsForClient.map(cc => ({
+            id: cc.id,
+            title: cc.company_name,
+            project_reference: cc.company_code,
+            project_type_id: comSecProjectTypeId,
+            client_id: client.id,
+          }));
+
+          return {
+            ...client,
+            creator: staffRes.data.find(s => s.id === client.created_by),
+            sales_person: client.sales_person_id ? staffRes.data.find(s => s.id === client.sales_person_id) : undefined,
+            projects: [...clientProjects, ...comSecProjectsFromClients],
+          };
+        });
         console.log('Setting enriched clients:', enrichedClients);
         setClients(enrichedClients);
       } else {
-        const enrichedClients = clientsRes.data.map(client => ({
-          ...client,
-          projects: projectsRes.data?.filter(p => p.client_id === client.id) || [],
-        }));
+        const enrichedClients = clientsRes.data.map(client => {
+          const clientProjects = projectsRes.data?.filter(p => p.client_id === client.id) || [];
+          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.client_id === client.id) || [];
+
+          const comSecProjectsFromClients = comSecClientsForClient.map(cc => ({
+            id: cc.id,
+            title: cc.company_name,
+            project_reference: cc.company_code,
+            project_type_id: comSecProjectTypeId,
+            client_id: client.id,
+          }));
+
+          return {
+            ...client,
+            projects: [...clientProjects, ...comSecProjectsFromClients],
+          };
+        });
         console.log('Setting enriched clients (no staff):', enrichedClients);
         setClients(enrichedClients);
       }

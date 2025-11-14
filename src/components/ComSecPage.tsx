@@ -184,7 +184,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   async function loadComSecClients() {
     const { data } = await supabase
       .from('comsec_clients')
-      .select('*, case_officer:staff!case_officer_id(full_name), sales_person:staff!sales_person_id(full_name)')
+      .select('*, case_officer:staff!case_officer_id(full_name), sales_person:staff!sales_person_id(full_name), client:clients!client_id(id, name, client_number)')
       .order('created_at', { ascending: false });
     if (data) setComSecClients(data);
   }
