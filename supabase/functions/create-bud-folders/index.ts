@@ -169,7 +169,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const access_token = tokenData;
-    const parent_folder_id = '1XWJxY4SBvTrYdg94mMpBk2L3Wxq1ixbd';
+    const parent_folder_id = '1UGe0xaW7Z-PIFhK9CHLayI78k59HjQ-n';
 
     // Create root folder for this project
     const rootFolderName = project_name || `Project ${project_id}`;
