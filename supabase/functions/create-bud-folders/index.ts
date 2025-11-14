@@ -187,7 +187,7 @@ Deno.serve(async (req: Request) => {
         },
         body: new URLSearchParams({
           client_id: '1030291796653-cac8klgoqmkaqvo0odhcj12g7qhip42e.apps.googleusercontent.com',
-          client_secret: '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',
+          client_secret: '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',
           refresh_token: credentials.refresh_token,
           grant_type: 'refresh_token',
         }),
@@ -195,9 +195,13 @@ Deno.serve(async (req: Request) => {
 
       if (!refreshResponse.ok) {
         const error = await refreshResponse.text();
-        console.error('Failed to refresh token:', error);
+        console.error('Failed to refresh token. Status:', refreshResponse.status, 'Error:', error);
         return new Response(
-          JSON.stringify({ error: 'Failed to refresh Google Drive token. Please re-authenticate.' }),
+          JSON.stringify({
+            error: 'Failed to refresh Google Drive token. Please re-authenticate.',
+            details: error,
+            status: refreshResponse.status
+          }),
           {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
