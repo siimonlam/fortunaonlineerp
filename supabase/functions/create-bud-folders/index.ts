@@ -140,19 +140,39 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    const { project_id, parent_folder_id, access_token, project_name } = await req.json();
+    const { project_id, project_name } = await req.json();
 
     console.log('Creating BUD folders for project:', project_id, project_name);
 
-    if (!project_id || !parent_folder_id || !access_token) {
+    if (!project_id) {
       return new Response(
-        JSON.stringify({ error: 'project_id, parent_folder_id, and access_token are required' }),
+        JSON.stringify({ error: 'project_id is required' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
+
+    const { data: credentials, error: credError } = await supabase
+      .from('google_oauth_credentials')
+      .select('access_token')
+      .eq('service_name', 'google_drive')
+      .maybeSingle();
+
+    if (credError || !credentials) {
+      console.error('Failed to fetch OAuth credentials:', credError);
+      return new Response(
+        JSON.stringify({ error: 'Google Drive OAuth credentials not configured. Please contact administrator.' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const access_token = credentials.access_token;
+    const parent_folder_id = '1XWJxY4SBvTrYdg94mMpBk2L3Wxq1ixbd';
 
     // Create root folder for this project
     const rootFolderName = project_name || `Project ${project_id}`;
