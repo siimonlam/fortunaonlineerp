@@ -37,6 +37,7 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     loadGoogleDriveAPI();
@@ -182,15 +183,20 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
   }
 
   async function navigateToProjectFolder() {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setDebugInfo('Waiting for authentication...');
+      return;
+    }
 
     try {
       // First, try to get folder info from database if we have projectId
       if (projectId) {
+        setDebugInfo(`Looking up project folder in database for project: ${projectId}`);
         console.log('Looking up project folder in database for project:', projectId);
         const folderInfo = await getProjectFolders(projectId);
 
         if (folderInfo && folderInfo.parent_folder_id) {
+          setDebugInfo(`Found folder ID in database: ${folderInfo.parent_folder_id}`);
           console.log('Found project folder in database:', folderInfo.parent_folder_id);
 
           // Get folder name from Google Drive
@@ -201,6 +207,7 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
             });
 
             if (folderResponse.result) {
+              setDebugInfo(`Successfully navigated to: ${folderResponse.result.name}`);
               setCurrentFolderId(folderResponse.result.id);
               setBreadcrumbs([
                 { id: budFolderId, name: budFolderName },
@@ -208,14 +215,18 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
               ]);
               return;
             }
-          } catch (err) {
-            console.log('Could not fetch folder details from Drive, trying search instead');
+          } catch (err: any) {
+            setDebugInfo(`Error accessing folder: ${err.message}. Trying search...`);
+            console.log('Could not fetch folder details from Drive:', err);
           }
+        } else {
+          setDebugInfo('No folder info found in database. Trying search...');
         }
       }
 
       // Fallback: Search by project reference
       if (projectReference) {
+        setDebugInfo(`Searching for folder with reference: ${projectReference}`);
         console.log('Searching for project folder by reference:', projectReference);
         const searchQuery = `'${budFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and name contains '${projectReference}' and trashed=false`;
 
@@ -227,6 +238,7 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
 
         if (response.result.files && response.result.files.length > 0) {
           const projectFolder = response.result.files[0];
+          setDebugInfo(`Found and navigated to: ${projectFolder.name}`);
           console.log('Found project folder:', projectFolder);
           setCurrentFolderId(projectFolder.id);
           setBreadcrumbs([
@@ -234,10 +246,12 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
             { id: projectFolder.id, name: projectFolder.name }
           ]);
         } else {
+          setDebugInfo(`Project folder not found. Searched in parent: ${budFolderId}`);
           console.log('Project folder not found by reference');
         }
       }
     } catch (err: any) {
+      setDebugInfo(`Error: ${err.message}`);
       console.error('Error finding project folder:', err);
     }
   }
@@ -424,6 +438,11 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
             <h2 className="text-xl font-bold text-slate-900">Google Drive Files</h2>
             {projectReference && (
               <p className="text-sm text-slate-500 mt-1">Project: {projectReference}</p>
+            )}
+            {debugInfo && (
+              <p className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
+                {debugInfo}
+              </p>
             )}
             <p className="text-xs text-slate-400 mt-1">
               Current Folder ID: {currentFolderId} | Files: {files.length}
