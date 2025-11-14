@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Folder, FileText, Download, Upload, Trash2, RefreshCw, File, FileSpreadsheet, Image, FileCode, FileArchive, FileVideo, FileAudio, ChevronRight, Home } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { getProjectFolders } from '../utils/googleDriveUtils';
 
 interface GoogleDriveExplorerProps {
   onClose: () => void;
@@ -47,10 +49,10 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
   }, [currentFolderId, isAuthenticated]);
 
   useEffect(() => {
-    if (isAuthenticated && projectReference) {
+    if (isAuthenticated && (projectReference || projectId)) {
       navigateToProjectFolder();
     }
-  }, [isAuthenticated, projectReference]);
+  }, [isAuthenticated, projectReference, projectId]);
 
   async function loadGoogleDriveAPI() {
     try {
@@ -180,28 +182,60 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
   }
 
   async function navigateToProjectFolder() {
-    if (!isAuthenticated || !projectReference) return;
+    if (!isAuthenticated) return;
 
     try {
-      console.log('Searching for project folder:', projectReference);
-      const searchQuery = `'${budFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and name contains '${projectReference}' and trashed=false`;
+      // First, try to get folder info from database if we have projectId
+      if (projectId) {
+        console.log('Looking up project folder in database for project:', projectId);
+        const folderInfo = await getProjectFolders(projectId);
 
-      const response = await window.gapi.client.drive.files.list({
-        q: searchQuery,
-        fields: 'files(id, name)',
-        pageSize: 10
-      });
+        if (folderInfo && folderInfo.parent_folder_id) {
+          console.log('Found project folder in database:', folderInfo.parent_folder_id);
 
-      if (response.result.files && response.result.files.length > 0) {
-        const projectFolder = response.result.files[0];
-        console.log('Found project folder:', projectFolder);
-        setCurrentFolderId(projectFolder.id);
-        setBreadcrumbs([
-          { id: budFolderId, name: budFolderName },
-          { id: projectFolder.id, name: projectFolder.name }
-        ]);
-      } else {
-        console.log('Project folder not found');
+          // Get folder name from Google Drive
+          try {
+            const folderResponse = await window.gapi.client.drive.files.get({
+              fileId: folderInfo.parent_folder_id,
+              fields: 'id, name'
+            });
+
+            if (folderResponse.result) {
+              setCurrentFolderId(folderResponse.result.id);
+              setBreadcrumbs([
+                { id: budFolderId, name: budFolderName },
+                { id: folderResponse.result.id, name: folderResponse.result.name }
+              ]);
+              return;
+            }
+          } catch (err) {
+            console.log('Could not fetch folder details from Drive, trying search instead');
+          }
+        }
+      }
+
+      // Fallback: Search by project reference
+      if (projectReference) {
+        console.log('Searching for project folder by reference:', projectReference);
+        const searchQuery = `'${budFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and name contains '${projectReference}' and trashed=false`;
+
+        const response = await window.gapi.client.drive.files.list({
+          q: searchQuery,
+          fields: 'files(id, name)',
+          pageSize: 10
+        });
+
+        if (response.result.files && response.result.files.length > 0) {
+          const projectFolder = response.result.files[0];
+          console.log('Found project folder:', projectFolder);
+          setCurrentFolderId(projectFolder.id);
+          setBreadcrumbs([
+            { id: budFolderId, name: budFolderName },
+            { id: projectFolder.id, name: projectFolder.name }
+          ]);
+        } else {
+          console.log('Project folder not found by reference');
+        }
       }
     } catch (err: any) {
       console.error('Error finding project folder:', err);
