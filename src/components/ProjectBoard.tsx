@@ -2428,23 +2428,7 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
   const comSecProjectType = projectTypes.find(pt => pt.name === 'Com Sec');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing');
 
-  const canSeeFundingProject = isAdmin || (fundingProjectType?.id ? projectTypePermissions.includes(fundingProjectType.id) : false);
-  const canSeeComSec = isAdmin || (comSecProjectType?.id ? projectTypePermissions.includes(comSecProjectType.id) : false);
-  const canSeeMarketing = isAdmin || (marketingProjectType?.id ? projectTypePermissions.includes(marketingProjectType.id) : false);
-
-  const hasAnyButton = !isChannelPartner && (canSeeFundingProject || canSeeComSec || canSeeMarketing);
-
-  console.log('ClientCard Button Visibility:', {
-    isAdmin,
-    projectTypePermissions,
-    fundingProjectTypeId: fundingProjectType?.id,
-    comSecProjectTypeId: comSecProjectType?.id,
-    marketingProjectTypeId: marketingProjectType?.id,
-    canSeeFundingProject,
-    canSeeComSec,
-    canSeeMarketing,
-    hasAnyButton
-  });
+  const hasAnyButton = !isChannelPartner && projectTypes.length > 0;
 
   return (
     <div
@@ -2489,7 +2473,7 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
             </button>
             {showMenu && (
               <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10 min-w-[180px]">
-                {fundingProjectType && canSeeFundingProject && (
+                {fundingProjectType && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2501,7 +2485,7 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
                   Funding Project
                 </button>
               )}
-              {comSecProjectType && canSeeComSec && (
+              {comSecProjectType && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2513,7 +2497,7 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
                   Com Sec
                 </button>
               )}
-              {marketingProjectType && canSeeMarketing && (
+              {marketingProjectType && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
