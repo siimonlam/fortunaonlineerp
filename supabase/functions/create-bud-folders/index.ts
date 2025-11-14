@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3';
-const GOOGLE_API_KEY = 'AIzaSyCSPfcWIBQxa57rvg_IisY4y0dlPbi1K6Q';
+const GOOGLE_API_KEY = 'AIzaSyCaL5l3z5Lpt8_34CuYgsrCjlOQfZegQOg';
 
 interface FolderStructure {
   path: string;
