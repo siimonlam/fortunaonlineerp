@@ -154,13 +154,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: credentials, error: credError } = await supabase
-      .from('google_oauth_credentials')
-      .select('access_token')
-      .eq('service_name', 'google_drive')
-      .maybeSingle();
+    const { data: tokenData, error: credError } = await supabase
+      .rpc('get_google_drive_token');
 
-    if (credError || !credentials) {
+    if (credError || !tokenData) {
       console.error('Failed to fetch OAuth credentials:', credError);
       return new Response(
         JSON.stringify({ error: 'Google Drive OAuth credentials not configured. Please contact administrator.' }),
@@ -171,7 +168,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const access_token = credentials.access_token;
+    const access_token = tokenData;
     const parent_folder_id = '1XWJxY4SBvTrYdg94mMpBk2L3Wxq1ixbd';
 
     // Create root folder for this project
