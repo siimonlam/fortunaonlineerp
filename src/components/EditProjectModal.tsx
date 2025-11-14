@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { GoogleDriveExplorer } from './GoogleDriveExplorer';
 import html2pdf from 'html2pdf.js';
+import { createBudProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
 
 interface Staff {
   id: string;
@@ -127,6 +128,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   });
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<any>({});
+  const [creatingFolders, setCreatingFolders] = useState(false);
+  const [projectFolderInfo, setProjectFolderInfo] = useState<any>(null);
+  const [folderCreationError, setFolderCreationError] = useState<string | null>(null);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -235,6 +239,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     if (isAdmin) {
       loadPermissions();
     }
+    loadProjectFolders();
   }, [isAdmin]);
 
   useEffect(() => {
@@ -618,6 +623,50 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
     if (data) {
       setPermissions(data as any);
+    }
+  }
+
+  async function loadProjectFolders() {
+    try {
+      const folderData = await getProjectFolders(project.id);
+      setProjectFolderInfo(folderData);
+    } catch (error) {
+      console.error('Error loading project folders:', error);
+    }
+  }
+
+  async function handleCreateFolders() {
+    const parentFolderId = prompt('Enter the Google Drive Parent Folder ID:');
+    if (!parentFolderId) return;
+
+    const accessToken = prompt('Enter your Google Drive Access Token:');
+    if (!accessToken) return;
+
+    setCreatingFolders(true);
+    setFolderCreationError(null);
+
+    try {
+      const projectName = `${project.project_reference || project.id} - ${project.company_name || project.title}`;
+      const result = await createBudProjectFolders(
+        project.id,
+        projectName,
+        parentFolderId,
+        accessToken
+      );
+
+      setProjectFolderInfo({
+        parent_folder_id: result.root_folder_id,
+        folder_structure: result.folder_map,
+        status: 'completed',
+      });
+
+      alert(`Successfully created ${result.folders_created} folders!${result.errors ? `\n\nSome folders had errors - check console for details.` : ''}`);
+    } catch (error: any) {
+      console.error('Error creating folders:', error);
+      setFolderCreationError(error.message);
+      alert(`Failed to create folders: ${error.message}`);
+    } finally {
+      setCreatingFolders(false);
     }
   }
 
@@ -2360,6 +2409,53 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
               <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
                 Google Drive Files
               </h3>
+
+              {projectFolderInfo ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                      <FolderPlus className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-green-900 mb-1">
+                        BUD Folder Structure Created
+                      </p>
+                      <p className="text-xs text-green-700">
+                        Folder ID: {projectFolderInfo.parent_folder_id}
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        Status: {projectFolderInfo.status}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <FolderPlus className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-900 mb-1">
+                        Create BUD Folder Structure
+                      </p>
+                      <p className="text-xs text-blue-700 mb-3">
+                        Automatically create the complete BUD project folder structure with 80+ folders on Google Drive
+                      </p>
+                      <button
+                        type="button"
+                        disabled={creatingFolders}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleCreateFolders}
+                      >
+                        <FolderPlus className="w-4 h-4" />
+                        {creatingFolders ? 'Creating Folders...' : 'Create Folder Structure'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-white border border-slate-200 rounded-lg p-4">
                 <p className="text-sm text-slate-600 mb-4 text-center">
                   Browse and manage project documents on Google Drive
