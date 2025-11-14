@@ -75,6 +75,7 @@ interface ComSecClient {
   id: string;
   company_code: string | null;
   company_name: string;
+  company_name_chinese: string | null;
   brn: string | null;
   incorporation_date: string | null;
   case_officer_id: string | null;
@@ -134,6 +135,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
   const [formData, setFormData] = useState({
     company_name: client.company_name || '',
+    company_name_chinese: client.company_name_chinese || '',
     company_code: client.company_code || '',
     brn: client.brn || '',
     incorporation_date: client.incorporation_date || '',
@@ -674,6 +676,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         .from('comsec_clients')
         .update({
           company_name: formData.company_name.trim(),
+          company_name_chinese: formData.company_name_chinese.trim() || null,
           company_code: formData.company_code.trim() || null,
           brn: formData.brn.trim() || null,
           incorporation_date: formData.incorporation_date || null,
@@ -879,6 +882,15 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Company Name in Chinese</label>
+                <input
+                  value={formData.company_name_chinese}
+                  onChange={(e) => setFormData({ ...formData, company_name_chinese: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="输入中文公司名称"
+                />
               </div>
               {client.client && (
                 <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">

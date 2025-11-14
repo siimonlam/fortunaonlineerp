@@ -12,6 +12,7 @@ interface Staff {
 interface Client {
   id: string;
   name: string;
+  company_name_chinese: string | null;
   client_number: number;
   contact_person: string | null;
   email: string | null;
@@ -66,6 +67,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
   const [isChannelPartner, setIsChannelPartner] = useState(false);
   const [formData, setFormData] = useState({
     name: client.name,
+    companyNameChinese: client.company_name_chinese || '',
     contactPerson: client.contact_person || '',
     email: client.email || '',
     phone: client.phone || '',
@@ -79,6 +81,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
   });
   const [originalData] = useState({
     name: client.name,
+    companyNameChinese: client.company_name_chinese || '',
     contactPerson: client.contact_person || '',
     email: client.email || '',
     phone: client.phone || '',
@@ -222,6 +225,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
         .from('clients')
         .update({
           name: formData.name.trim(),
+          company_name_chinese: formData.companyNameChinese.trim() || null,
           contact_person: formData.contactPerson.trim() || null,
           email: formData.email.trim() || null,
           phone: formData.phone.trim() || null,
@@ -318,6 +322,17 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
                 placeholder="Enter abbreviation"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name in Chinese</label>
+            <input
+              type="text"
+              value={formData.companyNameChinese}
+              onChange={(e) => setFormData({ ...formData, companyNameChinese: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="输入中文公司名称"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

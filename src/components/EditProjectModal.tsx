@@ -25,6 +25,7 @@ interface ProjectPermission {
 interface Project {
   id: string;
   title: string;
+  company_name_chinese?: string;
   description: string | null;
   status_id: string;
   project_type_id: string;
@@ -144,6 +145,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
   const [formData, setFormData] = useState({
     title: project.title,
+    companyNameChinese: project.company_name_chinese || '',
     description: project.description || '',
     statusId: project.status_id,
     projectName: project.project_name || '',
@@ -754,6 +756,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         .from('projects')
         .update({
           title: formData.title.trim(),
+          company_name_chinese: formData.companyNameChinese.trim() || null,
           description: formData.description.trim() || null,
           status_id: formData.statusId,
           project_name: formData.projectName.trim() || null,
@@ -1409,6 +1412,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                 onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                 placeholder="Enter company name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Company Name in Chinese</label>
+              <input
+                type="text"
+                disabled={!canEdit}
+                value={formData.companyNameChinese}
+                onChange={(e) => setFormData({ ...formData, companyNameChinese: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                placeholder="输入中文公司名称"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
