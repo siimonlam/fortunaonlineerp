@@ -116,6 +116,12 @@ export function ProjectCard({
   const relatedProjects = allProjects?.filter(p => p.source_client_id === project.id) || [];
   const projectTypesForCreate = projectTypes?.filter(pt => pt.name !== 'Client') || [];
 
+  const fundingProjectTypeId = projectTypes?.find(pt => pt.name === 'Funding Project')?.id;
+  const comSecProjectTypeId = projectTypes?.find(pt => pt.name === 'Com Sec')?.id;
+
+  const relatedFundingProjects = relatedProjects.filter(p => p.project_type_id === fundingProjectTypeId);
+  const relatedComSecProjects = relatedProjects.filter(p => p.project_type_id === comSecProjectTypeId);
+
   const isFundingProject = projectTypes?.find(pt => pt.id === project.project_type_id)?.name === 'Funding Project';
 
   const upcomingTasks = project.tasks?.filter(task => {
@@ -282,21 +288,42 @@ export function ProjectCard({
           </div>
         )}
 
-        {isClientSection && relatedProjects.length > 0 && (
+        {isClientSection && (relatedFundingProjects.length > 0 || relatedComSecProjects.length > 0) && (
           <div className="mt-3 pt-3 border-t border-slate-200">
-            <p className="text-xs font-medium text-slate-500 mb-2">Related Projects:</p>
-            <div className="space-y-1">
-              {relatedProjects.map(relatedProj => {
-                const { type, status } = getProjectTypeAndStatus(relatedProj);
-                return (
-                  <div key={relatedProj.id} className="text-xs text-slate-600 flex items-center gap-1">
-                    <span className="font-medium">{type}</span>
-                    <span className="text-slate-400">•</span>
-                    <span>{status}</span>
-                  </div>
-                );
-              })}
-            </div>
+            {relatedFundingProjects.length > 0 && (
+              <div className="mb-2">
+                <p className="text-xs font-medium text-slate-500 mb-1">Funding Projects:</p>
+                <div className="space-y-1">
+                  {relatedFundingProjects.map(relatedProj => {
+                    const { status } = getProjectTypeAndStatus(relatedProj);
+                    return (
+                      <div key={relatedProj.id} className="text-xs text-slate-600 flex items-center gap-1">
+                        <span className="font-medium">{relatedProj.project_reference || relatedProj.title}</span>
+                        <span className="text-slate-400">•</span>
+                        <span>{status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {relatedComSecProjects.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">ComSec Projects:</p>
+                <div className="space-y-1">
+                  {relatedComSecProjects.map(relatedProj => {
+                    const { status } = getProjectTypeAndStatus(relatedProj);
+                    return (
+                      <div key={relatedProj.id} className="text-xs text-slate-600 flex items-center gap-1">
+                        <span className="font-medium">{relatedProj.title}</span>
+                        <span className="text-slate-400">•</span>
+                        <span>{status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
