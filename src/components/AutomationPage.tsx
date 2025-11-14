@@ -7,7 +7,7 @@ interface AutomationRule {
   name: string;
   project_type_id: string;
   main_status: string;
-  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date';
+  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date' | 'deposit_paid';
   trigger_config: any;
   condition_type?: 'no_condition' | 'sales_source' | 'sales_person';
   condition_config?: any;
@@ -47,6 +47,7 @@ const TRIGGER_TYPES = [
   { value: 'hkpc_date_set', label: 'New Next HKPC Date is set' },
   { value: 'task_completed', label: 'A Project task is completed' },
   { value: 'status_changed', label: 'Project converts to a new status' },
+  { value: 'deposit_paid', label: 'Deposit status is paid' },
   { value: 'periodic', label: 'Periodically Action' },
   { value: 'days_after_date', label: 'X days after a date field' }
 ];
