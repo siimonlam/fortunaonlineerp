@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, LayoutGrid, List, Mail, Phone, MapPin, User, Briefcase } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { EditPartnerProjectModal } from './EditPartnerProjectModal';
@@ -67,6 +67,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [selectedPartnerProject, setSelectedPartnerProject] = useState<PartnerProject | null>(null);
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
   useEffect(() => {
     if (activeTab === 'channel' && channelPartnerSubTab === 'projects') {
@@ -118,8 +119,36 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
         </div>
       )}
       {activeTab === 'company' && (
-        <div className="overflow-x-auto">
-            <table className="w-full">
+        <>
+          <div className="flex justify-end items-center gap-2 px-6 py-3 border-b border-slate-200 bg-slate-50">
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-2 rounded transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Table View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('card')}
+                className={`p-2 rounded transition-colors ${
+                  viewMode === 'card'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Card View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          {viewMode === 'table' ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               {activeTab === 'company' && onSelectAll && (
@@ -221,12 +250,152 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
             <p className="text-slate-500">No company clients yet. Click "Add Company Client" to get started.</p>
           </div>
         )}
-        </div>
+            </div>
+          ) : (
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {clients.map(client => (
+                <div
+                  key={client.id}
+                  className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-blue-300 transition-all cursor-pointer group"
+                  onClick={() => onClientClick(client)}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        {onToggleClientSelection && (
+                          <input
+                            type="checkbox"
+                            checked={selectedClientIds?.has(client.id) || false}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              onToggleClientSelection(client.id);
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                          />
+                        )}
+                        <span className="text-xs font-medium text-slate-500">#{client.client_number}</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                        {client.name}
+                      </h3>
+                      {client.abbreviation && (
+                        <span className="inline-block mt-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                          {client.abbreviation}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-sm mb-4">
+                    {client.industry && (
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Briefcase className="w-4 h-4 text-slate-400" />
+                        <span className="inline-block text-xs font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded">
+                          {client.industry}
+                        </span>
+                      </div>
+                    )}
+                    {client.contact_person && (
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <User className="w-4 h-4 text-slate-400" />
+                        <span>{client.contact_person}</span>
+                      </div>
+                    )}
+                    {client.email && (
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Mail className="w-4 h-4 text-slate-400" />
+                        <span className="truncate">{client.email}</span>
+                      </div>
+                    )}
+                    {client.phone && (
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Phone className="w-4 h-4 text-slate-400" />
+                        <span>{client.phone}</span>
+                      </div>
+                    )}
+                    {client.address && (
+                      <div className="flex items-start gap-2 text-slate-600">
+                        <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                        <span className="text-xs line-clamp-2">{client.address}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {client.notes && (
+                    <p className="text-xs text-slate-500 line-clamp-2 mb-3 italic">
+                      {client.notes}
+                    </p>
+                  )}
+
+                  <div className="pt-3 border-t border-slate-100">
+                    <div className="text-xs text-slate-500">
+                      Created by {client.creator?.full_name || 'Unknown'}
+                    </div>
+                    {client.sales_person && (
+                      <div className="text-xs text-slate-500">
+                        Sales: {client.sales_person.full_name}
+                      </div>
+                    )}
+                  </div>
+
+                  {projectTypes && projectTypes.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-wrap gap-1">
+                        {projectTypes.map(type => (
+                          <button
+                            key={type.id}
+                            onClick={() => onCreateProject(client, type.id)}
+                            className="text-xs px-2 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                          >
+                            + {type.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {clients.length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-slate-500">No company clients yet. Click "Add Company Client" to get started.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {activeTab === 'channel' && channelPartnerSubTab === 'partners' && (
-        <div className="overflow-x-auto">
-            <table className="w-full">
+        <>
+          <div className="flex justify-end items-center gap-2 px-6 py-3 border-b border-slate-200 bg-slate-50">
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-2 rounded transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Table View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('card')}
+                className={`p-2 rounded transition-colors ${
+                  viewMode === 'card'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Card View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          {viewMode === 'table' ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -324,7 +493,92 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
             <p className="text-slate-500">No channel partners yet. Click "Add Channel Partner" to get started.</p>
           </div>
         )}
-        </div>
+            </div>
+          ) : (
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {channelPartners.map(partner => (
+                <div
+                  key={partner.id}
+                  className="bg-white border border-emerald-200 rounded-xl p-5 hover:shadow-lg hover:border-emerald-400 transition-all cursor-pointer group"
+                  onClick={() => onChannelPartnerClick(partner)}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                        #CP{String(partner.client_number).padStart(4, '0')}
+                      </span>
+                      <h3 className="text-lg font-bold text-slate-900 group-hover:text-emerald-600 transition-colors mt-2">
+                        {partner.name}
+                      </h3>
+                      {partner.abbreviation && (
+                        <span className="inline-block mt-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                          {partner.abbreviation}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-sm mb-4">
+                    {partner.industry && (
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Briefcase className="w-4 h-4 text-slate-400" />
+                        <span className="inline-block text-xs font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded">
+                          {partner.industry}
+                        </span>
+                      </div>
+                    )}
+                    {partner.contact_person && (
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <User className="w-4 h-4 text-slate-400" />
+                        <span>{partner.contact_person}</span>
+                      </div>
+                    )}
+                    {partner.email && (
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Mail className="w-4 h-4 text-slate-400" />
+                        <span className="truncate">{partner.email}</span>
+                      </div>
+                    )}
+                    {partner.phone && (
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Phone className="w-4 h-4 text-slate-400" />
+                        <span>{partner.phone}</span>
+                      </div>
+                    )}
+                    {partner.address && (
+                      <div className="flex items-start gap-2 text-slate-600">
+                        <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                        <span className="text-xs line-clamp-2">{partner.address}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {partner.notes && (
+                    <p className="text-xs text-slate-500 line-clamp-2 mb-3 italic">
+                      {partner.notes}
+                    </p>
+                  )}
+
+                  <div className="pt-3 border-t border-slate-100">
+                    <div className="text-xs text-slate-500">
+                      Created by {partner.creator?.full_name || 'Unknown'}
+                    </div>
+                    {partner.sales_person && (
+                      <div className="text-xs text-slate-500">
+                        Sales: {partner.sales_person.full_name}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {channelPartners.length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-slate-500">No channel partners yet. Click "Add Channel Partner" to get started.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {activeTab === 'channel' && channelPartnerSubTab === 'projects' && (

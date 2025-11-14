@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail, LayoutGrid, List } from 'lucide-react';
 import { InvoicePreview } from './InvoicePreview';
 import { DocumentFolderModal } from './DocumentFolderModal';
 import { EditComSecClientModal } from './EditComSecClientModal';
@@ -132,6 +132,7 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
   const [clientsSubTab, setClientsSubTab] = useState<'list' | 'autofill_settings'>('list');
   const [virtualOfficeSubTab, setVirtualOfficeSubTab] = useState<'virtual_office' | 'letters'>('virtual_office');
   const [showLetterModal, setShowLetterModal] = useState(false);
+  const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [selectedVOClient, setSelectedVOClient] = useState<{ id: string; code: string; name: string } | null>(null);
   const [letters, setLetters] = useState<any[]>([]);
   const [showAddMappingModal, setShowAddMappingModal] = useState(false);
@@ -481,18 +482,45 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
 
         {clientsSubTab === 'list' ? (
           <>
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search companies..."
-                value={searchTermClients}
-                onChange={(e) => setSearchTermClients(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search companies..."
+                  value={searchTermClients}
+                  onChange={(e) => setSearchTermClients(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                <button
+                  onClick={() => setClientViewMode('card')}
+                  className={`p-2 rounded transition-colors ${
+                    clientViewMode === 'card'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Card View"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setClientViewMode('table')}
+                  className={`p-2 rounded transition-colors ${
+                    clientViewMode === 'table'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Table View"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            <div className="grid gap-4">
+            {clientViewMode === 'card' ? (
+              <div className="grid gap-4">
           {filteredClients.map(client => {
             return (
               <div
@@ -554,7 +582,77 @@ export function ComSecPage({ activeModule }: ComSecPageProps) {
               </div>
             );
           })}
-            </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Company Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Code</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">BRN</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Case Officer</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Anniversary</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">AR Due Date</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredClients.map(client => (
+                      <tr
+                        key={client.id}
+                        className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={() => { setEditingClient(client); setShowEditClientModal(true); }}
+                      >
+                        <td className="py-3 px-4 text-sm text-slate-900 font-medium">{client.company_name}</td>
+                        <td className="py-3 px-4 text-sm text-slate-600">{client.company_code || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-slate-600">{client.brn || '-'}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 text-xs font-medium rounded ${
+                            client.company_status === 'Active' ? 'bg-green-100 text-green-700' :
+                            client.company_status === 'Dormant' ? 'bg-gray-100 text-gray-700' :
+                            'bg-slate-100 text-slate-700'
+                          }`}>
+                            {client.company_status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-slate-600">{client.case_officer?.full_name || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-slate-600">{client.anniversary_month || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-slate-600">
+                          {client.ar_due_date ? new Date(client.ar_due_date).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => { setSelectedClientForInvoice(client); setShowInvoiceModal(true); }}
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                              title="Create Invoice"
+                            >
+                              <Receipt className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => { setEditingClient(client); setShowEditClientModal(true); }}
+                              className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete('comsec_clients', client.id)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         ) : (
           renderAutoFillSettings()
