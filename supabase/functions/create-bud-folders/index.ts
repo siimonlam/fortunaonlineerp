@@ -154,10 +154,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: tokenData, error: credError } = await supabase
-      .rpc('get_google_drive_token');
+    const { data: credentials, error: credError } = await supabase
+      .from('google_oauth_credentials')
+      .select('*')
+      .eq('service_name', 'google_drive')
+      .single();
 
-    if (credError || !tokenData) {
+    if (credError || !credentials) {
       console.error('Failed to fetch OAuth credentials:', credError);
       return new Response(
         JSON.stringify({ error: 'Google Drive OAuth credentials not configured. Please contact administrator.' }),
@@ -168,7 +171,56 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const access_token = tokenData;
+    let access_token = credentials.access_token;
+    const token_expires_at = new Date(credentials.token_expires_at);
+    const now = new Date();
+
+    // Check if token is expired or about to expire (within 5 minutes)
+    if (token_expires_at < new Date(now.getTime() + 5 * 60 * 1000)) {
+      console.log('Access token expired, refreshing...');
+
+      // Refresh the token
+      const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: '1030291796653-cac8klgoqmkaqvo0odhcj12g7qhip42e.apps.googleusercontent.com',
+          client_secret: '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',
+          refresh_token: credentials.refresh_token,
+          grant_type: 'refresh_token',
+        }),
+      });
+
+      if (!refreshResponse.ok) {
+        const error = await refreshResponse.text();
+        console.error('Failed to refresh token:', error);
+        return new Response(
+          JSON.stringify({ error: 'Failed to refresh Google Drive token. Please re-authenticate.' }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      const refreshData = await refreshResponse.json();
+      access_token = refreshData.access_token;
+
+      // Update the database with new token
+      const new_expires_at = new Date(now.getTime() + 3600 * 1000); // 1 hour from now
+      await supabase
+        .from('google_oauth_credentials')
+        .update({
+          access_token: access_token,
+          token_expires_at: new_expires_at.toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('service_name', 'google_drive');
+
+      console.log('Token refreshed successfully');
+    }
     const parent_folder_id = '1UGe0xaW7Z-PIFhK9CHLayI78k59HjQ-n';
 
     // Create root folder for this project
