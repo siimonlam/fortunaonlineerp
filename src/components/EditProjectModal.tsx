@@ -638,22 +638,19 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   }
 
   async function handleCreateFolders() {
-    const parentFolderId = prompt('Enter the Google Drive Parent Folder ID:');
-    if (!parentFolderId) return;
-
-    const accessToken = prompt('Enter your Google Drive Access Token:');
-    if (!accessToken) return;
+    if (!confirm('This will create a folder structure on Google Drive for this project. Continue?')) {
+      return;
+    }
 
     setCreatingFolders(true);
     setFolderCreationError(null);
 
     try {
-      const projectName = `${project.project_reference || project.id} - ${project.company_name || project.title}`;
+      const projectName = project.company_name || project.title;
       const result = await createBudProjectFolders(
         project.id,
         projectName,
-        parentFolderId,
-        accessToken
+        project.project_reference
       );
 
       setProjectFolderInfo({
@@ -2583,6 +2580,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
         <GoogleDriveExplorer
           onClose={() => setShowGoogleDrive(false)}
           projectReference={project.project_reference}
+          projectId={project.id}
         />
       )}
     </div>

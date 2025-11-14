@@ -12,8 +12,7 @@ export interface CreateFoldersResponse {
 export async function createBudProjectFolders(
   projectId: string,
   projectName: string,
-  parentFolderId: string,
-  accessToken: string
+  projectReference?: string
 ): Promise<CreateFoldersResponse> {
   const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-bud-folders`;
 
@@ -26,8 +25,7 @@ export async function createBudProjectFolders(
     body: JSON.stringify({
       project_id: projectId,
       project_name: projectName,
-      parent_folder_id: parentFolderId,
-      access_token: accessToken,
+      project_reference: projectReference,
     }),
   });
 

@@ -4,6 +4,7 @@ import { X, Folder, FileText, Download, Upload, Trash2, RefreshCw, File, FileSpr
 interface GoogleDriveExplorerProps {
   onClose: () => void;
   projectReference?: string;
+  projectId?: string;
 }
 
 interface DriveFile {
@@ -22,7 +23,7 @@ interface BreadcrumbItem {
   name: string;
 }
 
-export function GoogleDriveExplorer({ onClose, projectReference }: GoogleDriveExplorerProps) {
+export function GoogleDriveExplorer({ onClose, projectReference, projectId }: GoogleDriveExplorerProps) {
   const budFolderId = import.meta.env.VITE_GOOGLE_DRIVE_BUD_FOLDER_ID || 'root';
   const budFolderName = 'BUD';
 
@@ -44,6 +45,12 @@ export function GoogleDriveExplorer({ onClose, projectReference }: GoogleDriveEx
       loadFiles(currentFolderId);
     }
   }, [currentFolderId, isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated && projectReference) {
+      navigateToProjectFolder();
+    }
+  }, [isAuthenticated, projectReference]);
 
   async function loadGoogleDriveAPI() {
     try {
@@ -169,6 +176,35 @@ export function GoogleDriveExplorer({ onClose, projectReference }: GoogleDriveEx
     } catch (err: any) {
       console.error('Failed to load Google Drive API:', err);
       setError(`Failed to load Google Drive API: ${err?.message || 'Could not initialize Google Drive'}`);
+    }
+  }
+
+  async function navigateToProjectFolder() {
+    if (!isAuthenticated || !projectReference) return;
+
+    try {
+      console.log('Searching for project folder:', projectReference);
+      const searchQuery = `'${budFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and name contains '${projectReference}' and trashed=false`;
+
+      const response = await window.gapi.client.drive.files.list({
+        q: searchQuery,
+        fields: 'files(id, name)',
+        pageSize: 10
+      });
+
+      if (response.result.files && response.result.files.length > 0) {
+        const projectFolder = response.result.files[0];
+        console.log('Found project folder:', projectFolder);
+        setCurrentFolderId(projectFolder.id);
+        setBreadcrumbs([
+          { id: budFolderId, name: budFolderName },
+          { id: projectFolder.id, name: projectFolder.name }
+        ]);
+      } else {
+        console.log('Project folder not found');
+      }
+    } catch (err: any) {
+      console.error('Error finding project folder:', err);
     }
   }
 

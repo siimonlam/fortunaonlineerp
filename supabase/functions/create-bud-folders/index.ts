@@ -140,7 +140,7 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    const { project_id, project_name } = await req.json();
+    const { project_id, project_name, project_reference } = await req.json();
 
     console.log('Creating BUD folders for project:', project_id, project_name);
 
@@ -227,8 +227,10 @@ Deno.serve(async (req: Request) => {
     }
     const parent_folder_id = '1UGe0xaW7Z-PIFhK9CHLayI78k59HjQ-n';
 
-    // Create root folder for this project
-    const rootFolderName = project_name || `Project ${project_id}`;
+    // Create root folder for this project using project_reference first
+    const rootFolderName = project_reference
+      ? `${project_reference} - ${project_name || 'Unnamed Project'}`
+      : project_name || `Project ${project_id}`;
     console.log('Creating root folder:', rootFolderName);
     const rootFolderId = await createGoogleDriveFolder(rootFolderName, parent_folder_id, access_token);
 
