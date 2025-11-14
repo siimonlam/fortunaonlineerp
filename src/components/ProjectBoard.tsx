@@ -2428,6 +2428,9 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
   const comSecProjectType = projectTypes.find(pt => pt.name === 'Com Sec');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing');
 
+  const fundingProjects = client.projects?.filter(p => p.project_type_id === fundingProjectType?.id) || [];
+  const comSecProjects = client.projects?.filter(p => p.project_type_id === comSecProjectType?.id) || [];
+
   const hasAnyButton = !isChannelPartner && projectTypes.length > 0;
 
   return (
@@ -2536,26 +2539,52 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
       {client.notes && (
         <p className="text-sm text-slate-500 mt-3 line-clamp-3">{client.notes}</p>
       )}
-      {client.projects && client.projects.length > 0 && (
+      {(fundingProjects.length > 0 || comSecProjects.length > 0) && (
         <div className="mt-3 pt-3 border-t border-slate-200">
-          <p className="text-xs font-semibold text-slate-600 mb-1">Associated Projects ({client.projects.length}):</p>
-          <div className="space-y-1">
-            {client.projects.slice(0, 3).map((project) => (
-              <button
-                key={project.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onProjectClick?.(project);
-                }}
-                className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate block text-left w-full"
-              >
-                • {project.title}
-              </button>
-            ))}
-            {client.projects.length > 3 && (
-              <p className="text-xs text-slate-500">+ {client.projects.length - 3} more</p>
-            )}
-          </div>
+          {fundingProjects.length > 0 && (
+            <div className="mb-2">
+              <p className="text-xs font-semibold text-slate-600 mb-1">Funding Projects ({fundingProjects.length}):</p>
+              <div className="space-y-1">
+                {fundingProjects.slice(0, 3).map((project) => (
+                  <button
+                    key={project.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onProjectClick?.(project);
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate block text-left w-full"
+                  >
+                    • {project.project_reference || project.title}
+                  </button>
+                ))}
+                {fundingProjects.length > 3 && (
+                  <p className="text-xs text-slate-500">+ {fundingProjects.length - 3} more</p>
+                )}
+              </div>
+            </div>
+          )}
+          {comSecProjects.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-600 mb-1">ComSec Projects ({comSecProjects.length}):</p>
+              <div className="space-y-1">
+                {comSecProjects.slice(0, 3).map((project) => (
+                  <button
+                    key={project.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onProjectClick?.(project);
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate block text-left w-full"
+                  >
+                    • {project.title}
+                  </button>
+                ))}
+                {comSecProjects.length > 3 && (
+                  <p className="text-xs text-slate-500">+ {comSecProjects.length - 3} more</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {client.partner_project_count !== undefined && client.partner_project_count > 0 && (
