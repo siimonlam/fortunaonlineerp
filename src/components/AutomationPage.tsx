@@ -391,6 +391,22 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                 />
               </div>
 
+              {!projectTypeId && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Project Type *</label>
+                  <select
+                    value={formData.project_type_id}
+                    onChange={(e) => setFormData({ ...formData, project_type_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select project type...</option>
+                    {projectTypes.map(type => (
+                      <option key={type.id} value={type.id}>{type.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Status *</label>
                 <select

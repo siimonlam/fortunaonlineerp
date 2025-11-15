@@ -79,27 +79,39 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
   async function loadGoogleDriveInfo() {
     try {
       setLoadingGoogleInfo(true);
+
       const { data: credentials } = await supabase
         .from('google_oauth_credentials')
-        .select('access_token')
+        .select('email')
         .eq('service_name', 'google_drive')
         .maybeSingle();
 
-      if (credentials?.access_token) {
-        const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: {
-            Authorization: `Bearer ${credentials.access_token}`,
-          },
-        });
-
-        if (response.ok) {
-          const userInfo = await response.json();
-          setGoogleDriveEmail(userInfo.email);
-        } else {
-          setGoogleDriveEmail('Token expired or invalid');
-        }
+      if (credentials?.email) {
+        setGoogleDriveEmail(credentials.email);
       } else {
-        setGoogleDriveEmail(null);
+        const { data: tokenData } = await supabase.rpc('get_google_drive_token');
+
+        if (tokenData) {
+          const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: {
+              Authorization: `Bearer ${tokenData}`,
+            },
+          });
+
+          if (response.ok) {
+            const userInfo = await response.json();
+            setGoogleDriveEmail(userInfo.email);
+
+            await supabase
+              .from('google_oauth_credentials')
+              .update({ email: userInfo.email })
+              .eq('service_name', 'google_drive');
+          } else {
+            setGoogleDriveEmail('Token expired or invalid');
+          }
+        } else {
+          setGoogleDriveEmail(null);
+        }
       }
     } catch (error) {
       console.error('Error loading Google Drive info:', error);
