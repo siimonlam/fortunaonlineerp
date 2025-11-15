@@ -56,9 +56,12 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
   const [pendingChanges, setPendingChanges] = useState<Map<string, StatusPermission>>(new Map());
   const [editingRole, setEditingRole] = useState<string | null>(null);
   const [projectTypePermissions, setProjectTypePermissions] = useState<Map<string, Set<string>>>(new Map());
+  const [googleDriveEmail, setGoogleDriveEmail] = useState<string | null>(null);
+  const [loadingGoogleInfo, setLoadingGoogleInfo] = useState(false);
 
   useEffect(() => {
     loadData();
+    loadGoogleDriveInfo();
   }, []);
 
   useEffect(() => {
@@ -72,6 +75,39 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
       loadStatusManagers();
     }
   }, [selectedProjectType]);
+
+  async function loadGoogleDriveInfo() {
+    try {
+      setLoadingGoogleInfo(true);
+      const { data: credentials } = await supabase
+        .from('google_oauth_credentials')
+        .select('access_token')
+        .eq('service_name', 'google_drive')
+        .maybeSingle();
+
+      if (credentials?.access_token) {
+        const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: {
+            Authorization: `Bearer ${credentials.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const userInfo = await response.json();
+          setGoogleDriveEmail(userInfo.email);
+        } else {
+          setGoogleDriveEmail('Token expired or invalid');
+        }
+      } else {
+        setGoogleDriveEmail(null);
+      }
+    } catch (error) {
+      console.error('Error loading Google Drive info:', error);
+      setGoogleDriveEmail(null);
+    } finally {
+      setLoadingGoogleInfo(false);
+    }
+  }
 
   async function loadData() {
     try {
@@ -355,6 +391,33 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
           User Authorization
         </h1>
         <p className="text-sm text-slate-500 mt-1">Manage user roles and status permissions</p>
+      </div>
+
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm mb-6">
+        <div className="p-6 border-b border-slate-200">
+          <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2 mb-2">
+            Google Drive Integration
+          </h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Folder creation uses this Google account. Share template folder (17EK9t8ACTyghhklCf84TZ9Y5CyYdJHbk) with this account.
+          </p>
+          {loadingGoogleInfo ? (
+            <div className="text-sm text-slate-500">Loading...</div>
+          ) : googleDriveEmail ? (
+            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
+              <div className="flex-1">
+                <div className="font-medium text-green-900">Connected Account</div>
+                <div className="text-sm text-green-700">{googleDriveEmail}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-amber-50 rounded-lg">
+              <div className="text-sm text-amber-900">
+                No Google account connected. Please re-authenticate in the Google Drive Explorer.
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm mb-6">
