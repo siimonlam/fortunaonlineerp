@@ -45,7 +45,9 @@ async function copyFolderContents(
   accessToken: string
 ): Promise<void> {
   // List all files and folders in the source folder
+  console.log(`Listing items in source folder: ${sourceFolderId}, path: ${currentPath || 'root'}`);
   const items = await listFilesInFolder(sourceFolderId, accessToken);
+  console.log(`Found ${items.length} items in ${currentPath || 'root'}`);
 
   for (const item of items) {
     try {
@@ -56,6 +58,7 @@ async function copyFolderContents(
 
         const newFolderId = await createGoogleDriveFolder(item.name, targetFolderId, accessToken);
         folderMap[newPath] = newFolderId;
+        console.log(`Created subfolder ${newPath} with ID: ${newFolderId}`);
 
         // Recursively copy folder contents
         await copyFolderContents(item.id, newFolderId, newPath, folderMap, accessToken);
@@ -64,14 +67,16 @@ async function copyFolderContents(
         await new Promise(resolve => setTimeout(resolve, 100));
       } else {
         // It's a file - copy it
-        console.log(`Copying file: ${item.name}`);
-        await copyFile(item.id, targetFolderId, accessToken);
+        console.log(`Copying file: ${item.name} to folder ${targetFolderId}`);
+        const newFileId = await copyFile(item.id, targetFolderId, accessToken);
+        console.log(`Copied file ${item.name}, new ID: ${newFileId}`);
 
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (error) {
       console.error(`Error copying ${item.name}:`, error);
+      console.error('Error details:', error.message, error.stack);
       // Continue with other items even if one fails
     }
   }

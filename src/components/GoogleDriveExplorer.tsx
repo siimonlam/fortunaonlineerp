@@ -50,8 +50,13 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
   }, [currentFolderId, isAuthenticated]);
 
   useEffect(() => {
-    if (isAuthenticated && (projectReference || projectId)) {
-      navigateToProjectFolder();
+    if (isAuthenticated) {
+      if (projectReference || projectId) {
+        console.log('Navigating to project folder. ProjectId:', projectId, 'ProjectReference:', projectReference);
+        navigateToProjectFolder();
+      } else {
+        setDebugInfo('No project ID or reference provided');
+      }
     }
   }, [isAuthenticated, projectReference, projectId]);
 
