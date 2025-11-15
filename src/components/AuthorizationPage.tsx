@@ -58,6 +58,7 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
   const [projectTypePermissions, setProjectTypePermissions] = useState<Map<string, Set<string>>>(new Map());
   const [googleDriveEmail, setGoogleDriveEmail] = useState<string | null>(null);
   const [loadingGoogleInfo, setLoadingGoogleInfo] = useState(false);
+  const [isReauthenticating, setIsReauthenticating] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -380,6 +381,107 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
     }
   }
 
+  async function handleGoogleReauth() {
+    setIsReauthenticating(true);
+    try {
+      const clientId = import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID;
+      const redirectUri = window.location.origin + '/admin';
+
+      if (!clientId) {
+        alert('Google Drive client ID not configured in environment variables');
+        return;
+      }
+
+      const scope = 'https://www.googleapis.com/auth/drive';
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(clientId)}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `response_type=code&` +
+        `scope=${encodeURIComponent(scope)}&` +
+        `access_type=offline&` +
+        `prompt=consent&` +
+        `state=google_drive_reauth`;
+
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error('Error initiating reauth:', error);
+      alert('Failed to start Google authentication');
+      setIsReauthenticating(false);
+    }
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+
+    if (code && state === 'google_drive_reauth') {
+      handleOAuthCallback(code);
+    }
+  }, []);
+
+  async function handleOAuthCallback(code: string) {
+    try {
+      const clientId = import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID;
+      const clientSecret = import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_SECRET;
+      const redirectUri = window.location.origin + '/admin';
+
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        throw new Error('Failed to exchange code for tokens');
+      }
+
+      const tokens = await tokenResponse.json();
+
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+        },
+      });
+
+      const userInfo = await userInfoResponse.json();
+
+      const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+
+      const { error } = await supabase
+        .from('google_oauth_credentials')
+        .upsert({
+          service_name: 'google_drive',
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          token_expires_at: expiresAt,
+          email: userInfo.email,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'service_name'
+        });
+
+      if (error) throw error;
+
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      alert('Google Drive connected successfully!');
+      await loadGoogleDriveInfo();
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+      alert('Failed to complete Google authentication');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+
   const filteredStatuses = statuses.filter(s =>
     s.project_type_id === selectedProjectType && !s.is_substatus
   );
@@ -415,18 +517,34 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
           </p>
           {loadingGoogleInfo ? (
             <div className="text-sm text-slate-500">Loading...</div>
-          ) : googleDriveEmail ? (
+          ) : googleDriveEmail && googleDriveEmail !== 'Token expired or invalid' ? (
             <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
               <div className="flex-1">
                 <div className="font-medium text-green-900">Connected Account</div>
                 <div className="text-sm text-green-700">{googleDriveEmail}</div>
               </div>
+              <button
+                onClick={handleGoogleReauth}
+                disabled={isReauthenticating}
+                className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isReauthenticating ? 'Reconnecting...' : 'Reconnect'}
+              </button>
             </div>
           ) : (
             <div className="p-3 bg-amber-50 rounded-lg">
-              <div className="text-sm text-amber-900">
-                No Google account connected. Please re-authenticate in the Google Drive Explorer.
+              <div className="text-sm text-amber-900 mb-3">
+                {googleDriveEmail === 'Token expired or invalid'
+                  ? 'Your Google Drive connection has expired. Please reconnect to enable folder creation.'
+                  : 'No Google account connected. Connect your Google account to enable folder creation.'}
               </div>
+              <button
+                onClick={handleGoogleReauth}
+                disabled={isReauthenticating}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isReauthenticating ? 'Connecting...' : 'Connect Google Drive'}
+              </button>
             </div>
           )}
         </div>
