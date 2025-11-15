@@ -39,6 +39,8 @@ interface Status {
   name: string;
   project_type_id: string;
   is_substatus?: boolean;
+  order_index: number;
+  parent_status_id?: string;
 }
 
 const MAIN_STATUSES = ['Hi-Po', 'Pre-Submission', 'Q&A', 'Final Report'];
@@ -120,8 +122,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
       supabase.from('labels').select('*').order('order_index'),
       supabase.from('staff').select('id, email, full_name'),
       fundingProjectType.data
-        ? supabase.from('statuses').select('id, name, project_type_id, is_substatus').eq('project_type_id', fundingProjectType.data.id)
-        : supabase.from('statuses').select('id, name, project_type_id, is_substatus')
+        ? supabase.from('statuses').select('id, name, project_type_id, is_substatus, order_index, parent_status_id').eq('project_type_id', fundingProjectType.data.id)
+        : supabase.from('statuses').select('id, name, project_type_id, is_substatus, order_index, parent_status_id')
     ]);
 
     if (rulesRes.data) setRules(rulesRes.data);
