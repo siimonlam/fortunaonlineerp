@@ -152,7 +152,7 @@ async function createGoogleDriveFolder(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Failed to create folder "${name}": ${error}`);
+    throw new Error(`Failed to create folder \"${name}\": ${error}`);
   }
 
   const data = await response.json();
@@ -271,6 +271,32 @@ Deno.serve(async (req: Request) => {
       : project_name || `Project ${project_id}`;
 
     console.log('Copying template folder to create:', rootFolderName);
+    console.log('Template folder ID:', TEMPLATE_FOLDER_ID);
+
+    // First, verify we can access the template folder
+    try {
+      const testResponse = await fetch(
+        `${GOOGLE_DRIVE_API}/files/${TEMPLATE_FOLDER_ID}?fields=id,name,mimeType&key=${GOOGLE_API_KEY}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+          },
+        }
+      );
+
+      if (!testResponse.ok) {
+        const error = await testResponse.text();
+        console.error('Cannot access template folder. Status:', testResponse.status, 'Error:', error);
+        throw new Error(`Cannot access template folder. Please ensure folder ID ${TEMPLATE_FOLDER_ID} is shared with the service account. Error: ${error}`);
+      }
+
+      const templateInfo = await testResponse.json();
+      console.log('Template folder accessible:', templateInfo);
+    } catch (err) {
+      console.error('Error accessing template folder:', err);
+      throw err;
+    }
 
     // Copy the entire template folder structure
     const { folderId: rootFolderId, folderMap } = await copyFolder(
