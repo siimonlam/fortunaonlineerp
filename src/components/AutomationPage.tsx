@@ -727,6 +727,9 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                 {formData.action_type === 'change_status' && (
                   <div className="ml-4 p-3 bg-slate-50 rounded-lg">
                     <label className="block text-sm font-medium text-slate-700 mb-2">Change to Status</label>
+                    {!formData.project_type_id && (
+                      <p className="text-sm text-amber-600 mb-2">Please select a Project Type first</p>
+                    )}
                     <select
                       value={formData.action_config.status_id || ''}
                       onChange={(e) => setFormData({
@@ -734,9 +737,10 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                         action_config: { ...formData.action_config, status_id: e.target.value }
                       })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={!formData.project_type_id}
                     >
                       <option value="">Select status...</option>
-                      {statuses
+                      {formData.project_type_id && statuses
                         .filter(s => s.project_type_id === formData.project_type_id && !s.is_substatus)
                         .sort((a, b) => a.order_index - b.order_index)
                         .map(parentStatus => {
