@@ -9,114 +9,121 @@ const corsHeaders = {
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const GOOGLE_API_KEY = 'AIzaSyCaL5l3z5Lpt8_34CuYgsrCjlOQfZegQOg';
 
-// GitHub repository raw file base URL - update this with your repository URL
-const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/templatefiles/budfolder';
+// Template folder to copy from
+const TEMPLATE_FOLDER_ID = '17EK9t8ACTyghhklCf84TZ9Y5CyYdJHbk';
 
-interface FolderStructure {
-  path: string;
-  driveId?: string;
+interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
 }
 
-const FOLDER_STRUCTURE: string[] = [
-  'Agreement',
-  'Document',
-  'Document/代理權證明書',
-  'Document/內地業務單位',
-  'Document/內地業務單位/股權分配',
-  'Document/內地業務單位/营业执照',
-  'Document/內地業務單位/訂單',
-  'Document/公司文件',
-  'Document/公司文件/BR',
-  'Document/公司文件/CI',
-  'Document/公司文件/NAR1',
-  'Document/公司相片',
-  'Document/其他',
-  'Document/其他/Company-Profile',
-  'Document/其他/Plan-Quotation',
-  'Document/其他/Plan-example',
-  'Document/其他/宣傳單張',
-  'Document/業務運作證明文件',
-  'Document/業務運作證明文件/Audit-Report',
-  'Document/業務運作證明文件/Bills',
-  'Document/業務運作證明文件/MPF',
-  'Document/業務運作證明文件/Sales',
-  'Document/產品',
-  'Document/產品/Certificate',
-  'Document/產品/Import',
-  'Document/產品/Trademark',
-  'Final-Report',
-  'Final-Report/1. Audit',
-  'Final-Report/1. Audit/Invoice_Reciept',
-  'Final-Report/1. Audit/Quotation',
-  'Final-Report/1. Audit/Report',
-  'Final-Report/2. Office_Setup',
-  'Final-Report/2. Office_Setup/Company_Doc',
-  'Final-Report/2. Office_Setup/Company_Doc/商業登記證 營業執照 章程 股東登記',
-  'Final-Report/2. Office_Setup/Invoice_Receipt',
-  'Final-Report/2. Office_Setup/Office_Photo',
-  'Final-Report/2. Office_Setup/Quotation',
-  'Final-Report/2. Office_Setup/Rental_Payment',
-  'Final-Report/2. Office_Setup/Tenancy_Agreement',
-  'Final-Report/3. Hiring',
-  'Final-Report/3. Hiring/Contract',
-  'Final-Report/3. Hiring/Job_Post',
-  'Final-Report/3. Hiring/MPF_Statement',
-  'Final-Report/3. Hiring/Other_CV',
-  'Final-Report/3. Hiring/Salary_Slip',
-  'Final-Report/3. Hiring/Selection_records',
-  'Final-Report/4. Exhibition',
-  'Final-Report/4. Exhibition/Invoice_Receipt',
-  'Final-Report/4. Exhibition/參展入場證',
-  'Final-Report/4. Exhibition/展位照片',
-  'Final-Report/4. Exhibition/展會場刊',
-  'Final-Report/4. Exhibition/登機證及酒店入住證明',
-  'Final-Report/5. Website',
-  'Final-Report/5. Website/Invoice_Reciept',
-  'Final-Report/5. Website/New_Website_Capscreen',
-  'Final-Report/5. Website/Old_website_Capscreen',
-  'Final-Report/5. Website/Quotation',
-  'Final-Report/6. Online_Platform',
-  'Final-Report/6. Online_Platform/Invoice_Reciept',
-  'Final-Report/6. Online_Platform/Quotation',
-  'Final-Report/6. Online_Platform/Result_Capscreen',
-  'Final-Report/7. Marketing',
-  'Final-Report/7. Marketing/BackEnd_Traffic_Report',
-  'Final-Report/7. Marketing/Capscreen',
-  'Final-Report/7. Marketing/Invoice_Reciept',
-  'Final-Report/7. Marketing/Quotation',
-  'Final-Report/8. Production',
-  'Final-Report/8. Production/Invoice_Reciept',
-  'Final-Report/8. Production/Quotation',
-  'Final-Report/8. Production/Result',
-  'Final-Report/Agreements',
-  'Final-Report/Quotation',
-  'Final-Report/Quotation/Audit',
-  'Review',
-  'Review/Review1',
-  'Upload',
-];
+async function copyFolder(
+  sourceFolderId: string,
+  parentFolderId: string,
+  folderName: string,
+  accessToken: string
+): Promise<{ folderId: string; folderMap: Record<string, string> }> {
+  const folderMap: Record<string, string> = {};
 
-// Template files to copy to the root folder
-const TEMPLATE_FILES: Array<{ path: string; name: string }> = [
-  { path: 'BUD-checklist-2024-CHI.docx', name: 'BUD-checklist-2024-CHI.docx' },
-  { path: 'Budget_V1.1_Chi_blank.xlsx', name: 'Budget_V1.1_Chi_blank.xlsx' },
-  { path: 'Template BUD 申請所需文件(內地_FTA 計劃).xlsx', name: 'Template BUD 申請所需文件(內地_FTA 計劃).xlsx' },
-  { path: 'Final-Report/Final_Report_Summary_V3.xlsm', name: 'Final_Report_Summary_V3.xlsm' },
-  { path: 'Final-Report/Final_Report_Summary_V6.xlsm', name: 'Final_Report_Summary_V6.xlsm' },
-  { path: 'Final-Report/Quotation/Appendix.docx', name: 'Appendix.docx' },
-  { path: 'Final-Report/Quotation/Audit/Appendix.docx', name: 'Appendix.docx' },
-  { path: 'Final-Report/Quotation/Audit/audit.docx', name: 'audit.docx' },
-  { path: 'Final-Report/Quotation/Audit/quotation-request-form-CN.pdf', name: 'quotation-request-form-CN.pdf' },
-  { path: 'Final-Report/Quotation/Audit/quotation-request-form-CN_audit.docx', name: 'quotation-request-form-CN_audit.docx' },
-  { path: 'Final-Report/Quotation/Audit/supplier-confirmation-form-CH.pdf', name: 'supplier-confirmation-form-CH.pdf' },
-  { path: 'Final-Report/Quotation/Vendor suggestion list.xlsx', name: 'Vendor suggestion list.xlsx' },
-  { path: 'Final-Report/Quotation/quotation-request-form-CN.docx', name: 'quotation-request-form-CN.docx' },
-  { path: 'Final-Report/Quotation/quotation-request-form-CN_audit.docx', name: 'quotation-request-form-CN_audit.docx' },
-  { path: 'Final-Report/Quotation/quotation-request-form-en.doc', name: 'quotation-request-form-en.doc' },
-  { path: 'Review/Q&A_Request_Clent.docx', name: 'Q&A_Request_Clent.docx' },
-  { path: 'Review/Q&A_Request_vendor.docx', name: 'Q&A_Request_vendor.docx' },
-  { path: 'Upload/Note_for_Applicant_Venders_full_ver.pdf', name: 'Note_for_Applicant_Venders_full_ver.pdf' },
-];
+  // Create the new folder
+  console.log(`Creating folder: ${folderName}`);
+  const newFolderId = await createGoogleDriveFolder(folderName, parentFolderId, accessToken);
+  folderMap[''] = newFolderId;
+
+  // Recursively copy contents
+  await copyFolderContents(sourceFolderId, newFolderId, '', folderMap, accessToken);
+
+  return { folderId: newFolderId, folderMap };
+}
+
+async function copyFolderContents(
+  sourceFolderId: string,
+  targetFolderId: string,
+  currentPath: string,
+  folderMap: Record<string, string>,
+  accessToken: string
+): Promise<void> {
+  // List all files and folders in the source folder
+  const items = await listFilesInFolder(sourceFolderId, accessToken);
+
+  for (const item of items) {
+    try {
+      if (item.mimeType === 'application/vnd.google-apps.folder') {
+        // It's a folder - create it and recurse
+        const newPath = currentPath ? `${currentPath}/${item.name}` : item.name;
+        console.log(`Creating subfolder: ${newPath}`);
+
+        const newFolderId = await createGoogleDriveFolder(item.name, targetFolderId, accessToken);
+        folderMap[newPath] = newFolderId;
+
+        // Recursively copy folder contents
+        await copyFolderContents(item.id, newFolderId, newPath, folderMap, accessToken);
+
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } else {
+        // It's a file - copy it
+        console.log(`Copying file: ${item.name}`);
+        await copyFile(item.id, targetFolderId, accessToken);
+
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (error) {
+      console.error(`Error copying ${item.name}:`, error);
+      // Continue with other items even if one fails
+    }
+  }
+}
+
+async function listFilesInFolder(folderId: string, accessToken: string): Promise<DriveFile[]> {
+  const response = await fetch(
+    `${GOOGLE_DRIVE_API}/files?q='${folderId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType)&key=${GOOGLE_API_KEY}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to list files in folder: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.files || [];
+}
+
+async function copyFile(
+  fileId: string,
+  targetFolderId: string,
+  accessToken: string
+): Promise<string> {
+  const response = await fetch(
+    `${GOOGLE_DRIVE_API}/files/${fileId}/copy?key=${GOOGLE_API_KEY}`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        parents: [targetFolderId],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to copy file: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.id;
+}
 
 async function createGoogleDriveFolder(
   name: string,
@@ -145,72 +152,6 @@ async function createGoogleDriveFolder(
 
   const data = await response.json();
   return data.id;
-}
-
-async function uploadFileToGoogleDrive(
-  fileName: string,
-  fileContent: Blob,
-  mimeType: string,
-  parentFolderId: string,
-  accessToken: string
-): Promise<string> {
-  const metadata = {
-    name: fileName,
-    parents: [parentFolderId],
-  };
-
-  const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-  form.append('file', fileContent);
-
-  const response = await fetch(
-    `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&key=${GOOGLE_API_KEY}`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: form,
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to upload file "${fileName}": ${error}`);
-  }
-
-  const data = await response.json();
-  return data.id;
-}
-
-async function downloadFileFromGitHub(filePath: string): Promise<{ blob: Blob; mimeType: string }> {
-  const encodedPath = encodeURI(filePath);
-  const url = `${GITHUB_RAW_BASE}/${encodedPath}`;
-
-  console.log('Downloading from GitHub:', url);
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to download ${filePath} from GitHub: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-
-  // Determine MIME type from file extension
-  let mimeType = 'application/octet-stream';
-  if (filePath.endsWith('.docx')) {
-    mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  } else if (filePath.endsWith('.doc')) {
-    mimeType = 'application/msword';
-  } else if (filePath.endsWith('.xlsx')) {
-    mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  } else if (filePath.endsWith('.xlsm')) {
-    mimeType = 'application/vnd.ms-excel.sheet.macroEnabled.12';
-  } else if (filePath.endsWith('.pdf')) {
-    mimeType = 'application/pdf';
-  }
-
-  return { blob, mimeType };
 }
 
 Deno.serve(async (req: Request) => {
@@ -304,7 +245,7 @@ Deno.serve(async (req: Request) => {
       access_token = refreshData.access_token;
 
       // Update the database with new token
-      const new_expires_at = new Date(now.getTime() + 3600 * 1000); // 1 hour from now
+      const new_expires_at = new Date(now.getTime() + 3600 * 1000);
       await supabase
         .from('google_oauth_credentials')
         .update({
@@ -316,88 +257,34 @@ Deno.serve(async (req: Request) => {
 
       console.log('Token refreshed successfully');
     }
+
     const parent_folder_id = '1UGe0xaW7Z-PIFhK9CHLayI78k59HjQ-n';
 
-    // Create root folder for this project using project_reference first
+    // Create root folder name
     const rootFolderName = project_reference
       ? `${project_reference} - ${project_name || 'Unnamed Project'}`
       : project_name || `Project ${project_id}`;
-    console.log('Creating root folder:', rootFolderName);
-    const rootFolderId = await createGoogleDriveFolder(rootFolderName, parent_folder_id, access_token);
 
-    // Track created folders
-    const folderMap: Record<string, string> = {
-      '': rootFolderId, // Root folder
-    };
+    console.log('Copying template folder to create:', rootFolderName);
 
-    const errors: Array<{ path: string; error: string }> = [];
-    let successCount = 0;
+    // Copy the entire template folder structure
+    const { folderId: rootFolderId, folderMap } = await copyFolder(
+      TEMPLATE_FOLDER_ID,
+      parent_folder_id,
+      rootFolderName,
+      access_token
+    );
 
-    // Create all folders in order
-    for (const folderPath of FOLDER_STRUCTURE) {
-      try {
-        const parts = folderPath.split('/');
-        const folderName = parts[parts.length - 1];
-        const parentPath = parts.slice(0, -1).join('/');
-        const parentFolderId = folderMap[parentPath] || rootFolderId;
-
-        console.log(`Creating folder: ${folderPath} under parent: ${parentPath}`);
-        const folderId = await createGoogleDriveFolder(folderName, parentFolderId, access_token);
-        folderMap[folderPath] = folderId;
-        successCount++;
-
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (error) {
-        console.error(`Error creating folder ${folderPath}:`, error);
-        errors.push({ path: folderPath, error: error.message });
-      }
-    }
-
-    // Copy template files to appropriate folders
-    console.log('Copying template files from GitHub...');
-    let filesUploaded = 0;
-    for (const templateFile of TEMPLATE_FILES) {
-      try {
-        console.log(`Copying template file: ${templateFile.path}`);
-
-        const { blob, mimeType } = await downloadFileFromGitHub(templateFile.path);
-
-        // Determine target folder based on file path
-        let targetFolderId = rootFolderId;
-        const folderPath = templateFile.path.substring(0, templateFile.path.lastIndexOf('/'));
-        if (folderPath && folderMap[folderPath]) {
-          targetFolderId = folderMap[folderPath];
-        }
-
-        await uploadFileToGoogleDrive(
-          templateFile.name,
-          blob,
-          mimeType,
-          targetFolderId,
-          access_token
-        );
-
-        filesUploaded++;
-        console.log(`Successfully uploaded: ${templateFile.name}`);
-
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 150));
-      } catch (error) {
-        console.error(`Error copying template file ${templateFile.path}:`, error);
-        errors.push({ path: `file:${templateFile.path}`, error: error.message });
-      }
-    }
-
-    console.log(`Uploaded ${filesUploaded} template files`);
+    console.log('Folder structure copied successfully');
+    console.log('Total folders created:', Object.keys(folderMap).length);
 
     // Store folder structure in database
     const { error: dbError } = await supabase.from('project_folders').insert({
       project_id,
       parent_folder_id: rootFolderId,
       folder_structure: folderMap,
-      status: errors.length === 0 ? 'completed' : 'partial',
-      error_message: errors.length > 0 ? JSON.stringify(errors) : null,
+      status: 'completed',
+      error_message: null,
     });
 
     if (dbError) {
@@ -407,16 +294,12 @@ Deno.serve(async (req: Request) => {
     const response = {
       success: true,
       root_folder_id: rootFolderId,
-      folders_created: successCount,
-      files_uploaded: filesUploaded,
-      total_folders: FOLDER_STRUCTURE.length + 1, // +1 for root
-      total_files: TEMPLATE_FILES.length,
-      errors: errors.length > 0 ? errors : undefined,
+      folders_created: Object.keys(folderMap).length,
       folder_map: folderMap,
     };
 
     return new Response(JSON.stringify(response), {
-      status: errors.length > 0 ? 207 : 200,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
