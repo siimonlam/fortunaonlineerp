@@ -127,7 +127,29 @@ async function copyFile(
   }
 
   const data = await response.json();
-  return data.id;
+  const newFileId = data.id;
+
+  // Make file accessible to anyone with the link
+  try {
+    await fetch(
+      `${GOOGLE_DRIVE_API}/files/${newFileId}/permissions?key=${GOOGLE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: 'writer',
+          type: 'anyone',
+        }),
+      }
+    );
+  } catch (err) {
+    console.warn(`Failed to share file ${newFileId}:`, err);
+  }
+
+  return newFileId;
 }
 
 async function createGoogleDriveFolder(
@@ -156,7 +178,30 @@ async function createGoogleDriveFolder(
   }
 
   const data = await response.json();
-  return data.id;
+  const folderId = data.id;
+
+  // Make folder accessible to anyone with the link
+  try {
+    await fetch(
+      `${GOOGLE_DRIVE_API}/files/${folderId}/permissions?key=${GOOGLE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: 'writer',
+          type: 'anyone',
+        }),
+      }
+    );
+    console.log(`Shared folder \"${name}\" with anyone who has the link`);
+  } catch (err) {
+    console.warn(`Failed to share folder \"${name}\":`, err);
+  }
+
+  return folderId;
 }
 
 Deno.serve(async (req: Request) => {
