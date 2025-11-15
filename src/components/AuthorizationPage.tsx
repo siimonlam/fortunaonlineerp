@@ -426,6 +426,8 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
       const clientSecret = import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_SECRET;
       const redirectUri = window.location.origin + '/admin';
 
+      console.log('Starting OAuth callback with redirect URI:', redirectUri);
+
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: {
@@ -441,10 +443,13 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
       });
 
       if (!tokenResponse.ok) {
-        throw new Error('Failed to exchange code for tokens');
+        const errorData = await tokenResponse.json();
+        console.error('Token exchange failed:', errorData);
+        throw new Error(`Failed to exchange code for tokens: ${errorData.error_description || errorData.error}`);
       }
 
       const tokens = await tokenResponse.json();
+      console.log('Tokens received successfully');
 
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: {
@@ -452,7 +457,12 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
         },
       });
 
+      if (!userInfoResponse.ok) {
+        throw new Error('Failed to get user info');
+      }
+
       const userInfo = await userInfoResponse.json();
+      console.log('User info received:', userInfo.email);
 
       const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
 
@@ -469,7 +479,10 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
           onConflict: 'service_name'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       window.history.replaceState({}, document.title, window.location.pathname);
 
@@ -477,7 +490,7 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
       await loadGoogleDriveInfo();
     } catch (error) {
       console.error('OAuth callback error:', error);
-      alert('Failed to complete Google authentication');
+      alert(`Failed to complete Google authentication: ${error instanceof Error ? error.message : 'Unknown error'}`);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }
