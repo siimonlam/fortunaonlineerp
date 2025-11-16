@@ -1,166 +1,35 @@
-import { X, Printer, Download } from 'lucide-react';
-import { useRef, useState } from 'react';
-import { supabase } from '../lib/supabase';
-
-interface InvoiceItem {
-  description: string;
-  amount: number;
-}
+import { X, Download, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface InvoicePreviewProps {
-  invoiceNumber: string;
-  clientName: string;
-  clientAddress?: string;
-  issueDate: string;
-  dueDate: string;
-  items: InvoiceItem[];
-  notes?: string;
+  pdfBlob: Blob;
   onClose: () => void;
-  onSave?: (invoiceId: string, pdfBlob: Blob) => Promise<void>;
+  onSave: () => Promise<void>;
+  loading?: boolean;
 }
 
-export function InvoicePreview({
-  invoiceNumber,
-  clientName,
-  clientAddress,
-  issueDate,
-  dueDate,
-  items,
-  notes,
-  onClose,
-  onSave
-}: InvoicePreviewProps) {
-  const printRef = useRef<HTMLDivElement>(null);
-  const [isSaving, setIsSaving] = useState(false);
+export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePreviewProps) {
+  const [pdfUrl, setPdfUrl] = useState<string>('');
 
-  const total = items.reduce((sum, item) => sum + item.amount, 0);
+  useEffect(() => {
+    const url = URL.createObjectURL(pdfBlob);
+    setPdfUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pdfBlob]);
 
-  const handlePrint = () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice ${invoiceNumber}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; padding: 40px; }
-            .invoice-container { max-width: 800px; margin: 0 auto; }
-            @media print {
-              body { padding: 0; }
-            }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
-  };
-
-  const generatePDF = async () => {
-    if (!printRef.current) {
-      console.error('Print reference not available');
-      return null;
-    }
-
-    try {
-      console.log('Starting PDF generation...');
-      const html2pdf = (await import('html2pdf.js')).default;
-
-      if (!html2pdf) {
-        throw new Error('html2pdf library not loaded');
-      }
-
-      const element = printRef.current;
-      const opt = {
-        margin: 10,
-        filename: `invoice-${invoiceNumber}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-
-      console.log('Generating PDF blob...');
-      const pdfBlob = await html2pdf().set(opt).from(element).output('blob');
-      console.log('PDF blob generated successfully:', pdfBlob.size, 'bytes');
-      return pdfBlob;
-    } catch (error: any) {
-      console.error('Error generating PDF:', error);
-      console.error('Error details:', error.message, error.stack);
-      alert(`Failed to generate PDF: ${error.message || 'Unknown error'}. Please try again.`);
-      return null;
-    }
-  };
-
-  const handleDownload = async () => {
-    const pdfBlob = await generatePDF();
-    if (!pdfBlob) return;
-
+  const handleDownload = () => {
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(pdfBlob);
-    link.download = `invoice-${invoiceNumber}.pdf`;
+    link.href = pdfUrl;
+    link.download = 'invoice.pdf';
     link.click();
-    URL.revokeObjectURL(link.href);
-  };
-
-  const handleSaveToDatabase = async () => {
-    if (!onSave || isSaving) return;
-
-    setIsSaving(true);
-    try {
-      const pdfBlob = await generatePDF();
-      if (!pdfBlob) {
-        setIsSaving(false);
-        return;
-      }
-
-      console.log('Saving invoice to database...');
-      await onSave(invoiceNumber, pdfBlob);
-      console.log('Invoice saved successfully');
-    } catch (error: any) {
-      console.error('Error saving invoice:', error);
-      alert(`Error saving invoice: ${error.message || 'Unknown error'}`);
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b border-slate-200">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50">
           <h2 className="text-xl font-semibold text-slate-800">Invoice Preview</h2>
           <div className="flex gap-2">
-            <button
-              onClick={handleSaveToDatabase}
-              disabled={isSaving}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? 'Saving...' : 'OK and Save'}
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              Print
-            </button>
             <button
               onClick={handleDownload}
               className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
@@ -169,94 +38,30 @@ export function InvoicePreview({
               Download
             </button>
             <button
+              onClick={onSave}
+              disabled={loading}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Check className="w-5 h-5" />
+              {loading ? 'Saving...' : 'OK - Save to Drive'}
+            </button>
+            <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              disabled={loading}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <div ref={printRef} className="bg-white p-8 max-w-3xl mx-auto">
-            <div className="border-b-2 border-slate-800 pb-6 mb-6">
-              <h1 className="text-3xl font-bold text-slate-800 mb-2">Amazing Channel (HK) Limited</h1>
-              <p className="text-sm text-slate-600">
-                Unit 3007, 30/F, Laws Commercial Plaza,<br />
-                788 Cheung Sha Wan Road, Lai Chi Kok,<br />
-                Kowloon, Hong Kong
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-8 mb-8">
-              <div>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase mb-2">Bill To</h3>
-                <div className="text-slate-800">
-                  <p className="font-semibold text-lg mb-1">{clientName}</p>
-                  {clientAddress && (
-                    <p className="text-sm text-slate-600 whitespace-pre-line">{clientAddress}</p>
-                  )}
-                </div>
-              </div>
-              <div className="text-right">
-                <h2 className="text-2xl font-bold text-slate-800 mb-4">INVOICE</h2>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-end gap-4">
-                    <span className="text-slate-500 font-medium">Invoice #:</span>
-                    <span className="text-slate-800 font-semibold">{invoiceNumber}</span>
-                  </div>
-                  <div className="flex justify-end gap-4">
-                    <span className="text-slate-500 font-medium">Issue Date:</span>
-                    <span className="text-slate-800">{new Date(issueDate).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-end gap-4">
-                    <span className="text-slate-500 font-medium">Due Date:</span>
-                    <span className="text-slate-800">{new Date(dueDate).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <table className="w-full mb-8">
-              <thead>
-                <tr className="border-b-2 border-slate-800">
-                  <th className="text-left py-3 text-sm font-semibold text-slate-800 uppercase">Description</th>
-                  <th className="text-right py-3 text-sm font-semibold text-slate-800 uppercase w-32">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr key={index} className="border-b border-slate-200">
-                    <td className="py-4 text-slate-700">{item.description}</td>
-                    <td className="py-4 text-right text-slate-700 font-medium">
-                      HKD ${item.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="flex justify-end mb-8">
-              <div className="w-64">
-                <div className="flex justify-between py-3 border-t-2 border-slate-800">
-                  <span className="text-lg font-bold text-slate-800">Total Due</span>
-                  <span className="text-lg font-bold text-slate-800">
-                    HKD ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {notes && (
-              <div className="border-t border-slate-200 pt-6">
-                <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">Notes</h4>
-                <p className="text-sm text-slate-600 whitespace-pre-line">{notes}</p>
-              </div>
-            )}
-
-            <div className="mt-12 pt-6 border-t border-slate-200 text-center text-xs text-slate-500">
-              <p>Thank you for your business!</p>
-            </div>
+        <div className="flex-1 overflow-hidden bg-slate-100 p-4">
+          <div className="w-full h-full bg-white rounded-lg shadow-inner overflow-hidden">
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full border-0"
+              title="Invoice Preview"
+            />
           </div>
         </div>
       </div>

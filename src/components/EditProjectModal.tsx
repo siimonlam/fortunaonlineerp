@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileDown } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileText as InvoiceIcon, ExternalLink } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { GoogleDriveExplorer } from './GoogleDriveExplorer';
 import { InvoiceFieldMappingSettings } from './InvoiceFieldMappingSettings';
+import { CreateInvoiceModal } from './CreateInvoiceModal';
 import html2pdf from 'html2pdf.js';
 import { createBudProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
-import { generateInvoiceFromTemplate, convertWordToPdf, uploadInvoiceToGoogleDrive } from '../utils/invoiceTemplateUtils';
 
 interface Staff {
   id: string;
@@ -118,24 +118,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files'>('project');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [depositStatus, setDepositStatus] = useState<'paid' | 'unpaid'>('unpaid');
-  const [showAddInvoice, setShowAddInvoice] = useState(false);
   const [showGoogleDrive, setShowGoogleDrive] = useState(false);
-  const [newInvoice, setNewInvoice] = useState({
-    invoiceNumber: '',
-    issueDate: '',
-    dueDate: '',
-    paymentStatus: 'Pending',
-    amount: '',
-    paymentMethod: '',
-    paymentType: 'Deposit',
-  });
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<any>({});
   const [creatingFolders, setCreatingFolders] = useState(false);
   const [projectFolderInfo, setProjectFolderInfo] = useState<any>(null);
   const [folderCreationError, setFolderCreationError] = useState<string | null>(null);
   const [showInvoiceSettings, setShowInvoiceSettings] = useState(false);
-  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [showCreateInvoice, setShowCreateInvoice] = useState(false);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -288,48 +278,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     }
   }
 
-  async function handleAddInvoice() {
-    if (!newInvoice.invoiceNumber || !newInvoice.amount) {
-      alert('Invoice number and amount are required');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('funding_invoice')
-        .insert({
-          project_id: project.id,
-          client_id: project.client_id,
-          invoice_number: newInvoice.invoiceNumber,
-          issue_date: newInvoice.issueDate || null,
-          due_date: newInvoice.dueDate || null,
-          payment_status: newInvoice.paymentStatus,
-          amount: parseFloat(newInvoice.amount),
-          project_reference: project.project_reference || null,
-          company_name: project.company_name || null,
-          payment_method: newInvoice.paymentMethod || null,
-          payment_type: newInvoice.paymentType,
-          created_by: user?.id,
-        });
-
-      if (error) throw error;
-
-      setNewInvoice({
-        invoiceNumber: '',
-        issueDate: '',
-        dueDate: '',
-        paymentStatus: 'Pending',
-        amount: '',
-        paymentMethod: '',
-        paymentType: 'Deposit',
-      });
-      setShowAddInvoice(false);
-      loadInvoices();
-    } catch (error: any) {
-      console.error('Error adding invoice:', error);
-      alert('Failed to add invoice: ' + error.message);
-    }
-  }
 
   async function handleEditInvoice(invoice: any) {
     setEditingInvoiceId(invoice.id);
@@ -385,49 +333,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     }
   }
 
-  async function handleGenerateInvoice() {
-    setGeneratingInvoice(true);
-    try {
-      const templateResponse = await fetch('/Funding_Invoice_Template.docx');
-      if (!templateResponse.ok) {
-        throw new Error('Failed to load invoice template');
-      }
-
-      const templateArrayBuffer = await templateResponse.arrayBuffer();
-
-      const wordBlob = await generateInvoiceFromTemplate(project.id, templateArrayBuffer);
-
-      const pdfBlob = await convertWordToPdf(wordBlob);
-
-      if (!projectFolderInfo?.invoicesFolderId) {
-        alert('Please create project folders first (Files tab -> Create Folders)');
-        setGeneratingInvoice(false);
-        return;
-      }
-
-      const invoiceNumber = project.invoice_number || `INV-${Date.now()}`;
-      const fileName = `${invoiceNumber}_${project.company_name || 'Invoice'}.pdf`;
-
-      const fileId = await uploadInvoiceToGoogleDrive(
-        pdfBlob,
-        fileName,
-        projectFolderInfo.invoicesFolderId
-      );
-
-      const downloadLink = document.createElement('a');
-      downloadLink.href = URL.createObjectURL(pdfBlob);
-      downloadLink.download = fileName;
-      downloadLink.click();
-      URL.revokeObjectURL(downloadLink.href);
-
-      alert(`Invoice generated and saved to Google Drive!\nFile ID: ${fileId}`);
-    } catch (error: any) {
-      console.error('Error generating invoice:', error);
-      alert(`Failed to generate invoice: ${error.message}`);
-    } finally {
-      setGeneratingInvoice(false);
-    }
-  }
 
   async function loadProjectType() {
     const { data } = await supabase
@@ -2226,116 +2131,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                   {canEdit && (
                     <button
                       type="button"
-                      onClick={handleGenerateInvoice}
-                      disabled={generatingInvoice}
-                      className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 disabled:opacity-50"
-                      title="Generate invoice from template"
+                      onClick={() => setShowCreateInvoice(true)}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
+                      title="Create and save invoice to Google Drive"
                     >
-                      <FileDown className="w-4 h-4" />
-                      {generatingInvoice ? 'Generating...' : 'Generate Invoice'}
-                    </button>
-                  )}
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAddInvoice(!showAddInvoice)}
-                      className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      {showAddInvoice ? 'Cancel' : 'Add Invoice'}
+                      <InvoiceIcon className="w-4 h-4" />
+                      Create Invoice
                     </button>
                   )}
                 </div>
               </div>
 
-              {showAddInvoice && (
-                <div className="bg-slate-50 p-4 rounded-lg space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Number *</label>
-                      <input
-                        type="text"
-                        required
-                        value={newInvoice.invoiceNumber}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, invoiceNumber: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="INV-001"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Amount *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        required
-                        value={newInvoice.amount}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Issue Date</label>
-                      <input
-                        type="date"
-                        value={newInvoice.issueDate}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, issueDate: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
-                      <input
-                        type="date"
-                        value={newInvoice.dueDate}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, dueDate: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Payment Status</label>
-                      <select
-                        value={newInvoice.paymentStatus}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, paymentStatus: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Paid">Paid</option>
-                        <option value="Overdue">Overdue</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Payment Type</label>
-                      <select
-                        value={newInvoice.paymentType}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, paymentType: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="Deposit">Deposit</option>
-                        <option value="2nd Payment">2nd Payment</option>
-                        <option value="3rd Payment">3rd Payment</option>
-                        <option value="Final Payment">Final Payment</option>
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
-                      <input
-                        type="text"
-                        value={newInvoice.paymentMethod}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, paymentMethod: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Bank Transfer, Cheque, Cash, etc."
-                      />
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddInvoice}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Add Invoice
-                  </button>
-                </div>
-              )}
 
               <div className="space-y-2">
                 {invoices.length === 0 ? (
@@ -2348,9 +2154,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Invoice #</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Amount</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Issue Date</th>
-                          <th className="text-left px-3 py-2 font-medium text-slate-700">Due Date</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Payment Type</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Status</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Drive Link</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Actions</th>
                         </tr>
                       </thead>
@@ -2440,9 +2246,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                               <td className="px-3 py-2 text-slate-600">
                                 {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}
                               </td>
-                              <td className="px-3 py-2 text-slate-600">
-                                {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}
-                              </td>
                               <td className="px-3 py-2 text-slate-600">{invoice.payment_type || '-'}</td>
                               <td className="px-3 py-2">
                                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -2454,6 +2257,21 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                                 }`}>
                                   {invoice.payment_status}
                                 </span>
+                              </td>
+                              <td className="px-3 py-2">
+                                {invoice.google_drive_url ? (
+                                  <a
+                                    href={invoice.google_drive_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    View
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">-</span>
+                                )}
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
@@ -2660,6 +2478,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       {showInvoiceSettings && (
         <InvoiceFieldMappingSettings
           onClose={() => setShowInvoiceSettings(false)}
+        />
+      )}
+
+      {showCreateInvoice && (
+        <CreateInvoiceModal
+          project={project}
+          onClose={() => setShowCreateInvoice(false)}
+          onSuccess={() => {
+            setShowCreateInvoice(false);
+            loadInvoices();
+          }}
         />
       )}
     </div>
