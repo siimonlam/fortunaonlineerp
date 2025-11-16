@@ -116,6 +116,13 @@ export async function generateInvoiceFromTemplate(
   return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
+export async function getPdfFieldNames(templateArrayBuffer: ArrayBuffer): Promise<string[]> {
+  const pdfDoc = await PDFDocument.load(templateArrayBuffer);
+  const form = pdfDoc.getForm();
+  const fields = form.getFields();
+  return fields.map(f => f.getName());
+}
+
 export async function uploadInvoiceToGoogleDrive(
   pdfBlob: Blob,
   fileName: string,

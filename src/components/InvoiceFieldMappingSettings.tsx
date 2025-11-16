@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Save, Settings, X } from 'lucide-react';
+import { Plus, Trash2, Save, Settings, X, FileText } from 'lucide-react';
+import { getPdfFieldNames } from '../utils/invoiceTemplateUtils';
 
 interface TemplateTag {
   id: string;
@@ -72,6 +73,8 @@ export function InvoiceFieldMappingSettings({ onClose }: InvoiceFieldMappingSett
   const [saving, setSaving] = useState(false);
   const [newTag, setNewTag] = useState({ tag_name: '', description: '' });
   const [showAddTag, setShowAddTag] = useState(false);
+  const [pdfFields, setPdfFields] = useState<string[]>([]);
+  const [loadingPdfFields, setLoadingPdfFields] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -98,14 +101,27 @@ export function InvoiceFieldMappingSettings({ onClose }: InvoiceFieldMappingSett
     }
   }
 
+  async function handleLoadPdfFields() {
+    setLoadingPdfFields(true);
+    try {
+      const response = await fetch('/Funding_Invoice_Template.pdf');
+      if (!response.ok) throw new Error('Failed to load PDF template');
+
+      const arrayBuffer = await response.arrayBuffer();
+      const fieldNames = await getPdfFieldNames(arrayBuffer);
+      setPdfFields(fieldNames);
+      alert(`Found ${fieldNames.length} fields in PDF:\n\n${fieldNames.join('\n')}`);
+    } catch (error: any) {
+      console.error('Error loading PDF fields:', error);
+      alert(`Failed to load PDF fields: ${error.message}`);
+    } finally {
+      setLoadingPdfFields(false);
+    }
+  }
+
   async function handleAddTag() {
     if (!newTag.tag_name.trim()) {
       alert('Please enter a tag name');
-      return;
-    }
-
-    if (!newTag.tag_name.startsWith('<') || !newTag.tag_name.endsWith('>')) {
-      alert('Tag name must be in format: <tag_name>');
       return;
     }
 
@@ -249,13 +265,23 @@ export function InvoiceFieldMappingSettings({ onClose }: InvoiceFieldMappingSett
 
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-slate-800">Template Tags</h3>
-              <button
-                onClick={() => setShowAddTag(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Tag
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleLoadPdfFields}
+                  disabled={loadingPdfFields}
+                  className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <FileText className="w-4 h-4" />
+                  {loadingPdfFields ? 'Loading...' : 'Show PDF Fields'}
+                </button>
+                <button
+                  onClick={() => setShowAddTag(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Tag
+                </button>
+              </div>
             </div>
 
             {showAddTag && (
