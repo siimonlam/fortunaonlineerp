@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { GoogleDriveExplorer } from './GoogleDriveExplorer';
+import { InvoiceFieldMappingSettings } from './InvoiceFieldMappingSettings';
 import html2pdf from 'html2pdf.js';
 import { createBudProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
+import { generateInvoiceFromTemplate, convertWordToPdf, uploadInvoiceToGoogleDrive } from '../utils/invoiceTemplateUtils';
 
 interface Staff {
   id: string;
@@ -132,6 +134,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
   const [creatingFolders, setCreatingFolders] = useState(false);
   const [projectFolderInfo, setProjectFolderInfo] = useState<any>(null);
   const [folderCreationError, setFolderCreationError] = useState<string | null>(null);
+  const [showInvoiceSettings, setShowInvoiceSettings] = useState(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -378,6 +382,50 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     } catch (error: any) {
       console.error('Error deleting invoice:', error);
       alert('Failed to delete invoice: ' + error.message);
+    }
+  }
+
+  async function handleGenerateInvoice() {
+    setGeneratingInvoice(true);
+    try {
+      const templateResponse = await fetch('/Funding_Invoice_Template.docx');
+      if (!templateResponse.ok) {
+        throw new Error('Failed to load invoice template');
+      }
+
+      const templateArrayBuffer = await templateResponse.arrayBuffer();
+
+      const wordBlob = await generateInvoiceFromTemplate(project.id, templateArrayBuffer);
+
+      const pdfBlob = await convertWordToPdf(wordBlob);
+
+      if (!projectFolderInfo?.invoicesFolderId) {
+        alert('Please create project folders first (Files tab -> Create Folders)');
+        setGeneratingInvoice(false);
+        return;
+      }
+
+      const invoiceNumber = project.invoice_number || `INV-${Date.now()}`;
+      const fileName = `${invoiceNumber}_${project.company_name || 'Invoice'}.pdf`;
+
+      const fileId = await uploadInvoiceToGoogleDrive(
+        pdfBlob,
+        fileName,
+        projectFolderInfo.invoicesFolderId
+      );
+
+      const downloadLink = document.createElement('a');
+      downloadLink.href = URL.createObjectURL(pdfBlob);
+      downloadLink.download = fileName;
+      downloadLink.click();
+      URL.revokeObjectURL(downloadLink.href);
+
+      alert(`Invoice generated and saved to Google Drive!\nFile ID: ${fileId}`);
+    } catch (error: any) {
+      console.error('Error generating invoice:', error);
+      alert(`Failed to generate invoice: ${error.message}`);
+    } finally {
+      setGeneratingInvoice(false);
     }
   }
 
@@ -2163,15 +2211,40 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                 <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2 flex-1">
                   Invoices
                 </h3>
-                {canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddInvoice(!showAddInvoice)}
-                    className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    {showAddInvoice ? 'Cancel' : 'Add Invoice'}
-                  </button>
-                )}
+                <div className="flex gap-2">
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setShowInvoiceSettings(true)}
+                      className="px-3 py-1.5 bg-slate-600 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-1"
+                      title="Configure invoice field mappings"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={handleGenerateInvoice}
+                      disabled={generatingInvoice}
+                      className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 disabled:opacity-50"
+                      title="Generate invoice from template"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      {generatingInvoice ? 'Generating...' : 'Generate Invoice'}
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddInvoice(!showAddInvoice)}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      {showAddInvoice ? 'Cancel' : 'Add Invoice'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {showAddInvoice && (
@@ -2581,6 +2654,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
           onClose={() => setShowGoogleDrive(false)}
           projectReference={project.project_reference}
           projectId={project.id}
+        />
+      )}
+
+      {showInvoiceSettings && (
+        <InvoiceFieldMappingSettings
+          onClose={() => setShowInvoiceSettings(false)}
         />
       )}
     </div>
