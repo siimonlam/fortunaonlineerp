@@ -392,7 +392,7 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
         return;
       }
 
-      const scope = 'https://www.googleapis.com/auth/drive';
+      const scope = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email';
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${encodeURIComponent(clientId)}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
@@ -451,20 +451,29 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
       const tokens = await tokenResponse.json();
       console.log('Tokens received successfully');
 
-      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-        },
-      });
+      let userEmail = null;
 
-      if (!userInfoResponse.ok) {
-        throw new Error('Failed to get user info');
+      try {
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: {
+            Authorization: `Bearer ${tokens.access_token}`,
+          },
+        });
+
+        if (userInfoResponse.ok) {
+          const userInfo = await userInfoResponse.json();
+          userEmail = userInfo.email;
+          console.log('User info received:', userEmail);
+        } else {
+          console.warn('Failed to get user info, but continuing with token storage');
+        }
+      } catch (userInfoError) {
+        console.warn('Error fetching user info:', userInfoError);
       }
 
-      const userInfo = await userInfoResponse.json();
-      console.log('User info received:', userInfo.email);
-
-      const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+      const expiresAt = tokens.expires_in
+        ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+        : new Date(Date.now() + 3600 * 1000).toISOString();
 
       const { error } = await supabase
         .from('google_oauth_credentials')
@@ -473,7 +482,7 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
           token_expires_at: expiresAt,
-          email: userInfo.email,
+          email: userEmail,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'service_name'
