@@ -1,4 +1,7 @@
 import { supabase } from '../lib/supabase';
+import JSZip from 'jszip';
+import mammoth from 'mammoth';
+import html2pdf from 'html2pdf.js';
 
 interface FieldMapping {
   tag_id: string;
@@ -66,8 +69,6 @@ export async function generateInvoiceFromTemplate(
   projectId: string,
   templateArrayBuffer: ArrayBuffer
 ): Promise<Blob> {
-  const JSZip = (await import('jszip')).default;
-
   const { data: project, error: projectError } = await supabase
     .from('projects')
     .select('*, client:clients(*)')
@@ -80,7 +81,7 @@ export async function generateInvoiceFromTemplate(
 
   const mappings = await getFieldMappings();
 
-  const zip = await JSZip.loadAsync(templateArrayBuffer);
+  const zip = await new JSZip().loadAsync(templateArrayBuffer);
   const docXml = await zip.file('word/document.xml')?.async('text');
 
   if (!docXml) {
@@ -123,11 +124,8 @@ export async function generateInvoiceFromTemplate(
 
 export async function convertWordToPdf(wordBlob: Blob): Promise<Blob> {
   const arrayBuffer = await wordBlob.arrayBuffer();
-  const mammoth = await import('mammoth');
 
   const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
-
-  const html2pdf = (await import('html2pdf.js')).default;
 
   const wrapper = document.createElement('div');
   wrapper.innerHTML = html;
