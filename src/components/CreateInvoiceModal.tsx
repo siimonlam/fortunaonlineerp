@@ -11,7 +11,6 @@ interface CreateInvoiceModalProps {
 }
 
 const INVOICE_FOLDER_ID = '1-D6RXiVc7bi3qYT__fLxRqh7MDJ1_Hyz';
-const INVOICE_TEMPLATE_GOOGLE_DOC_ID = '1G6I5VS1D1oLrjj5c98OVFs1bo3ctdXF4';
 
 export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoiceModalProps) {
   const [loading, setLoading] = useState(false);
@@ -80,18 +79,9 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
   async function handlePreview() {
     setLoading(true);
     try {
-      const accessToken = await getGoogleDriveAccessToken();
-
-      const exportUrl = `https://www.googleapis.com/drive/v3/files/${INVOICE_TEMPLATE_GOOGLE_DOC_ID}/export?mimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document`;
-
-      const templateResponse = await fetch(exportUrl, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-
+      const templateResponse = await fetch('/Funding_Invoice_Template.docx');
       if (!templateResponse.ok) {
-        throw new Error('Failed to download invoice template from Google Drive');
+        throw new Error('Failed to load invoice template');
       }
 
       const templateArrayBuffer = await templateResponse.arrayBuffer();
