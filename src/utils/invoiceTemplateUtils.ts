@@ -152,19 +152,22 @@ export async function uploadInvoiceToGoogleDrive(
   folderId: string
 ): Promise<string> {
   const { data: tokenData, error: tokenError } = await supabase
-    .from('google_oauth_tokens')
+    .from('google_oauth_credentials')
     .select('*')
-    .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-    .eq('service_type', 'drive')
-    .single();
+    .eq('service_name', 'google_drive')
+    .maybeSingle();
 
   if (tokenError || !tokenData) {
-    throw new Error('Google Drive not connected. Please authorize first.');
+    throw new Error('Google Drive not connected. Please contact administrator.');
   }
 
   let accessToken = tokenData.access_token;
 
-  if (new Date(tokenData.expires_at) <= new Date()) {
+  if (tokenData.token_expires_at && new Date(tokenData.token_expires_at) <= new Date()) {
+    if (!tokenData.refresh_token) {
+      throw new Error('Google Drive token expired. Please re-authorize.');
+    }
+
     const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -176,14 +179,19 @@ export async function uploadInvoiceToGoogleDrive(
       }),
     });
 
+    if (!refreshResponse.ok) {
+      throw new Error('Failed to refresh token. Please re-authorize Google Drive.');
+    }
+
     const refreshData = await refreshResponse.json();
     accessToken = refreshData.access_token;
 
     await supabase
-      .from('google_oauth_tokens')
+      .from('google_oauth_credentials')
       .update({
         access_token: refreshData.access_token,
-        expires_at: new Date(Date.now() + refreshData.expires_in * 1000).toISOString(),
+        token_expires_at: new Date(Date.now() + refreshData.expires_in * 1000).toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', tokenData.id);
   }
