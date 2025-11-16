@@ -11,6 +11,7 @@ interface CreateInvoiceModalProps {
 }
 
 const INVOICE_FOLDER_ID = '1-D6RXiVc7bi3qYT__fLxRqh7MDJ1_Hyz';
+const INVOICE_TEMPLATE_GOOGLE_DOC_ID = '1G6I5VS1D1oLrjj5c98OVFs1bo3ctdXF4';
 
 export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoiceModalProps) {
   const [loading, setLoading] = useState(false);
@@ -27,12 +28,70 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
     description: '',
   });
 
+  async function getGoogleDriveAccessToken() {
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('google_oauth_credentials')
+      .select('*')
+      .eq('service_name', 'google_drive')
+      .maybeSingle();
+
+    if (tokenError || !tokenData) {
+      throw new Error('Google Drive not connected. Please contact your administrator to authorize Google Drive in Settings > Authorization.');
+    }
+
+    let accessToken = tokenData.access_token;
+
+    if (tokenData.token_expires_at && new Date(tokenData.token_expires_at) <= new Date()) {
+      if (!tokenData.refresh_token) {
+        throw new Error('Google Drive token expired. Please contact your administrator to re-authorize in Settings > Authorization.');
+      }
+
+      const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          client_secret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
+          refresh_token: tokenData.refresh_token,
+          grant_type: 'refresh_token',
+        }),
+      });
+
+      if (!refreshResponse.ok) {
+        throw new Error('Failed to refresh Google Drive token. Please contact your administrator to re-authorize in Settings > Authorization.');
+      }
+
+      const refreshData = await refreshResponse.json();
+      accessToken = refreshData.access_token;
+
+      await supabase
+        .from('google_oauth_credentials')
+        .update({
+          access_token: refreshData.access_token,
+          token_expires_at: new Date(Date.now() + refreshData.expires_in * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', tokenData.id);
+    }
+
+    return accessToken;
+  }
+
   async function handlePreview() {
     setLoading(true);
     try {
-      const templateResponse = await fetch('/Funding_Invoice_Template.docx');
+      const accessToken = await getGoogleDriveAccessToken();
+
+      const exportUrl = `https://www.googleapis.com/drive/v3/files/${INVOICE_TEMPLATE_GOOGLE_DOC_ID}/export?mimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document`;
+
+      const templateResponse = await fetch(exportUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
       if (!templateResponse.ok) {
-        throw new Error('Failed to load invoice template');
+        throw new Error('Failed to download invoice template from Google Drive');
       }
 
       const templateArrayBuffer = await templateResponse.arrayBuffer();
@@ -63,50 +122,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
 
     setLoading(true);
     try {
-      const { data: tokenData, error: tokenError } = await supabase
-        .from('google_oauth_credentials')
-        .select('*')
-        .eq('service_name', 'google_drive')
-        .maybeSingle();
-
-      if (tokenError || !tokenData) {
-        throw new Error('Google Drive not connected. Please contact your administrator to authorize Google Drive in Settings > Authorization.');
-      }
-
-      let accessToken = tokenData.access_token;
-
-      if (tokenData.token_expires_at && new Date(tokenData.token_expires_at) <= new Date()) {
-        if (!tokenData.refresh_token) {
-          throw new Error('Google Drive token expired. Please contact your administrator to re-authorize in Settings > Authorization.');
-        }
-
-        const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-            client_secret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-            refresh_token: tokenData.refresh_token,
-            grant_type: 'refresh_token',
-          }),
-        });
-
-        if (!refreshResponse.ok) {
-          throw new Error('Failed to refresh Google Drive token. Please contact your administrator to re-authorize in Settings > Authorization.');
-        }
-
-        const refreshData = await refreshResponse.json();
-        accessToken = refreshData.access_token;
-
-        await supabase
-          .from('google_oauth_credentials')
-          .update({
-            access_token: refreshData.access_token,
-            token_expires_at: new Date(Date.now() + refreshData.expires_in * 1000).toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', tokenData.id);
-      }
+      const accessToken = await getGoogleDriveAccessToken();
 
       const fileName = `${formData.invoiceNumber}_${project.company_name || 'Invoice'}.pdf`;
 
