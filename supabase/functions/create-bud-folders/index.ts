@@ -1,3 +1,4 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -7,9 +8,6 @@ const corsHeaders = {
 };
 
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3';
-const GOOGLE_API_KEY = 'AIzaSyCaL5l3z5Lpt8_34CuYgsrCjlOQfZegQOg';
-
-// Template folder to copy from
 const TEMPLATE_FOLDER_ID = '17EK9t8ACTyghhklCf84TZ9Y5CyYdJHbk';
 
 interface DriveFile {
@@ -26,12 +24,10 @@ async function copyFolder(
 ): Promise<{ folderId: string; folderMap: Record<string, string> }> {
   const folderMap: Record<string, string> = {};
 
-  // Create the new folder
   console.log(`Creating folder: ${folderName}`);
   const newFolderId = await createGoogleDriveFolder(folderName, parentFolderId, accessToken);
   folderMap[''] = newFolderId;
 
-  // Recursively copy contents
   await copyFolderContents(sourceFolderId, newFolderId, '', folderMap, accessToken);
 
   return { folderId: newFolderId, folderMap };
@@ -44,7 +40,6 @@ async function copyFolderContents(
   folderMap: Record<string, string>,
   accessToken: string
 ): Promise<void> {
-  // List all files and folders in the source folder
   console.log(`Listing items in source folder: ${sourceFolderId}, path: ${currentPath || 'root'}`);
   const items = await listFilesInFolder(sourceFolderId, accessToken);
   console.log(`Found ${items.length} items in ${currentPath || 'root'}`);
@@ -52,7 +47,6 @@ async function copyFolderContents(
   for (const item of items) {
     try {
       if (item.mimeType === 'application/vnd.google-apps.folder') {
-        // It's a folder - create it and recurse
         const newPath = currentPath ? `${currentPath}/${item.name}` : item.name;
         console.log(`Creating subfolder: ${newPath}`);
 
@@ -60,31 +54,25 @@ async function copyFolderContents(
         folderMap[newPath] = newFolderId;
         console.log(`Created subfolder ${newPath} with ID: ${newFolderId}`);
 
-        // Recursively copy folder contents
         await copyFolderContents(item.id, newFolderId, newPath, folderMap, accessToken);
 
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
       } else {
-        // It's a file - copy it
         console.log(`Copying file: ${item.name} to folder ${targetFolderId}`);
-        const newFileId = await copyFile(item.id, targetFolderId, accessToken);
-        console.log(`Copied file ${item.name}, new ID: ${newFileId}`);
+        await copyFile(item.id, targetFolderId, accessToken);
+        console.log(`Copied file ${item.name}`);
 
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     } catch (error) {
       console.error(`Error copying ${item.name}:`, error);
-      console.error('Error details:', error.message, error.stack);
-      // Continue with other items even if one fails
     }
   }
 }
 
 async function listFilesInFolder(folderId: string, accessToken: string): Promise<DriveFile[]> {
   const response = await fetch(
-    `${GOOGLE_DRIVE_API}/files?q='${folderId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType)&key=${GOOGLE_API_KEY}`,
+    `${GOOGLE_DRIVE_API}/files?q='${folderId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType)`,
     {
       method: 'GET',
       headers: {
@@ -108,7 +96,7 @@ async function copyFile(
   accessToken: string
 ): Promise<string> {
   const response = await fetch(
-    `${GOOGLE_DRIVE_API}/files/${fileId}/copy?key=${GOOGLE_API_KEY}`,
+    `${GOOGLE_DRIVE_API}/files/${fileId}/copy`,
     {
       method: 'POST',
       headers: {
@@ -129,10 +117,9 @@ async function copyFile(
   const data = await response.json();
   const newFileId = data.id;
 
-  // Make file accessible to anyone with the link
   try {
     await fetch(
-      `${GOOGLE_DRIVE_API}/files/${newFileId}/permissions?key=${GOOGLE_API_KEY}`,
+      `${GOOGLE_DRIVE_API}/files/${newFileId}/permissions`,
       {
         method: 'POST',
         headers: {
@@ -163,7 +150,7 @@ async function createGoogleDriveFolder(
     ...(parentId && { parents: [parentId] }),
   };
 
-  const response = await fetch(`${GOOGLE_DRIVE_API}/files?key=${GOOGLE_API_KEY}`, {
+  const response = await fetch(`${GOOGLE_DRIVE_API}/files`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -174,16 +161,15 @@ async function createGoogleDriveFolder(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Failed to create folder \"${name}\": ${error}`);
+    throw new Error(`Failed to create folder "${name}": ${error}`);
   }
 
   const data = await response.json();
   const folderId = data.id;
 
-  // Make folder accessible to anyone with the link
   try {
     await fetch(
-      `${GOOGLE_DRIVE_API}/files/${folderId}/permissions?key=${GOOGLE_API_KEY}`,
+      `${GOOGLE_DRIVE_API}/files/${folderId}/permissions`,
       {
         method: 'POST',
         headers: {
@@ -196,12 +182,42 @@ async function createGoogleDriveFolder(
         }),
       }
     );
-    console.log(`Shared folder \"${name}\" with anyone who has the link`);
+    console.log(`Shared folder "${name}" with anyone who has the link`);
   } catch (err) {
-    console.warn(`Failed to share folder \"${name}\":`, err);
+    console.warn(`Failed to share folder "${name}":`, err);
   }
 
   return folderId;
+}
+
+async function refreshGoogleToken(refreshToken: string): Promise<string> {
+  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Google OAuth credentials not configured in environment');
+  }
+
+  const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+
+  if (!refreshResponse.ok) {
+    const error = await refreshResponse.text();
+    throw new Error(`Failed to refresh token: ${error}`);
+  }
+
+  const refreshData = await refreshResponse.json();
+  return refreshData.access_token;
 }
 
 Deno.serve(async (req: Request) => {
@@ -240,12 +256,12 @@ Deno.serve(async (req: Request) => {
       .from('google_oauth_credentials')
       .select('*')
       .eq('service_name', 'google_drive')
-      .single();
+      .maybeSingle();
 
     if (credError || !credentials) {
       console.error('Failed to fetch OAuth credentials:', credError);
       return new Response(
-        JSON.stringify({ error: 'Google Drive OAuth credentials not configured. Please contact administrator.' }),
+        JSON.stringify({ error: 'Google Drive not connected. Please authorize Google Drive in Settings.' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -257,44 +273,10 @@ Deno.serve(async (req: Request) => {
     const token_expires_at = new Date(credentials.token_expires_at);
     const now = new Date();
 
-    // Check if token is expired or about to expire (within 5 minutes)
     if (token_expires_at < new Date(now.getTime() + 5 * 60 * 1000)) {
       console.log('Access token expired, refreshing...');
+      access_token = await refreshGoogleToken(credentials.refresh_token);
 
-      // Refresh the token
-      const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: '1030291796653-cac8klgoqmkaqvo0odhcj12g7qhip42e.apps.googleusercontent.com',
-          client_secret: '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',
-          refresh_token: credentials.refresh_token,
-          grant_type: 'refresh_token',
-        }),
-      });
-
-      if (!refreshResponse.ok) {
-        const error = await refreshResponse.text();
-        console.error('Failed to refresh token. Status:', refreshResponse.status, 'Error:', error);
-        return new Response(
-          JSON.stringify({
-            error: 'Failed to refresh Google Drive token. Please re-authenticate.',
-            details: error,
-            status: refreshResponse.status
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-
-      const refreshData = await refreshResponse.json();
-      access_token = refreshData.access_token;
-
-      // Update the database with new token
       const new_expires_at = new Date(now.getTime() + 3600 * 1000);
       await supabase
         .from('google_oauth_credentials')
@@ -310,40 +292,28 @@ Deno.serve(async (req: Request) => {
 
     const parent_folder_id = '1UGe0xaW7Z-PIFhK9CHLayI78k59HjQ-n';
 
-    // Create root folder name
     const rootFolderName = project_reference
       ? `${project_reference} - ${project_name || 'Unnamed Project'}`
       : project_name || `Project ${project_id}`;
 
     console.log('Copying template folder to create:', rootFolderName);
-    console.log('Template folder ID:', TEMPLATE_FOLDER_ID);
 
-    // First, verify we can access the template folder
-    try {
-      const testResponse = await fetch(
-        `${GOOGLE_DRIVE_API}/files/${TEMPLATE_FOLDER_ID}?fields=id,name,mimeType&key=${GOOGLE_API_KEY}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${access_token}`,
-          },
-        }
-      );
-
-      if (!testResponse.ok) {
-        const error = await testResponse.text();
-        console.error('Cannot access template folder. Status:', testResponse.status, 'Error:', error);
-        throw new Error(`Cannot access template folder. Please ensure folder ID ${TEMPLATE_FOLDER_ID} is shared with the service account. Error: ${error}`);
+    const testResponse = await fetch(
+      `${GOOGLE_DRIVE_API}/files/${TEMPLATE_FOLDER_ID}?fields=id,name,mimeType`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+        },
       }
+    );
 
-      const templateInfo = await testResponse.json();
-      console.log('Template folder accessible:', templateInfo);
-    } catch (err) {
-      console.error('Error accessing template folder:', err);
-      throw err;
+    if (!testResponse.ok) {
+      const error = await testResponse.text();
+      console.error('Cannot access template folder:', error);
+      throw new Error(`Cannot access template folder. Error: ${error}`);
     }
 
-    // Copy the entire template folder structure
     const { folderId: rootFolderId, folderMap } = await copyFolder(
       TEMPLATE_FOLDER_ID,
       parent_folder_id,
@@ -354,7 +324,6 @@ Deno.serve(async (req: Request) => {
     console.log('Folder structure copied successfully');
     console.log('Total folders created:', Object.keys(folderMap).length);
 
-    // Store folder structure in database
     const { error: dbError } = await supabase.from('project_folders').insert({
       project_id,
       parent_folder_id: rootFolderId,
@@ -367,9 +336,12 @@ Deno.serve(async (req: Request) => {
       console.error('Error saving folder structure to database:', dbError);
     }
 
+    const driveUrl = `https://drive.google.com/drive/folders/${rootFolderId}`;
+
     const response = {
       success: true,
       root_folder_id: rootFolderId,
+      drive_url: driveUrl,
       folders_created: Object.keys(folderMap).length,
       folder_map: folderMap,
     };
@@ -381,7 +353,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('Error in create-bud-folders function:', error);
     return new Response(
-      JSON.stringify({ error: error.message, stack: error.stack }),
+      JSON.stringify({ error: error.message }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
