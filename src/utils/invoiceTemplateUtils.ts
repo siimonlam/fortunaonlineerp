@@ -1,7 +1,5 @@
 import { supabase } from '../lib/supabase';
-import JSZip from 'jszip';
-import mammoth from 'mammoth';
-import html2pdf from 'html2pdf.js';
+import { PDFDocument } from 'pdf-lib';
 
 interface FieldMapping {
   tag_id: string;
@@ -81,14 +79,11 @@ export async function generateInvoiceFromTemplate(
 
   const mappings = await getFieldMappings();
 
-  const zip = await new JSZip().loadAsync(templateArrayBuffer);
-  const docXml = await zip.file('word/document.xml')?.async('text');
+  const pdfDoc = await PDFDocument.load(templateArrayBuffer);
+  const form = pdfDoc.getForm();
+  const fields = form.getFields();
 
-  if (!docXml) {
-    throw new Error('Invalid Word document template');
-  }
-
-  let processedXml = docXml;
+  console.log('Available PDF fields:', fields.map(f => f.getName()));
 
   for (const mapping of mappings) {
     if (!mapping.tag?.tag_name) continue;
@@ -107,41 +102,18 @@ export async function generateInvoiceFromTemplate(
 
     const transformedValue = applyTransform(value, mapping.transform_function);
 
-    const escapedTag = mapping.tag.tag_name
-      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    processedXml = processedXml.replace(
-      new RegExp(escapedTag, 'g'),
-      transformedValue
-    );
+    try {
+      const field = form.getTextField(mapping.tag.tag_name);
+      field.setText(transformedValue);
+    } catch (error) {
+      console.warn(`Field not found in PDF: ${mapping.tag.tag_name}`);
+    }
   }
 
-  zip.file('word/document.xml', processedXml);
+  form.flatten();
 
-  const blob = await zip.generateAsync({ type: 'blob' });
-  return blob;
-}
-
-export async function convertWordToPdf(wordBlob: Blob): Promise<Blob> {
-  const arrayBuffer = await wordBlob.arrayBuffer();
-
-  const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
-
-  const wrapper = document.createElement('div');
-  wrapper.innerHTML = html;
-  wrapper.style.padding = '40px';
-  wrapper.style.fontFamily = 'Arial, sans-serif';
-
-  const opt = {
-    margin: 10,
-    filename: 'invoice.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-  };
-
-  const pdfBlob = await html2pdf().set(opt).from(wrapper).output('blob');
-  return pdfBlob;
+  const pdfBytes = await pdfDoc.save();
+  return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
 export async function uploadInvoiceToGoogleDrive(

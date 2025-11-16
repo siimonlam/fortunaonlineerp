@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, Eye, Save } from 'lucide-react';
-import { generateInvoiceFromTemplate, convertWordToPdf } from '../utils/invoiceTemplateUtils';
+import { generateInvoiceFromTemplate } from '../utils/invoiceTemplateUtils';
 import { InvoicePreview } from './InvoicePreview';
 
 interface CreateInvoiceModalProps {
@@ -78,17 +78,16 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
   async function handlePreview() {
     setLoading(true);
     try {
-      const templateResponse = await fetch('/Funding_Invoice_Template.docx');
+      const templateResponse = await fetch('/Funding_Invoice_Template.pdf');
       if (!templateResponse.ok) {
         throw new Error('Failed to load invoice template');
       }
 
       const templateArrayBuffer = await templateResponse.arrayBuffer();
 
-      const wordBlob = await generateInvoiceFromTemplate(project.id, templateArrayBuffer);
+      const pdfBlob = await generateInvoiceFromTemplate(project.id, templateArrayBuffer);
 
-      const pdf = await convertWordToPdf(wordBlob);
-      setPdfBlob(pdf);
+      setPdfBlob(pdfBlob);
       setShowPreview(true);
     } catch (error: any) {
       console.error('Error generating preview:', error);
