@@ -157,7 +157,9 @@ export async function uploadInvoiceToGoogleDrive(
     });
 
     if (!refreshResponse.ok) {
-      throw new Error('Failed to refresh token. Please re-authorize Google Drive.');
+      const errorData = await refreshResponse.json().catch(() => ({}));
+      console.error('Token refresh failed:', errorData);
+      throw new Error('Failed to refresh Google Drive token. Please contact your administrator to re-authorize in Settings > Authorization.');
     }
 
     const refreshData = await refreshResponse.json();
