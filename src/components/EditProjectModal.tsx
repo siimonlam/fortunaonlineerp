@@ -2117,7 +2117,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
                   Invoices
                 </h3>
                 <div className="flex gap-2">
-                  {isAdmin && (
+                  {canEdit && (
                     <button
                       type="button"
                       onClick={() => setShowInvoiceSettings(true)}
