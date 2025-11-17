@@ -174,6 +174,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
   const [originalData, setOriginalData] = useState({
     title: project.title,
+    companyNameChinese: project.company_name_chinese || '',
     description: project.description || '',
     statusId: project.status_id,
     projectName: project.project_name || '',
@@ -240,7 +241,19 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   }, [isAdmin]);
 
   useEffect(() => {
-    const isChanged = JSON.stringify(formData) !== JSON.stringify(originalData);
+    const normalizeData = (data: any) => {
+      const normalized: any = {};
+      Object.keys(data).forEach(key => {
+        const value = data[key];
+        normalized[key] = value === null || value === undefined ? '' : value;
+      });
+      return normalized;
+    };
+
+    const normalizedFormData = normalizeData(formData);
+    const normalizedOriginalData = normalizeData(originalData);
+
+    const isChanged = JSON.stringify(normalizedFormData) !== JSON.stringify(normalizedOriginalData);
     setHasUnsavedChanges(isChanged);
   }, [formData, originalData]);
 
