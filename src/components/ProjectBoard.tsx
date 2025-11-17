@@ -1614,6 +1614,13 @@ export function ProjectBoard() {
 
                                         if (confirm(`Create ${projectType.name} for ${selectedClients.length} client${selectedClients.length > 1 ? 's' : ''}?`)) {
                                           try {
+                                            // Get current user ID
+                                            const { data: { user: currentUser } } = await supabase.auth.getUser();
+                                            if (!currentUser) {
+                                              alert('You must be logged in to create projects');
+                                              return;
+                                            }
+
                                             const { data: statusData } = await supabase
                                               .from('statuses')
                                               .select('id')
@@ -1634,7 +1641,7 @@ export function ProjectBoard() {
                                               status_id: statusData.id,
                                               project_type_id: projectType.id,
                                               client_id: client.id,
-                                              created_by: user?.id,
+                                              created_by: currentUser.id,
                                               created_at: new Date().toISOString()
                                             }));
 
