@@ -1634,6 +1634,7 @@ export function ProjectBoard() {
                                               status_id: statusData.id,
                                               project_type_id: projectType.id,
                                               client_id: client.id,
+                                              created_by: user?.id,
                                               created_at: new Date().toISOString()
                                             }));
 
