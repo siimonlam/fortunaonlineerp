@@ -107,7 +107,7 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
       }
     }
 
-    if (projectTypeName === 'Funding Project') {
+    if (projectTypeName === 'Funding Project' || projectTypeName === 'Marketing') {
       const { data } = await supabase
         .from('statuses')
         .select('*')
