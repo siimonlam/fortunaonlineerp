@@ -20,9 +20,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const checkForAuthError = () => {
+      const params = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+
+      const error = params.get('error') || hashParams.get('error');
+      const errorDescription = params.get('error_description') || hashParams.get('error_description');
+
+      if (error) {
+        console.error('OAuth error:', error, errorDescription);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return true;
+      }
+      return false;
+    };
+
     const initAuth = async () => {
       try {
         console.log('Initializing auth...');
+
+        const hasAuthError = checkForAuthError();
+        if (hasAuthError) {
+          console.log('Auth error detected in URL, clearing session');
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error('Error getting session:', error);
