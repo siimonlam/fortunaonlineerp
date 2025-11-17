@@ -318,35 +318,7 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
         }
 
         if (projectTypeName === 'Funding Project') {
-          try {
-            console.log('Creating BUD folder structure for project:', data.id);
-            const folderApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-bud-folders`;
-
-            const folderResponse = await fetch(folderApiUrl, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                project_id: data.id,
-                project_name: `${data.id} - ${formData.companyName || formData.title}`,
-              }),
-            });
-
-            const folderResult = await folderResponse.json();
-
-            if (!folderResponse.ok) {
-              console.error('Folder creation failed:', folderResult);
-              alert(`${projectTypeName} created successfully in Hi-Po status!\n\n⚠️ Note: Folder creation failed - ${folderResult.error || 'Unknown error'}`);
-            } else {
-              console.log('Folders created successfully:', folderResult);
-              alert(`${projectTypeName} created successfully in Hi-Po status!\n\n✅ ${folderResult.folders_created || 0} Google Drive folders created`);
-            }
-          } catch (folderError: any) {
-            console.error('Error creating folders:', folderError);
-            alert(`${projectTypeName} created successfully in Hi-Po status!\n\n⚠️ Note: Folder creation encountered an error - ${folderError.message}`);
-          }
+          alert(`${projectTypeName} created successfully in Hi-Po status!\n\nYou can create folders manually from the project's Files tab.`);
         } else {
           alert(`${projectTypeName} created successfully!`);
         }
