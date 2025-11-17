@@ -422,6 +422,9 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                   Sales Person
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Commission Rate
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -480,6 +483,13 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                   <td className="px-6 py-4 whitespace-nowrap">
                     {partner.sales_person ? (
                       <span className="text-sm text-slate-600">{partner.sales_person.full_name || partner.sales_person.email}</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {partner.commission_rate ? (
+                      <span className="text-sm font-medium text-emerald-600">{partner.commission_rate}%</span>
                     ) : (
                       <span className="text-sm text-slate-400">-</span>
                     )}
@@ -566,6 +576,11 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                     {partner.sales_person && (
                       <div className="text-xs text-slate-500">
                         Sales: {partner.sales_person.full_name}
+                      </div>
+                    )}
+                    {partner.commission_rate && (
+                      <div className="text-xs font-medium text-emerald-600 mt-1">
+                        Commission: {partner.commission_rate}%
                       </div>
                     )}
                   </div>

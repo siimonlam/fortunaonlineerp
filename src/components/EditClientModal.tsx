@@ -25,6 +25,7 @@ interface Client {
   created_by: string;
   sales_person_id: string | null;
   channel_partner_id: string | null;
+  commission_rate?: number | null;
   created_at: string;
   creator?: Staff;
   sales_person?: Staff;
@@ -78,6 +79,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     abbreviation: client.abbreviation || '',
     salesPersonId: client.sales_person_id || '',
     channelPartnerId: client.channel_partner_id || '',
+    commissionRate: client.commission_rate?.toString() || '',
   });
   const [originalData] = useState({
     name: client.name,
@@ -92,6 +94,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     abbreviation: client.abbreviation || '',
     salesPersonId: client.sales_person_id || '',
     channelPartnerId: client.channel_partner_id || '',
+    commissionRate: client.commission_rate?.toString() || '',
   });
 
   useEffect(() => {
@@ -236,6 +239,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
           abbreviation: formData.abbreviation.trim() || null,
           sales_person_id: formData.salesPersonId || null,
           channel_partner_id: formData.channelPartnerId || null,
+          commission_rate: formData.commissionRate ? parseFloat(formData.commissionRate) : null,
         })
         .eq('id', client.id);
 
@@ -362,6 +366,22 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
               </select>
             </div>
           </div>
+
+          {isChannelPartner && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Commission Rate (%)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={formData.commissionRate}
+                onChange={(e) => setFormData({ ...formData, commissionRate: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter commission rate (e.g., 15 for 15%)"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
