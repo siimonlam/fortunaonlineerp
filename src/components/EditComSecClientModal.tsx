@@ -564,6 +564,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
       console.log('PDF loaded successfully');
 
       const form = pdfDoc.getForm();
+
       const fields = form.getFields();
       console.log('Total form fields found:', fields.length);
 
@@ -591,6 +592,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         fieldsFilledCount++;
       } catch (error: any) {
         console.error('✗ Failed to fill fill_2_P.1:', error.message);
+        console.warn('This might be due to special characters. The form will be saved without flattening.');
       }
 
       console.log(`Summary: ${fieldsFilledCount} field(s) filled`);
@@ -600,9 +602,10 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         console.warn('Available fields:', fieldNames.join(', '));
       }
 
-      form.flatten();
-
-      const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
+      const pdfBytes = await pdfDoc.save({
+        useObjectStreams: false,
+        updateFieldAppearances: false
+      });
       setNar1PdfBytes(pdfBytes);
 
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
