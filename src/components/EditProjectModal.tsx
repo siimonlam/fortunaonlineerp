@@ -290,16 +290,23 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       if (error) throw error;
       if (!data) return;
 
-      // Update both formData and originalData with the latest status
-      // This prevents automated status changes from being counted as "unsaved changes"
+      // Update both formData and originalData with ALL the latest data
+      // This prevents automated changes from being counted as "unsaved changes"
+      const updatedFields = {
+        statusId: data.status_id,
+        companyNameChinese: data.company_name_chinese || '',
+        depositPaid: data.deposit_paid || false,
+        // Add any other fields that might be automatically updated
+      };
+
       setFormData(prev => ({
         ...prev,
-        statusId: data.status_id,
+        ...updatedFields,
       }));
 
       setOriginalData(prev => ({
         ...prev,
-        statusId: data.status_id,
+        ...updatedFields,
       }));
     } catch (error: any) {
       console.error('Error refreshing project data:', error);
@@ -336,10 +343,15 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
       setEditingInvoiceId(null);
       setEditingInvoice({});
-      loadInvoices();
+
+      // Wait a bit for automation triggers to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Refresh project data to get any automated status changes
       await refreshProjectData();
+
+      // Then reload invoices
+      loadInvoices();
     } catch (error: any) {
       console.error('Error updating invoice:', error);
       alert('Failed to update invoice: ' + error.message);
