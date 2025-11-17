@@ -7,6 +7,7 @@ interface GoogleDriveExplorerProps {
   onClose: () => void;
   projectReference?: string;
   projectId?: string;
+  projectFolderId?: string;
 }
 
 interface DriveFile {
@@ -25,19 +26,20 @@ interface BreadcrumbItem {
   name: string;
 }
 
-export function GoogleDriveExplorer({ onClose, projectReference, projectId }: GoogleDriveExplorerProps) {
+export function GoogleDriveExplorer({ onClose, projectReference, projectId, projectFolderId }: GoogleDriveExplorerProps) {
   const budFolderId = import.meta.env.VITE_GOOGLE_DRIVE_BUD_FOLDER_ID || 'root';
   const budFolderName = 'BUD';
 
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentFolderId, setCurrentFolderId] = useState<string>(budFolderId);
+  const [currentFolderId, setCurrentFolderId] = useState<string>(projectFolderId || budFolderId);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([{ id: budFolderId, name: budFolderName }]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [rootFolderId, setRootFolderId] = useState<string>(projectFolderId || budFolderId);
 
   useEffect(() => {
     loadGoogleDriveAPI();
@@ -51,14 +53,34 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
 
   useEffect(() => {
     if (isAuthenticated) {
-      if (projectReference || projectId) {
+      if (projectFolderId) {
+        setRootFolderId(projectFolderId);
+        setCurrentFolderId(projectFolderId);
+        fetchFolderName(projectFolderId);
+      } else if (projectReference || projectId) {
         console.log('Navigating to project folder. ProjectId:', projectId, 'ProjectReference:', projectReference);
         navigateToProjectFolder();
       } else {
         setDebugInfo('No project ID or reference provided');
       }
     }
-  }, [isAuthenticated, projectReference, projectId]);
+  }, [isAuthenticated, projectReference, projectId, projectFolderId]);
+
+  async function fetchFolderName(folderId: string) {
+    try {
+      const folderResponse = await window.gapi.client.drive.files.get({
+        fileId: folderId,
+        fields: 'id, name'
+      });
+
+      if (folderResponse.result) {
+        setBreadcrumbs([{ id: folderId, name: folderResponse.result.name }]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch folder name:', err);
+      setBreadcrumbs([{ id: folderId, name: 'Project Folder' }]);
+    }
+  }
 
   async function loadGoogleDriveAPI() {
     try {
@@ -295,6 +317,12 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId }: Go
   }
 
   function handleBreadcrumbClick(index: number) {
+    const clickedBreadcrumb = breadcrumbs[index];
+
+    if (projectFolderId && clickedBreadcrumb.id !== rootFolderId && !breadcrumbs.slice(index).some(b => b.id === rootFolderId)) {
+      return;
+    }
+
     const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
     setBreadcrumbs(newBreadcrumbs);
     setCurrentFolderId(newBreadcrumbs[newBreadcrumbs.length - 1].id);

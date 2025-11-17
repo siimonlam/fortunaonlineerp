@@ -60,6 +60,7 @@ interface Project {
   approval_date?: string;
   next_hkpc_due_date?: string;
   next_due_date?: string;
+  google_drive_folder_id?: string;
   created_at: string;
 }
 
@@ -170,6 +171,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     approvalDate: project.approval_date || '',
     nextDueDate: project.next_due_date || '',
     nextHkpcDueDate: project.next_hkpc_due_date || '',
+    googleDriveFolderId: project.google_drive_folder_id || '',
   });
 
   const [originalData, setOriginalData] = useState({
@@ -204,6 +206,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     approvalDate: project.approval_date || '',
     nextDueDate: project.next_due_date || '',
     nextHkpcDueDate: project.next_hkpc_due_date || '',
+    googleDriveFolderId: project.google_drive_folder_id || '',
   });
 
   const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
@@ -676,6 +679,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         status: 'completed',
       });
 
+      await supabase
+        .from('projects')
+        .update({
+          google_drive_folder_id: result.root_folder_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', project.id);
+
+      setFormData(prev => ({ ...prev, googleDriveFolderId: result.root_folder_id }));
+
       alert(`Successfully created ${result.folders_created} folders!${result.errors ? `\n\nSome folders had errors - check console for details.` : ''}`);
     } catch (error: any) {
       console.error('Error creating folders:', error);
@@ -800,6 +813,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           approval_date: formData.approvalDate || null,
           next_due_date: formData.nextDueDate || null,
           next_hkpc_due_date: formData.nextHkpcDueDate || null,
+          google_drive_folder_id: formData.googleDriveFolderId.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', project.id);
@@ -2376,7 +2390,23 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 Google Drive Files
               </h3>
 
-              {projectFolderInfo ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Google Drive Folder ID
+                </label>
+                <input
+                  type="text"
+                  value={formData.googleDriveFolderId}
+                  onChange={(e) => setFormData({ ...formData, googleDriveFolderId: e.target.value })}
+                  placeholder="Enter existing folder ID or create new"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  You can manually enter an existing Google Drive folder ID, or create a new one below
+                </p>
+              </div>
+
+              {projectFolderInfo || formData.googleDriveFolderId ? (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -2384,14 +2414,27 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-green-900 mb-1">
-                        BUD Folder Structure Created
+                        Folder Configured
                       </p>
                       <p className="text-xs text-green-700">
-                        Folder ID: {projectFolderInfo.parent_folder_id}
+                        Folder ID: {formData.googleDriveFolderId || projectFolderInfo?.parent_folder_id}
                       </p>
-                      <p className="text-xs text-green-600 mt-1">
-                        Status: {projectFolderInfo.status}
-                      </p>
+                      {projectFolderInfo && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Status: {projectFolderInfo.status}
+                        </p>
+                      )}
+                      {formData.googleDriveFolderId && (
+                        <a
+                          href={`https://drive.google.com/drive/folders/${formData.googleDriveFolderId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-2"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Open in Google Drive
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2536,6 +2579,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           onClose={() => setShowGoogleDrive(false)}
           projectReference={project.project_reference}
           projectId={project.id}
+          projectFolderId={formData.googleDriveFolderId || project.google_drive_folder_id}
         />
       )}
 
