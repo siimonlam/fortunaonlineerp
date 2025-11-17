@@ -43,36 +43,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
         console.log('Auth state change:', event, session?.user?.email || 'No user');
-        setSession(session);
-        setUser(session?.user ?? null);
 
-        if (session?.user) {
-          try {
-            const { data: existingStaff, error: fetchError } = await supabase
-              .from('staff')
-              .select('id')
-              .eq('id', session.user.id)
-              .maybeSingle();
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
 
-            if (fetchError) {
-              console.error('Error fetching staff:', fetchError);
-            }
+          if (session?.user) {
+            try {
+              const { data: existingStaff, error: fetchError } = await supabase
+                .from('staff')
+                .select('id')
+                .eq('id', session.user.id)
+                .maybeSingle();
 
-            if (!existingStaff && !fetchError) {
-              const { error: insertError } = await supabase.from('staff').insert({
-                id: session.user.id,
-                email: session.user.email!,
-                full_name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
-                avatar_url: session.user.user_metadata.avatar_url,
-              });
-
-              if (insertError) {
-                console.error('Error inserting staff:', insertError);
+              if (fetchError) {
+                console.error('Error fetching staff:', fetchError);
+                return;
               }
+
+              if (!existingStaff) {
+                console.log('Creating staff record for:', session.user.email);
+                const { error: insertError } = await supabase.from('staff').insert({
+                  id: session.user.id,
+                  email: session.user.email!,
+                  full_name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
+                  avatar_url: session.user.user_metadata.avatar_url,
+                });
+
+                if (insertError) {
+                  console.error('Error inserting staff:', insertError);
+                  if (insertError.code !== '23505') {
+                    return;
+                  }
+                  console.log('Staff record already exists (duplicate key error), continuing...');
+                }
+              }
+            } catch (err) {
+              console.error('Error managing staff record:', err);
             }
-          } catch (err) {
-            console.error('Error in auth state change:', err);
           }
+        } catch (err) {
+          console.error('Error in auth state change:', err);
         }
       })();
     });
