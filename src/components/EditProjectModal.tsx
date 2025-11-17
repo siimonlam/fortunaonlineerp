@@ -171,7 +171,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     nextHkpcDueDate: project.next_hkpc_due_date || '',
   });
 
-  const [originalData] = useState({
+  const [originalData, setOriginalData] = useState({
     title: project.title,
     description: project.description || '',
     statusId: project.status_id,
@@ -278,6 +278,33 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
     }
   }
 
+  async function refreshProjectData() {
+    try {
+      // Fetch the latest project data from database
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', project.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return;
+
+      // Update both formData and originalData with the latest status
+      // This prevents automated status changes from being counted as "unsaved changes"
+      setFormData(prev => ({
+        ...prev,
+        statusId: data.status_id,
+      }));
+
+      setOriginalData(prev => ({
+        ...prev,
+        statusId: data.status_id,
+      }));
+    } catch (error: any) {
+      console.error('Error refreshing project data:', error);
+    }
+  }
 
   async function handleEditInvoice(invoice: any) {
     setEditingInvoiceId(invoice.id);
@@ -310,6 +337,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
       setEditingInvoiceId(null);
       setEditingInvoice({});
       loadInvoices();
+
+      // Refresh project data to get any automated status changes
+      await refreshProjectData();
     } catch (error: any) {
       console.error('Error updating invoice:', error);
       alert('Failed to update invoice: ' + error.message);
