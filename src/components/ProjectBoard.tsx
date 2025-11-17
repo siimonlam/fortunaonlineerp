@@ -1605,72 +1605,125 @@ export function ProjectBoard() {
                                 Add Project to {selectedClientIds.size} Client{selectedClientIds.size > 1 ? 's' : ''}
                                 <ChevronDown className="w-4 h-4" />
                               </button>
-                              {showBulkProjectMenu && (
-                                <div className="absolute top-full mt-2 right-0 bg-white border border-slate-200 rounded-lg shadow-xl py-2 z-50 min-w-[220px]">
-                                  {projectTypes.map((projectType) => (
-                                    <button
-                                      key={projectType.id}
-                                      onClick={async () => {
-                                        setShowBulkProjectMenu(false);
-                                        const selectedClients = clients.filter(c => selectedClientIds.has(c.id));
+                              {showBulkProjectMenu && (() => {
+                                const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
+                                const coldCallStatus = statuses.find(s => s.name === 'Cold Call' && s.project_type_id === fundingProjectType?.id);
 
-                                        if (confirm(`Create ${projectType.name} for ${selectedClients.length} client${selectedClients.length > 1 ? 's' : ''}?`)) {
-                                          try {
-                                            // Get current user ID
-                                            const { data: { user: currentUser } } = await supabase.auth.getUser();
-                                            if (!currentUser) {
-                                              alert('You must be logged in to create projects');
-                                              return;
+                                return (
+                                  <div className="absolute top-full mt-2 right-0 bg-white border border-slate-200 rounded-lg shadow-xl py-2 z-50 min-w-[280px]">
+                                    {projectTypes.map((projectType) => (
+                                      <button
+                                        key={projectType.id}
+                                        onClick={async () => {
+                                          setShowBulkProjectMenu(false);
+                                          const selectedClients = clients.filter(c => selectedClientIds.has(c.id));
+
+                                          if (confirm(`Create ${projectType.name} for ${selectedClients.length} client${selectedClients.length > 1 ? 's' : ''}?`)) {
+                                            try {
+                                              // Get current user ID
+                                              const { data: { user: currentUser } } = await supabase.auth.getUser();
+                                              if (!currentUser) {
+                                                alert('You must be logged in to create projects');
+                                                return;
+                                              }
+
+                                              const { data: statusData } = await supabase
+                                                .from('statuses')
+                                                .select('id')
+                                                .eq('project_type_id', projectType.id)
+                                                .eq('is_substatus', false)
+                                                .order('order_index', { ascending: true })
+                                                .limit(1)
+                                                .maybeSingle();
+
+                                              if (!statusData) {
+                                                alert('No default status found for this project type');
+                                                return;
+                                              }
+
+                                              const projectsToCreate = selectedClients.map(client => ({
+                                                title: client.name,
+                                                description: client.notes || '',
+                                                status_id: statusData.id,
+                                                project_type_id: projectType.id,
+                                                client_id: client.id,
+                                                created_by: currentUser.id,
+                                                created_at: new Date().toISOString()
+                                              }));
+
+                                              const { error } = await supabase
+                                                .from('projects')
+                                                .insert(projectsToCreate);
+
+                                              if (error) {
+                                                alert('Error creating projects: ' + error.message);
+                                              } else {
+                                                alert(`Successfully created ${projectsToCreate.length} ${projectType.name}${projectsToCreate.length > 1 ? 's' : ''}`);
+                                                setSelectedClientIds(new Set());
+                                                loadData();
+                                              }
+                                            } catch (err: any) {
+                                              alert('Error: ' + err.message);
                                             }
-
-                                            const { data: statusData } = await supabase
-                                              .from('statuses')
-                                              .select('id')
-                                              .eq('project_type_id', projectType.id)
-                                              .eq('is_substatus', false)
-                                              .order('order_index', { ascending: true })
-                                              .limit(1)
-                                              .maybeSingle();
-
-                                            if (!statusData) {
-                                              alert('No default status found for this project type');
-                                              return;
-                                            }
-
-                                            const projectsToCreate = selectedClients.map(client => ({
-                                              title: client.name,
-                                              description: client.notes || '',
-                                              status_id: statusData.id,
-                                              project_type_id: projectType.id,
-                                              client_id: client.id,
-                                              created_by: currentUser.id,
-                                              created_at: new Date().toISOString()
-                                            }));
-
-                                            const { error } = await supabase
-                                              .from('projects')
-                                              .insert(projectsToCreate);
-
-                                            if (error) {
-                                              alert('Error creating projects: ' + error.message);
-                                            } else {
-                                              alert(`Successfully created ${projectsToCreate.length} ${projectType.name}${projectsToCreate.length > 1 ? 's' : ''}`);
-                                              setSelectedClientIds(new Set());
-                                              loadData();
-                                            }
-                                          } catch (err: any) {
-                                            alert('Error: ' + err.message);
                                           }
-                                        }
-                                      }}
-                                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
-                                    >
-                                      <FileText className="w-4 h-4 text-slate-500" />
-                                      {projectType.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                      >
+                                        <FileText className="w-4 h-4 text-slate-500" />
+                                        {projectType.name}
+                                      </button>
+                                    ))}
+                                    {fundingProjectType && coldCallStatus && (
+                                      <button
+                                        key="funding-cold-call"
+                                        onClick={async () => {
+                                          setShowBulkProjectMenu(false);
+                                          const selectedClients = clients.filter(c => selectedClientIds.has(c.id));
+
+                                          if (confirm(`Create Funding Project - Cold Call for ${selectedClients.length} client${selectedClients.length > 1 ? 's' : ''}?`)) {
+                                            try {
+                                              // Get current user ID
+                                              const { data: { user: currentUser } } = await supabase.auth.getUser();
+                                              if (!currentUser) {
+                                                alert('You must be logged in to create projects');
+                                                return;
+                                              }
+
+                                              const projectsToCreate = selectedClients.map(client => ({
+                                                title: client.name,
+                                                description: client.notes || '',
+                                                status_id: coldCallStatus.id,
+                                                project_type_id: fundingProjectType.id,
+                                                client_id: client.id,
+                                                created_by: currentUser.id,
+                                                created_at: new Date().toISOString()
+                                              }));
+
+                                              const { error } = await supabase
+                                                .from('projects')
+                                                .insert(projectsToCreate);
+
+                                              if (error) {
+                                                alert('Error creating projects: ' + error.message);
+                                              } else {
+                                                alert(`Successfully created ${projectsToCreate.length} Funding Project - Cold Call${projectsToCreate.length > 1 ? 's' : ''}`);
+                                                setSelectedClientIds(new Set());
+                                                loadData();
+                                              }
+                                            } catch (err: any) {
+                                              alert('Error: ' + err.message);
+                                            }
+                                          }
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                      >
+                                        <FileText className="w-4 h-4 text-slate-500" />
+                                        Funding Project - Cold Call
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                             <button
                               onClick={() => {
