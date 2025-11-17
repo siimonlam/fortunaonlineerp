@@ -2183,6 +2183,9 @@ export function ProjectBoard() {
               setSelectedProject(null);
               loadData();
             }}
+            onRefresh={() => {
+              loadData();
+            }}
           />
         ) : (
           <TaskModal

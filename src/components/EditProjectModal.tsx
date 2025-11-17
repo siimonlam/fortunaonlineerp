@@ -92,9 +92,10 @@ interface EditProjectModalProps {
   statuses?: Status[];
   onClose: () => void;
   onSuccess: () => void;
+  onRefresh?: () => void;
 }
 
-export function EditProjectModal({ project, statuses, onClose, onSuccess }: EditProjectModalProps) {
+export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefresh }: EditProjectModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -352,6 +353,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess }: Edit
 
       // Then reload invoices
       loadInvoices();
+
+      // Notify parent to refresh the board
+      if (onRefresh) {
+        onRefresh();
+      }
+
+      // Reset unsaved changes tracking since invoice update is a separate save action
+      setOriginalData(formData);
     } catch (error: any) {
       console.error('Error updating invoice:', error);
       alert('Failed to update invoice: ' + error.message);
