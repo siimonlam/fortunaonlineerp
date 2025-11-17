@@ -33,11 +33,12 @@ interface CreateProjectModalProps {
   client: Client;
   projectTypeId: string;
   projectTypeName: string;
+  initialStatusId?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function CreateProjectModal({ client, projectTypeId, projectTypeName, onClose, onSuccess }: CreateProjectModalProps) {
+export function CreateProjectModal({ client, projectTypeId, projectTypeName, initialStatusId, onClose, onSuccess }: CreateProjectModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -93,6 +94,19 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, onC
   }
 
   async function loadDefaultStatus() {
+    if (initialStatusId) {
+      const { data } = await supabase
+        .from('statuses')
+        .select('*')
+        .eq('id', initialStatusId)
+        .maybeSingle();
+
+      if (data) {
+        setDefaultStatus(data);
+        return;
+      }
+    }
+
     if (projectTypeName === 'Funding Project') {
       const { data } = await supabase
         .from('statuses')

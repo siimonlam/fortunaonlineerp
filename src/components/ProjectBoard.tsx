@@ -134,6 +134,7 @@ export function ProjectBoard() {
   const [projectSortBy, setProjectSortBy] = useState<'next_due_date' | 'submission_date' | 'project_start_date' | 'project_end_date' | 'created_newest' | 'created_oldest'>('next_due_date');
   const [createProjectClient, setCreateProjectClient] = useState<Client | null>(null);
   const [createProjectTypeId, setCreateProjectTypeId] = useState<string>('');
+  const [createProjectStatusId, setCreateProjectStatusId] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterProjectSize, setFilterProjectSize] = useState<string[]>([]);
@@ -860,9 +861,10 @@ export function ProjectBoard() {
     setSelectedView(view);
   }
 
-  function handleCreateProjectFromClient(client: Client, targetProjectTypeId: string) {
+  function handleCreateProjectFromClient(client: Client, targetProjectTypeId: string, targetStatusId?: string) {
     setCreateProjectClient(client);
     setCreateProjectTypeId(targetProjectTypeId);
+    setCreateProjectStatusId(targetStatusId || '');
   }
 
   async function handleOldCreateProjectFromClient(client: Client, targetProjectTypeId: string) {
@@ -1887,9 +1889,10 @@ export function ProjectBoard() {
                             key={client.id}
                             client={client}
                             projectTypes={projectTypes}
+                            statuses={statuses}
                             onClick={() => setSelectedClient(client)}
-                            onCreateProject={(targetProjectTypeId) => {
-                              handleCreateProjectFromClient(client, targetProjectTypeId);
+                            onCreateProject={(targetProjectTypeId, targetStatusId) => {
+                              handleCreateProjectFromClient(client, targetProjectTypeId, targetStatusId);
                             }}
                             onProjectClick={(project) => setSelectedProject(project)}
                             projectTypePermissions={projectTypePermissions}
@@ -1920,9 +1923,10 @@ export function ProjectBoard() {
                           key={client.id}
                           client={client}
                           projectTypes={projectTypes}
+                          statuses={statuses}
                           onClick={() => setSelectedClient(client)}
-                          onCreateProject={(targetProjectTypeId) => {
-                            handleCreateProjectFromClient(client, targetProjectTypeId);
+                          onCreateProject={(targetProjectTypeId, targetStatusId) => {
+                            handleCreateProjectFromClient(client, targetProjectTypeId, targetStatusId);
                           }}
                           onProjectClick={(project) => setSelectedProject(project)}
                           projectTypePermissions={projectTypePermissions}
@@ -2147,13 +2151,16 @@ export function ProjectBoard() {
             client={createProjectClient}
             projectTypeId={createProjectTypeId}
             projectTypeName={projectType?.name || 'Project'}
+            initialStatusId={createProjectStatusId}
             onClose={() => {
               setCreateProjectClient(null);
               setCreateProjectTypeId('');
+              setCreateProjectStatusId('');
             }}
             onSuccess={() => {
               setCreateProjectClient(null);
               setCreateProjectTypeId('');
+              setCreateProjectStatusId('');
               loadData();
             }}
           />
@@ -2462,17 +2469,20 @@ export function ProjectBoard() {
 interface ClientCardProps {
   client: Client;
   projectTypes: ProjectType[];
+  statuses: Status[];
   onClick: () => void;
-  onCreateProject: (targetProjectTypeId: string) => void;
+  onCreateProject: (targetProjectTypeId: string, targetStatusId?: string) => void;
   onProjectClick?: (project: Project) => void;
   isChannelPartner?: boolean;
 }
 
-function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectClick, projectTypePermissions, isAdmin, isChannelPartner = false }: ClientCardProps & { projectTypePermissions: string[]; isAdmin: boolean }) {
+function ClientCard({ client, projectTypes, statuses, onClick, onCreateProject, onProjectClick, projectTypePermissions, isAdmin, isChannelPartner = false }: ClientCardProps & { projectTypePermissions: string[]; isAdmin: boolean }) {
   const [showMenu, setShowMenu] = useState(false);
   const fundingProjectType = projectTypes.find(pt => pt.name === 'Funding Project');
   const comSecProjectType = projectTypes.find(pt => pt.name === 'Com Sec');
   const marketingProjectType = projectTypes.find(pt => pt.name === 'Marketing');
+
+  const coldCallStatus = statuses.find(s => s.name === 'Cold Call' && s.project_type_id === fundingProjectType?.id);
 
   const fundingProjects = client.projects?.filter(p => p.project_type_id === fundingProjectType?.id) || [];
   const comSecProjects = client.projects?.filter(p => p.project_type_id === comSecProjectType?.id) || [];
@@ -2521,7 +2531,7 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
               Create Project
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10 min-w-[180px]">
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10 min-w-[220px]">
                 {fundingProjectType && (
                 <button
                   onClick={(e) => {
@@ -2532,6 +2542,18 @@ function ClientCard({ client, projectTypes, onClick, onCreateProject, onProjectC
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Funding Project
+                </button>
+              )}
+              {fundingProjectType && coldCallStatus && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onCreateProject(fundingProjectType.id, coldCallStatus.id);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Funding Project - Cold Call
                 </button>
               )}
               {comSecProjectType && (
