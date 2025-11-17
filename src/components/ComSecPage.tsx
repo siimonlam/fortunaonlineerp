@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail, LayoutGrid, List } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail, LayoutGrid, List, Download, Upload } from 'lucide-react';
 import { InvoicePreview } from './InvoicePreview';
 import { DocumentFolderModal } from './DocumentFolderModal';
 import { EditComSecClientModal } from './EditComSecClientModal';
@@ -266,6 +266,146 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     if (data) setLetters(data);
   }
 
+  function downloadCSVTemplate() {
+    const headers = [
+      'company_code',
+      'company_name',
+      'company_name_chinese',
+      'brn',
+      'incorporation_date',
+      'case_officer_email',
+      'anniversary_month',
+      'company_status',
+      'nar1_status',
+      'ar_due_date',
+      'reminder_days',
+      'contact_person',
+      'email',
+      'phone',
+      'address',
+      'sales_source',
+      'sales_person_email',
+      'remarks'
+    ];
+
+    const csvContent = headers.join(',') + '\n';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'comsec_clients_template.csv';
+    link.click();
+  }
+
+  async function handleCSVImport(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        const headers = lines[0].split(',').map(h => h.trim());
+
+        let successCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim());
+          const rowData: any = {};
+
+          headers.forEach((header, index) => {
+            const value = values[index];
+            if (value && value !== '') {
+              rowData[header] = value;
+            }
+          });
+
+          if (!rowData.company_code) {
+            errors.push(`Row ${i + 1}: Missing company_code`);
+            errorCount++;
+            continue;
+          }
+
+          const { data: existingClient } = await supabase
+            .from('comsec_clients')
+            .select('id')
+            .eq('company_code', rowData.company_code)
+            .maybeSingle();
+
+          if (!existingClient) {
+            errors.push(`Row ${i + 1}: Company code ${rowData.company_code} not found`);
+            errorCount++;
+            continue;
+          }
+
+          const updateData: any = {};
+
+          if (rowData.company_name) updateData.company_name = rowData.company_name;
+          if (rowData.company_name_chinese) updateData.company_name_chinese = rowData.company_name_chinese;
+          if (rowData.brn) updateData.brn = rowData.brn;
+          if (rowData.incorporation_date) updateData.incorporation_date = rowData.incorporation_date;
+          if (rowData.anniversary_month) updateData.anniversary_month = rowData.anniversary_month;
+          if (rowData.company_status) updateData.company_status = rowData.company_status;
+          if (rowData.nar1_status) updateData.nar1_status = rowData.nar1_status;
+          if (rowData.ar_due_date) updateData.ar_due_date = rowData.ar_due_date;
+          if (rowData.reminder_days) updateData.reminder_days = parseInt(rowData.reminder_days);
+          if (rowData.contact_person) updateData.contact_person = rowData.contact_person;
+          if (rowData.email) updateData.email = rowData.email;
+          if (rowData.phone) updateData.phone = rowData.phone;
+          if (rowData.address) updateData.address = rowData.address;
+          if (rowData.sales_source) updateData.sales_source = rowData.sales_source;
+          if (rowData.remarks) updateData.remarks = rowData.remarks;
+
+          if (rowData.case_officer_email) {
+            const { data: officer } = await supabase
+              .from('staff')
+              .select('id')
+              .eq('email', rowData.case_officer_email)
+              .maybeSingle();
+            if (officer) updateData.case_officer_id = officer.id;
+          }
+
+          if (rowData.sales_person_email) {
+            const { data: salesperson } = await supabase
+              .from('staff')
+              .select('id')
+              .eq('email', rowData.sales_person_email)
+              .maybeSingle();
+            if (salesperson) updateData.sales_person_id = salesperson.id;
+          }
+
+          const { error } = await supabase
+            .from('comsec_clients')
+            .update(updateData)
+            .eq('id', existingClient.id);
+
+          if (error) {
+            errors.push(`Row ${i + 1}: ${error.message}`);
+            errorCount++;
+          } else {
+            successCount++;
+          }
+        }
+
+        alert(
+          `CSV Import Complete!\n\n` +
+          `Successfully updated: ${successCount} clients\n` +
+          `Errors: ${errorCount}\n\n` +
+          (errors.length > 0 ? `Error details:\n${errors.slice(0, 10).join('\n')}` : '')
+        );
+
+        await loadComSecClients();
+      } catch (error) {
+        console.error('CSV import error:', error);
+        alert('Failed to import CSV file. Please check the file format.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
   function ServiceSettingsTab() {
     const [services, setServices] = useState<any[]>([]);
     const [editingService, setEditingService] = useState<any>(null);
@@ -494,6 +634,24 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                   className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <button
+                onClick={downloadCSVTemplate}
+                className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
+                title="Download CSV Template"
+              >
+                <Download className="w-4 h-4" />
+                Template
+              </button>
+              <label className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 cursor-pointer">
+                <Upload className="w-4 h-4" />
+                Import CSV
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCSVImport}
+                  className="hidden"
+                />
+              </label>
               <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
                 <button
                   onClick={() => setClientViewMode('card')}
