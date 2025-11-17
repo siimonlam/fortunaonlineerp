@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        console.log('Initializing auth...');
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error('Error getting session:', error);
@@ -32,6 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error('Error in initAuth:', err);
       } finally {
+        console.log('Auth initialization complete, setting loading to false');
         setLoading(false);
       }
     };
@@ -41,51 +43,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      (async () => {
-        console.log('Auth state change:', event, session?.user?.email || 'No user');
+      console.log('Auth state change:', event, session?.user?.email || 'No user');
 
-        try {
-          setSession(session);
-          setUser(session?.user ?? null);
+      setSession(session);
+      setUser(session?.user ?? null);
 
-          if (session?.user) {
-            try {
-              const { data: existingStaff, error: fetchError } = await supabase
-                .from('staff')
-                .select('id')
-                .eq('id', session.user.id)
-                .maybeSingle();
+      if (session?.user) {
+        (async () => {
+          try {
+            const { data: existingStaff, error: fetchError } = await supabase
+              .from('staff')
+              .select('id')
+              .eq('id', session.user.id)
+              .maybeSingle();
 
-              if (fetchError) {
-                console.error('Error fetching staff:', fetchError);
-                return;
-              }
+            if (fetchError) {
+              console.error('Error fetching staff (non-blocking):', fetchError);
+              return;
+            }
 
-              if (!existingStaff) {
-                console.log('Creating staff record for:', session.user.email);
-                const { error: insertError } = await supabase.from('staff').insert({
-                  id: session.user.id,
-                  email: session.user.email!,
-                  full_name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
-                  avatar_url: session.user.user_metadata.avatar_url,
-                });
+            if (!existingStaff) {
+              console.log('Creating staff record for:', session.user.email);
+              const { error: insertError } = await supabase.from('staff').insert({
+                id: session.user.id,
+                email: session.user.email!,
+                full_name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
+                avatar_url: session.user.user_metadata.avatar_url,
+              });
 
-                if (insertError) {
-                  console.error('Error inserting staff:', insertError);
-                  if (insertError.code !== '23505') {
-                    return;
-                  }
+              if (insertError) {
+                console.error('Error inserting staff (non-blocking):', insertError);
+                if (insertError.code === '23505') {
                   console.log('Staff record already exists (duplicate key error), continuing...');
                 }
               }
-            } catch (err) {
-              console.error('Error managing staff record:', err);
             }
+          } catch (err) {
+            console.error('Error managing staff record (non-blocking):', err);
           }
-        } catch (err) {
-          console.error('Error in auth state change:', err);
-        }
-      })();
+        })();
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -102,12 +99,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithEmail = async (email: string, password: string) => {
+    console.log('Attempting to sign in with:', email);
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    console.log('Sign in result:', data?.user?.email || 'No user', error);
-    if (error) throw error;
+    console.log('Sign in result:', {
+      user: data?.user?.email || 'No user',
+      session: data?.session ? 'Session exists' : 'No session',
+      error: error?.message || 'No error'
+    });
+    if (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
   };
 
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
@@ -132,8 +137,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    console.log('Signing out user:', user?.email);
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) {
+      console.error('Sign out error:', error);
+      throw error;
+    }
+    console.log('Sign out successful');
+    setUser(null);
+    setSession(null);
   };
 
   const value = {
