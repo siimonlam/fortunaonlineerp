@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3';
+const TEMPLATE_FOLDER_ID = '1UGe0xaW7Z-PIFhK9CHLayI78k59HjQ-n';
 
 const BUD_FOLDER_STRUCTURE = [
   'Agreement',
@@ -139,11 +140,62 @@ async function createGoogleDriveFolder(
   return folderId;
 }
 
-async function createFolderStructure(
-  rootFolderId: string,
+async function copyFileToFolder(
+  fileId: string,
+  fileName: string,
+  destinationFolderId: string,
   accessToken: string
-): Promise<Record<string, string>> {
+): Promise<string> {
+  const response = await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}/copy`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: fileName,
+      parents: [destinationFolderId],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to copy file "${fileName}": ${error}`);
+  }
+
+  const data = await response.json();
+  return data.id;
+}
+
+async function listFilesInFolder(
+  folderId: string,
+  accessToken: string
+): Promise<Array<{ id: string; name: string; mimeType: string }>> {
+  const response = await fetch(
+    `${GOOGLE_DRIVE_API}/files?q='${folderId}'+in+parents&fields=files(id,name,mimeType)`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to list files: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.files || [];
+}
+
+async function createFolderStructureAndCopyFiles(
+  rootFolderId: string,
+  templateFolderId: string,
+  accessToken: string
+): Promise<{ folderMap: Record<string, string>; filesCopied: number }> {
   const folderMap: Record<string, string> = { '': rootFolderId };
+  let filesCopied = 0;
 
   for (const folderPath of BUD_FOLDER_STRUCTURE) {
     const parts = folderPath.split('/');
@@ -165,7 +217,29 @@ async function createFolderStructure(
     }
   }
 
-  return folderMap;
+  try {
+    console.log('Listing files in template folder...');
+    const templateFiles = await listFilesInFolder(templateFolderId, accessToken);
+    console.log(`Found ${templateFiles.length} files in template folder`);
+
+    for (const file of templateFiles) {
+      if (file.mimeType === 'application/vnd.google-apps.folder') {
+        continue;
+      }
+
+      try {
+        await copyFileToFolder(file.id, file.name, rootFolderId, accessToken);
+        filesCopied++;
+        console.log(`Copied file: ${file.name}`);
+      } catch (error) {
+        console.error(`Failed to copy file ${file.name}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to copy template files:', error);
+  }
+
+  return { folderMap, filesCopied };
 }
 
 async function refreshGoogleToken(refreshToken: string): Promise<string> {
@@ -292,8 +366,12 @@ Deno.serve(async (req: Request) => {
 
     const rootFolderId = await createGoogleDriveFolder(rootFolderName, parent_folder_id, access_token);
 
-    console.log('Creating folder structure...');
-    const folderMap = await createFolderStructure(rootFolderId, access_token);
+    console.log('Creating folder structure and copying template files...');
+    const { folderMap, filesCopied } = await createFolderStructureAndCopyFiles(
+      rootFolderId,
+      TEMPLATE_FOLDER_ID,
+      access_token
+    );
 
     const foldersCreated = Object.keys(folderMap).length;
 
@@ -313,7 +391,8 @@ Deno.serve(async (req: Request) => {
       drive_url: driveUrl,
       folders_created: foldersCreated,
       total_folders: BUD_FOLDER_STRUCTURE.length + 1,
-      message: `Successfully created ${foldersCreated} folders.`,
+      files_copied: filesCopied,
+      message: `Successfully created ${foldersCreated} folders and copied ${filesCopied} template files.`,
     };
 
     return new Response(JSON.stringify(response), {
