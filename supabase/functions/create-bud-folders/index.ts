@@ -8,6 +8,29 @@ const corsHeaders = {
 };
 
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3';
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/siimonlam/fortunaonlineerp/main/templatefiles/budfolder';
+
+const TEMPLATE_FILES = [
+  'BUD-checklist-2024-CHI.docx',
+  'Budget_V1.1_Chi_blank.xlsx',
+  'Template BUD 申請所需文件(內地_FTA 計劃).xlsx',
+  'Review/Q&A_Request_Clent.docx',
+  'Review/Q&A_Request_vendor.docx',
+  'Upload/Note_for_Applicant_Venders_full_ver.pdf',
+  'Final-Report/Final_Report_Summary_V3.xlsm',
+  'Final-Report/Final_Report_Summary_V6.xlsm',
+  'Final-Report/Quotation/Appendix.docx',
+  'Final-Report/Quotation/Vendor suggestion list.xlsx',
+  'Final-Report/Quotation/quotation-request-form-en.doc',
+  'Final-Report/Quotation/quotation-request-form-CN.docx',
+  'Final-Report/Quotation/quotation-request-form-CN_audit.docx',
+  'Final-Report/Quotation/Audit/audit.docx',
+  'Final-Report/Quotation/Audit/Appendix.docx',
+  'Final-Report/Quotation/Audit/quotation-request-form-CN.pdf',
+  'Final-Report/Quotation/Audit/supplier-confirmation-form-CH.pdf',
+  'Final-Report/Quotation/Audit/quotation-request-form-CN_audit.docx',
+  'Final-Report/Quotation/Audit/檢查文件 - 為獲批項目所需的帳目外聘核數費.txt',
+];
 
 const BUD_FOLDER_STRUCTURE = [
   'Agreement',
@@ -88,6 +111,53 @@ const BUD_FOLDER_STRUCTURE = [
   'Upload',
 ];
 
+async function uploadFileToGoogleDrive(
+  fileName: string,
+  fileBlob: Blob,
+  mimeType: string,
+  parentId: string,
+  accessToken: string
+): Promise<string> {
+  const metadata = {
+    name: fileName,
+    parents: [parentId],
+    mimeType: mimeType,
+  };
+
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', fileBlob);
+
+  const response = await fetch(`${GOOGLE_DRIVE_API}/files?uploadType=multipart`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: form,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to upload file "${fileName}": ${error}`);
+  }
+
+  const data = await response.json();
+  return data.id;
+}
+
+function getMimeType(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    'pdf': 'application/pdf',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'doc': 'application/msword',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'xlsm': 'application/vnd.ms-excel.sheet.macroEnabled.12',
+    'txt': 'text/plain',
+  };
+  return mimeTypes[ext || ''] || 'application/octet-stream';
+}
+
 async function createGoogleDriveFolder(
   name: string,
   parentId: string | null,
@@ -166,6 +236,54 @@ async function createFolderStructure(
   }
 
   return folderMap;
+}
+
+async function copyTemplateFiles(
+  folderMap: Record<string, string>,
+  accessToken: string
+): Promise<{ uploaded: number; failed: number }> {
+  let uploaded = 0;
+  let failed = 0;
+
+  for (const templatePath of TEMPLATE_FILES) {
+    try {
+      const githubUrl = `${GITHUB_RAW_BASE}/${encodeURI(templatePath)}`;
+      console.log(`Fetching template file from: ${githubUrl}`);
+
+      const fileResponse = await fetch(githubUrl);
+
+      if (!fileResponse.ok) {
+        console.error(`Failed to fetch ${templatePath}: ${fileResponse.status}`);
+        failed++;
+        continue;
+      }
+
+      const fileBlob = await fileResponse.blob();
+      const fileName = templatePath.split('/').pop() || templatePath;
+      const folderPath = templatePath.includes('/')
+        ? templatePath.substring(0, templatePath.lastIndexOf('/'))
+        : '';
+
+      const parentFolderId = folderMap[folderPath] || folderMap[''];
+
+      if (!parentFolderId) {
+        console.error(`Parent folder not found for ${templatePath}`);
+        failed++;
+        continue;
+      }
+
+      const mimeType = getMimeType(fileName);
+      await uploadFileToGoogleDrive(fileName, fileBlob, mimeType, parentFolderId, accessToken);
+
+      console.log(`✓ Uploaded: ${templatePath}`);
+      uploaded++;
+    } catch (error) {
+      console.error(`Failed to upload ${templatePath}:`, error);
+      failed++;
+    }
+  }
+
+  return { uploaded, failed };
 }
 
 async function refreshGoogleToken(refreshToken: string): Promise<string> {
@@ -283,6 +401,10 @@ Deno.serve(async (req: Request) => {
 
     const foldersCreated = Object.keys(folderMap).length;
 
+    console.log('Copying template files from GitHub...');
+    const fileStats = await copyTemplateFiles(folderMap, access_token);
+    console.log(`Files uploaded: ${fileStats.uploaded}, Failed: ${fileStats.failed}`);
+
     await supabase.from('project_folders').insert({
       project_id,
       parent_folder_id: rootFolderId,
@@ -299,7 +421,10 @@ Deno.serve(async (req: Request) => {
       drive_url: driveUrl,
       folders_created: foldersCreated,
       total_folders: BUD_FOLDER_STRUCTURE.length + 1,
-      message: `Successfully created ${foldersCreated} folders.`,
+      files_uploaded: fileStats.uploaded,
+      files_failed: fileStats.failed,
+      total_files: TEMPLATE_FILES.length,
+      message: `Successfully created ${foldersCreated} folders and uploaded ${fileStats.uploaded}/${TEMPLATE_FILES.length} template files.`,
     };
 
     return new Response(JSON.stringify(response), {
