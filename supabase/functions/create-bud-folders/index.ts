@@ -324,6 +324,20 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  let body;
+  try {
+    body = await req.json();
+  } catch (parseError) {
+    console.error('Failed to parse request body:', parseError);
+    return new Response(
+      JSON.stringify({ error: 'Invalid JSON in request body' }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -334,7 +348,7 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    const { project_id, project_name, project_reference } = await req.json();
+    const { project_id, project_name, project_reference } = body;
 
     console.log('Creating BUD folders for project:', project_id, project_name);
 
