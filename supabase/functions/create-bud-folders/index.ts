@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3';
-const TEMPLATE_FOLDER_ID = '1UGe0xaW7Z-PIFhK9CHLayI78k59HjQ-n';
+const TEMPLATE_FOLDER_ID = '17EK9t8ACTyghhklCf84TZ9Y5CyYdJHbk';
 
 const BUD_FOLDER_STRUCTURE = [
   'Agreement',
