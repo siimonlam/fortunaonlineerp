@@ -1395,7 +1395,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   type="text"
                   disabled={!canEdit}
                   value={formData.projectName}
-                  onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
+                  onChange={(e) => {
+                    const newProjectName = e.target.value;
+                    const updatedFormData = { ...formData, projectName: newProjectName };
+                    if (projectType?.name === 'Funding') {
+                      updatedFormData.title = formData.companyName && newProjectName
+                        ? `${formData.companyName} - ${newProjectName}`
+                        : formData.companyName || newProjectName || '';
+                    }
+                    setFormData(updatedFormData);
+                  }}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                   placeholder="Alternative project name"
                 />
@@ -1437,7 +1446,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 type="text"
                 disabled={!canEdit}
                 value={formData.companyName}
-                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                onChange={(e) => {
+                  const newCompanyName = e.target.value;
+                  const updatedFormData = { ...formData, companyName: newCompanyName };
+                  if (projectType?.name === 'Funding') {
+                    updatedFormData.title = newCompanyName && formData.projectName
+                      ? `${newCompanyName} - ${formData.projectName}`
+                      : newCompanyName || formData.projectName || '';
+                  }
+                  setFormData(updatedFormData);
+                }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                 placeholder="Enter company name"
               />
