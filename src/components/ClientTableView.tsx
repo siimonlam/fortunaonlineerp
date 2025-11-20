@@ -23,6 +23,7 @@ interface Client {
   abbreviation: string | null;
   created_by: string;
   sales_person_id: string | null;
+  commission_rate?: number | null;
   created_at: string;
   creator?: Staff;
   sales_person?: Staff;

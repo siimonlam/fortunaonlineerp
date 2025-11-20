@@ -54,6 +54,7 @@ interface Client {
   abbreviation: string | null;
   created_by: string;
   sales_person_id: string | null;
+  commission_rate?: number | null;
   created_at: string;
   partner_project_count?: number;
   creator?: Staff;
