@@ -239,11 +239,24 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
           abbreviation: formData.abbreviation.trim() || null,
           sales_person_id: formData.salesPersonId || null,
           channel_partner_id: formData.channelPartnerId || null,
-          commission_rate: formData.commissionRate ? parseFloat(formData.commissionRate) : null,
         })
         .eq('id', client.id);
 
       if (error) throw error;
+
+      if (formData.channelPartnerId && formData.commissionRate) {
+        const { error: partnerError } = await supabase
+          .from('channel_partners')
+          .update({
+            commission_rate: parseFloat(formData.commissionRate),
+          })
+          .eq('id', formData.channelPartnerId);
+
+        if (partnerError) {
+          console.error('Error updating channel partner commission rate:', partnerError);
+        }
+      }
+
       setHasUnsavedChanges(false);
       onSuccess();
     } catch (error: any) {
