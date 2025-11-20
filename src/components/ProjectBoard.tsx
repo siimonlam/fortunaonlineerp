@@ -376,7 +376,7 @@ export function ProjectBoard() {
         .order('created_at', { ascending: false }),
       supabase
         .from('channel_partners')
-        .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,commission_rate')
+        .select('id,name,company_name_chinese,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,commission_rate')
         .order('created_at', { ascending: false }),
       supabase.from('staff').select('*'),
       supabase.from('status_managers').select('*, staff:user_id(id, full_name, email)'),

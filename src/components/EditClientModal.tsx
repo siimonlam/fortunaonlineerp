@@ -229,6 +229,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
           .from('channel_partners')
           .update({
             name: formData.name.trim(),
+            company_name_chinese: formData.companyNameChinese.trim() || null,
             contact_person: formData.contactPerson.trim() || null,
             email: formData.email.trim() || null,
             phone: formData.phone.trim() || null,
