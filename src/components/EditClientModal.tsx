@@ -224,36 +224,57 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('clients')
-        .update({
-          name: formData.name.trim(),
-          company_name_chinese: formData.companyNameChinese.trim() || null,
-          contact_person: formData.contactPerson.trim() || null,
-          email: formData.email.trim() || null,
-          phone: formData.phone.trim() || null,
-          address: formData.address.trim() || null,
-          notes: formData.notes.trim() || null,
-          sales_source: formData.salesSource.trim() || null,
-          industry: formData.industry.trim() || null,
-          abbreviation: formData.abbreviation.trim() || null,
-          sales_person_id: formData.salesPersonId || null,
-          channel_partner_id: formData.channelPartnerId || null,
-        })
-        .eq('id', client.id);
-
-      if (error) throw error;
-
-      if (formData.channelPartnerId && formData.commissionRate) {
-        const { error: partnerError } = await supabase
+      if (isChannelPartner) {
+        const { error } = await supabase
           .from('channel_partners')
           .update({
-            commission_rate: parseFloat(formData.commissionRate),
+            name: formData.name.trim(),
+            contact_person: formData.contactPerson.trim() || null,
+            email: formData.email.trim() || null,
+            phone: formData.phone.trim() || null,
+            address: formData.address.trim() || null,
+            notes: formData.notes.trim() || null,
+            sales_source: formData.salesSource.trim() || null,
+            industry: formData.industry.trim() || null,
+            abbreviation: formData.abbreviation.trim() || null,
+            sales_person_id: formData.salesPersonId || null,
+            commission_rate: formData.commissionRate ? parseFloat(formData.commissionRate) : null,
           })
-          .eq('id', formData.channelPartnerId);
+          .eq('id', client.id);
 
-        if (partnerError) {
-          console.error('Error updating channel partner commission rate:', partnerError);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('clients')
+          .update({
+            name: formData.name.trim(),
+            company_name_chinese: formData.companyNameChinese.trim() || null,
+            contact_person: formData.contactPerson.trim() || null,
+            email: formData.email.trim() || null,
+            phone: formData.phone.trim() || null,
+            address: formData.address.trim() || null,
+            notes: formData.notes.trim() || null,
+            sales_source: formData.salesSource.trim() || null,
+            industry: formData.industry.trim() || null,
+            abbreviation: formData.abbreviation.trim() || null,
+            sales_person_id: formData.salesPersonId || null,
+            channel_partner_id: formData.channelPartnerId || null,
+          })
+          .eq('id', client.id);
+
+        if (error) throw error;
+
+        if (formData.channelPartnerId && formData.commissionRate) {
+          const { error: partnerError } = await supabase
+            .from('channel_partners')
+            .update({
+              commission_rate: parseFloat(formData.commissionRate),
+            })
+            .eq('id', formData.channelPartnerId);
+
+          if (partnerError) {
+            console.error('Error updating channel partner commission rate:', partnerError);
+          }
         }
       }
 
