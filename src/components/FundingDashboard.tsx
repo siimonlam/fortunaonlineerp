@@ -77,14 +77,19 @@ export function FundingDashboard() {
         const children = childStatuses.filter(s => s.parent_status_id === parentStatus.id);
         const parentCount = statusCounts.get(parentStatus.id) || 0;
 
+        const substatusData = children.map(child => ({
+          name: child.name,
+          count: statusCounts.get(child.id) || 0,
+        }));
+
+        const substatusTotal = substatusData.reduce((sum, sub) => sum + sub.count, 0);
+        const totalCount = parentCount + substatusTotal;
+
         return {
           statusName: parentStatus.name,
           statusId: parentStatus.id,
-          totalCount: parentCount,
-          substatuses: children.map(child => ({
-            name: child.name,
-            count: statusCounts.get(child.id) || 0,
-          })),
+          totalCount: totalCount,
+          substatuses: substatusData,
         };
       });
 
