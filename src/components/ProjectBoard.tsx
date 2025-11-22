@@ -2082,6 +2082,7 @@ export function ProjectBoard() {
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Due Date</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Type</th>
                           <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Links</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2116,12 +2117,27 @@ export function ProjectBoard() {
                                   {invoice.payment_status}
                                 </span>
                               </td>
+                              <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-center gap-2">
+                                  {invoice.google_drive_url && (
+                                    <a
+                                      href={invoice.google_drive_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      Invoice
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
                             </tr>
                           );
                         })}
                         {fundingInvoices.length === 0 && (
                           <tr>
-                            <td colSpan={8} className="py-12 text-center text-slate-500">
+                            <td colSpan={9} className="py-12 text-center text-slate-500">
                               No invoices found.
                             </td>
                           </tr>

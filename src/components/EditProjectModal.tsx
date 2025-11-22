@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileText as InvoiceIcon, ExternalLink } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileText as InvoiceIcon, ExternalLink, Receipt } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { GoogleDriveExplorer } from './GoogleDriveExplorer';
 import { InvoiceFieldMappingSettings } from './InvoiceFieldMappingSettings';
+import { ReceiptFieldMappingSettings } from './ReceiptFieldMappingSettings';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
+import { GenerateReceiptModal } from './GenerateReceiptModal';
 import html2pdf from 'html2pdf.js';
 import { createBudProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
 
@@ -128,7 +130,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [projectFolderInfo, setProjectFolderInfo] = useState<any>(null);
   const [folderCreationError, setFolderCreationError] = useState<string | null>(null);
   const [showInvoiceSettings, setShowInvoiceSettings] = useState(false);
+  const [showReceiptSettings, setShowReceiptSettings] = useState(false);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
+  const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
+  const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -2215,7 +2220,18 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                       title="Configure invoice field mappings"
                     >
                       <Settings className="w-4 h-4" />
-                      Settings
+                      Invoice Mapping Setting
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setShowReceiptSettings(true)}
+                      className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                      title="Configure receipt field mappings"
+                    >
+                      <Receipt className="w-4 h-4" />
+                      Receipt Mapping Setting
                     </button>
                   )}
                   {canEdit && (
@@ -2352,24 +2368,37 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                 </span>
                               </td>
                               <td className="px-3 py-2">
-                                {invoice.google_drive_url ? (
-                                  <a
-                                    href={invoice.google_drive_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
-                                  >
-                                    <ExternalLink className="w-3 h-3" />
-                                    View
-                                  </a>
-                                ) : (
-                                  <span className="text-slate-400 text-xs">-</span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  {invoice.google_drive_url ? (
+                                    <a
+                                      href={invoice.google_drive_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      Invoice
+                                    </a>
+                                  ) : (
+                                    <span className="text-slate-400 text-xs">-</span>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
                                   {canEdit && (
                                     <>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedInvoiceForReceipt(invoice);
+                                          setShowGenerateReceipt(true);
+                                        }}
+                                        className="text-green-600 hover:text-green-800 text-xs flex items-center gap-1"
+                                      >
+                                        <Receipt className="w-3 h-3" />
+                                        Receipt
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => handleEditInvoice(invoice)}
@@ -2601,6 +2630,25 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       {showInvoiceSettings && (
         <InvoiceFieldMappingSettings
           onClose={() => setShowInvoiceSettings(false)}
+        />
+      )}
+
+      {showReceiptSettings && (
+        <ReceiptFieldMappingSettings
+          onClose={() => setShowReceiptSettings(false)}
+        />
+      )}
+
+      {showGenerateReceipt && selectedInvoiceForReceipt && (
+        <GenerateReceiptModal
+          invoice={selectedInvoiceForReceipt}
+          onClose={() => {
+            setShowGenerateReceipt(false);
+            setSelectedInvoiceForReceipt(null);
+          }}
+          onSuccess={() => {
+            loadInvoices();
+          }}
         />
       )}
 
