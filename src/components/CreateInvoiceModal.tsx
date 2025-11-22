@@ -26,6 +26,28 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
     paymentType: 'Deposit',
   });
 
+  useEffect(() => {
+    async function generateInvoiceNumber() {
+      if (!project.client_id || formData.invoiceNumber) return;
+
+      try {
+        const { data, error } = await supabase.rpc('generate_invoice_number', {
+          client_uuid: project.client_id
+        });
+
+        if (error) throw error;
+
+        if (data) {
+          setFormData(prev => ({ ...prev, invoiceNumber: data }));
+        }
+      } catch (error) {
+        console.error('Error generating invoice number:', error);
+      }
+    }
+
+    generateInvoiceNumber();
+  }, [project.client_id]);
+
   async function getGoogleDriveAccessToken() {
     const { data: tokenData, error: tokenError } = await supabase
       .from('google_oauth_credentials')
