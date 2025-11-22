@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { BarChart3, TrendingUp, AlertCircle, Clock } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar } from 'lucide-react';
 
 interface Status {
   id: string;
@@ -25,10 +25,19 @@ interface DashboardData {
   }[];
 }
 
+interface Project {
+  id: string;
+  title: string;
+  project_end_date: string | null;
+  status_id: string;
+}
+
 export function FundingDashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalProjects, setTotalProjects] = useState(0);
+  const [activeTab, setActiveTab] = useState<'summary' | 'progress'>('summary');
+  const [endingSoonProjects, setEndingSoonProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -48,7 +57,7 @@ export function FundingDashboard() {
 
       const { data: projects, error: projectError } = await supabase
         .from('projects')
-        .select('id, status_id, project_type_id')
+        .select('id, status_id, project_type_id, title, project_end_date')
         .eq('project_type_id', 'da2fb577-520e-4d0f-9e55-c1b7ecadee61');
 
       if (projectError) throw projectError;
@@ -80,6 +89,18 @@ export function FundingDashboard() {
       });
 
       setDashboardData(dashboardItems);
+
+      const threeMonthsFromNow = new Date();
+      threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+
+      const projectsEndingSoon = projects?.filter(p => {
+        if (!p.project_end_date) return false;
+        const endDate = new Date(p.project_end_date);
+        const now = new Date();
+        return endDate >= now && endDate <= threeMonthsFromNow;
+      }) || [];
+
+      setEndingSoonProjects(projectsEndingSoon as Project[]);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -113,7 +134,31 @@ export function FundingDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab('summary')}
+          className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            activeTab === 'summary'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          Project Summary
+        </button>
+        <button
+          onClick={() => setActiveTab('progress')}
+          className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            activeTab === 'progress'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          Progress
+        </button>
+      </div>
+
+      {activeTab === 'summary' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {dashboardData.map((item) => (
           <div
             key={item.statusId}
@@ -163,12 +208,118 @@ export function FundingDashboard() {
             )}
           </div>
         ))}
-      </div>
 
-      {dashboardData.length === 0 && (
-        <div className="text-center py-12">
-          <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-500">No status data available</p>
+        {dashboardData.length === 0 && (
+          <div className="col-span-full text-center py-12">
+            <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500">No status data available</p>
+          </div>
+        )}
+      </div>
+      )}
+
+      {activeTab === 'progress' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-orange-600 rounded-lg p-2">
+                <Clock className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">Projects Ending Soon</h2>
+                <p className="text-sm text-slate-600">Within 3 months</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center py-8">
+              <div className="relative">
+                <svg className="w-48 h-48 transform -rotate-90">
+                  <circle
+                    cx="96"
+                    cy="96"
+                    r="80"
+                    stroke="#e2e8f0"
+                    strokeWidth="16"
+                    fill="none"
+                  />
+                  <circle
+                    cx="96"
+                    cy="96"
+                    r="80"
+                    stroke="#ea580c"
+                    strokeWidth="16"
+                    fill="none"
+                    strokeDasharray={`${(endingSoonProjects.length / totalProjects) * 502.4} 502.4`}
+                    className="transition-all duration-1000"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-orange-600">{endingSoonProjects.length}</div>
+                    <div className="text-sm text-slate-600 font-medium">projects</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center text-sm text-slate-600">
+              <span className="font-semibold">{Math.round((endingSoonProjects.length / totalProjects) * 100) || 0}%</span> of total projects
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-blue-600 rounded-lg p-2">
+                <Calendar className="w-5 h-5 text-white" />
+              </div>
+              <h2 className="text-lg font-bold text-slate-800">Project List</h2>
+            </div>
+
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {endingSoonProjects.length > 0 ? (
+                endingSoonProjects.map((project) => (
+                  <div
+                    key={project.id}
+                    className="p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{project.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <p className="text-xs text-slate-600">
+                            {project.project_end_date
+                              ? new Date(project.project_end_date).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : 'No end date'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full border border-orange-200">
+                          {project.project_end_date
+                            ? Math.ceil(
+                                (new Date(project.project_end_date).getTime() - new Date().getTime()) /
+                                  (1000 * 60 * 60 * 24)
+                              )
+                            : 0}{' '}
+                          days
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <Clock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500">No projects ending within 3 months</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
