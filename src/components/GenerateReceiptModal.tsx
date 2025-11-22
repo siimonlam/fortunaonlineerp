@@ -24,6 +24,7 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
     paymentDate: new Date().toISOString().split('T')[0],
     paymentAmount: invoice.amount.toString(),
     paymentMethod: 'Bank Transfer',
+    paymentMethodRemark: '',
   });
 
   async function getGoogleDriveAccessToken() {
@@ -104,6 +105,7 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
           payment_date: formData.paymentDate,
           payment_amount: parseFloat(formData.paymentAmount),
           payment_method: formData.paymentMethod,
+          payment_method_remark: formData.paymentMethodRemark,
           created_by: (await supabase.auth.getUser()).data.user?.id,
         })
         .select()
@@ -320,6 +322,19 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
                 <option value="Credit Card">Credit Card</option>
                 <option value="Other">Other</option>
               </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Payment Method Remark
+              </label>
+              <input
+                type="text"
+                value={formData.paymentMethodRemark}
+                onChange={(e) => setFormData({ ...formData, paymentMethodRemark: e.target.value })}
+                placeholder="e.g., Cheque #12345, Transaction ID, etc."
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           </div>
         </div>

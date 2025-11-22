@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -13,6 +13,7 @@ import { CreateProjectModal } from './CreateProjectModal';
 import { ComSecPage } from './ComSecPage';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { FundingDashboard } from './FundingDashboard';
+import { GenerateReceiptModal } from './GenerateReceiptModal';
 
 interface Status {
   id: string;
@@ -125,6 +126,9 @@ export function ProjectBoard() {
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
   const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices'>('projects');
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
+  const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
+  const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
+  const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [addClientType, setAddClientType] = useState<'company' | 'channel'>('company');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -581,6 +585,15 @@ export function ProjectBoard() {
       setFundingInvoices(fundingInvoicesRes.data);
     } else {
       console.log('No funding invoices data received');
+    }
+
+    const { data: receiptsData } = await supabase
+      .from('funding_receipt')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (receiptsData) {
+      setFundingReceipts(receiptsData);
     }
   }
 
@@ -2083,7 +2096,9 @@ export function ProjectBoard() {
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Due Date</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Type</th>
                           <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Links</th>
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Invoice Link</th>
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Receipt Link</th>
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2121,26 +2136,56 @@ export function ProjectBoard() {
                                 </span>
                               </td>
                               <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center justify-center gap-2">
-                                  {invoice.google_drive_url && (
+                                {invoice.google_drive_url ? (
+                                  <a
+                                    href={invoice.google_drive_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1 text-xs"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    View
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">-</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                {(() => {
+                                  const receipt = fundingReceipts.find(r => r.invoice_id === invoice.id);
+                                  return receipt?.google_drive_url ? (
                                     <a
-                                      href={invoice.google_drive_url}
+                                      href={receipt.google_drive_url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
+                                      className="text-green-600 hover:text-green-800 flex items-center justify-center gap-1 text-xs"
                                     >
                                       <ExternalLink className="w-3 h-3" />
-                                      Invoice
+                                      View
                                     </a>
-                                  )}
-                                </div>
+                                  ) : (
+                                    <span className="text-slate-400 text-xs">-</span>
+                                  );
+                                })()}
+                              </td>
+                              <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => {
+                                    setSelectedInvoiceForReceipt(invoice);
+                                    setShowGenerateReceipt(true);
+                                  }}
+                                  className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-1 text-xs mx-auto"
+                                >
+                                  <Receipt className="w-3 h-3" />
+                                  Generate Receipt
+                                </button>
                               </td>
                             </tr>
                           );
                         })}
                         {fundingInvoices.length === 0 && (
                           <tr>
-                            <td colSpan={9} className="py-12 text-center text-slate-500">
+                            <td colSpan={11} className="py-12 text-center text-slate-500">
                               No invoices found.
                             </td>
                           </tr>
@@ -2311,6 +2356,19 @@ export function ProjectBoard() {
           onSuccess={() => {
             setShowAddPartnerProjectModal(false);
             loadPartnerProjects();
+          }}
+        />
+      )}
+
+      {showGenerateReceipt && selectedInvoiceForReceipt && (
+        <GenerateReceiptModal
+          invoice={selectedInvoiceForReceipt}
+          onClose={() => {
+            setShowGenerateReceipt(false);
+            setSelectedInvoiceForReceipt(null);
+          }}
+          onSuccess={() => {
+            loadData();
           }}
         />
       )}
