@@ -295,6 +295,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                   <option value="Pending">Pending</option>
                   <option value="Paid">Paid</option>
                   <option value="Overdue">Overdue</option>
+                  <option value="Void">Void</option>
                 </select>
               </div>
               <div>

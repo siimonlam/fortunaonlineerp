@@ -2308,6 +2308,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                   <option value="Pending">Pending</option>
                                   <option value="Paid">Paid</option>
                                   <option value="Overdue">Overdue</option>
+                                  <option value="Void">Void</option>
                                 </select>
                               </td>
                               <td className="px-3 py-2">
@@ -2343,6 +2344,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                     ? 'bg-green-100 text-green-700'
                                     : invoice.payment_status === 'Overdue'
                                     ? 'bg-red-100 text-red-700'
+                                    : invoice.payment_status === 'Void'
+                                    ? 'bg-slate-100 text-slate-700'
                                     : 'bg-yellow-100 text-yellow-700'
                                 }`}>
                                   {invoice.payment_status}
