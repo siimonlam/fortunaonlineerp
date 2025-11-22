@@ -1278,8 +1278,8 @@ export function ProjectBoard() {
                     className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                   >
                     <option value="next_hkpc_due_date_due_soon">Next HKPC Due Date (Due Soon)</option>
-                    <option value="submission_date">Submission Date (Newest)</option>
-                    <option value="submission_date_oldest">Submission Date (Oldest)</option>
+                    <option value="submission_date">Submission Date (Oldest First)</option>
+                    <option value="submission_date_oldest">Submission Date (Latest First)</option>
                     <option value="project_start_date">Start Date</option>
                     <option value="project_end_date">End Date (End Soon)</option>
                     <option value="created_newest">Created (Newest)</option>
