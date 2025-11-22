@@ -1107,7 +1107,10 @@ export function ProjectBoard() {
                             )}
                           </button>
                           <button
-                            onClick={() => setSelectedStatus(status.id)}
+                            onClick={() => {
+                              setSelectedStatus(status.id);
+                              setFundingProjectTab('projects');
+                            }}
                             className="flex-1 text-left px-2 py-2 flex items-center justify-between"
                           >
                             <span>{status.name}</span>
@@ -1133,7 +1136,10 @@ export function ProjectBoard() {
                           return (
                             <button
                               key={sub.id}
-                              onClick={() => setSelectedStatus(sub.id)}
+                              onClick={() => {
+                                setSelectedStatus(sub.id);
+                                setFundingProjectTab('projects');
+                              }}
                               className={`w-full text-left pl-6 pr-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-150 ${
                                 selectedStatus === sub.id
                                   ? 'bg-blue-600 text-white shadow-md'
@@ -1166,7 +1172,10 @@ export function ProjectBoard() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => setSelectedStatus(status.id)}
+                        onClick={() => {
+                          setSelectedStatus(status.id);
+                          setFundingProjectTab('projects');
+                        }}
                         className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
                           selectedStatus === status.id
                             ? 'bg-blue-600 text-white shadow-md'
