@@ -1637,17 +1637,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   placeholder="25.00"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Number</label>
-                <input
-                  type="text"
-                  disabled={!canEdit}
-                  value={formData.invoiceNumber}
-                  onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
-                  placeholder="Invoice #"
-                />
-              </div>
             </div>
           </div>
 
@@ -1678,17 +1667,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   onChange={(e) => setFormData({ ...formData, projectSize: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                   placeholder="e.g., Small, Medium, Large"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Agreement Reference</label>
-                <input
-                  type="text"
-                  disabled={!canEdit}
-                  value={formData.agreementRef}
-                  onChange={(e) => setFormData({ ...formData, agreementRef: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
-                  placeholder="Agreement ref"
                 />
               </div>
               <div>
