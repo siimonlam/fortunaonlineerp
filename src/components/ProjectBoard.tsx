@@ -132,7 +132,7 @@ export function ProjectBoard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [clientSortBy, setClientSortBy] = useState<'client_number_asc' | 'client_number_desc' | 'created_newest' | 'created_oldest'>('client_number_asc');
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
-  const [projectSortBy, setProjectSortBy] = useState<'next_due_date' | 'submission_date' | 'project_start_date' | 'project_end_date' | 'created_newest' | 'created_oldest'>('next_due_date');
+  const [projectSortBy, setProjectSortBy] = useState<'next_due_date' | 'next_hkpc_due_date_due_soon' | 'submission_date' | 'submission_date_oldest' | 'project_start_date' | 'project_end_date' | 'created_newest' | 'created_oldest'>('next_due_date');
   const [createProjectClient, setCreateProjectClient] = useState<Client | null>(null);
   const [createProjectTypeId, setCreateProjectTypeId] = useState<string>('');
   const [createProjectStatusId, setCreateProjectStatusId] = useState<string>('');
@@ -724,10 +724,20 @@ export function ProjectBoard() {
           const bDate = b.next_due_date ? new Date(b.next_due_date).getTime() : Infinity;
           return aDate - bDate;
         }
+        case 'next_hkpc_due_date_due_soon': {
+          const aDate = a.next_hkpc_due_date ? new Date(a.next_hkpc_due_date).getTime() : Infinity;
+          const bDate = b.next_hkpc_due_date ? new Date(b.next_hkpc_due_date).getTime() : Infinity;
+          return aDate - bDate;
+        }
         case 'submission_date': {
           const aDate = a.submission_date ? new Date(a.submission_date).getTime() : Infinity;
           const bDate = b.submission_date ? new Date(b.submission_date).getTime() : Infinity;
           return aDate - bDate;
+        }
+        case 'submission_date_oldest': {
+          const aDate = a.submission_date ? new Date(a.submission_date).getTime() : Infinity;
+          const bDate = b.submission_date ? new Date(b.submission_date).getTime() : Infinity;
+          return bDate - aDate;
         }
         case 'project_start_date': {
           const aDate = a.project_start_date ? new Date(a.project_start_date).getTime() : Infinity;
@@ -1273,7 +1283,9 @@ export function ProjectBoard() {
                     className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                   >
                     <option value="next_due_date">Next Due Date</option>
-                    <option value="submission_date">Submission Date</option>
+                    <option value="next_hkpc_due_date_due_soon">Next HKPC Due Date (Due Soon)</option>
+                    <option value="submission_date">Submission Date (Newest)</option>
+                    <option value="submission_date_oldest">Submission Date (Oldest)</option>
                     <option value="project_start_date">Start Date</option>
                     <option value="project_end_date">End Date</option>
                     <option value="created_newest">Created (Newest)</option>
