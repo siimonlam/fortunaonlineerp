@@ -101,6 +101,7 @@ interface FundingInvoice {
   project_reference: string | null;
   company_name: string | null;
   payment_type: string | null;
+  google_drive_url: string | null;
   created_at: string;
 }
 
@@ -2112,6 +2113,8 @@ export function ProjectBoard() {
                                     ? 'bg-green-100 text-green-700'
                                     : invoice.payment_status === 'Overdue'
                                     ? 'bg-red-100 text-red-700'
+                                    : invoice.payment_status === 'Void'
+                                    ? 'bg-slate-100 text-slate-700'
                                     : 'bg-yellow-100 text-yellow-700'
                                 }`}>
                                   {invoice.payment_status}
