@@ -13,7 +13,7 @@ interface TemplateTag {
 interface FieldMapping {
   id: string;
   tag_id: string;
-  source_type: 'project' | 'client';
+  source_type: 'project' | 'client' | 'invoice';
   source_field: string;
   default_value?: string;
   transform_function?: string;
@@ -41,6 +41,7 @@ const PROJECT_FIELDS = [
   { value: 'application_number', label: 'Application Number' },
   { value: 'deposit_amount', label: 'Deposit Amount' },
   { value: 'service_fee_percentage', label: 'Service Fee %' },
+  { value: 'funding_scheme', label: 'Funding Scheme %' },
   { value: 'project_size', label: 'Project Size' },
   { value: 'start_date', label: 'Start Date' },
   { value: 'project_start_date', label: 'Project Start Date' },
@@ -49,6 +50,7 @@ const PROJECT_FIELDS = [
   { value: 'approval_date', label: 'Approval Date' },
   { value: 'next_due_date', label: 'Next Due Date' },
   { value: 'next_hkpc_due_date', label: 'Next HKPC Due Date' },
+  { value: 'current_date', label: 'Current Date' },
 ];
 
 const CLIENT_FIELDS = [
@@ -56,6 +58,20 @@ const CLIENT_FIELDS = [
   { value: 'client_number', label: 'Client Number' },
   { value: 'industry', label: 'Industry' },
   { value: 'abbreviation', label: 'Client Abbreviation' },
+];
+
+const INVOICE_FIELDS = [
+  { value: 'invoice_number', label: 'Invoice Number' },
+  { value: 'issue_date', label: 'Issue Date' },
+  { value: 'due_date', label: 'Due Date' },
+  { value: 'payment_date', label: 'Payment Date' },
+  { value: 'amount', label: 'Invoice Amount' },
+  { value: 'payment_status', label: 'Payment Status' },
+  { value: 'payment_type', label: 'Payment Type' },
+  { value: 'payment_method', label: 'Payment Method' },
+  { value: 'project_reference', label: 'Invoice Project Reference' },
+  { value: 'company_name', label: 'Invoice Company Name' },
+  { value: 'created_at', label: 'Invoice Creation Date' },
 ];
 
 const TRANSFORM_FUNCTIONS = [
@@ -385,6 +401,7 @@ export function InvoiceFieldMappingSettings({ onClose }: InvoiceFieldMappingSett
                               >
                                 <option value="project">Project</option>
                                 <option value="client">Client</option>
+                                <option value="invoice">Invoice</option>
                               </select>
                             </div>
                             <div className="col-span-3">
@@ -404,7 +421,13 @@ export function InvoiceFieldMappingSettings({ onClose }: InvoiceFieldMappingSett
                                         {f.label}
                                       </option>
                                     ))
-                                  : CLIENT_FIELDS.map((f) => (
+                                  : mapping.source_type === 'client'
+                                  ? CLIENT_FIELDS.map((f) => (
+                                      <option key={f.value} value={f.value}>
+                                        {f.label}
+                                      </option>
+                                    ))
+                                  : INVOICE_FIELDS.map((f) => (
                                       <option key={f.value} value={f.value}>
                                         {f.label}
                                       </option>
