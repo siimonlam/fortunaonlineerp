@@ -1248,7 +1248,7 @@ export function ProjectBoard() {
                         </div>
                       </div>
                     )}
-                    {isFundingProjectType && !isClientSection && (
+                    {isFundingProjectType && !isClientSection && fundingProjectTab !== 'dashboard' && (
                       <div className="flex gap-2 mt-4">
                         <button
                           onClick={() => setFundingProjectTab('projects')}
