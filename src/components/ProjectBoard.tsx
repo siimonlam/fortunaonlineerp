@@ -1080,23 +1080,7 @@ export function ProjectBoard() {
         ) : !isClientSection && !isAdminSection && (
           <aside className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
             <div className="p-4">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Navigation</h2>
-              <nav className="space-y-2">
-                <button
-                  onClick={() => setFundingProjectTab('dashboard')}
-                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
-                    fundingProjectTab === 'dashboard'
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" />
-                    Dashboard
-                  </span>
-                </button>
-              </nav>
-              <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3 mt-6">Status</h2>
+              <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Status</h2>
               <nav className="space-y-2">
                 {filteredStatuses.filter(s => !s.is_substatus).map((status) => (
                   <div key={status.id}>
@@ -1211,6 +1195,21 @@ export function ProjectBoard() {
                   </div>
                 ))}
               </nav>
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <button
+                  onClick={() => setFundingProjectTab('dashboard')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                    fundingProjectTab === 'dashboard'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Dashboard
+                  </span>
+                </button>
+              </div>
             </div>
           </aside>
         )}
@@ -2123,7 +2122,7 @@ export function ProjectBoard() {
                   </div>
                 </div>
               </div>
-            ) : isFundingProjectType && projectViewMode === 'list' ? (
+            ) : isFundingProjectType && fundingProjectTab === 'projects' && projectViewMode === 'list' ? (
               <ProjectListView
                 projects={filteredProjects}
                 projectTypes={projectTypes}
@@ -2131,7 +2130,7 @@ export function ProjectBoard() {
                 onProjectClick={(project) => setSelectedProject(project)}
                 onClientClick={(client) => setSelectedClient(client)}
               />
-            ) : (
+            ) : isFundingProjectType && fundingProjectTab === 'projects' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredProjects.map((project) => (
                   <ProjectCard
@@ -2160,7 +2159,36 @@ export function ProjectBoard() {
                   </div>
                 )}
               </div>
-            )}
+            ) : !isClientSection && !isFundingProjectType ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredProjects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    isClientSection={false}
+                    projectTypes={projectTypes}
+                    statuses={statuses}
+                    allProjects={projects}
+                    statusManagers={statusManagers}
+                    showSubstatus={currentStatus && !currentStatus.is_substatus}
+                    currentUserId={user?.id}
+                    onDragStart={() => handleDragStart(project)}
+                    onClick={() => setSelectedProject(project)}
+                    onCreateProject={(targetProjectTypeId) => {
+                      handleCreateProjectFromClient(project, targetProjectTypeId);
+                    }}
+                    onClientClick={(client) => setSelectedClient(client)}
+                  />
+                ))}
+                {filteredProjects.length === 0 && (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-slate-500">
+                      No projects in this status yet.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         </main>
       </div>
