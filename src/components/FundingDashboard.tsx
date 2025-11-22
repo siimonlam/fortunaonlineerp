@@ -50,7 +50,7 @@ export function FundingDashboard() {
       const { data: statuses, error: statusError } = await supabase
         .from('statuses')
         .select('*')
-        .eq('project_type_id', 'da2fb577-520e-4d0f-9e55-c1b7ecadee61')
+        .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696')
         .order('order_index');
 
       if (statusError) throw statusError;
@@ -58,7 +58,7 @@ export function FundingDashboard() {
       const { data: projects, error: projectError } = await supabase
         .from('projects')
         .select('id, status_id, project_type_id, title, project_end_date')
-        .eq('project_type_id', 'da2fb577-520e-4d0f-9e55-c1b7ecadee61');
+        .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696');
 
       if (projectError) throw projectError;
 
