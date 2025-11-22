@@ -134,7 +134,11 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
     try {
       const accessToken = await getGoogleDriveAccessToken();
 
-      const fileName = `${formData.invoiceNumber}_${project.company_name || 'Invoice'}.pdf`;
+      const today = new Date();
+      const datePrefix = today.getFullYear().toString() +
+                        (today.getMonth() + 1).toString().padStart(2, '0') +
+                        today.getDate().toString().padStart(2, '0');
+      const fileName = `${datePrefix}_${formData.invoiceNumber}_${project.company_name || 'Invoice'}.pdf`;
 
       const metadata = {
         name: fileName,
