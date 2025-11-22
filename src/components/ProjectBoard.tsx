@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3 } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -12,6 +12,7 @@ import { AdminPage } from './AdminPage';
 import { CreateProjectModal } from './CreateProjectModal';
 import { ComSecPage } from './ComSecPage';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
+import { FundingDashboard } from './FundingDashboard';
 
 interface Status {
   id: string;
@@ -121,7 +122,7 @@ export function ProjectBoard() {
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
-  const [fundingProjectTab, setFundingProjectTab] = useState<'projects' | 'invoices'>('projects');
+  const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices'>('dashboard');
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [addClientType, setAddClientType] = useState<'company' | 'channel'>('company');
@@ -1079,7 +1080,23 @@ export function ProjectBoard() {
         ) : !isClientSection && !isAdminSection && (
           <aside className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
             <div className="p-4">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Status</h2>
+              <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Navigation</h2>
+              <nav className="space-y-2">
+                <button
+                  onClick={() => setFundingProjectTab('dashboard')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                    fundingProjectTab === 'dashboard'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" />
+                    Dashboard
+                  </span>
+                </button>
+              </nav>
+              <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3 mt-6">Status</h2>
               <nav className="space-y-2">
                 {filteredStatuses.filter(s => !s.is_substatus).map((status) => (
                   <div key={status.id}>
@@ -2039,6 +2056,8 @@ export function ProjectBoard() {
                   }}
                 />
               )
+            ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'dashboard' ? (
+              <FundingDashboard />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
               <div className="bg-white rounded-lg shadow-sm border border-slate-200">
                 <div className="p-6">
