@@ -94,7 +94,21 @@ export function InvoiceFieldMappingSettings({ onClose }: InvoiceFieldMappingSett
 
   useEffect(() => {
     loadData();
+    loadPdfFields();
   }, []);
+
+  async function loadPdfFields() {
+    try {
+      const response = await fetch('/Funding_Invoice_Template.pdf');
+      if (!response.ok) throw new Error('Failed to load PDF template');
+
+      const arrayBuffer = await response.arrayBuffer();
+      const fieldNames = await getPdfFieldNames(arrayBuffer);
+      setPdfFields(fieldNames);
+    } catch (error: any) {
+      console.error('Error loading PDF fields:', error);
+    }
+  }
 
   async function loadData() {
     setLoading(true);
@@ -282,14 +296,10 @@ export function InvoiceFieldMappingSettings({ onClose }: InvoiceFieldMappingSett
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-slate-800">Template Tags</h3>
               <div className="flex gap-2">
-                <button
-                  onClick={handleLoadPdfFields}
-                  disabled={loadingPdfFields}
-                  className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
+                <span className="text-sm text-slate-600 flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg">
                   <FileText className="w-4 h-4" />
-                  {loadingPdfFields ? 'Loading...' : 'Show PDF Fields'}
-                </button>
+                  {pdfFields.length} PDF fields available
+                </span>
                 <button
                   onClick={() => setShowAddTag(true)}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -306,15 +316,20 @@ export function InvoiceFieldMappingSettings({ onClose }: InvoiceFieldMappingSett
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Tag Name (e.g., &lt;invoice_no&gt;)
+                      PDF Field Name
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={newTag.tag_name}
                       onChange={(e) => setNewTag({ ...newTag, tag_name: e.target.value })}
-                      placeholder="<tag_name>"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                    />
+                    >
+                      <option value="">Select a PDF field</option>
+                      {pdfFields.map((field) => (
+                        <option key={field} value={field}>
+                          {field}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
