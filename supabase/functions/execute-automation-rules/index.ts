@@ -267,6 +267,36 @@ Deno.serve(async (req: Request) => {
             executedCount++;
             results.push({ rule: rule.name, action: 'change_status', status: 'success' });
           }
+        } else if (rule.action_type === 'set_field_value') {
+          const fieldName = rule.action_config.field_name;
+          const valueType = rule.action_config.value_type;
+
+          if (fieldName && valueType) {
+            let fieldValue: string | null = null;
+
+            if (valueType === 'current_date') {
+              fieldValue = new Date().toISOString().split('T')[0];
+            } else if (valueType === 'specific_date') {
+              fieldValue = rule.action_config.date_value;
+            }
+
+            if (fieldValue) {
+              const updateData: any = {
+                [fieldName]: fieldValue,
+                updated_at: new Date().toISOString()
+              };
+
+              const { error: updateError } = await supabase
+                .from('projects')
+                .update(updateData)
+                .eq('id', project_id);
+
+              if (updateError) throw updateError;
+              console.log(`Field ${fieldName} set to ${fieldValue} successfully`);
+              executedCount++;
+              results.push({ rule: rule.name, action: 'set_field_value', status: 'success', field: fieldName, value: fieldValue });
+            }
+          }
         }
       } catch (error: any) {
         console.error('Error executing rule:', rule.name, error);

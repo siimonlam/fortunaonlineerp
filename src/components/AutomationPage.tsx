@@ -11,7 +11,7 @@ interface AutomationRule {
   trigger_config: any;
   condition_type?: 'no_condition' | 'sales_source' | 'sales_person';
   condition_config?: any;
-  action_type: 'add_task' | 'add_label' | 'remove_label' | 'change_status';
+  action_type: 'add_task' | 'add_label' | 'remove_label' | 'change_status' | 'set_field_value';
   action_config: any;
   is_active: boolean;
   created_at: string;
@@ -60,7 +60,8 @@ const ACTION_TYPES = [
   { value: 'add_task', label: 'Add a task' },
   { value: 'add_label', label: 'Add a label' },
   { value: 'remove_label', label: 'Remove a label' },
-  { value: 'change_status', label: 'Change project status' }
+  { value: 'change_status', label: 'Change project status' },
+  { value: 'set_field_value', label: 'Set field value' }
 ];
 
 const CONDITION_TYPES = [
@@ -761,6 +762,66 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                           );
                         })}
                     </select>
+                  </div>
+                )}
+
+                {formData.action_type === 'set_field_value' && (
+                  <div className="ml-4 p-3 bg-slate-50 rounded-lg space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Field to Set</label>
+                      <select
+                        value={formData.action_config.field_name || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          action_config: {
+                            ...formData.action_config,
+                            field_name: e.target.value,
+                            value_type: e.target.value ? 'current_date' : ''
+                          }
+                        })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select field...</option>
+                        <option value="project_start_date">Project Start Date</option>
+                        <option value="project_end_date">Project End Date</option>
+                        <option value="submission_date">Submission Date</option>
+                        <option value="approval_date">Approval Date</option>
+                        <option value="next_hkpc_due_date">Next HKPC Due Date</option>
+                        <option value="next_due_date">Next Due Date</option>
+                      </select>
+                    </div>
+
+                    {formData.action_config.field_name && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Value Type</label>
+                        <select
+                          value={formData.action_config.value_type || 'current_date'}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            action_config: { ...formData.action_config, value_type: e.target.value, date_value: '' }
+                          })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="current_date">Current Date</option>
+                          <option value="specific_date">Specific Date</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {formData.action_config.field_name && formData.action_config.value_type === 'specific_date' && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Date Value</label>
+                        <input
+                          type="date"
+                          value={formData.action_config.date_value || ''}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            action_config: { ...formData.action_config, date_value: e.target.value }
+                          })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
