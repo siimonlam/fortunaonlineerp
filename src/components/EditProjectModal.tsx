@@ -122,6 +122,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [projectType, setProjectType] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files'>('project');
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [receipts, setReceipts] = useState<any[]>([]);
   const [depositStatus, setDepositStatus] = useState<'paid' | 'unpaid'>('unpaid');
   const [showGoogleDrive, setShowGoogleDrive] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
@@ -301,6 +302,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         setDepositStatus('unpaid');
       }
     }
+
+    const { data: receiptsData } = await supabase
+      .from('funding_receipt')
+      .select('*')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: false });
+
+    setReceipts(receiptsData || []);
   }
 
   async function refreshProjectData() {
@@ -347,6 +356,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       dueDate: invoice.due_date || '',
       paymentStatus: invoice.payment_status,
       paymentType: invoice.payment_type,
+      google_drive_url: invoice.google_drive_url,
     });
   }
 
@@ -2262,7 +2272,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Issue Date</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Payment Type</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Status</th>
-                          <th className="text-left px-3 py-2 font-medium text-slate-700">Drive Link</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Invoice Link</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Receipt Link</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Actions</th>
                         </tr>
                       </thead>
@@ -2270,51 +2281,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                         {invoices.map((invoice) => (
                           editingInvoiceId === invoice.id ? (
                             <tr key={invoice.id} className="border-b border-slate-200 bg-blue-50">
-                              <td className="px-3 py-2">
-                                <input
-                                  type="text"
-                                  value={editingInvoice.invoiceNumber}
-                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, invoiceNumber: e.target.value })}
-                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
-                                />
+                              <td className="px-3 py-2 text-slate-900">{editingInvoice.invoiceNumber}</td>
+                              <td className="px-3 py-2 text-slate-900">${Number(editingInvoice.amount).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-slate-600">
+                                {editingInvoice.issueDate ? new Date(editingInvoice.issueDate).toLocaleDateString() : '-'}
                               </td>
-                              <td className="px-3 py-2">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={editingInvoice.amount}
-                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, amount: e.target.value })}
-                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
-                                />
-                              </td>
-                              <td className="px-3 py-2">
-                                <input
-                                  type="date"
-                                  value={editingInvoice.issueDate}
-                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, issueDate: e.target.value })}
-                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
-                                />
-                              </td>
-                              <td className="px-3 py-2">
-                                <input
-                                  type="date"
-                                  value={editingInvoice.dueDate}
-                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, dueDate: e.target.value })}
-                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
-                                />
-                              </td>
-                              <td className="px-3 py-2">
-                                <select
-                                  value={editingInvoice.paymentType}
-                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, paymentType: e.target.value })}
-                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
-                                >
-                                  <option value="Deposit">Deposit</option>
-                                  <option value="2nd Payment">2nd Payment</option>
-                                  <option value="3rd Payment">3rd Payment</option>
-                                  <option value="Final Payment">Final Payment</option>
-                                </select>
-                              </td>
+                              <td className="px-3 py-2 text-slate-600">{editingInvoice.paymentType || '-'}</td>
                               <td className="px-3 py-2">
                                 <select
                                   value={editingInvoice.paymentStatus}
@@ -2326,6 +2298,39 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                   <option value="Overdue">Overdue</option>
                                   <option value="Void">Void</option>
                                 </select>
+                              </td>
+                              <td className="px-3 py-2">
+                                {editingInvoice.google_drive_url ? (
+                                  <a
+                                    href={editingInvoice.google_drive_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    View
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">-</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                {(() => {
+                                  const receipt = receipts.find(r => r.invoice_id === invoice.id);
+                                  return receipt?.google_drive_url ? (
+                                    <a
+                                      href={receipt.google_drive_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-green-600 hover:text-green-800 flex items-center gap-1 text-xs"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      View
+                                    </a>
+                                  ) : (
+                                    <span className="text-slate-400 text-xs">-</span>
+                                  );
+                                })()}
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
@@ -2368,21 +2373,37 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                 </span>
                               </td>
                               <td className="px-3 py-2">
-                                <div className="flex items-center gap-2">
-                                  {invoice.google_drive_url ? (
+                                {invoice.google_drive_url ? (
+                                  <a
+                                    href={invoice.google_drive_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    View
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">-</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                {(() => {
+                                  const receipt = receipts.find(r => r.invoice_id === invoice.id);
+                                  return receipt?.google_drive_url ? (
                                     <a
-                                      href={invoice.google_drive_url}
+                                      href={receipt.google_drive_url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
+                                      className="text-green-600 hover:text-green-800 flex items-center gap-1 text-xs"
                                     >
                                       <ExternalLink className="w-3 h-3" />
-                                      Invoice
+                                      View
                                     </a>
                                   ) : (
                                     <span className="text-slate-400 text-xs">-</span>
-                                  )}
-                                </div>
+                                  );
+                                })()}
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
@@ -2404,7 +2425,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                         onClick={() => handleEditInvoice(invoice)}
                                         className="text-blue-600 hover:text-blue-800 text-xs"
                                       >
-                                        Edit
+                                        Mark Paid
                                       </button>
                                       <button
                                         type="button"
