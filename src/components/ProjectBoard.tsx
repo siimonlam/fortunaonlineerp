@@ -2093,7 +2093,8 @@ export function ProjectBoard() {
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Client</th>
                           <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Amount</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Issue Date</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Due Date</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Date</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Method</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Type</th>
                           <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
                           <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Invoice Link</th>
@@ -2119,8 +2120,9 @@ export function ProjectBoard() {
                                 {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}
                               </td>
                               <td className="py-3 px-4 text-sm text-slate-600">
-                                {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}
+                                {invoice.payment_date ? new Date(invoice.payment_date).toLocaleDateString() : '-'}
                               </td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{invoice.payment_method || '-'}</td>
                               <td className="py-3 px-4 text-sm text-slate-600">{invoice.payment_type || '-'}</td>
                               <td className="py-3 px-4 text-center">
                                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -2169,23 +2171,47 @@ export function ProjectBoard() {
                                 })()}
                               </td>
                               <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                  onClick={() => {
-                                    setSelectedInvoiceForReceipt(invoice);
-                                    setShowGenerateReceipt(true);
-                                  }}
-                                  className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-1 text-xs mx-auto"
-                                >
-                                  <Receipt className="w-3 h-3" />
-                                  Generate Receipt
-                                </button>
+                                <div className="flex items-center justify-center gap-2">
+                                  {invoice.payment_status !== 'Paid' && (
+                                    <button
+                                      onClick={async () => {
+                                        if (confirm('Mark this invoice as paid?')) {
+                                          const { error } = await supabase
+                                            .from('funding_invoice')
+                                            .update({ payment_status: 'Paid' })
+                                            .eq('id', invoice.id);
+
+                                          if (error) {
+                                            console.error('Error updating invoice:', error);
+                                            alert('Failed to update invoice status');
+                                          } else {
+                                            loadData();
+                                          }
+                                        }
+                                      }}
+                                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs"
+                                    >
+                                      Mark Paid
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      setSelectedInvoiceForReceipt(invoice);
+                                      setShowGenerateReceipt(true);
+                                    }}
+                                    className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-1 text-xs"
+                                  >
+                                    <Receipt className="w-3 h-3" />
+                                    Receipt
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
                         })}
                         {fundingInvoices.length === 0 && (
                           <tr>
-                            <td colSpan={11} className="py-12 text-center text-slate-500">
+                            <td colSpan={12} className="py-12 text-center text-slate-500">
                               No invoices found.
                             </td>
                           </tr>
