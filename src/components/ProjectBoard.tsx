@@ -660,6 +660,16 @@ export function ProjectBoard() {
 
       if (isFundingProjectType && projectSearchQuery.trim()) {
         const query = projectSearchQuery.toLowerCase();
+
+        if (query === 'fp00010') {
+          console.log('Searching for FP00010, checking project:', {
+            id: p.id,
+            title: p.title,
+            project_reference: p.project_reference,
+            matches: p.project_reference?.toLowerCase().includes(query)
+          });
+        }
+
         const matchesSearch =
           p.title?.toLowerCase().includes(query) ||
           p.project_name?.toLowerCase().includes(query) ||
@@ -668,7 +678,7 @@ export function ProjectBoard() {
           p.abbreviation?.toLowerCase().includes(query) ||
           p.description?.toLowerCase().includes(query) ||
           p.clients?.name?.toLowerCase().includes(query) ||
-          p.project_reference_number?.toLowerCase().includes(query) ||
+          p.project_reference?.toLowerCase().includes(query) ||
           p.application_number?.toLowerCase().includes(query) ||
           statuses.find(s => s.id === p.status_id)?.name?.toLowerCase().includes(query);
 

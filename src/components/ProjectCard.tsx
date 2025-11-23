@@ -124,6 +124,16 @@ export function ProjectCard({
 
   const isFundingProject = projectTypes?.find(pt => pt.id === project.project_type_id)?.name === 'Funding Project';
 
+  if (isFundingProject && (project.project_reference?.includes('FP00010') || project.title.includes('CED'))) {
+    console.log('ProjectCard Debug - FP00010:', {
+      projectId: project.id,
+      title: project.title,
+      project_reference: project.project_reference,
+      invoice_number: project.invoice_number,
+      hasInvoice: !!project.invoice_number
+    });
+  }
+
   const upcomingTasks = project.tasks?.filter(task => {
     if (!task.deadline || task.completed) return false;
     if (!task.assigned_to || task.assigned_to !== currentUserId) return false;
@@ -174,6 +184,11 @@ export function ProjectCard({
               {!showSubstatus && project.status_id && (
                 <span className="inline-block text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                   {statuses?.find(s => s.id === project.status_id)?.name}
+                </span>
+              )}
+              {isFundingProject && project.invoice_number && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200" title="Invoice issued">
+                  <FileText className="w-3.5 h-3.5" />
                 </span>
               )}
             </div>
