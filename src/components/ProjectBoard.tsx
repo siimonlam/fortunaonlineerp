@@ -30,6 +30,12 @@ interface ProjectType {
   name: string;
 }
 
+interface Label {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface Project {
   id: string;
   title: string;
@@ -38,8 +44,18 @@ interface Project {
   project_type_id: string;
   created_at: string;
   client_id?: string;
+  project_name?: string;
+  company_name?: string;
+  contact_name?: string;
+  abbreviation?: string;
+  project_reference_number?: string;
+  application_number?: string;
+  project_size?: string;
+  project_start_date?: string;
+  project_end_date?: string;
   tasks?: Task[];
   clients?: Client;
+  labels?: Label[];
 }
 
 interface Client {
@@ -648,6 +664,8 @@ export function ProjectBoard() {
           p.abbreviation?.toLowerCase().includes(query) ||
           p.description?.toLowerCase().includes(query) ||
           p.clients?.name?.toLowerCase().includes(query) ||
+          p.project_reference_number?.toLowerCase().includes(query) ||
+          p.application_number?.toLowerCase().includes(query) ||
           statuses.find(s => s.id === p.status_id)?.name?.toLowerCase().includes(query);
 
         if (!matchesSearch) return false;
