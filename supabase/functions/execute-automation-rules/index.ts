@@ -103,8 +103,20 @@ Deno.serve(async (req: Request) => {
         }
 
         if (trigger_type === 'status_changed' && rule.action_config?.to_status_id) {
-          if (trigger_data?.new_status_id !== rule.action_config.to_status_id) {
-            console.log(`Skipping rule - status change mismatch: "${trigger_data?.new_status_id}" !== "${rule.action_config.to_status_id}"`);
+          const targetStatusId = rule.action_config.to_status_id;
+          const newStatusId = trigger_data?.new_status_id;
+
+          const { data: newStatus } = await supabase
+            .from('statuses')
+            .select('id, parent_status_id')
+            .eq('id', newStatusId)
+            .maybeSingle();
+
+          const matchesDirectly = newStatusId === targetStatusId;
+          const matchesParent = newStatus?.parent_status_id === targetStatusId;
+
+          if (!matchesDirectly && !matchesParent) {
+            console.log(`Skipping rule - status change mismatch: new_status="${newStatusId}", target="${targetStatusId}", parent="${newStatus?.parent_status_id}"`);
             results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'status_change_mismatch' });
             continue;
           }
