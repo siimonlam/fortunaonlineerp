@@ -490,7 +490,7 @@ export function ProjectBoard() {
       }
     }
     if (projectsRes.data) {
-      const projectsWithLabels = await Promise.all(
+      const projectsWithLabelsAndInvoices = await Promise.all(
         projectsRes.data.map(async (project) => {
           const { data: labelData } = await supabase
             .from('project_labels')
@@ -504,10 +504,14 @@ export function ProjectBoard() {
             .eq('project_id', project.id);
 
           const labels = labelData?.map(pl => pl.labels).filter(Boolean) || [];
-          return { ...project, labels };
+
+          const invoice = fundingInvoicesRes.data?.find(inv => inv.project_id === project.id);
+          const invoice_number = invoice?.invoice_number || null;
+
+          return { ...project, labels, invoice_number };
         })
       );
-      setProjects(projectsWithLabels);
+      setProjects(projectsWithLabelsAndInvoices);
     }
     if (staffRes.data) setStaff(staffRes.data);
     if (statusManagersRes.data) setStatusManagers(statusManagersRes.data);
