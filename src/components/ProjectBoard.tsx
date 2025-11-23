@@ -14,6 +14,7 @@ import { ComSecPage } from './ComSecPage';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { FundingDashboard } from './FundingDashboard';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
+import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 
 interface Status {
   id: string;
@@ -145,6 +146,8 @@ export function ProjectBoard() {
   const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
+  const [showMarkPaid, setShowMarkPaid] = useState(false);
+  const [selectedInvoiceForMarkPaid, setSelectedInvoiceForMarkPaid] = useState<any>(null);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [addClientType, setAddClientType] = useState<'company' | 'channel'>('company');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -2196,20 +2199,9 @@ export function ProjectBoard() {
                                 <div className="flex items-center justify-center gap-2">
                                   {invoice.payment_status !== 'Paid' && (
                                     <button
-                                      onClick={async () => {
-                                        if (confirm('Mark this invoice as paid?')) {
-                                          const { error } = await supabase
-                                            .from('funding_invoice')
-                                            .update({ payment_status: 'Paid' })
-                                            .eq('id', invoice.id);
-
-                                          if (error) {
-                                            console.error('Error updating invoice:', error);
-                                            alert('Failed to update invoice status');
-                                          } else {
-                                            loadData();
-                                          }
-                                        }
+                                      onClick={() => {
+                                        setSelectedInvoiceForMarkPaid(invoice);
+                                        setShowMarkPaid(true);
                                       }}
                                       className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs"
                                     >
@@ -2414,6 +2406,19 @@ export function ProjectBoard() {
           onClose={() => {
             setShowGenerateReceipt(false);
             setSelectedInvoiceForReceipt(null);
+          }}
+          onSuccess={() => {
+            loadData();
+          }}
+        />
+      )}
+
+      {showMarkPaid && selectedInvoiceForMarkPaid && (
+        <MarkInvoicePaidModal
+          invoice={selectedInvoiceForMarkPaid}
+          onClose={() => {
+            setShowMarkPaid(false);
+            setSelectedInvoiceForMarkPaid(null);
           }}
           onSuccess={() => {
             loadData();
