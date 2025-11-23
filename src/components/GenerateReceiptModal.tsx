@@ -33,16 +33,31 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
       .select('*')
       .maybeSingle();
 
-    if (tokenError || !tokenData) {
+    if (tokenError) {
+      console.error('Error fetching Google OAuth credentials:', tokenError);
+      throw new Error('Google Drive not connected. Please contact your administrator to authorize Google Drive in Settings > Authorization.');
+    }
+
+    if (!tokenData) {
       throw new Error('Google Drive not connected. Please contact your administrator to authorize Google Drive in Settings > Authorization.');
     }
 
     let accessToken = tokenData.access_token;
+    const tokenExpired = tokenData.token_expires_at && new Date(tokenData.token_expires_at) <= new Date();
 
-    if (tokenData.token_expires_at && new Date(tokenData.token_expires_at) <= new Date()) {
+    console.log('Token check:', {
+      hasToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      expiresAt: tokenData.token_expires_at,
+      isExpired: tokenExpired
+    });
+
+    if (tokenExpired) {
       if (!tokenData.refresh_token) {
-        throw new Error('Refresh token not available. Please re-authorize Google Drive.');
+        throw new Error('Refresh token not available. Please re-authorize Google Drive in Settings > Authorization.');
       }
+
+      console.log('Attempting to refresh token with client_id:', import.meta.env.VITE_GOOGLE_CLIENT_ID ? 'present' : 'missing');
 
       const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
@@ -56,7 +71,13 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
       });
 
       if (!refreshResponse.ok) {
-        throw new Error('Failed to refresh access token');
+        const errorText = await refreshResponse.text();
+        console.error('Token refresh failed:', {
+          status: refreshResponse.status,
+          statusText: refreshResponse.statusText,
+          error: errorText
+        });
+        throw new Error('Failed to refresh access token. Please re-authorize Google Drive in Settings > Authorization.');
       }
 
       const refreshData = await refreshResponse.json();
