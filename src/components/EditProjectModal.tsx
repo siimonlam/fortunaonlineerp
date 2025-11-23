@@ -354,6 +354,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       amount: invoice.amount,
       issueDate: invoice.issue_date || '',
       dueDate: invoice.due_date || '',
+      paymentDate: invoice.payment_date || '',
+      paymentMethod: invoice.payment_method || '',
       paymentStatus: invoice.payment_status,
       paymentType: invoice.payment_type,
       google_drive_url: invoice.google_drive_url,
@@ -2270,6 +2272,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Invoice #</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Amount</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Issue Date</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Payment Date</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Payment Method</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Payment Type</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Status</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Invoice Link</th>
@@ -2286,6 +2290,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                               <td className="px-3 py-2 text-slate-600">
                                 {editingInvoice.issueDate ? new Date(editingInvoice.issueDate).toLocaleDateString() : '-'}
                               </td>
+                              <td className="px-3 py-2 text-slate-600">
+                                {editingInvoice.paymentDate ? new Date(editingInvoice.paymentDate).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-600">{editingInvoice.paymentMethod || '-'}</td>
                               <td className="px-3 py-2 text-slate-600">{editingInvoice.paymentType || '-'}</td>
                               <td className="px-3 py-2">
                                 <select
@@ -2358,6 +2366,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                               <td className="px-3 py-2 text-slate-600">
                                 {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}
                               </td>
+                              <td className="px-3 py-2 text-slate-600">
+                                {invoice.payment_date ? new Date(invoice.payment_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-600">{invoice.payment_method || '-'}</td>
                               <td className="px-3 py-2 text-slate-600">{invoice.payment_type || '-'}</td>
                               <td className="px-3 py-2">
                                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -2409,6 +2421,29 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                 <div className="flex items-center gap-2">
                                   {canEdit && (
                                     <>
+                                      {invoice.payment_status !== 'Paid' && (
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            if (confirm('Mark this invoice as paid?')) {
+                                              const { error } = await supabase
+                                                .from('funding_invoice')
+                                                .update({ payment_status: 'Paid' })
+                                                .eq('id', invoice.id);
+
+                                              if (error) {
+                                                console.error('Error updating invoice:', error);
+                                                alert('Failed to update invoice status');
+                                              } else {
+                                                loadInvoices();
+                                              }
+                                            }
+                                          }}
+                                          className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                                        >
+                                          Mark Paid
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -2419,13 +2454,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                       >
                                         <Receipt className="w-3 h-3" />
                                         Receipt
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleEditInvoice(invoice)}
-                                        className="text-blue-600 hover:text-blue-800 text-xs"
-                                      >
-                                        Mark Paid
                                       </button>
                                       <button
                                         type="button"
