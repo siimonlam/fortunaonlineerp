@@ -124,16 +124,6 @@ export function ProjectCard({
 
   const isFundingProject = projectTypes?.find(pt => pt.id === project.project_type_id)?.name === 'Funding Project';
 
-  if (isFundingProject && (project.project_reference?.includes('FP00010') || project.title.includes('CED'))) {
-    console.log('ProjectCard Debug - FP00010:', {
-      projectId: project.id,
-      title: project.title,
-      project_reference: project.project_reference,
-      invoice_number: project.invoice_number,
-      hasInvoice: !!project.invoice_number
-    });
-  }
-
   const upcomingTasks = project.tasks?.filter(task => {
     if (!task.deadline || task.completed) return false;
     if (!task.assigned_to || task.assigned_to !== currentUserId) return false;

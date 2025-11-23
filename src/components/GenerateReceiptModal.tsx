@@ -9,6 +9,9 @@ interface GenerateReceiptModalProps {
     amount: number;
     project_id: string;
     project_reference?: string;
+    payment_date?: string;
+    payment_method?: string;
+    remark?: string;
   };
   onClose: () => void;
   onSuccess: () => void;
@@ -21,10 +24,10 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
   const [formData, setFormData] = useState({
     invoiceNumber: invoice.invoice_number,
     receiptDate: new Date().toISOString().split('T')[0],
-    paymentDate: new Date().toISOString().split('T')[0],
+    paymentDate: invoice.payment_date || new Date().toISOString().split('T')[0],
     paymentAmount: invoice.amount.toString(),
-    paymentMethod: 'Bank Transfer',
-    paymentMethodRemark: '',
+    paymentMethod: invoice.payment_method || 'Bank Transfer',
+    paymentMethodRemark: invoice.remark || '',
   });
 
   async function getGoogleDriveAccessToken() {

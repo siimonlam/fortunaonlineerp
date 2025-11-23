@@ -9,6 +9,7 @@ import { InvoiceFieldMappingSettings } from './InvoiceFieldMappingSettings';
 import { ReceiptFieldMappingSettings } from './ReceiptFieldMappingSettings';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
+import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import html2pdf from 'html2pdf.js';
 import { createBudProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
 
@@ -135,6 +136,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
+  const [showMarkPaid, setShowMarkPaid] = useState(false);
+  const [selectedInvoiceForMarkPaid, setSelectedInvoiceForMarkPaid] = useState<any>(null);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -2424,20 +2427,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                       {invoice.payment_status !== 'Paid' && (
                                         <button
                                           type="button"
-                                          onClick={async () => {
-                                            if (confirm('Mark this invoice as paid?')) {
-                                              const { error } = await supabase
-                                                .from('funding_invoice')
-                                                .update({ payment_status: 'Paid' })
-                                                .eq('id', invoice.id);
-
-                                              if (error) {
-                                                console.error('Error updating invoice:', error);
-                                                alert('Failed to update invoice status');
-                                              } else {
-                                                loadInvoices();
-                                              }
-                                            }
+                                          onClick={() => {
+                                            setSelectedInvoiceForMarkPaid(invoice);
+                                            setShowMarkPaid(true);
                                           }}
                                           className="text-blue-600 hover:text-blue-800 text-xs font-medium"
                                         >
@@ -2707,6 +2699,19 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           onClose={() => setShowCreateInvoice(false)}
           onSuccess={() => {
             setShowCreateInvoice(false);
+            loadInvoices();
+          }}
+        />
+      )}
+
+      {showMarkPaid && selectedInvoiceForMarkPaid && (
+        <MarkInvoicePaidModal
+          invoice={selectedInvoiceForMarkPaid}
+          onClose={() => {
+            setShowMarkPaid(false);
+            setSelectedInvoiceForMarkPaid(null);
+          }}
+          onSuccess={() => {
             loadInvoices();
           }}
         />
