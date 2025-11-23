@@ -7,7 +7,7 @@ interface AutomationRule {
   name: string;
   project_type_id: string;
   main_status: string;
-  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date' | 'deposit_paid';
+  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date' | 'deposit_paid' | 'application_number_set' | 'approval_date_set';
   trigger_config: any;
   condition_type?: 'no_condition' | 'sales_source' | 'sales_person';
   condition_config?: any;
@@ -51,7 +51,9 @@ const TRIGGER_TYPES = [
   { value: 'status_changed', label: 'Project converts to a new status' },
   { value: 'deposit_paid', label: 'Deposit status is paid' },
   { value: 'periodic', label: 'Periodically Action' },
-  { value: 'days_after_date', label: 'X days after a date field' }
+  { value: 'days_after_date', label: 'X days after a date field' },
+  { value: 'application_number_set', label: 'Application number is set' },
+  { value: 'approval_date_set', label: 'Approval Date is set' }
 ];
 
 const ACTION_TYPES = [
