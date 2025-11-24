@@ -368,7 +368,7 @@ export function AdminPage() {
         )}
 
         {currentView === 'marketing-auth' && (
-          <ProjectTypeAuthorizationPage projectTypeName="Marketing Project" />
+          <ProjectTypeAuthorizationPage projectTypeName="Marketing" />
         )}
 
         {currentView === 'labels' && <LabelManagement />}

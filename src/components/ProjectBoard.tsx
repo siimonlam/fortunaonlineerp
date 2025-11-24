@@ -1035,17 +1035,19 @@ export function ProjectBoard() {
               <Users className="w-4 h-4" />
               Clients
             </button>
-            <button
-              onClick={() => handleViewChange('comsec')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
-                selectedView === 'comsec'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-              }`}
-            >
-              <Building2 className="w-4 h-4" />
-              Com Sec
-            </button>
+            {(isAdmin || projectTypePermissions.includes(projectTypes.find(pt => pt.name === 'Com Sec')?.id || '')) && (
+              <button
+                onClick={() => handleViewChange('comsec')}
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+                  selectedView === 'comsec'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                Com Sec
+              </button>
+            )}
             {isAdmin && (
               <button
                 onClick={() => handleViewChange('admin')}
