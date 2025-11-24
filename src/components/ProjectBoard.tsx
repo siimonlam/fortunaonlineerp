@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -15,6 +15,7 @@ import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { FundingDashboard } from './FundingDashboard';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
+import { MeetingsPage } from './MeetingsPage';
 
 interface Status {
   id: string;
@@ -141,7 +142,7 @@ export function ProjectBoard() {
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
-  const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices'>('projects');
+  const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings'>('projects');
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
   const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
@@ -1243,7 +1244,7 @@ export function ProjectBoard() {
                   </div>
                 ))}
               </nav>
-              <div className="mt-6 pt-4 border-t border-slate-200">
+              <div className="mt-6 pt-4 border-t border-slate-200 space-y-2">
                 <button
                   onClick={() => setFundingProjectTab('dashboard')}
                   className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
@@ -1255,6 +1256,19 @@ export function ProjectBoard() {
                   <span className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4" />
                     Dashboard
+                  </span>
+                </button>
+                <button
+                  onClick={() => setFundingProjectTab('meetings')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                    fundingProjectTab === 'meetings'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Meetings
                   </span>
                 </button>
               </div>
@@ -1296,7 +1310,7 @@ export function ProjectBoard() {
                         </div>
                       </div>
                     )}
-                    {isFundingProjectType && !isClientSection && fundingProjectTab !== 'dashboard' && (
+                    {isFundingProjectType && !isClientSection && fundingProjectTab !== 'dashboard' && fundingProjectTab !== 'meetings' && (
                       <div className="flex gap-2 mt-4">
                         <button
                           onClick={() => setFundingProjectTab('projects')}
@@ -2105,6 +2119,8 @@ export function ProjectBoard() {
               )
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'dashboard' ? (
               <FundingDashboard />
+            ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'meetings' ? (
+              <MeetingsPage projects={filteredProjects.map(p => ({ id: p.id, title: p.title }))} />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
               <div className="bg-white rounded-lg shadow-sm border border-slate-200">
                 <div className="p-6">
