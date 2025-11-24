@@ -91,7 +91,7 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
 
   const fetchMeetingTasks = async (meetingId: string) => {
     const { data, error } = await supabase
-      .from('meeting_tasks')
+      .from('tasks')
       .select(`
         *,
         staff:assigned_to(full_name)
@@ -170,12 +170,12 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
       completed: false
     }));
 
-    await supabase.from('meeting_tasks').insert(tasks);
+    await supabase.from('tasks').insert(tasks);
   };
 
   const updateTasks = async (meetingId: string) => {
 
-    await supabase.from('meeting_tasks').delete().eq('meeting_id', meetingId);
+    await supabase.from('tasks').delete().eq('meeting_id', meetingId);
     await createTasks(meetingId);
   };
 
@@ -228,7 +228,7 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
       attendees: meeting.attendees,
       tasks: meetingTasks[meeting.id]?.map(task => ({
         title: task.title,
-        description: task.description,
+        description: task.description || '',
         assigned_to: task.assigned_to,
         deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : null
       })) || []

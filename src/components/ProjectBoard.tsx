@@ -337,13 +337,18 @@ export function ProjectBoard() {
       .from('tasks')
       .select(`
         *,
-        projects!inner (
+        projects (
           id,
           title,
           clients (
             name,
             client_number
           )
+        ),
+        meetings (
+          id,
+          title,
+          meeting_date
         )
       `)
       .eq('assigned_to', user.id)
@@ -2676,8 +2681,9 @@ export function ProjectBoard() {
                 <div className="space-y-4">
                   {myTasks.map((task: any) => {
                     const isPastDue = task.deadline && new Date(task.deadline) < new Date();
-                    const companyName = task.projects?.clients?.name || 'No Company';
+                    const companyName = task.projects?.clients?.name || (task.meetings ? 'Meeting Task' : 'No Company');
                     const clientNumber = task.projects?.clients?.client_number;
+                    const isMeetingTask = !!task.meetings;
 
                     return (
                       <div
@@ -2694,6 +2700,12 @@ export function ProjectBoard() {
                               <span className="text-sm font-semibold text-slate-500">
                                 {clientNumber ? `#${clientNumber}` : ''} {companyName}
                               </span>
+                              {isMeetingTask && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  Meeting
+                                </span>
+                              )}
                               {isPastDue && (
                                 <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium">
                                   PAST DUE
@@ -2707,9 +2719,15 @@ export function ProjectBoard() {
                               <p className="text-sm text-slate-600 mb-2">{task.description}</p>
                             )}
                             <div className="flex items-center gap-4 text-sm">
-                              <span className="text-slate-500">
-                                Project: {task.projects?.title}
-                              </span>
+                              {task.projects?.title ? (
+                                <span className="text-slate-500">
+                                  Project: {task.projects.title}
+                                </span>
+                              ) : task.meetings?.title ? (
+                                <span className="text-slate-500">
+                                  Meeting: {task.meetings.title}
+                                </span>
+                              ) : null}
                               {task.deadline && (
                                 <span className={`font-medium ${isPastDue ? 'text-red-600' : 'text-slate-700'}`}>
                                   Due: {new Date(task.deadline).toLocaleDateString()}
