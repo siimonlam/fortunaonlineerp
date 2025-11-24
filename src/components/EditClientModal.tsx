@@ -21,6 +21,8 @@ interface Client {
   notes: string | null;
   sales_source: string | null;
   industry: string | null;
+  other_industry: string | null;
+  is_ecommerce: boolean | null;
   abbreviation: string | null;
   created_by: string;
   sales_person_id: string | null;
@@ -76,6 +78,8 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     notes: client.notes || '',
     salesSource: client.sales_source || '',
     industry: client.industry || '',
+    otherIndustry: client.other_industry || '',
+    isEcommerce: client.is_ecommerce || false,
     abbreviation: client.abbreviation || '',
     salesPersonId: client.sales_person_id || '',
     channelPartnerId: client.channel_partner_id || '',
@@ -91,6 +95,8 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     notes: client.notes || '',
     salesSource: client.sales_source || '',
     industry: client.industry || '',
+    otherIndustry: client.other_industry || '',
+    isEcommerce: client.is_ecommerce || false,
     abbreviation: client.abbreviation || '',
     salesPersonId: client.sales_person_id || '',
     channelPartnerId: client.channel_partner_id || '',
@@ -257,6 +263,8 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
             notes: formData.notes.trim() || null,
             sales_source: formData.salesSource.trim() || null,
             industry: formData.industry.trim() || null,
+            other_industry: formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null,
+            is_ecommerce: formData.isEcommerce,
             abbreviation: formData.abbreviation.trim() || null,
             sales_person_id: formData.salesPersonId || null,
             channel_partner_id: formData.channelPartnerId || null,
@@ -452,13 +460,71 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Industry</label>
-              <input
-                type="text"
+              <select
                 value={formData.industry}
-                onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, industry: e.target.value, otherIndustry: e.target.value !== 'Other' ? '' : formData.otherIndustry })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter industry"
-              />
+              >
+                <option value="">Select an industry</option>
+                <option value="Accounting">Accounting</option>
+                <option value="Advertising & Marketing">Advertising & Marketing</option>
+                <option value="Agriculture">Agriculture</option>
+                <option value="Automotive">Automotive</option>
+                <option value="Aviation / Aerospace">Aviation / Aerospace</option>
+                <option value="Banking & Financial Services">Banking & Financial Services</option>
+                <option value="Biotechnology">Biotechnology</option>
+                <option value="Construction">Construction</option>
+                <option value="Consulting">Consulting</option>
+                <option value="Consumer Goods / FMCG">Consumer Goods / FMCG</option>
+                <option value="Education">Education</option>
+                <option value="E-commerce">E-commerce</option>
+                <option value="Energy / Oil & Gas">Energy / Oil & Gas</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Entertainment & Media">Entertainment & Media</option>
+                <option value="Fashion & Apparel">Fashion & Apparel</option>
+                <option value="Food & Beverage">Food & Beverage</option>
+                <option value="Government / Public Sector">Government / Public Sector</option>
+                <option value="Healthcare / Medical">Healthcare / Medical</option>
+                <option value="Hospitality & Tourism">Hospitality & Tourism</option>
+                <option value="Human Resources / Recruiting">Human Resources / Recruiting</option>
+                <option value="Information Technology (IT)">Information Technology (IT)</option>
+                <option value="Insurance">Insurance</option>
+                <option value="Internet / Online Services">Internet / Online Services</option>
+                <option value="Legal Services">Legal Services</option>
+                <option value="Logistics & Supply Chain">Logistics & Supply Chain</option>
+                <option value="Manufacturing">Manufacturing</option>
+                <option value="Non-Profit / NGO">Non-Profit / NGO</option>
+                <option value="Pharmaceuticals">Pharmaceuticals</option>
+                <option value="Real Estate">Real Estate</option>
+                <option value="Retail">Retail</option>
+                <option value="Software / SaaS">Software / SaaS</option>
+                <option value="Telecommunications">Telecommunications</option>
+                <option value="Transportation">Transportation</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            {formData.industry === 'Other' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Specify Other Industry</label>
+                <input
+                  type="text"
+                  value={formData.otherIndustry}
+                  onChange={(e) => setFormData({ ...formData, otherIndustry: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter industry name"
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">E-commerce</label>
+              <select
+                value={formData.isEcommerce ? 'yes' : 'no'}
+                onChange={(e) => setFormData({ ...formData, isEcommerce: e.target.value === 'yes' })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
             </div>
           </div>
 
