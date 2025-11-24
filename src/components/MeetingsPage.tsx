@@ -277,19 +277,68 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-slate-900">Team Meetings</h2>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Add Meeting
-        </button>
-      </div>
+    <div className="flex h-full">
+      {/* Sidebar with meetings list */}
+      <aside className="w-80 bg-slate-50 border-r border-slate-200 overflow-y-auto">
+        <div className="p-4 border-b border-slate-200">
+          <button
+            onClick={() => setShowModal(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Add Meeting
+          </button>
+        </div>
+        <nav className="p-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+            Meetings
+          </h3>
+          {meetings.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-8">No meetings yet</p>
+          ) : (
+            <div className="space-y-2">
+              {meetings.map(meeting => (
+                <div
+                  key={meeting.id}
+                  className="group bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-all"
+                >
+                  <div className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-slate-900 truncate">
+                          {meeting.title}
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {new Date(meeting.meeting_date).toLocaleDateString()}
+                        </p>
+                        {getMeetingProject(meeting) && (
+                          <p className="text-xs text-slate-400 mt-0.5 truncate">
+                            {getMeetingProject(meeting)?.title}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => openEditModal(meeting)}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Edit meeting"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </nav>
+      </aside>
 
-      <div className="space-y-4">
+      {/* Main content area */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-slate-900 mb-6">Team Meetings</h2>
+
+          <div className="space-y-4">
         {meetings.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg border border-slate-200">
             <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -398,7 +447,9 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
             </div>
           ))
         )}
-      </div>
+          </div>
+        </div>
+      </main>
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
