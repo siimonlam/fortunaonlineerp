@@ -5,7 +5,7 @@ import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X } f
 
 interface Meeting {
   id: string;
-  project_id: string;
+  project_id: string | null;
   title: string;
   description: string;
   meeting_date: string;
@@ -18,7 +18,7 @@ interface Meeting {
 interface MeetingTask {
   id: string;
   meeting_id: string;
-  project_id: string;
+  project_id: string | null;
   title: string;
   description: string;
   assigned_to: string | null;
@@ -64,21 +64,24 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
   });
 
   useEffect(() => {
-    if (projects.length > 0) {
-      fetchMeetings();
-      fetchStaff();
-    }
+    fetchMeetings();
+    fetchStaff();
   }, [projects]);
 
   const fetchMeetings = async () => {
-    if (projects.length === 0) return;
-
-    const projectIds = projects.map(p => p.id);
-    const { data, error } = await supabase
+    let query = supabase
       .from('meetings')
       .select('*')
-      .in('project_id', projectIds)
       .order('meeting_date', { ascending: false });
+
+    if (projects.length > 0) {
+      const projectIds = projects.map(p => p.id);
+      query = query.or(`project_id.is.null,project_id.in.(${projectIds.join(',')})`);
+    } else {
+      query = query.is('project_id', null);
+    }
+
+    const { data, error } = await query;
 
     if (!error && data) {
       setMeetings(data);
@@ -114,10 +117,10 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProjectId || !user) return;
+    if (!user) return;
 
     const meetingData = {
-      project_id: selectedProjectId,
+      project_id: selectedProjectId || null,
       title: formData.title,
       description: formData.description,
       meeting_date: new Date(formData.meeting_date).toISOString(),
@@ -153,14 +156,13 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
   };
 
   const createTasks = async (meetingId: string) => {
-    if (!selectedProjectId) return;
 
     const tasksToCreate = formData.tasks.filter(task => task.title.trim());
     if (tasksToCreate.length === 0) return;
 
     const tasks = tasksToCreate.map(task => ({
       meeting_id: meetingId,
-      project_id: selectedProjectId,
+      project_id: selectedProjectId || null,
       title: task.title,
       description: task.description,
       assigned_to: task.assigned_to,
@@ -172,7 +174,6 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
   };
 
   const updateTasks = async (meetingId: string) => {
-    if (!selectedProjectId) return;
 
     await supabase.from('meeting_tasks').delete().eq('meeting_id', meetingId);
     await createTasks(meetingId);
@@ -218,7 +219,7 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
 
   const openEditModal = (meeting: Meeting) => {
     setEditingMeeting(meeting);
-    setSelectedProjectId(meeting.project_id);
+    setSelectedProjectId(meeting.project_id || '');
     setFormData({
       title: meeting.title,
       description: meeting.description,
@@ -270,15 +271,8 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
     });
   };
 
-  if (projects.length === 0) {
-    return (
-      <div className="p-8 text-center text-slate-500">
-        No projects available
-      </div>
-    );
-  }
-
   const getMeetingProject = (meeting: Meeting) => {
+    if (!meeting.project_id) return null;
     return projects.find(p => p.id === meeting.project_id);
   };
 
@@ -423,24 +417,25 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Project *
-                  </label>
-                  <select
-                    value={selectedProjectId}
-                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  >
-                    <option value="">Select a project</option>
-                    {projects.map(project => (
-                      <option key={project.id} value={project.id}>
-                        {project.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {projects.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Project (Optional)
+                    </label>
+                    <select
+                      value={selectedProjectId}
+                      onChange={(e) => setSelectedProjectId(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">General Meeting (No Project)</option>
+                      {projects.map(project => (
+                        <option key={project.id} value={project.id}>
+                          {project.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
