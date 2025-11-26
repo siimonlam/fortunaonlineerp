@@ -414,7 +414,7 @@ export function ProjectBoard() {
       supabase.from('project_type_permissions').select('project_type_id').eq('user_id', user?.id || ''),
       supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name'),
       supabase.from('funding_invoice').select('*').order('created_at', { ascending: false }),
-      supabase.from('comsec_clients').select('id, company_code, company_name, client_id').order('created_at', { ascending: false }),
+      supabase.from('comsec_clients').select('id, company_code, company_name, client_id, parent_client_id').order('created_at', { ascending: false }),
     ]);
 
     const userRoleRes = await supabase
