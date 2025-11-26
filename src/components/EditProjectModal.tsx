@@ -70,6 +70,8 @@ interface Project {
   hkpc_officer_name?: string;
   hkpc_officer_email?: string;
   hkpc_officer_phone?: string;
+  parent_client_id?: string;
+  parent_company_name?: string;
   created_at: string;
 }
 
@@ -193,6 +195,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     hkpcOfficerName: project.hkpc_officer_name || '',
     hkpcOfficerEmail: project.hkpc_officer_email || '',
     hkpcOfficerPhone: project.hkpc_officer_phone || '',
+    parentClientId: project.parent_client_id || '',
+    parentCompanyName: project.parent_company_name || '',
   });
 
   const [originalData, setOriginalData] = useState({
@@ -234,6 +238,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     hkpcOfficerName: project.hkpc_officer_name || '',
     hkpcOfficerEmail: project.hkpc_officer_email || '',
     hkpcOfficerPhone: project.hkpc_officer_phone || '',
+    parentClientId: project.parent_client_id || '',
+    parentCompanyName: project.parent_company_name || '',
   });
 
   const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
@@ -858,6 +864,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           hkpc_officer_name: formData.hkpcOfficerName.trim() || null,
           hkpc_officer_email: formData.hkpcOfficerEmail.trim() || null,
           hkpc_officer_phone: formData.hkpcOfficerPhone.trim() || null,
+          parent_client_id: formData.parentClientId.trim() || null,
+          parent_company_name: formData.parentCompanyName.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', project.id);
@@ -1515,6 +1523,30 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                 placeholder="输入中文公司名称"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Parent Company Name</label>
+                <input
+                  type="text"
+                  disabled={!canEdit}
+                  value={formData.parentCompanyName}
+                  onChange={(e) => setFormData({ ...formData, parentCompanyName: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder="Parent company name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Parent Client ID</label>
+                <input
+                  type="text"
+                  disabled={!canEdit}
+                  value={formData.parentClientId}
+                  onChange={(e) => setFormData({ ...formData, parentClientId: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder="Parent client ID"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

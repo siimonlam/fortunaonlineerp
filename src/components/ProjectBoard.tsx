@@ -403,7 +403,7 @@ export function ProjectBoard() {
         .order('created_at', { ascending: false }),
       supabase
         .from('clients')
-        .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number')
+        .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,parent_client_id,parent_company_name')
         .order('created_at', { ascending: false }),
       supabase
         .from('channel_partners')
@@ -531,8 +531,8 @@ export function ProjectBoard() {
 
       if (staffRes.data) {
         const enrichedClients = clientsRes.data.map(client => {
-          const clientProjects = projectsRes.data?.filter(p => p.client_id === client.id) || [];
-          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.client_id === client.id) || [];
+          const clientProjects = projectsRes.data?.filter(p => p.parent_client_id === client.client_number?.toString()) || [];
+          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === client.client_number?.toString()) || [];
 
           const comSecProjectsFromClients = comSecClientsForClient.map(cc => ({
             id: cc.id,
@@ -553,8 +553,8 @@ export function ProjectBoard() {
         setClients(enrichedClients);
       } else {
         const enrichedClients = clientsRes.data.map(client => {
-          const clientProjects = projectsRes.data?.filter(p => p.client_id === client.id) || [];
-          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.client_id === client.id) || [];
+          const clientProjects = projectsRes.data?.filter(p => p.parent_client_id === client.client_number?.toString()) || [];
+          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === client.client_number?.toString()) || [];
 
           const comSecProjectsFromClients = comSecClientsForClient.map(cc => ({
             id: cc.id,

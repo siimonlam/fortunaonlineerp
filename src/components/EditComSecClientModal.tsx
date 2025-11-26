@@ -94,6 +94,8 @@ interface ComSecClient {
   created_at: string;
   created_by: string;
   client_id: string | null;
+  parent_client_id: string | null;
+  parent_company_name: string | null;
   client?: Client;
 }
 
@@ -152,6 +154,8 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     sales_source: client.sales_source || '',
     sales_person_id: client.sales_person_id || '',
     remarks: client.remarks || '',
+    parent_client_id: client.parent_client_id || client.client_id || '',
+    parent_company_name: client.parent_company_name || client.company_name || '',
   });
 
   useEffect(() => {
@@ -696,6 +700,8 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
           sales_source: formData.sales_source.trim() || null,
           sales_person_id: formData.sales_person_id || null,
           remarks: formData.remarks.trim() || null,
+          parent_client_id: formData.parent_client_id.trim() || null,
+          parent_company_name: formData.parent_company_name.trim() || null,
         })
         .eq('id', client.id);
 
@@ -894,6 +900,26 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   placeholder="输入中文公司名称"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Parent Company Name</label>
+                  <input
+                    value={formData.parent_company_name}
+                    onChange={(e) => setFormData({ ...formData, parent_company_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Parent company name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Parent Client ID</label>
+                  <input
+                    value={formData.parent_client_id}
+                    onChange={(e) => setFormData({ ...formData, parent_client_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Parent client ID"
+                  />
+                </div>
               </div>
               {client.client && (
                 <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">

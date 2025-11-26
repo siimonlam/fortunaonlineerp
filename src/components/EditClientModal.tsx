@@ -28,6 +28,8 @@ interface Client {
   sales_person_id: string | null;
   channel_partner_id: string | null;
   commission_rate?: number | null;
+  parent_client_id: string | null;
+  parent_company_name: string | null;
   created_at: string;
   creator?: Staff;
   sales_person?: Staff;
@@ -68,6 +70,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [partnerProjects, setPartnerProjects] = useState<any[]>([]);
   const [isChannelPartner, setIsChannelPartner] = useState(false);
+  const [allClients, setAllClients] = useState<Client[]>([]);
   const [formData, setFormData] = useState({
     name: client.name,
     companyNameChinese: client.company_name_chinese || '',
@@ -84,6 +87,8 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     salesPersonId: client.sales_person_id || '',
     channelPartnerId: client.channel_partner_id || '',
     commissionRate: client.commission_rate?.toString() || '',
+    parentClientId: client.parent_client_id || client.client_number?.toString() || '',
+    parentCompanyName: client.parent_company_name || client.name || '',
   });
   const [originalData] = useState({
     name: client.name,
@@ -101,11 +106,14 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     salesPersonId: client.sales_person_id || '',
     channelPartnerId: client.channel_partner_id || '',
     commissionRate: client.commission_rate?.toString() || '',
+    parentClientId: client.parent_client_id || client.client_number?.toString() || '',
+    parentCompanyName: client.parent_company_name || client.name || '',
   });
 
   useEffect(() => {
     loadStaff();
     loadChannelPartners();
+    loadAllClients();
     checkAdminStatus();
     loadPermissions();
     checkIfChannelPartner();
@@ -128,6 +136,14 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
       .select('id, name, reference_number')
       .order('reference_number');
     if (data) setChannelPartners(data);
+  }
+
+  async function loadAllClients() {
+    const { data } = await supabase
+      .from('clients')
+      .select('id, name, client_number')
+      .order('client_number');
+    if (data) setAllClients(data as Client[]);
   }
 
   async function checkAdminStatus() {
@@ -268,6 +284,8 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
             abbreviation: formData.abbreviation.trim() || null,
             sales_person_id: formData.salesPersonId || null,
             channel_partner_id: formData.channelPartnerId || null,
+            parent_client_id: formData.parentClientId.trim() || null,
+            parent_company_name: formData.parentCompanyName.trim() || null,
           })
           .eq('id', client.id);
 
@@ -380,6 +398,45 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="输入中文公司名称"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Parent Company Name</label>
+              <select
+                value={formData.parentCompanyName}
+                onChange={(e) => {
+                  const selectedClient = allClients.find(c => c.name === e.target.value);
+                  if (selectedClient) {
+                    setFormData({
+                      ...formData,
+                      parentCompanyName: selectedClient.name,
+                      parentClientId: selectedClient.client_number?.toString() || ''
+                    });
+                  } else {
+                    setFormData({ ...formData, parentCompanyName: e.target.value });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select parent company</option>
+                {allClients.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name} ({c.client_number})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Parent Client ID</label>
+              <input
+                type="text"
+                value={formData.parentClientId}
+                readOnly
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+                placeholder="Auto-filled from parent company"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
