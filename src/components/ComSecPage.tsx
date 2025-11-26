@@ -28,6 +28,8 @@ interface ComSecClient {
   address: string | null;
   sales_source: string | null;
   sales_person_id: string | null;
+  client_id: string | null;
+  parent_client_id: string | null;
   created_at: string;
   created_by: string;
   case_officer?: { full_name: string };
@@ -185,7 +187,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   async function loadComSecClients() {
     const { data } = await supabase
       .from('comsec_clients')
-      .select('*, case_officer:staff!case_officer_id(full_name), sales_person:staff!sales_person_id(full_name), client:clients!client_id(id, name, client_number)')
+      .select('*, case_officer:staff!case_officer_id(full_name), sales_person:staff!sales_person_id(full_name)')
       .order('created_at', { ascending: false });
     if (data) setComSecClients(data);
   }
