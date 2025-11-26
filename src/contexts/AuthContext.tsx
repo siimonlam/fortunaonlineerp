@@ -51,12 +51,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error('Error getting session:', error);
+
+          // Clear URL parameters if PKCE exchange failed
+          const params = new URLSearchParams(window.location.search);
+          if (params.has('code')) {
+            console.log('Clearing failed auth code from URL');
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
         }
         console.log('Initial session:', session?.user?.email || 'No user');
         setSession(session);
         setUser(session?.user ?? null);
       } catch (err) {
         console.error('Error in initAuth:', err);
+
+        // Clear URL parameters on any auth error
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('code')) {
+          console.log('Clearing auth code from URL after error');
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
       } finally {
         console.log('Auth initialization complete, setting loading to false');
         setLoading(false);
