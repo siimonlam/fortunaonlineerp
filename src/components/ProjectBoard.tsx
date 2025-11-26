@@ -545,8 +545,8 @@ export function ProjectBoard() {
             clientProjects = projectsRes.data?.filter(p => p.parent_client_id === filterClientId) || [];
             comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === filterClientId) || [];
           } else {
-            // Sub-client: look for projects/comsec with matching client_id
-            clientProjects = projectsRes.data?.filter(p => p.parent_client_id === filterClientId) || [];
+            // Sub-client: look for projects/comsec with matching client_id UUID
+            clientProjects = projectsRes.data?.filter(p => p.client_id === client.id) || [];
             comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.client_id === filterClientId) || [];
           }
 
@@ -569,8 +569,19 @@ export function ProjectBoard() {
         setClients(enrichedClients);
       } else {
         const enrichedClients = clientsRes.data.map(client => {
-          const clientProjects = projectsRes.data?.filter(p => p.parent_client_id === client.client_number) || [];
-          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === client.client_number) || [];
+          const isParentClient = client.client_number === client.parent_client_id;
+
+          let clientProjects, comSecClientsForClient;
+
+          if (isParentClient) {
+            // Parent client: look for projects/comsec with matching parent_client_id
+            clientProjects = projectsRes.data?.filter(p => p.parent_client_id === client.client_number) || [];
+            comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === client.client_number) || [];
+          } else {
+            // Sub-client: look for projects/comsec with matching client_id UUID
+            clientProjects = projectsRes.data?.filter(p => p.client_id === client.id) || [];
+            comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.client_id === client.client_number) || [];
+          }
 
           const comSecProjectsFromClients = comSecClientsForClient.map(cc => ({
             id: cc.id,
