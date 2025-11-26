@@ -531,8 +531,24 @@ export function ProjectBoard() {
 
       if (staffRes.data) {
         const enrichedClients = clientsRes.data.map(client => {
-          const clientProjects = projectsRes.data?.filter(p => p.parent_client_id === client.client_number) || [];
-          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === client.client_number) || [];
+          // Determine which ID to use for filtering
+          // If client_number equals parent_client_id, use parent_client_id
+          // Otherwise, use client_number
+          const isParentClient = client.client_number === client.parent_client_id;
+          const filterClientId = isParentClient ? client.parent_client_id : client.client_number;
+
+          // Filter projects and comsec clients based on the determined ID
+          let clientProjects, comSecClientsForClient;
+
+          if (isParentClient) {
+            // Parent client: look for projects/comsec with matching parent_client_id
+            clientProjects = projectsRes.data?.filter(p => p.parent_client_id === filterClientId) || [];
+            comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === filterClientId) || [];
+          } else {
+            // Sub-client: look for projects/comsec with matching client_id
+            clientProjects = projectsRes.data?.filter(p => p.parent_client_id === filterClientId) || [];
+            comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.client_id === filterClientId) || [];
+          }
 
           const comSecProjectsFromClients = comSecClientsForClient.map(cc => ({
             id: cc.id,
