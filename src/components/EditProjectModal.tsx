@@ -65,6 +65,11 @@ interface Project {
   next_hkpc_due_date?: string;
   next_due_date?: string;
   google_drive_folder_id?: string;
+  brand_name?: string;
+  agreement_sign_date?: string;
+  hkpc_officer_name?: string;
+  hkpc_officer_email?: string;
+  hkpc_officer_phone?: string;
   created_at: string;
 }
 
@@ -183,6 +188,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     nextDueDate: project.next_due_date || '',
     nextHkpcDueDate: project.next_hkpc_due_date || '',
     googleDriveFolderId: project.google_drive_folder_id || '',
+    brandName: project.brand_name || '',
+    agreementSignDate: project.agreement_sign_date || '',
+    hkpcOfficerName: project.hkpc_officer_name || '',
+    hkpcOfficerEmail: project.hkpc_officer_email || '',
+    hkpcOfficerPhone: project.hkpc_officer_phone || '',
   });
 
   const [originalData, setOriginalData] = useState({
@@ -219,6 +229,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     nextDueDate: project.next_due_date || '',
     nextHkpcDueDate: project.next_hkpc_due_date || '',
     googleDriveFolderId: project.google_drive_folder_id || '',
+    brandName: project.brand_name || '',
+    agreementSignDate: project.agreement_sign_date || '',
+    hkpcOfficerName: project.hkpc_officer_name || '',
+    hkpcOfficerEmail: project.hkpc_officer_email || '',
+    hkpcOfficerPhone: project.hkpc_officer_phone || '',
   });
 
   const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
@@ -838,6 +853,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           next_due_date: formData.nextDueDate || null,
           next_hkpc_due_date: formData.nextHkpcDueDate || null,
           google_drive_folder_id: formData.googleDriveFolderId.trim() || null,
+          brand_name: formData.brandName.trim() || null,
+          agreement_sign_date: formData.agreementSignDate || null,
+          hkpc_officer_name: formData.hkpcOfficerName.trim() || null,
+          hkpc_officer_email: formData.hkpcOfficerEmail.trim() || null,
+          hkpc_officer_phone: formData.hkpcOfficerPhone.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', project.id);
@@ -1214,7 +1234,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
           <div className="flex-1">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-bold text-slate-900">
                 {canEdit ? 'Edit Project' : 'View Project'}
               </h2>
@@ -1222,6 +1242,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 Created {new Date(project.created_at).toLocaleDateString()}
               </p>
             </div>
+            <h1 className="text-2xl font-bold text-blue-700 mb-3">{project.title}</h1>
 
 
             <div className="grid grid-cols-3 gap-4 mt-3 p-3 bg-slate-50 rounded-lg">
@@ -1668,6 +1689,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Brand Name</label>
+                <input
+                  type="text"
+                  disabled={!canEdit}
+                  value={formData.brandName}
+                  onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder="Brand name"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Application Number</label>
                 <input
                   type="text"
@@ -1698,6 +1730,47 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   onChange={(e) => setFormData({ ...formData, whatsappGroupId: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                   placeholder="WhatsApp group"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
+              HKPC Officer Information
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">HKPC Officer Name</label>
+                <input
+                  type="text"
+                  disabled={!canEdit}
+                  value={formData.hkpcOfficerName}
+                  onChange={(e) => setFormData({ ...formData, hkpcOfficerName: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder="Officer name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">HKPC Officer Email</label>
+                <input
+                  type="email"
+                  disabled={!canEdit}
+                  value={formData.hkpcOfficerEmail}
+                  onChange={(e) => setFormData({ ...formData, hkpcOfficerEmail: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder="officer@hkpc.org"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">HKPC Officer Phone</label>
+                <input
+                  type="tel"
+                  disabled={!canEdit}
+                  value={formData.hkpcOfficerPhone}
+                  onChange={(e) => setFormData({ ...formData, hkpcOfficerPhone: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder="Phone number"
                 />
               </div>
             </div>
@@ -1765,6 +1838,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   disabled={!canEdit}
                   value={formData.nextDueDate}
                   onChange={(e) => setFormData({ ...formData, nextDueDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Agreement Sign Date</label>
+                <input
+                  type="datetime-local"
+                  disabled={!canEdit}
+                  value={formData.agreementSignDate ? new Date(formData.agreementSignDate).toISOString().slice(0, 16) : ''}
+                  onChange={(e) => setFormData({ ...formData, agreementSignDate: e.target.value ? new Date(e.target.value).toISOString() : '' })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                 />
               </div>
