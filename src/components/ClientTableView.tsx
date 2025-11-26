@@ -13,7 +13,7 @@ interface Staff {
 interface Client {
   id: string;
   name: string;
-  client_number: number;
+  client_number: string;
   contact_person: string | null;
   email: string | null;
   phone: string | null;
@@ -206,7 +206,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                 )}
                 <td className="px-6 py-4 whitespace-nowrap" onClick={() => onClientClick(client)}>
                   <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                    #{String(client.client_number).padStart(4, '0')}
+                    #{client.client_number}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -437,7 +437,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                      #CP{String(partner.client_number).padStart(4, '0')}
+                      #CP{partner.client_number}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -516,7 +516,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                        #CP{String(partner.client_number).padStart(4, '0')}
+                        #CP{partner.client_number}
                       </span>
                       <h3 className="text-lg font-bold text-slate-900 group-hover:text-emerald-600 transition-colors mt-2">
                         {partner.name}

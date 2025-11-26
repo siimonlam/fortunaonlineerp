@@ -63,7 +63,7 @@ interface Project {
 interface Client {
   id: string;
   name: string;
-  client_number: number;
+  client_number: string;
   contact_person: string | null;
   email: string | null;
   phone: string | null;
@@ -531,8 +531,8 @@ export function ProjectBoard() {
 
       if (staffRes.data) {
         const enrichedClients = clientsRes.data.map(client => {
-          const clientProjects = projectsRes.data?.filter(p => p.parent_client_id === client.client_number?.toString()) || [];
-          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === client.client_number?.toString()) || [];
+          const clientProjects = projectsRes.data?.filter(p => p.parent_client_id === client.client_number) || [];
+          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === client.client_number) || [];
 
           const comSecProjectsFromClients = comSecClientsForClient.map(cc => ({
             id: cc.id,
@@ -553,8 +553,8 @@ export function ProjectBoard() {
         setClients(enrichedClients);
       } else {
         const enrichedClients = clientsRes.data.map(client => {
-          const clientProjects = projectsRes.data?.filter(p => p.parent_client_id === client.client_number?.toString()) || [];
-          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === client.client_number?.toString()) || [];
+          const clientProjects = projectsRes.data?.filter(p => p.parent_client_id === client.client_number) || [];
+          const comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === client.client_number) || [];
 
           const comSecProjectsFromClients = comSecClientsForClient.map(cc => ({
             id: cc.id,
@@ -885,9 +885,9 @@ export function ProjectBoard() {
     .sort((a, b) => {
       switch (clientSortBy) {
         case 'client_number_asc':
-          return a.client_number - b.client_number;
+          return a.client_number.localeCompare(b.client_number);
         case 'client_number_desc':
-          return b.client_number - a.client_number;
+          return b.client_number.localeCompare(a.client_number);
         case 'created_newest':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case 'created_oldest':
@@ -2783,7 +2783,7 @@ function ClientCard({ client, projectTypes, statuses, onClick, onCreateProject, 
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-              #{String(client.client_number).padStart(4, '0')}
+              #{client.client_number}
             </span>
             {client.abbreviation && (
               <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded">
@@ -3032,7 +3032,7 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
       if (error) throw error;
 
       if (data) {
-        const paddedNumber = String(data.client_number).padStart(4, '0');
+        const paddedNumber = data.client_number;
         alert(`Client created successfully!\n\nClient #${paddedNumber}\nName: ${data.name}`);
       }
 

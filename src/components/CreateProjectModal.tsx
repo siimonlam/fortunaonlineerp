@@ -12,7 +12,7 @@ interface Staff {
 interface Client {
   id: string;
   name: string;
-  client_number: number;
+  client_number: string;
   contact_person: string | null;
   email: string | null;
   phone: string | null;
@@ -359,7 +359,7 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
           <div>
             <h2 className="text-xl font-bold text-slate-900">Create {projectTypeName}</h2>
             <p className="text-sm text-slate-500 mt-1">
-              Client: <span className="font-medium text-slate-700">#{String(client.client_number).padStart(4, '0')} - {client.name}</span>
+              Client: <span className="font-medium text-slate-700">#{client.client_number} - {client.name}</span>
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">

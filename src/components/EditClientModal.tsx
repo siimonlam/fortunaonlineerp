@@ -13,7 +13,7 @@ interface Client {
   id: string;
   name: string;
   company_name_chinese: string | null;
-  client_number: number;
+  client_number: string;
   contact_person: string | null;
   email: string | null;
   phone: string | null;
@@ -345,7 +345,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-slate-900">Edit Client</h2>
               <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded">
-                #{String(client.client_number).padStart(4, '0')}
+                #{client.client_number}
               </span>
             </div>
             {client.creator && (
@@ -411,7 +411,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
                     setFormData({
                       ...formData,
                       parentCompanyName: selectedClient.name,
-                      parentClientId: selectedClient.client_number?.toString() || ''
+                      parentClientId: selectedClient.client_number || ''
                     });
                   } else {
                     setFormData({ ...formData, parentCompanyName: e.target.value });

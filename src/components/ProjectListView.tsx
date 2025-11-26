@@ -18,7 +18,7 @@ interface Task {
 interface Client {
   id: string;
   name: string;
-  client_number: number;
+  client_number: string;
 }
 
 interface Project {
@@ -163,7 +163,7 @@ export function ProjectListView({
                         }}
                         className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 transition-colors"
                       >
-                        #{String(project.clients.client_number).padStart(4, '0')}
+                        #{project.clients.client_number}
                       </button>
                     ) : (
                       <span className="text-sm text-slate-500">-</span>
