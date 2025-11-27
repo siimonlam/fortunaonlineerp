@@ -185,11 +185,6 @@ export function ProjectCard({
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              {isFundingProject && statusIconColor && (
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded ${statusIconColor.bg} ${statusIconColor.text}`} title={currentStatus?.name}>
-                  <CircleDot className="w-3.5 h-3.5" />
-                </span>
-              )}
               <h3 className="font-medium text-slate-900">{project.title}</h3>
               {hasPastDueTasks && (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded-md shadow-sm">
@@ -217,7 +212,12 @@ export function ProjectCard({
             {project.project_name && (
               <p className="text-xs text-slate-600 mt-0.5">{project.project_name}</p>
             )}
-            {showSubstatus && project.status_id && (
+            {showSubstatus && project.status_id && isFundingProject && statusIconColor && (
+              <span className={`inline-block text-xs font-semibold px-2 py-1 rounded mt-1 ${statusIconColor.bg} ${statusIconColor.text}`}>
+                {currentStatus?.name}
+              </span>
+            )}
+            {showSubstatus && project.status_id && !isFundingProject && (
               <span className="inline-block text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded mt-1">
                 {statuses?.find(s => s.id === project.status_id)?.name}
               </span>
