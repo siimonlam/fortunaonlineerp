@@ -8,10 +8,13 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "import:projects": "node import_projects_from_csv.js",
+    "preview:import": "node preview_import.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
+    "csv-parse": "^5.6.0",
     "html2pdf.js": "^0.12.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.344.0",
