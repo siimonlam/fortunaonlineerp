@@ -872,45 +872,41 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
       if (error) throw error;
 
-      // Update client information if contact details changed and client_id exists
+      // Always sync project contact information to client database
       if (project.client_id) {
         const clientUpdates: any = {};
-        let hasClientUpdates = false;
 
-        // Check if contact person changed
-        if (formData.contactName.trim() && formData.contactName.trim() !== project.contact_name) {
+        // Sync contact person to client
+        if (formData.contactName.trim()) {
           clientUpdates.contact_person = formData.contactName.trim();
-          hasClientUpdates = true;
         }
 
-        // Check if phone changed
-        if (formData.contactNumber.trim() && formData.contactNumber.trim() !== project.contact_number) {
+        // Sync phone to client
+        if (formData.contactNumber.trim()) {
           clientUpdates.phone = formData.contactNumber.trim();
-          hasClientUpdates = true;
         }
 
-        // Check if email changed
-        if (formData.email.trim() && formData.email.trim() !== project.email) {
+        // Sync email to client
+        if (formData.email.trim()) {
           clientUpdates.email = formData.email.trim();
-          hasClientUpdates = true;
         }
 
-        // Check if address changed
-        if (formData.address.trim() && formData.address.trim() !== project.address) {
+        // Sync address to client
+        if (formData.address.trim()) {
           clientUpdates.address = formData.address.trim();
-          hasClientUpdates = true;
         }
 
-        // Update client if any contact information changed
-        if (hasClientUpdates) {
+        // Perform client update with synced contact information
+        if (Object.keys(clientUpdates).length > 0) {
           const { error: clientError } = await supabase
             .from('clients')
             .update(clientUpdates)
             .eq('id', project.client_id);
 
           if (clientError) {
-            console.error('Error updating client:', clientError);
-            // Don't throw error - client update is secondary to project update
+            console.error('Error syncing to client database:', clientError);
+          } else {
+            console.log('Client contact info synced:', clientUpdates);
           }
         }
       }
