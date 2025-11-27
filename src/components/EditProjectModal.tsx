@@ -872,6 +872,49 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
       if (error) throw error;
 
+      // Update client information if contact details changed and client_id exists
+      if (project.client_id) {
+        const clientUpdates: any = {};
+        let hasClientUpdates = false;
+
+        // Check if contact person changed
+        if (formData.contactName.trim() && formData.contactName.trim() !== project.contact_name) {
+          clientUpdates.contact_person = formData.contactName.trim();
+          hasClientUpdates = true;
+        }
+
+        // Check if phone changed
+        if (formData.contactNumber.trim() && formData.contactNumber.trim() !== project.contact_number) {
+          clientUpdates.phone = formData.contactNumber.trim();
+          hasClientUpdates = true;
+        }
+
+        // Check if email changed
+        if (formData.email.trim() && formData.email.trim() !== project.email) {
+          clientUpdates.email = formData.email.trim();
+          hasClientUpdates = true;
+        }
+
+        // Check if address changed
+        if (formData.address.trim() && formData.address.trim() !== project.address) {
+          clientUpdates.address = formData.address.trim();
+          hasClientUpdates = true;
+        }
+
+        // Update client if any contact information changed
+        if (hasClientUpdates) {
+          const { error: clientError } = await supabase
+            .from('clients')
+            .update(clientUpdates)
+            .eq('id', project.client_id);
+
+          if (clientError) {
+            console.error('Error updating client:', clientError);
+            // Don't throw error - client update is secondary to project update
+          }
+        }
+      }
+
       if (statusChanged) {
         try {
           const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/execute-automation-rules`;
