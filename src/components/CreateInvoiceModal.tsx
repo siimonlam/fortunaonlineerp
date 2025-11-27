@@ -107,7 +107,16 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
 
       const templateArrayBuffer = await templateResponse.arrayBuffer();
 
-      const pdfBlob = await generateInvoiceFromTemplate(project.id, templateArrayBuffer);
+      const pdfBlob = await generateInvoiceFromTemplate(
+        project.id,
+        templateArrayBuffer,
+        {
+          invoiceNumber: formData.invoiceNumber,
+          amount: formData.amount,
+          issueDate: formData.issueDate,
+          dueDate: formData.dueDate,
+        }
+      );
 
       setPdfBlob(pdfBlob);
       setShowPreview(true);
@@ -171,11 +180,25 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
       const result = await uploadResponse.json();
       const driveFileUrl = `https://drive.google.com/file/d/${result.id}/view`;
 
+      // Get client_id from client_number if available
+      let clientId = project.client_id;
+      if (!clientId && project.client_number) {
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('client_number', project.client_number)
+          .maybeSingle();
+
+        if (clientData) {
+          clientId = clientData.id;
+        }
+      }
+
       const { error: dbError } = await supabase
         .from('funding_invoice')
         .insert({
           project_id: project.id,
-          client_id: project.client_id,
+          client_id: clientId,
           invoice_number: formData.invoiceNumber,
           issue_date: formData.issueDate || null,
           due_date: formData.dueDate || null,

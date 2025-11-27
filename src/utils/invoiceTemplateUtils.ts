@@ -65,7 +65,13 @@ function applyTransform(value: any, transformFunction?: string): string {
 
 export async function generateInvoiceFromTemplate(
   projectId: string,
-  templateArrayBuffer: ArrayBuffer
+  templateArrayBuffer: ArrayBuffer,
+  invoiceData?: {
+    invoiceNumber?: string;
+    amount?: string;
+    issueDate?: string;
+    dueDate?: string;
+  }
 ): Promise<Blob> {
   const { data: project, error: projectError } = await supabase
     .from('projects')
@@ -85,6 +91,57 @@ export async function generateInvoiceFromTemplate(
 
   console.log('Available PDF fields:', fields.map(f => f.getName()));
 
+  // Fill invoice-specific fields from invoiceData parameter
+  if (invoiceData) {
+    if (invoiceData.invoiceNumber) {
+      try {
+        const field = form.getTextField('invoice_number');
+        field.setText(invoiceData.invoiceNumber);
+      } catch (error) {
+        console.warn('invoice_number field not found in PDF');
+      }
+    }
+    if (invoiceData.amount) {
+      try {
+        const field = form.getTextField('amount');
+        const formattedAmount = `HKD $${parseFloat(invoiceData.amount).toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`;
+        field.setText(formattedAmount);
+      } catch (error) {
+        console.warn('amount field not found in PDF');
+      }
+    }
+    if (invoiceData.issueDate) {
+      try {
+        const field = form.getTextField('issue_date');
+        const date = new Date(invoiceData.issueDate);
+        field.setText(date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }));
+      } catch (error) {
+        console.warn('issue_date field not found in PDF');
+      }
+    }
+    if (invoiceData.dueDate) {
+      try {
+        const field = form.getTextField('due_date');
+        const date = new Date(invoiceData.dueDate);
+        field.setText(date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }));
+      } catch (error) {
+        console.warn('due_date field not found in PDF');
+      }
+    }
+  }
+
+  // Fill other fields from mappings
   for (const mapping of mappings) {
     if (!mapping.tag?.tag_name) continue;
 
