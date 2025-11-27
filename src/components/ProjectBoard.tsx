@@ -3065,28 +3065,39 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
     setLoading(true);
     try {
       const tableName = clientType === 'channel' ? 'channel_partners' : 'clients';
+
+      // Base fields common to both tables
+      const baseData = {
+        name: formData.name.trim(),
+        company_name_chinese: formData.companyNameChinese.trim() || null,
+        abbreviation: formData.abbreviation.trim() || null,
+        contact_person: formData.contactPerson.trim() || null,
+        email: formData.email.trim() || null,
+        phone: formData.phone.trim() || null,
+        address: formData.address.trim() || null,
+        notes: formData.notes.trim() || null,
+        sales_source: formData.salesSource.trim() || null,
+        sales_source_detail: formData.salesSourceDetail.trim() || null,
+        industry: formData.industry.trim() || null,
+        created_by: user.id,
+        sales_person_id: formData.salesPersonId || null,
+      };
+
+      // Add fields specific to clients table
+      const insertData = clientType === 'channel'
+        ? baseData
+        : {
+            ...baseData,
+            other_industry: formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null,
+            is_ecommerce: formData.isEcommerce,
+            channel_partner_id: formData.channelPartnerId || null,
+            parent_client_id: formData.parentClientId.trim() || null,
+            parent_company_name: formData.parentCompanyName.trim() || null,
+          };
+
       const { data, error} = await supabase
         .from(tableName)
-        .insert({
-          name: formData.name.trim(),
-          company_name_chinese: formData.companyNameChinese.trim() || null,
-          abbreviation: formData.abbreviation.trim() || null,
-          contact_person: formData.contactPerson.trim() || null,
-          email: formData.email.trim() || null,
-          phone: formData.phone.trim() || null,
-          address: formData.address.trim() || null,
-          notes: formData.notes.trim() || null,
-          sales_source: formData.salesSource.trim() || null,
-          sales_source_detail: formData.salesSourceDetail.trim() || null,
-          industry: formData.industry.trim() || null,
-          other_industry: formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null,
-          is_ecommerce: formData.isEcommerce,
-          created_by: user.id,
-          sales_person_id: formData.salesPersonId || null,
-          channel_partner_id: formData.channelPartnerId || null,
-          parent_client_id: formData.parentClientId.trim() || null,
-          parent_company_name: formData.parentCompanyName.trim() || null,
-        })
+        .insert(insertData)
         .select('id, name, client_number')
         .single();
 
