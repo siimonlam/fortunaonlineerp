@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, ChevronDown, Bell, Tag, AlertCircle, FileText } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, Bell, Tag, AlertCircle, FileText, CircleDot } from 'lucide-react';
 import { ProjectCardFields } from './ProjectCardFields';
 
 interface Staff {
@@ -148,6 +148,32 @@ export function ProjectCard({
     return { type: type?.name, status: status?.name };
   }
 
+  function getSubstatusIconColor(statusName: string): { bg: string; text: string } {
+    const colorMap: { [key: string]: { bg: string; text: string } } = {
+      'Hi-Po': { bg: 'bg-red-900', text: 'text-white' },
+      'Mid-Po': { bg: 'bg-red-600', text: 'text-white' },
+      'Lo-Po': { bg: 'bg-red-300', text: 'text-slate-900' },
+      'Cold Call': { bg: 'bg-teal-500', text: 'text-white' },
+      'Q&A': { bg: 'bg-blue-900', text: 'text-white' },
+      'Q&A -EMF': { bg: 'bg-blue-600', text: 'text-white' },
+      '已上委員會': { bg: 'bg-blue-300', text: 'text-slate-900' },
+      'Presbmission': { bg: 'bg-yellow-400', text: 'text-slate-900' },
+      'Approved': { bg: 'bg-orange-300', text: 'text-slate-900' },
+      'Final Report': { bg: 'bg-purple-300', text: 'text-slate-900' },
+      'Conditional Approval': { bg: 'bg-green-300', text: 'text-slate-900' },
+      'Final Report (Q&A)': { bg: 'bg-pink-400', text: 'text-white' },
+      'Extension/Change Request': { bg: 'bg-green-700', text: 'text-white' },
+      'Final Report-Final Stage': { bg: 'bg-red-600', text: 'text-white' },
+      'Withdraw': { bg: 'bg-slate-400', text: 'text-white' },
+      'Rejected': { bg: 'bg-slate-900', text: 'text-white' },
+      'End': { bg: 'bg-slate-900', text: 'text-white' }
+    };
+    return colorMap[statusName] || { bg: 'bg-slate-200', text: 'text-slate-800' };
+  }
+
+  const currentStatus = statuses?.find(s => s.id === project.status_id);
+  const statusIconColor = currentStatus ? getSubstatusIconColor(currentStatus.name) : null;
+
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
       <div
@@ -159,6 +185,11 @@ export function ProjectCard({
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
+              {isFundingProject && statusIconColor && (
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded ${statusIconColor.bg} ${statusIconColor.text}`} title={currentStatus?.name}>
+                  <CircleDot className="w-3.5 h-3.5" />
+                </span>
+              )}
               <h3 className="font-medium text-slate-900">{project.title}</h3>
               {hasPastDueTasks && (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded-md shadow-sm">
@@ -172,7 +203,7 @@ export function ProjectCard({
                   {upcomingTasks.length} due soon
                 </span>
               )}
-              {!showSubstatus && project.status_id && (
+              {!isFundingProject && !showSubstatus && project.status_id && (
                 <span className="inline-block text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                   {statuses?.find(s => s.id === project.status_id)?.name}
                 </span>
@@ -202,6 +233,11 @@ export function ProjectCard({
             >
               #{project.clients.client_number}
             </button>
+          )}
+          {isFundingProject && project.client_number && (
+            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded ml-2 flex-shrink-0">
+              {project.client_number}
+            </span>
           )}
           {isFundingProject && project.project_reference && (
             <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-1 rounded ml-2 flex-shrink-0">

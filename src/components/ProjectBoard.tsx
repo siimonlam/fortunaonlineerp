@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -139,7 +139,7 @@ export function ProjectBoard() {
   const [expandedStatuses, setExpandedStatuses] = useState<Set<string>>(new Set());
   const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin' | 'comsec'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
-  const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list'>('grid');
+  const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list' | 'substatus'>('grid');
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
@@ -1633,6 +1633,17 @@ export function ProjectBoard() {
                     >
                       <Table className="w-4 h-4" />
                     </button>
+                    <button
+                      onClick={() => setProjectViewMode('substatus')}
+                      className={`p-2 rounded transition-colors ${
+                        projectViewMode === 'substatus'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                      title="Substatus view"
+                    >
+                      <Columns className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               )}
@@ -2294,6 +2305,96 @@ export function ProjectBoard() {
                 onProjectClick={(project) => setSelectedProject(project)}
                 onClientClick={(client) => setSelectedClient(client)}
               />
+            ) : isFundingProjectType && fundingProjectTab === 'projects' && projectViewMode === 'substatus' ? (
+              <div className="flex gap-4 overflow-x-auto pb-4">
+                {(() => {
+                  const getSubstatusColor = (substatusName: string) => {
+                    const colorMap: { [key: string]: string } = {
+                      'Hi-Po': 'bg-red-900 text-white',
+                      'Mid-Po': 'bg-red-600 text-white',
+                      'Lo-Po': 'bg-red-300 text-slate-900',
+                      'Cold Call': 'bg-teal-500 text-white',
+                      'Q&A': 'bg-blue-900 text-white',
+                      'Q&A -EMF': 'bg-blue-600 text-white',
+                      '已上委員會': 'bg-blue-300 text-slate-900',
+                      'Presbmission': 'bg-yellow-400 text-slate-900',
+                      'Approved': 'bg-orange-300 text-slate-900',
+                      'Final Report': 'bg-purple-300 text-slate-900',
+                      'Conditional Approval': 'bg-green-300 text-slate-900',
+                      'Final Report (Q&A)': 'bg-pink-400 text-white',
+                      'Extension/Change Request': 'bg-green-700 text-white',
+                      'Final Report-Final Stage': 'bg-red-600 text-white',
+                      'Withdraw': 'bg-slate-400 text-white',
+                      'Rejected': 'bg-slate-900 text-white',
+                      'End': 'bg-slate-900 text-white'
+                    };
+                    return colorMap[substatusName] || 'bg-slate-200 text-slate-800';
+                  };
+
+                  const allSubstatuses = statuses
+                    ?.filter(s => s.is_substatus && s.project_type_id === selectedProjectType)
+                    .sort((a, b) => a.order_index - b.order_index) || [];
+
+                  const parentStatusMap = new Map();
+                  statuses
+                    ?.filter(s => !s.is_substatus && s.project_type_id === selectedProjectType)
+                    .forEach(parent => {
+                      parentStatusMap.set(parent.id, parent.name);
+                    });
+
+                  return allSubstatuses.map(substatus => {
+                    const substatusProjects = filteredProjects.filter(p => p.status_id === substatus.id);
+                    const parentStatusName = substatus.parent_status_id ? parentStatusMap.get(substatus.parent_status_id) : '';
+
+                    return (
+                      <div key={substatus.id} className="flex-shrink-0 w-80">
+                        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                          <div className={`px-4 py-3 ${getSubstatusColor(substatus.name)}`}>
+                            <div className="font-semibold text-sm">{substatus.name}</div>
+                            {parentStatusName && (
+                              <div className="text-xs opacity-80 mt-0.5">{parentStatusName}</div>
+                            )}
+                            <div className="text-xs font-medium mt-1">{substatusProjects.length} projects</div>
+                          </div>
+                          <div className="p-3 space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
+                            {substatusProjects.map(project => (
+                              <div
+                                key={project.id}
+                                onClick={() => setSelectedProject(project)}
+                                className="bg-slate-50 rounded-lg p-3 cursor-pointer hover:bg-slate-100 transition-colors border border-slate-200"
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <h4 className="font-medium text-sm text-slate-900 line-clamp-2">{project.title}</h4>
+                                </div>
+                                {project.client_number && (
+                                  <div className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mb-2">
+                                    {project.client_number}
+                                  </div>
+                                )}
+                                {project.project_reference_number && (
+                                  <div className="text-xs text-slate-600 mb-1">
+                                    Ref: {project.project_reference_number}
+                                  </div>
+                                )}
+                                {project.company_name && (
+                                  <div className="text-xs text-slate-600">
+                                    {project.company_name}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                            {substatusProjects.length === 0 && (
+                              <div className="text-center py-8 text-slate-400 text-sm">
+                                No projects
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
             ) : isFundingProjectType && fundingProjectTab === 'projects' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredProjects.map((project) => (
