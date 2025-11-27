@@ -2350,9 +2350,20 @@ export function ProjectBoard() {
                     return colorMap[normalizedName] || 'bg-slate-200 text-slate-800';
                   };
 
-                  const allSubstatuses = statuses
-                    ?.filter(s => s.is_substatus && s.project_type_id === selectedProjectType)
-                    .sort((a, b) => a.order_index - b.order_index) || [];
+                  const selectedStatusObj = statuses?.find(s => s.id === selectedStatus);
+                  let substatusesToDisplay: Status[] = [];
+
+                  if (selectedStatusObj?.is_substatus) {
+                    substatusesToDisplay = [selectedStatusObj];
+                  } else if (selectedStatusObj && selectedStatusObj.substatus && selectedStatusObj.substatus.length > 0) {
+                    substatusesToDisplay = selectedStatusObj.substatus.sort((a, b) => a.order_index - b.order_index);
+                  } else if (selectedStatusObj) {
+                    substatusesToDisplay = [selectedStatusObj];
+                  } else {
+                    substatusesToDisplay = statuses
+                      ?.filter(s => s.is_substatus && s.project_type_id === selectedProjectType)
+                      .sort((a, b) => a.order_index - b.order_index) || [];
+                  }
 
                   const parentStatusMap = new Map();
                   statuses
@@ -2361,7 +2372,7 @@ export function ProjectBoard() {
                       parentStatusMap.set(parent.id, parent.name);
                     });
 
-                  return allSubstatuses.map(substatus => {
+                  return substatusesToDisplay.map(substatus => {
                     const substatusProjects = filteredProjects.filter(p => p.status_id === substatus.id);
                     const parentStatusName = substatus.parent_status_id ? parentStatusMap.get(substatus.parent_status_id) : '';
 
