@@ -17,7 +17,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
   const [showPreview, setShowPreview] = useState(false);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [formData, setFormData] = useState({
-    invoiceNumber: project.invoice_number || '',
+    invoiceNumber: '',
     issueDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     paymentStatus: 'Pending',
@@ -28,7 +28,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
 
   useEffect(() => {
     async function generateInvoiceNumber() {
-      if (!project.client_id || formData.invoiceNumber) return;
+      if (!project.client_id) return;
 
       try {
         const { data, error } = await supabase.rpc('generate_invoice_number', {
