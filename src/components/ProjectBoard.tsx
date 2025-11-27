@@ -46,6 +46,7 @@ interface Project {
   project_type_id: string;
   created_at: string;
   client_id?: string;
+  client_number?: string;
   project_name?: string;
   company_name?: string;
   contact_name?: string;

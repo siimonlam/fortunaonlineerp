@@ -42,6 +42,7 @@ interface Project {
   status_id?: string;
   project_type_id?: string;
   client_id?: string;
+  client_number?: string;
   tasks?: Task[];
   clients?: Client;
   labels?: Label[];
