@@ -780,11 +780,13 @@ export function ProjectBoard() {
       const selectedStatusObj = statuses.find(s => s.id === selectedStatus);
 
       if (selectedStatusObj?.is_substatus) {
+        // When a substatus is selected, only show projects with that substatus
         return p.status_id === selectedStatus;
       } else {
+        // When a main status is selected, show projects with the main status AND its substatuses
         const substatusIds = selectedStatusObj?.substatus?.map(s => s.id) || [];
         if (substatusIds.length > 0) {
-          return substatusIds.includes(p.status_id);
+          return p.status_id === selectedStatus || substatusIds.includes(p.status_id);
         }
         return p.status_id === selectedStatus;
       }
