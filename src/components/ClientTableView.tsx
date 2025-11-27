@@ -437,7 +437,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                      #CP{partner.client_number}
+                      {(partner as any).reference_number || `#CP${partner.client_number}`}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -516,7 +516,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                        #CP{partner.client_number}
+                        {(partner as any).reference_number || `#CP${partner.client_number}`}
                       </span>
                       <h3 className="text-lg font-bold text-slate-900 group-hover:text-emerald-600 transition-colors mt-2">
                         {partner.name}

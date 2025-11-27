@@ -347,9 +347,17 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
         <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900">Edit Client</h2>
-              <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded">
-                #{client.client_number}
+              <h2 className="text-xl font-bold text-slate-900">
+                {isChannelPartner ? 'Edit Channel Partner' : 'Edit Client'}
+              </h2>
+              <span className={`text-sm font-semibold px-3 py-1 rounded ${
+                isChannelPartner
+                  ? 'text-emerald-600 bg-emerald-50'
+                  : 'text-blue-600 bg-blue-50'
+              }`}>
+                {isChannelPartner && (client as any).reference_number
+                  ? (client as any).reference_number
+                  : `#${client.client_number}`}
               </span>
             </div>
             {client.creator && (

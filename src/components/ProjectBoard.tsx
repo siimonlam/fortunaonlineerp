@@ -407,7 +407,7 @@ export function ProjectBoard() {
         .order('created_at', { ascending: false }),
       supabase
         .from('channel_partners')
-        .select('id,name,company_name_chinese,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,commission_rate')
+        .select('id,name,company_name_chinese,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,commission_rate,reference_number')
         .order('created_at', { ascending: false }),
       supabase.from('staff').select('*'),
       supabase.from('status_managers').select('*, staff:user_id(id, full_name, email)'),
@@ -2809,8 +2809,14 @@ function ClientCard({ client, projectTypes, statuses, onClick, onCreateProject, 
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-              #{client.client_number}
+            <span className={`text-xs font-semibold px-2 py-1 rounded ${
+              isChannelPartner
+                ? 'text-emerald-600 bg-emerald-50'
+                : 'text-blue-600 bg-blue-50'
+            }`}>
+              {isChannelPartner && (client as any).reference_number
+                ? (client as any).reference_number
+                : `#${client.client_number}`}
             </span>
             {client.abbreviation && (
               <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded">
