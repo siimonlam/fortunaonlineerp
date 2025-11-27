@@ -2994,6 +2994,8 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
   const [nextClientNumber, setNextClientNumber] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    companyNameChinese: '',
+    abbreviation: '',
     contactPerson: '',
     email: '',
     phone: '',
@@ -3001,8 +3003,12 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
     notes: '',
     salesSource: '',
     industry: '',
-    abbreviation: '',
+    otherIndustry: '',
+    isEcommerce: false,
     salesPersonId: '',
+    channelPartnerId: '',
+    parentClientId: '',
+    parentCompanyName: '',
   });
 
   useEffect(() => {
@@ -3042,6 +3048,8 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
         .from(tableName)
         .insert({
           name: formData.name.trim(),
+          company_name_chinese: formData.companyNameChinese.trim() || null,
+          abbreviation: formData.abbreviation.trim() || null,
           contact_person: formData.contactPerson.trim() || null,
           email: formData.email.trim() || null,
           phone: formData.phone.trim() || null,
@@ -3049,9 +3057,13 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
           notes: formData.notes.trim() || null,
           sales_source: formData.salesSource.trim() || null,
           industry: formData.industry.trim() || null,
-          abbreviation: formData.abbreviation.trim() || null,
+          other_industry: formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null,
+          is_ecommerce: formData.isEcommerce,
           created_by: user.id,
           sales_person_id: formData.salesPersonId || null,
+          channel_partner_id: formData.channelPartnerId || null,
+          parent_client_id: formData.parentClientId.trim() || null,
+          parent_company_name: formData.parentCompanyName.trim() || null,
         })
         .select('id, name, client_number')
         .single();
@@ -3125,6 +3137,17 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name in Chinese</label>
+            <input
+              type="text"
+              value={formData.companyNameChinese}
+              onChange={(e) => setFormData({ ...formData, companyNameChinese: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="输入中文公司名称"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Contact Person</label>
@@ -3190,24 +3213,88 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
-              <input
-                type="text"
+              <select
                 value={formData.salesSource}
                 onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter sales source"
-              />
+              >
+                <option value="">-- Select Sales Source --</option>
+                <option value="Direct">Direct</option>
+                <option value="Referral">Referral</option>
+                <option value="Website">Website</option>
+                <option value="Social Media">Social Media</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Industry</label>
+              <select
+                value={formData.industry}
+                onChange={(e) => setFormData({ ...formData, industry: e.target.value, otherIndustry: e.target.value !== 'Other' ? '' : formData.otherIndustry })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select an industry</option>
+                <option value="Accounting">Accounting</option>
+                <option value="Advertising & Marketing">Advertising & Marketing</option>
+                <option value="Agriculture">Agriculture</option>
+                <option value="Automotive">Automotive</option>
+                <option value="Aviation / Aerospace">Aviation / Aerospace</option>
+                <option value="Banking & Financial Services">Banking & Financial Services</option>
+                <option value="Biotechnology">Biotechnology</option>
+                <option value="Construction">Construction</option>
+                <option value="Consulting">Consulting</option>
+                <option value="Consumer Goods / FMCG">Consumer Goods / FMCG</option>
+                <option value="Education">Education</option>
+                <option value="E-commerce">E-commerce</option>
+                <option value="Energy / Oil & Gas">Energy / Oil & Gas</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Entertainment & Media">Entertainment & Media</option>
+                <option value="Fashion & Apparel">Fashion & Apparel</option>
+                <option value="Food & Beverage">Food & Beverage</option>
+                <option value="Government / Public Sector">Government / Public Sector</option>
+                <option value="Healthcare / Medical">Healthcare / Medical</option>
+                <option value="Hospitality & Tourism">Hospitality & Tourism</option>
+                <option value="Human Resources / Recruiting">Human Resources / Recruiting</option>
+                <option value="Information Technology (IT)">Information Technology (IT)</option>
+                <option value="Insurance">Insurance</option>
+                <option value="Internet / Online Services">Internet / Online Services</option>
+                <option value="Legal Services">Legal Services</option>
+                <option value="Logistics & Supply Chain">Logistics & Supply Chain</option>
+                <option value="Manufacturing">Manufacturing</option>
+                <option value="Non-Profit / NGO">Non-Profit / NGO</option>
+                <option value="Pharmaceuticals">Pharmaceuticals</option>
+                <option value="Real Estate">Real Estate</option>
+                <option value="Retail">Retail</option>
+                <option value="Software / SaaS">Software / SaaS</option>
+                <option value="Telecommunications">Telecommunications</option>
+                <option value="Transportation">Transportation</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          {formData.industry === 'Other' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Specify Other Industry</label>
               <input
                 type="text"
-                value={formData.industry}
-                onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                value={formData.otherIndustry}
+                onChange={(e) => setFormData({ ...formData, otherIndustry: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter industry"
+                placeholder="Enter industry name"
               />
             </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">E-commerce</label>
+            <select
+              value={formData.isEcommerce ? 'yes' : 'no'}
+              onChange={(e) => setFormData({ ...formData, isEcommerce: e.target.value === 'yes' })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
           </div>
 
           <div>
