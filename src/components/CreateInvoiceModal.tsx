@@ -28,11 +28,11 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
 
   useEffect(() => {
     async function generateInvoiceNumber() {
-      if (!project.client_id) return;
+      if (!project.client_number) return;
 
       try {
         const { data, error } = await supabase.rpc('generate_invoice_number', {
-          client_uuid: project.client_id
+          client_num: project.client_number
         });
 
         if (error) throw error;
@@ -46,7 +46,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
     }
 
     generateInvoiceNumber();
-  }, [project.client_id]);
+  }, [project.client_number]);
 
   async function getGoogleDriveAccessToken() {
     const { data: tokenData, error: tokenError } = await supabase
