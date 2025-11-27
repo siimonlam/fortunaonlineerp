@@ -1185,6 +1185,9 @@ export function ProjectBoard() {
                             onClick={() => {
                               setSelectedStatus(status.id);
                               setFundingProjectTab('projects');
+                              if (!expandedStatuses.has(status.id)) {
+                                toggleStatusExpanded(status.id);
+                              }
                             }}
                             className="flex-1 text-left px-2 py-2 flex items-center justify-between"
                           >

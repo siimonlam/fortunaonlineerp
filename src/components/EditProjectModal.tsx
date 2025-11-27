@@ -1438,9 +1438,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         {activeTab === 'project' ? (
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-              Basic Information
-            </h3>
+            <div className="flex justify-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                Basic Information
+              </h3>
+            </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Project Title *</label>
               <input
@@ -1542,9 +1544,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-              Company & Contact Details
-            </h3>
+            <div className="flex justify-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                Company & Contact Details
+              </h3>
+            </div>
             {projectType?.name === 'Funding Project' && project.client_number && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Client ID</label>
@@ -1659,9 +1663,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-              Sales Information
-            </h3>
+            <div className="flex justify-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                Sales Information
+              </h3>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
@@ -1705,9 +1711,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-              Financial Details
-            </h3>
+            <div className="flex justify-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                Financial Details
+              </h3>
+            </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-3">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Deposit Status</label>
@@ -1776,9 +1784,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-              Project Details
-            </h3>
+            <div className="flex justify-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                Project Details
+              </h3>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Brand Name</label>
@@ -1828,9 +1838,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-              HKPC Officer Information
-            </h3>
+            <div className="flex justify-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                HKPC Officer Information
+              </h3>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">HKPC Officer Name</label>
@@ -1869,9 +1881,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-              Important Dates
-            </h3>
+            <div className="flex justify-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                Important Dates
+              </h3>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
@@ -1957,9 +1971,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2">
-              Links & Attachments
-            </h3>
+            <div className="flex justify-center mb-6">
+              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                Links & Attachments
+              </h3>
+            </div>
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Upload Link</label>

@@ -212,7 +212,7 @@ export function ProjectCard({
             {project.project_name && (
               <p className="text-xs text-slate-600 mt-0.5">{project.project_name}</p>
             )}
-            {showSubstatus && project.status_id && isFundingProject && statusIconColor && (
+            {project.status_id && isFundingProject && statusIconColor && (
               <span className={`inline-block text-xs font-semibold px-2 py-1 rounded mt-1 ${statusIconColor.bg} ${statusIconColor.text}`}>
                 {currentStatus?.name}
               </span>
