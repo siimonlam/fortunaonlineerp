@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, User, Mail, Phone, Briefcase, CheckCircle, AlertCircle } from 'lucide-react';
+import { Building2, User, Mail, Phone, Briefcase, CheckCircle, AlertCircle, MapPin, FileText } from 'lucide-react';
 
 export function ClientOnboarding() {
   const [formData, setFormData] = useState({
     company_name: '',
+    company_name_chinese: '',
+    abbreviation: '',
     contact_name: '',
     email: '',
     phone: '',
-    industry: ''
+    address: '',
+    industry: '',
+    other_industry: '',
+    is_ecommerce: false,
+    notes: '',
+    sales_source: ''
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -24,10 +31,12 @@ export function ClientOnboarding() {
     loadUserEmail();
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: newValue
     });
   };
 
@@ -42,7 +51,14 @@ export function ClientOnboarding() {
         p_contact_name: formData.contact_name,
         p_email: formData.email,
         p_phone: formData.phone,
-        p_industry: formData.industry
+        p_industry: formData.industry,
+        p_company_name_chinese: formData.company_name_chinese || null,
+        p_abbreviation: formData.abbreviation || null,
+        p_address: formData.address || null,
+        p_other_industry: formData.industry === 'Other' ? formData.other_industry || null : null,
+        p_is_ecommerce: formData.is_ecommerce,
+        p_notes: formData.notes || null,
+        p_sales_source: formData.sales_source || null
       });
 
       if (submitError) throw submitError;
@@ -50,10 +66,17 @@ export function ClientOnboarding() {
       setSubmitted(true);
       setFormData({
         company_name: '',
+        company_name_chinese: '',
+        abbreviation: '',
         contact_name: '',
         email: '',
         phone: '',
-        industry: ''
+        address: '',
+        industry: '',
+        other_industry: '',
+        is_ecommerce: false,
+        notes: '',
+        sales_source: ''
       });
     } catch (err: any) {
       console.error('Error submitting form:', err);
@@ -101,19 +124,50 @@ export function ClientOnboarding() {
             </div>
           )}
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                <Building2 className="w-4 h-4" />
+                Company Name *
+              </label>
+              <input
+                type="text"
+                name="company_name"
+                value={formData.company_name}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="Enter your company name"
+              />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                <Building2 className="w-4 h-4" />
+                Abbreviation
+              </label>
+              <input
+                type="text"
+                name="abbreviation"
+                value={formData.abbreviation}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="Enter abbreviation"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
               <Building2 className="w-4 h-4" />
-              Company Name *
+              Company Name in Chinese
             </label>
             <input
               type="text"
-              name="company_name"
-              value={formData.company_name}
+              name="company_name_chinese"
+              value={formData.company_name_chinese}
               onChange={handleChange}
-              required
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder="Enter your company name"
+              placeholder="输入中文公司名称"
             />
           </div>
 
@@ -150,35 +204,154 @@ export function ClientOnboarding() {
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                <Phone className="w-4 h-4" />
+                Phone *
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="+1 (555) 000-0000"
+              />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                <Briefcase className="w-4 h-4" />
+                Sales Source
+              </label>
+              <select
+                name="sales_source"
+                value={formData.sales_source}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="">-- Select Sales Source --</option>
+                <option value="Direct">Direct</option>
+                <option value="Referral">Referral</option>
+                <option value="Website">Website</option>
+                <option value="Social Media">Social Media</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                <Briefcase className="w-4 h-4" />
+                Industry *
+              </label>
+              <select
+                name="industry"
+                value={formData.industry}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="">Select an industry</option>
+                <option value="Accounting">Accounting</option>
+                <option value="Advertising & Marketing">Advertising & Marketing</option>
+                <option value="Agriculture">Agriculture</option>
+                <option value="Automotive">Automotive</option>
+                <option value="Aviation / Aerospace">Aviation / Aerospace</option>
+                <option value="Banking & Financial Services">Banking & Financial Services</option>
+                <option value="Biotechnology">Biotechnology</option>
+                <option value="Construction">Construction</option>
+                <option value="Consulting">Consulting</option>
+                <option value="Consumer Goods / FMCG">Consumer Goods / FMCG</option>
+                <option value="Education">Education</option>
+                <option value="E-commerce">E-commerce</option>
+                <option value="Energy / Oil & Gas">Energy / Oil & Gas</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Entertainment & Media">Entertainment & Media</option>
+                <option value="Fashion & Apparel">Fashion & Apparel</option>
+                <option value="Food & Beverage">Food & Beverage</option>
+                <option value="Government / Public Sector">Government / Public Sector</option>
+                <option value="Healthcare / Medical">Healthcare / Medical</option>
+                <option value="Hospitality & Tourism">Hospitality & Tourism</option>
+                <option value="Human Resources / Recruiting">Human Resources / Recruiting</option>
+                <option value="Information Technology (IT)">Information Technology (IT)</option>
+                <option value="Insurance">Insurance</option>
+                <option value="Internet / Online Services">Internet / Online Services</option>
+                <option value="Legal Services">Legal Services</option>
+                <option value="Logistics & Supply Chain">Logistics & Supply Chain</option>
+                <option value="Manufacturing">Manufacturing</option>
+                <option value="Non-Profit / NGO">Non-Profit / NGO</option>
+                <option value="Pharmaceuticals">Pharmaceuticals</option>
+                <option value="Real Estate">Real Estate</option>
+                <option value="Retail">Retail</option>
+                <option value="Software / SaaS">Software / SaaS</option>
+                <option value="Telecommunications">Telecommunications</option>
+                <option value="Transportation">Transportation</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                <Briefcase className="w-4 h-4" />
+                E-commerce
+              </label>
+              <select
+                name="is_ecommerce"
+                value={formData.is_ecommerce ? 'yes' : 'no'}
+                onChange={(e) => setFormData({ ...formData, is_ecommerce: e.target.value === 'yes' })}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+          </div>
+
+          {formData.industry === 'Other' && (
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                <Briefcase className="w-4 h-4" />
+                Specify Other Industry *
+              </label>
+              <input
+                type="text"
+                name="other_industry"
+                value={formData.other_industry}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="Enter industry name"
+              />
+            </div>
+          )}
+
           <div>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-              <Phone className="w-4 h-4" />
-              Phone *
+              <MapPin className="w-4 h-4" />
+              Address
             </label>
             <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
+              type="text"
+              name="address"
+              value={formData.address}
               onChange={handleChange}
-              required
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder="+1 (555) 000-0000"
+              placeholder="Enter your address"
             />
           </div>
 
           <div>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-              <Briefcase className="w-4 h-4" />
-              Industry *
+              <FileText className="w-4 h-4" />
+              Notes
             </label>
-            <input
-              type="text"
-              name="industry"
-              value={formData.industry}
+            <textarea
+              name="notes"
+              value={formData.notes}
               onChange={handleChange}
-              required
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder="e.g., Technology, Healthcare, Finance"
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-h-[80px]"
+              placeholder="Enter additional notes or information"
             />
           </div>
 
