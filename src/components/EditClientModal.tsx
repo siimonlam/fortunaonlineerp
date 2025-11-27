@@ -80,6 +80,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     address: client.address || '',
     notes: client.notes || '',
     salesSource: client.sales_source || '',
+    salesSourceDetail: (client as any).sales_source_detail || '',
     industry: client.industry || '',
     otherIndustry: client.other_industry || '',
     isEcommerce: client.is_ecommerce || false,
@@ -99,6 +100,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
     address: client.address || '',
     notes: client.notes || '',
     salesSource: client.sales_source || '',
+    salesSourceDetail: (client as any).sales_source_detail || '',
     industry: client.industry || '',
     otherIndustry: client.other_industry || '',
     isEcommerce: client.is_ecommerce || false,
@@ -258,6 +260,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
             address: formData.address.trim() || null,
             notes: formData.notes.trim() || null,
             sales_source: formData.salesSource.trim() || null,
+            sales_source_detail: formData.salesSourceDetail.trim() || null,
             industry: formData.industry.trim() || null,
             abbreviation: formData.abbreviation.trim() || null,
             sales_person_id: formData.salesPersonId || null,
@@ -278,6 +281,7 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
             address: formData.address.trim() || null,
             notes: formData.notes.trim() || null,
             sales_source: formData.salesSource.trim() || null,
+            sales_source_detail: formData.salesSourceDetail.trim() || null,
             industry: formData.industry.trim() || null,
             other_industry: formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null,
             is_ecommerce: formData.isEcommerce,
@@ -490,13 +494,13 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
                 value={formData.salesSource}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFormData({ ...formData, salesSource: value });
+                  setFormData({ ...formData, salesSource: value, salesSourceDetail: '' });
 
                   const selectedPartner = channelPartners.find(cp => cp.reference_number === value);
                   if (selectedPartner) {
-                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: selectedPartner.id }));
+                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: selectedPartner.id, salesSourceDetail: '' }));
                   } else {
-                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: '' }));
+                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: '', salesSourceDetail: '' }));
                   }
                 }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -505,7 +509,11 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
                 <option value="Direct">Direct</option>
                 <option value="Referral">Referral</option>
                 <option value="Website">Website</option>
+                <option value="Seminar">Seminar</option>
+                <option value="Exhibition">Exhibition</option>
+                <option value="Marketing">Marketing</option>
                 <option value="Social Media">Social Media</option>
+                <option value="Others">Others</option>
                 <optgroup label="Channel Partners">
                   {channelPartners.map(partner => (
                     <option key={partner.id} value={partner.reference_number}>
@@ -569,6 +577,20 @@ export function EditClientModal({ client, onClose, onSuccess }: EditClientModalP
                   onChange={(e) => setFormData({ ...formData, otherIndustry: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter industry name"
+                />
+              </div>
+            )}
+            {(formData.salesSource === 'Seminar' || formData.salesSource === 'Exhibition') && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {formData.salesSource === 'Seminar' ? 'Which Seminar?' : 'Which Exhibition?'}
+                </label>
+                <input
+                  type="text"
+                  value={formData.salesSourceDetail}
+                  onChange={(e) => setFormData({ ...formData, salesSourceDetail: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={formData.salesSource === 'Seminar' ? 'Enter seminar name' : 'Enter exhibition name'}
                 />
               </div>
             )}

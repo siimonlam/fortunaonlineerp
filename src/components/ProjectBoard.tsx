@@ -2991,6 +2991,8 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [channelPartners, setChannelPartners] = useState<ChannelPartner[]>([]);
+  const [allClients, setAllClients] = useState<Client[]>([]);
   const [nextClientNumber, setNextClientNumber] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -3002,6 +3004,7 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
     address: '',
     notes: '',
     salesSource: '',
+    salesSourceDetail: '',
     industry: '',
     otherIndustry: '',
     isEcommerce: false,
@@ -3013,12 +3016,30 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
 
   useEffect(() => {
     loadStaff();
+    loadChannelPartners();
+    loadAllClients();
     loadNextClientNumber();
   }, []);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
     if (data) setStaff(data);
+  }
+
+  async function loadChannelPartners() {
+    const { data } = await supabase
+      .from('channel_partners')
+      .select('id, name, reference_number')
+      .order('reference_number');
+    if (data) setChannelPartners(data);
+  }
+
+  async function loadAllClients() {
+    const { data } = await supabase
+      .from('clients')
+      .select('id, name, client_number')
+      .order('client_number');
+    if (data) setAllClients(data as Client[]);
   }
 
   async function loadNextClientNumber() {
@@ -3056,6 +3077,7 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
           address: formData.address.trim() || null,
           notes: formData.notes.trim() || null,
           sales_source: formData.salesSource.trim() || null,
+          sales_source_detail: formData.salesSourceDetail.trim() || null,
           industry: formData.industry.trim() || null,
           other_industry: formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null,
           is_ecommerce: formData.isEcommerce,
@@ -3212,17 +3234,77 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
 
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Parent Company Name</label>
+              <select
+                value={formData.parentCompanyName}
+                onChange={(e) => {
+                  const selectedClient = allClients.find(c => c.name === e.target.value);
+                  if (selectedClient) {
+                    setFormData({
+                      ...formData,
+                      parentCompanyName: selectedClient.name,
+                      parentClientId: selectedClient.client_number || ''
+                    });
+                  } else {
+                    setFormData({ ...formData, parentCompanyName: e.target.value });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select parent company</option>
+                {allClients.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name} ({c.client_number})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Parent Client ID</label>
+              <input
+                type="text"
+                value={formData.parentClientId}
+                readOnly
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+                placeholder="Auto-filled from parent company"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
               <select
                 value={formData.salesSource}
-                onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({ ...formData, salesSource: value, salesSourceDetail: '' });
+
+                  const selectedPartner = channelPartners.find(cp => cp.reference_number === value);
+                  if (selectedPartner) {
+                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: selectedPartner.id, salesSourceDetail: '' }));
+                  } else {
+                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: '', salesSourceDetail: '' }));
+                  }
+                }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">-- Select Sales Source --</option>
                 <option value="Direct">Direct</option>
                 <option value="Referral">Referral</option>
                 <option value="Website">Website</option>
+                <option value="Seminar">Seminar</option>
+                <option value="Exhibition">Exhibition</option>
+                <option value="Marketing">Marketing</option>
                 <option value="Social Media">Social Media</option>
+                <option value="Others">Others</option>
+                <optgroup label="Channel Partners">
+                  {channelPartners.map(partner => (
+                    <option key={partner.id} value={partner.reference_number}>
+                      {partner.reference_number} - {partner.name}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
             <div>
@@ -3281,6 +3363,21 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
                 onChange={(e) => setFormData({ ...formData, otherIndustry: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter industry name"
+              />
+            </div>
+          )}
+
+          {(formData.salesSource === 'Seminar' || formData.salesSource === 'Exhibition') && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {formData.salesSource === 'Seminar' ? 'Which Seminar?' : 'Which Exhibition?'}
+              </label>
+              <input
+                type="text"
+                value={formData.salesSourceDetail}
+                onChange={(e) => setFormData({ ...formData, salesSourceDetail: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={formData.salesSource === 'Seminar' ? 'Enter seminar name' : 'Enter exhibition name'}
               />
             </div>
           )}
