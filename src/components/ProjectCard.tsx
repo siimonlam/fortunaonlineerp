@@ -149,26 +149,29 @@ export function ProjectCard({
   }
 
   function getSubstatusIconColor(statusName: string): { bg: string; text: string } {
+    // Normalize the status name for case-insensitive matching
+    const normalizedName = statusName.toLowerCase().trim();
+
     const colorMap: { [key: string]: { bg: string; text: string } } = {
-      'Hi-Po': { bg: 'bg-red-900', text: 'text-white' },
-      'Mid-Po': { bg: 'bg-red-600', text: 'text-white' },
-      'Lo-Po': { bg: 'bg-red-300', text: 'text-slate-900' },
-      'Cold Call': { bg: 'bg-teal-500', text: 'text-white' },
-      'Q&A': { bg: 'bg-blue-900', text: 'text-white' },
-      'Q&A -EMF': { bg: 'bg-blue-600', text: 'text-white' },
+      'hi-po': { bg: 'bg-red-900', text: 'text-white' },
+      'mid-po': { bg: 'bg-red-600', text: 'text-white' },
+      'lo-po': { bg: 'bg-red-300', text: 'text-slate-900' },
+      'cold call': { bg: 'bg-teal-500', text: 'text-white' },
+      'q&a': { bg: 'bg-blue-900', text: 'text-white' },
+      'q&a -emf': { bg: 'bg-blue-600', text: 'text-white' },
       '已上委員會': { bg: 'bg-blue-300', text: 'text-slate-900' },
-      'Presbmission': { bg: 'bg-yellow-400', text: 'text-slate-900' },
-      'Approved': { bg: 'bg-orange-300', text: 'text-slate-900' },
-      'Final Report': { bg: 'bg-purple-300', text: 'text-slate-900' },
-      'Conditional Approval': { bg: 'bg-green-300', text: 'text-slate-900' },
-      'Final Report (Q&A)': { bg: 'bg-pink-400', text: 'text-white' },
-      'Extension/Change Request': { bg: 'bg-green-700', text: 'text-white' },
-      'Final Report-Final Stage': { bg: 'bg-red-600', text: 'text-white' },
-      'Withdraw': { bg: 'bg-slate-400', text: 'text-white' },
-      'Rejected': { bg: 'bg-slate-900', text: 'text-white' },
-      'End': { bg: 'bg-slate-900', text: 'text-white' }
+      'presbmission': { bg: 'bg-yellow-400', text: 'text-slate-900' },
+      'approved': { bg: 'bg-orange-300', text: 'text-slate-900' },
+      'final report': { bg: 'bg-purple-300', text: 'text-slate-900' },
+      'conditional approval': { bg: 'bg-green-300', text: 'text-slate-900' },
+      'final report (q&a)': { bg: 'bg-pink-400', text: 'text-white' },
+      'extension/change request': { bg: 'bg-green-700', text: 'text-white' },
+      'final report-final stage': { bg: 'bg-red-600', text: 'text-white' },
+      'withdraw': { bg: 'bg-slate-400', text: 'text-white' },
+      'rejected': { bg: 'bg-slate-900', text: 'text-white' },
+      'end': { bg: 'bg-slate-900', text: 'text-white' }
     };
-    return colorMap[statusName] || { bg: 'bg-slate-200', text: 'text-slate-800' };
+    return colorMap[normalizedName] || { bg: 'bg-slate-200', text: 'text-slate-800' };
   }
 
   const currentStatus = statuses?.find(s => s.id === project.status_id);

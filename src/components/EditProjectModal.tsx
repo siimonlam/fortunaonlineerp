@@ -1549,7 +1549,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 Company & Contact Details
               </h3>
             </div>
-            {projectType?.name === 'Funding Project' && project.client_number && (
+            {project.client_number && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Client ID</label>
                 <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 font-semibold">

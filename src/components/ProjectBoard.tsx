@@ -1157,7 +1157,19 @@ export function ProjectBoard() {
             <div className="p-4">
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Status</h2>
               <nav className="space-y-2">
-                {filteredStatuses.filter(s => !s.is_substatus).map((status) => (
+                {filteredStatuses.filter(s => !s.is_substatus).filter(status => {
+                  // If a status is selected, only show that status and its substatuses
+                  const selectedStatusObj = statuses.find(s => s.id === selectedStatus);
+                  if (selectedStatusObj) {
+                    // If selected is a substatus, show its parent
+                    if (selectedStatusObj.is_substatus) {
+                      return status.id === selectedStatusObj.parent_status_id;
+                    }
+                    // If selected is a main status, show only that status
+                    return status.id === selectedStatus;
+                  }
+                  return true;
+                }).map((status) => (
                   <div key={status.id}>
                     {status.substatus && status.substatus.length > 0 ? (
                       <div className="space-y-1">
@@ -2312,26 +2324,27 @@ export function ProjectBoard() {
               <div className="flex gap-4 overflow-x-auto pb-4">
                 {(() => {
                   const getSubstatusColor = (substatusName: string) => {
+                    const normalizedName = substatusName.toLowerCase().trim();
                     const colorMap: { [key: string]: string } = {
-                      'Hi-Po': 'bg-red-900 text-white',
-                      'Mid-Po': 'bg-red-600 text-white',
-                      'Lo-Po': 'bg-red-300 text-slate-900',
-                      'Cold Call': 'bg-teal-500 text-white',
-                      'Q&A': 'bg-blue-900 text-white',
-                      'Q&A -EMF': 'bg-blue-600 text-white',
+                      'hi-po': 'bg-red-900 text-white',
+                      'mid-po': 'bg-red-600 text-white',
+                      'lo-po': 'bg-red-300 text-slate-900',
+                      'cold call': 'bg-teal-500 text-white',
+                      'q&a': 'bg-blue-900 text-white',
+                      'q&a -emf': 'bg-blue-600 text-white',
                       '已上委員會': 'bg-blue-300 text-slate-900',
-                      'Presbmission': 'bg-yellow-400 text-slate-900',
-                      'Approved': 'bg-orange-300 text-slate-900',
-                      'Final Report': 'bg-purple-300 text-slate-900',
-                      'Conditional Approval': 'bg-green-300 text-slate-900',
-                      'Final Report (Q&A)': 'bg-pink-400 text-white',
-                      'Extension/Change Request': 'bg-green-700 text-white',
-                      'Final Report-Final Stage': 'bg-red-600 text-white',
-                      'Withdraw': 'bg-slate-400 text-white',
-                      'Rejected': 'bg-slate-900 text-white',
-                      'End': 'bg-slate-900 text-white'
+                      'presbmission': 'bg-yellow-400 text-slate-900',
+                      'approved': 'bg-orange-300 text-slate-900',
+                      'final report': 'bg-purple-300 text-slate-900',
+                      'conditional approval': 'bg-green-300 text-slate-900',
+                      'final report (q&a)': 'bg-pink-400 text-white',
+                      'extension/change request': 'bg-green-700 text-white',
+                      'final report-final stage': 'bg-red-600 text-white',
+                      'withdraw': 'bg-slate-400 text-white',
+                      'rejected': 'bg-slate-900 text-white',
+                      'end': 'bg-slate-900 text-white'
                     };
-                    return colorMap[substatusName] || 'bg-slate-200 text-slate-800';
+                    return colorMap[normalizedName] || 'bg-slate-200 text-slate-800';
                   };
 
                   const allSubstatuses = statuses
