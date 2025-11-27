@@ -1,16 +1,16 @@
-const fs = require('fs');
-const { createClient } = require('@supabase/supabase-js');
+import fs from 'fs';
+import { createClient } from '@supabase/supabase-js';
+import XLSX from 'xlsx';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Initialize Supabase client
-require('dotenv').config();
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.VITE_SUPABASE_ANON_KEY
 );
-
-// Excel file parsing using a simple approach
-// Since this is a one-time import, we'll use a library
-const XLSX = require('xlsx');
 
 async function importProjects() {
   console.log('Starting project import...');
@@ -25,23 +25,33 @@ async function importProjects() {
 
   console.log(`Found ${data.length} projects to import`);
 
+  // Show first row to understand column names
+  if (data.length > 0) {
+    console.log('\nExcel columns found:', Object.keys(data[0]).join(', '));
+    console.log('\nFirst row sample:');
+    console.log(JSON.stringify(data[0], null, 2));
+  }
+
   // Get default values for required fields
   const { data: projectTypes } = await supabase
     .from('project_types')
-    .select('id, name');
+    .select('id, type_name');
 
   const { data: statuses } = await supabase
-    .from('statuses')
-    .select('id, name, project_type_id');
+    .from('project_status')
+    .select('id, name, project_type_id')
+    .limit(1);
 
-  const { data: users } = await supabase.auth.admin.listUsers();
-  const defaultUserId = users.users[0]?.id;
+  // Get current authenticated user
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!defaultUserId) {
-    throw new Error('No users found. Please create a user first.');
+  if (!user) {
+    throw new Error('No authenticated user. Please log in first.');
   }
 
-  console.log('Default user ID:', defaultUserId);
+  console.log('Importing as user:', user.email);
+  console.log('Default status:', statuses?.[0]?.name);
+  console.log('Available project types:', projectTypes?.map(pt => pt.type_name).join(', '));
 
   let successCount = 0;
   let errorCount = 0;
@@ -56,52 +66,79 @@ async function importProjects() {
     for (const row of batch) {
       try {
         // Map Excel columns to database fields
+        // NOTE: Adjust these column names based on your actual Excel columns
         const projectData = {
-          title: row.title || '',
-          description: row.description || null,
-          status_id: row.status_id || statuses[0]?.id,
-          project_type_id: row.project_type_id || projectTypes.find(pt => pt.name === 'Funding Project')?.id,
-          created_by: row.created_by || defaultUserId,
-          client_id: row.client_id || null,
-          company_name: row.company_name || null,
-          company_name_chinese: row.company_name_chinese || null,
-          contact_name: row.contact_name || null,
-          contact_number: row.contact_number || null,
-          email: row.email || null,
-          address: row.address || null,
-          sales_source: row.sales_source || null,
-          upload_link: row.upload_link || null,
-          start_date: row.start_date || null,
-          sales_person_id: row.sales_person_id || null,
-          attachment: row.attachment || null,
-          deposit_paid: row.deposit_paid || false,
-          deposit_amount: row.deposit_amount || null,
-          project_name: row.project_name || null,
-          service_fee_percentage: row.service_fee_percentage || null,
-          whatsapp_group_id: row.whatsapp_group_id || null,
-          invoice_number: row.invoice_number || null,
-          agreement_ref: row.agreement_ref || null,
-          abbreviation: row.abbreviation || null,
-          project_size: row.project_size || null,
-          project_start_date: row.project_start_date || null,
-          project_end_date: row.project_end_date || null,
-          submission_date: row.submission_date || null,
-          application_number: row.application_number || null,
-          approval_date: row.approval_date || null,
-          next_hkpc_due_date: row.next_hkpc_due_date || null,
-          next_due_date: row.next_due_date || null,
-          project_reference: row.project_reference || null,
-          google_drive_folder_id: row.google_drive_folder_id || null,
-          funding_scheme: row.funding_scheme || 25,
-          brand_name: row.brand_name || null,
-          agreement_sign_date: row.agreement_sign_date || null,
-          hkpc_officer_name: row.hkpc_officer_name || null,
-          hkpc_officer_email: row.hkpc_officer_email || null,
-          hkpc_officer_phone: row.hkpc_officer_phone || null,
-          parent_client_id: row.parent_client_id || null,
-          parent_company_name: row.parent_company_name || null,
-          client_number: row.client_number || null
+          // Required fields
+          status_id: statuses[0]?.id,
+          created_by: user.id,
+
+          // Try multiple possible column name variations
+          title: row.title || row.Title || row.PROJECT_NAME || row['Project Name'] || `Project ${i + successCount + errorCount + 1}`,
+          description: row.description || row.Description || row.DESCRIPTION || null,
+          project_type_id: projectTypes?.find(pt => pt.type_name === 'Funding Project')?.id || projectTypes?.[0]?.id,
+
+          // Company info
+          company_name: row.company_name || row['Company Name'] || row.COMPANY_NAME || null,
+          company_name_chinese: row.company_name_chinese || row['Company Name Chinese'] || row['公司名稱'] || null,
+          contact_name: row.contact_name || row['Contact Name'] || row.CONTACT_NAME || null,
+          contact_number: row.contact_number || row['Contact Number'] || row.CONTACT_NUMBER || null,
+          email: row.email || row.Email || row.EMAIL || null,
+          address: row.address || row.Address || row.ADDRESS || null,
+
+          // Project details
+          project_name: row.project_name || row['Project Name'] || row.PROJECT_NAME || null,
+          project_reference: row.project_reference || row['Project Reference'] || row.PROJECT_REFERENCE || null,
+          abbreviation: row.abbreviation || row.Abbreviation || row.ABBREVIATION || null,
+          project_size: row.project_size || row['Project Size'] || row.PROJECT_SIZE || null,
+          brand_name: row.brand_name || row['Brand Name'] || row.BRAND_NAME || null,
+
+          // Dates (Excel dates might need conversion)
+          start_date: row.start_date || row['Start Date'] || row.START_DATE || null,
+          project_start_date: row.project_start_date || row['Project Start Date'] || row.PROJECT_START_DATE || null,
+          project_end_date: row.project_end_date || row['Project End Date'] || row.PROJECT_END_DATE || null,
+          submission_date: row.submission_date || row['Submission Date'] || row.SUBMISSION_DATE || null,
+          approval_date: row.approval_date || row['Approval Date'] || row.APPROVAL_DATE || null,
+          next_hkpc_due_date: row.next_hkpc_due_date || row['Next HKPC Due Date'] || row.NEXT_HKPC_DUE_DATE || null,
+          next_due_date: row.next_due_date || row['Next Due Date'] || row.NEXT_DUE_DATE || null,
+          agreement_sign_date: row.agreement_sign_date || row['Agreement Sign Date'] || row.AGREEMENT_SIGN_DATE || null,
+
+          // Financial
+          deposit_paid: row.deposit_paid === true || row.deposit_paid === 'Yes' || row.deposit_paid === 'TRUE' || false,
+          deposit_amount: row.deposit_amount || row['Deposit Amount'] || row.DEPOSIT_AMOUNT || null,
+          service_fee_percentage: row.service_fee_percentage || row['Service Fee %'] || row.SERVICE_FEE_PERCENTAGE || null,
+          funding_scheme: row.funding_scheme || row['Funding Scheme'] || row.FUNDING_SCHEME || 25,
+
+          // References
+          sales_source: row.sales_source || row['Sales Source'] || row.SALES_SOURCE || null,
+          application_number: row.application_number || row['Application Number'] || row.APPLICATION_NUMBER || null,
+          invoice_number: row.invoice_number || row['Invoice Number'] || row.INVOICE_NUMBER || null,
+          agreement_ref: row.agreement_ref || row['Agreement Ref'] || row.AGREEMENT_REF || null,
+
+          // HKPC Officer
+          hkpc_officer_name: row.hkpc_officer_name || row['HKPC Officer Name'] || row.HKPC_OFFICER_NAME || null,
+          hkpc_officer_email: row.hkpc_officer_email || row['HKPC Officer Email'] || row.HKPC_OFFICER_EMAIL || null,
+          hkpc_officer_phone: row.hkpc_officer_phone || row['HKPC Officer Phone'] || row.HKPC_OFFICER_PHONE || null,
+
+          // Links
+          upload_link: row.upload_link || row['Upload Link'] || row.UPLOAD_LINK || null,
+          attachment: row.attachment || row.Attachment || row.ATTACHMENT || null,
+          whatsapp_group_id: row.whatsapp_group_id || row['WhatsApp Group'] || row.WHATSAPP_GROUP_ID || null,
+          google_drive_folder_id: row.google_drive_folder_id || row['Google Drive Folder'] || row.GOOGLE_DRIVE_FOLDER_ID || null,
+
+          // Parent company
+          parent_client_id: row.parent_client_id || row['Parent Client ID'] || row.PARENT_CLIENT_ID || null,
+          parent_company_name: row.parent_company_name || row['Parent Company Name'] || row.PARENT_COMPANY_NAME || null,
+
+          // Client number
+          client_number: row.client_number || row['Client Number'] || row.CLIENT_NUMBER || null,
         };
+
+        // Remove undefined/null fields to avoid inserting empty strings
+        Object.keys(projectData).forEach(key => {
+          if (projectData[key] === null || projectData[key] === undefined || projectData[key] === '') {
+            delete projectData[key];
+          }
+        });
 
         const { error } = await supabase
           .from('projects')
