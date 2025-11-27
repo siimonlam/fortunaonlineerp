@@ -780,20 +780,9 @@ export function ProjectBoard() {
       const selectedStatusObj = statuses.find(s => s.id === selectedStatus);
 
       if (selectedStatusObj?.is_substatus) {
-        // When a substatus is selected, only show projects with that substatus
         return p.status_id === selectedStatus;
       } else {
-        // When a main status is selected, show projects with the main status AND its substatuses
         const substatusIds = selectedStatusObj?.substatus?.map(s => s.id) || [];
-        console.log('[Status Filter Debug]', {
-          selectedStatus,
-          selectedStatusName: selectedStatusObj?.name,
-          isSubstatus: selectedStatusObj?.is_substatus,
-          substatusIds,
-          projectStatusId: p.status_id,
-          projectTitle: p.title,
-          matches: p.status_id === selectedStatus || substatusIds.includes(p.status_id)
-        });
         if (substatusIds.length > 0) {
           return p.status_id === selectedStatus || substatusIds.includes(p.status_id);
         }
@@ -2330,6 +2319,7 @@ export function ProjectBoard() {
                 projects={filteredProjects}
                 projectTypes={projectTypes}
                 statuses={statuses}
+                selectedStatus={selectedStatus}
                 onProjectClick={(project) => setSelectedProject(project)}
                 onClientClick={(client) => setSelectedClient(client)}
               />
