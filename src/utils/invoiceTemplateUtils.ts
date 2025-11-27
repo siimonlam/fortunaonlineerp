@@ -71,6 +71,7 @@ export async function generateInvoiceFromTemplate(
     amount?: string;
     issueDate?: string;
     dueDate?: string;
+    paymentType?: string;
   }
 ): Promise<Blob> {
   const { data: project, error: projectError } = await supabase
@@ -148,9 +149,25 @@ export async function generateInvoiceFromTemplate(
     let value: any;
 
     if (mapping.source_type === 'project') {
-      value = project[mapping.source_field];
+      if (mapping.source_field === 'current_date') {
+        value = new Date().toISOString().split('T')[0];
+      } else {
+        value = project[mapping.source_field];
+      }
     } else if (mapping.source_type === 'client' && project.client) {
       value = project.client[mapping.source_field];
+    } else if (mapping.source_type === 'invoice' && invoiceData) {
+      if (mapping.source_field === 'invoice_number') {
+        value = invoiceData.invoiceNumber;
+      } else if (mapping.source_field === 'amount') {
+        value = invoiceData.amount;
+      } else if (mapping.source_field === 'payment_type') {
+        value = invoiceData.paymentType || 'Deposit';
+      } else if (mapping.source_field === 'issue_date') {
+        value = invoiceData.issueDate;
+      } else if (mapping.source_field === 'due_date') {
+        value = invoiceData.dueDate;
+      }
     }
 
     if (value === null || value === undefined) {
