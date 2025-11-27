@@ -1157,21 +1157,7 @@ export function ProjectBoard() {
             <div className="p-4">
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Status</h2>
               <nav className="space-y-2">
-                {filteredStatuses.filter(s => !s.is_substatus).filter(status => {
-                  // Only filter the sidebar when in list view and a status is selected
-                  if (projectViewMode === 'list' && selectedStatus) {
-                    const selectedStatusObj = statuses.find(s => s.id === selectedStatus);
-                    if (selectedStatusObj) {
-                      // If selected is a substatus, show its parent
-                      if (selectedStatusObj.is_substatus) {
-                        return status.id === selectedStatusObj.parent_status_id;
-                      }
-                      // If selected is a main status, show only that status
-                      return status.id === selectedStatus;
-                    }
-                  }
-                  return true;
-                }).map((status) => (
+                {filteredStatuses.filter(s => !s.is_substatus).map((status) => (
                   <div key={status.id}>
                     {status.substatus && status.substatus.length > 0 ? (
                       <div className="space-y-1">
