@@ -113,17 +113,6 @@ export function ProjectListView({
     return new Date(dateString).toLocaleDateString();
   };
 
-  const selectedStatusObj = statuses?.find(s => s.id === selectedStatus);
-  const statusesToDisplay: Status[] = [];
-
-  if (selectedStatusObj?.is_substatus) {
-    statusesToDisplay.push(selectedStatusObj);
-  } else if (selectedStatusObj && selectedStatusObj.substatus && selectedStatusObj.substatus.length > 0) {
-    statusesToDisplay.push(...selectedStatusObj.substatus);
-  } else if (selectedStatusObj) {
-    statusesToDisplay.push(selectedStatusObj);
-  }
-
   const renderProjectRows = (statusProjects: Project[]) => (
     <>
       {statusProjects.map((project) => {
@@ -226,109 +215,48 @@ export function ProjectListView({
   );
 
   return (
-    <div className="space-y-6">
-      {statusesToDisplay.length > 0 ? (
-        statusesToDisplay.map((status) => {
-          const statusProjects = projects.filter(p => p.status_id === status.id);
-          if (statusProjects.length === 0) return null;
-
-          return (
-            <div key={status.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  {!selectedStatusObj?.is_substatus && (
-                    <thead className="bg-slate-50 border-b-2 border-slate-300">
-                      <tr>
-                        <th colSpan={9} className="px-6 py-3 text-left text-sm font-bold text-slate-800 uppercase">
-                          {status.name} ({statusProjects.length})
-                        </th>
-                      </tr>
-                    </thead>
-                  )}
-                  <thead className="bg-slate-100 border-b border-slate-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Client
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Project
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Abbreviation
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Next Due Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Submission Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Start Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        End Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Tasks
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {renderProjectRows(statusProjects)}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          );
-        })
-      ) : (
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-100 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Client
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Project
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Abbreviation
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Next Due Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Submission Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Start Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    End Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Tasks
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {renderProjectRows(projects)}
-              </tbody>
-            </table>
-          </div>
-          {projects.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-slate-500">No projects found.</p>
-            </div>
-          )}
+    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-slate-100 border-b border-slate-200">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Client
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Project
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Abbreviation
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Next Due Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Submission Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Start Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                End Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Tasks
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {renderProjectRows(projects)}
+          </tbody>
+        </table>
+      </div>
+      {projects.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-slate-500">No projects found.</p>
         </div>
       )}
     </div>
