@@ -1,53 +1,143 @@
 # Project Import Guide
 
-This guide will help you import 429 projects from your Excel file into the Supabase database.
+This guide explains how to import your 429 projects into Supabase. Two methods are available: **Cloud-Based** (no files needed) and **Local** (CSV file on computer).
+
+---
+
+## 🌐 Method 1: Cloud-Based Import (Recommended)
+
+**Perfect for you since you don't have files on your computer!**
+
+A Supabase Edge Function has been deployed that accepts your project data via HTTP request and imports it directly into your database.
+
+### How to Use
+
+#### Step 1: Prepare Your Data as JSON
+
+Convert your CSV to JSON format. Each project should look like this:
+
+```json
+{
+  "projects": [
+    {
+      "title": "Famkools - BUD-CN",
+      "company_name": "Famkools",
+      "status_id": "47638168-85d2-45dc-b4f5-b79a6a07215f",
+      "created_by": "140bc2ca-95bb-496a-8891-93d32e856766",
+      "project_type_id": "49c17e80-db14-4e13-b03f-537771270696",
+      "deposit_paid": "TRUE",
+      "deposit_amount": "20000",
+      "project_reference": "FP00100",
+      "client_number": "C0341"
+    }
+  ]
+}
+```
+
+#### Step 2: Call the Edge Function
+
+**Option A: Browser JavaScript Console**
+
+1. Open your browser's developer console (F12)
+2. Paste and run this code:
+
+```javascript
+const projects = [
+  // Paste your project data here
+];
+
+fetch('${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-projects', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ projects })
+})
+.then(r => r.json())
+.then(result => {
+  console.log('Import complete!');
+  console.log(`Successful: ${result.successful}`);
+  console.log(`Failed: ${result.failed}`);
+  if (result.errors.length > 0) {
+    console.log('Errors:', result.errors);
+  }
+});
+```
+
+**Option B: Using curl (if you have a terminal)**
+
+```bash
+curl -X POST \
+  'YOUR_SUPABASE_URL/functions/v1/import-projects' \
+  -H 'Content-Type: application/json' \
+  -d @projects.json
+```
+
+**Option C: Online API Tool (Postman, Insomnia, etc.)**
+
+1. Create POST request to: `YOUR_SUPABASE_URL/functions/v1/import-projects`
+2. Set header: `Content-Type: application/json`
+3. Paste JSON body with your projects
+4. Send request
+
+#### Step 3: View Results
+
+The function returns:
+
+```json
+{
+  "total": 429,
+  "successful": 429,
+  "failed": 0,
+  "errors": []
+}
+```
+
+### Converting CSV to JSON
+
+**Online Tools:**
+- https://csvjson.com/csv2json
+- https://www.convertcsv.com/csv-to-json.htm
+
+Simply upload your CSV and it will convert to JSON for you!
+
+---
+
+## 💻 Method 2: Local Import (CSV File)
+
+If you have the CSV file on your computer, use this method.
 
 ## Prerequisites
 
-1. ✅ Excel file: `projects_rows_upload.xlsx` (already provided)
+1. ✅ CSV file: `projects_rows_upload.csv` in project root
 2. ✅ Node.js installed
 3. ✅ Dependencies installed (`npm install`)
 4. ✅ `.env` file with Supabase credentials
-5. ⚠️ **You must be logged in** to the application before running the import
 
 ## Steps to Import
 
-### 1. Place the Excel File
+### 1. Place the CSV File
 
-Save your `projects_rows_upload.xlsx` file in the project root directory:
+Save your `projects_rows_upload.csv` file in the project root directory.
+
+### 2. Run the Import Script
+
 ```bash
-/tmp/cc-agent/58876889/project/projects_rows_upload.xlsx
+npm run import:projects
 ```
 
-### 2. Install Dependencies
-
-The `xlsx` package is already installed, but if needed:
-```bash
-npm install xlsx dotenv
-```
-
-### 3. Log In to the Application
-
-**IMPORTANT:** Before running the import, you MUST:
-1. Open your application in a browser
-2. Log in with your credentials
-3. The script will use your authenticated session to import projects
-
-### 4. Run the Import Script
+Or preview first:
 
 ```bash
-node import_projects.js
+npm run preview:import
 ```
 
 ## What the Script Does
 
-1. **Reads the Excel file** - Parses all 429 rows
-2. **Shows column names** - Displays detected Excel columns to verify mapping
-3. **Gets default values** - Fetches available project types and statuses
-4. **Imports in batches** - Processes 50 projects at a time to avoid timeouts
-5. **Maps columns** - Intelligently maps Excel columns to database fields
-6. **Handles errors** - Logs any failed imports and continues processing
-7. **Saves error log** - Creates `import_errors.json` if any imports fail
+1. **Reads the CSV file** - Parses all 429 rows
+2. **Cleans data** - Converts booleans, numbers, dates to proper formats
+3. **Maps columns** - Maps all CSV columns to database fields
+4. **Imports one by one** - Processes each project with detailed feedback
+5. **Handles errors** - Shows which rows failed and why
+6. **Provides summary** - Total, successful, and failed counts
 
 ## Expected Output
 
