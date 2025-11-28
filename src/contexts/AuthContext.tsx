@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         console.log('Initializing auth...');
+        console.log('Current URL:', window.location.href);
 
         const hasAuthError = checkForAuthError();
         if (hasAuthError) {
@@ -56,11 +57,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (hasAccessToken || hasAuthCode) {
           console.log('OAuth callback detected, exchanging for session...');
-          // Let Supabase handle the OAuth callback automatically
-          // The session will be set via onAuthStateChange
+
+          // If we have an auth code, exchange it for a session
+          if (hasAuthCode) {
+            console.log('Exchanging auth code for session...');
+            const authCode = urlParams.get('code');
+            console.log('Auth code present:', !!authCode);
+
+            // Wait a bit for Supabase to process the code
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
 
         const { data: { session }, error } = await supabase.auth.getSession();
+
         if (error) {
           console.error('Error getting session:', error);
 
@@ -71,10 +81,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             window.history.replaceState({}, document.title, window.location.pathname);
           }
         } else {
+          console.log('Session retrieved:', session?.user?.email || 'No user');
+
           // Clear OAuth parameters from URL after successful session retrieval
-          if (hasAccessToken || hasAuthCode) {
-            console.log('Clearing OAuth parameters from URL');
+          if ((hasAccessToken || hasAuthCode) && session) {
+            console.log('Clearing OAuth parameters from URL after successful auth');
             window.history.replaceState({}, document.title, window.location.pathname);
+          } else if (hasAuthCode && !session) {
+            console.log('Auth code present but no session - checking again...');
+            // Try one more time after a delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const { data: { session: retrySession } } = await supabase.auth.getSession();
+            if (retrySession) {
+              console.log('Session found on retry:', retrySession.user?.email);
+              setSession(retrySession);
+              setUser(retrySession.user);
+              window.history.replaceState({}, document.title, window.location.pathname);
+              setLoading(false);
+              return;
+            } else {
+              console.log('Still no session after retry, clearing URL');
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
           }
         }
 
