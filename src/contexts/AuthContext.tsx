@@ -138,16 +138,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithGoogle = async () => {
-    const redirectTo = window.location.origin;
     console.log('[AuthProvider] signInWithGoogle called');
     console.log('[AuthProvider] Window location origin:', window.location.origin);
-    console.log('[AuthProvider] Redirect URL:', redirectTo);
 
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectTo,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
