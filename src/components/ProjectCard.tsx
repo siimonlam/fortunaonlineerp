@@ -68,6 +68,7 @@ interface Project {
   next_hkpc_due_date?: string;
   next_due_date?: string;
   project_reference?: string;
+  deposit_paid_date?: string;
 }
 
 interface ProjectType {

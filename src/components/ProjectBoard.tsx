@@ -56,6 +56,7 @@ interface Project {
   project_size?: string;
   project_start_date?: string;
   project_end_date?: string;
+  deposit_paid_date?: string;
   tasks?: Task[];
   clients?: Client;
   labels?: Label[];
@@ -146,6 +147,8 @@ export function ProjectBoard() {
   const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings'>('projects');
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
   const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
+  const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
+  const [invoiceSortBy, setInvoiceSortBy] = useState<'payment_date_asc' | 'payment_date_desc' | 'issue_date_asc' | 'issue_date_desc' | 'payment_status'>('issue_date_desc');
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
@@ -818,6 +821,16 @@ export function ProjectBoard() {
           const bDate = b.project_end_date ? new Date(b.project_end_date).getTime() : Infinity;
           return aDate - bDate;
         }
+        case 'deposit_paid_date_oldest': {
+          const aDate = a.deposit_paid_date ? new Date(a.deposit_paid_date).getTime() : Infinity;
+          const bDate = b.deposit_paid_date ? new Date(b.deposit_paid_date).getTime() : Infinity;
+          return aDate - bDate;
+        }
+        case 'deposit_paid_date_newest': {
+          const aDate = a.deposit_paid_date ? new Date(a.deposit_paid_date).getTime() : Infinity;
+          const bDate = b.deposit_paid_date ? new Date(b.deposit_paid_date).getTime() : Infinity;
+          return bDate - aDate;
+        }
         case 'created_newest':
           return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
         case 'created_oldest':
@@ -1398,6 +1411,8 @@ export function ProjectBoard() {
                     <option value="submission_date_oldest">Submission Date (Latest First)</option>
                     <option value="project_start_date">Start Date</option>
                     <option value="project_end_date">End Date (End Soon)</option>
+                    <option value="deposit_paid_date_oldest">Deposit Paid Date (Oldest First)</option>
+                    <option value="deposit_paid_date_newest">Deposit Paid Date (Latest First)</option>
                     <option value="created_newest">Created (Newest)</option>
                     <option value="created_oldest">Created (Oldest)</option>
                   </select>
@@ -2173,7 +2188,32 @@ export function ProjectBoard() {
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
               <div className="bg-white rounded-lg shadow-sm border border-slate-200">
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Invoice Summary</h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-slate-900">Invoice Summary</h3>
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <input
+                          type="text"
+                          placeholder="Search by company, project, client ID..."
+                          value={invoiceSearchQuery}
+                          onChange={(e) => setInvoiceSearchQuery(e.target.value)}
+                          className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-80"
+                        />
+                      </div>
+                      <select
+                        value={invoiceSortBy}
+                        onChange={(e) => setInvoiceSortBy(e.target.value as any)}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                      >
+                        <option value="issue_date_desc">Issue Date (Latest First)</option>
+                        <option value="issue_date_asc">Issue Date (Oldest First)</option>
+                        <option value="payment_date_desc">Payment Date (Latest First)</option>
+                        <option value="payment_date_asc">Payment Date (Oldest First)</option>
+                        <option value="payment_status">Payment Status</option>
+                      </select>
+                    </div>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
@@ -2193,7 +2233,59 @@ export function ProjectBoard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {fundingInvoices.map((invoice) => {
+                        {fundingInvoices
+                          .filter((invoice) => {
+                            if (!invoiceSearchQuery) return true;
+                            const searchLower = invoiceSearchQuery.toLowerCase();
+                            const invoiceProject = projects.find(p => p.id === invoice.project_id);
+                            const invoiceClient = clients.find(c => c.id === invoice.client_id);
+                            return (
+                              (invoice.company_name?.toLowerCase() || '').includes(searchLower) ||
+                              (invoice.project_reference?.toLowerCase() || '').includes(searchLower) ||
+                              (invoiceProject?.title?.toLowerCase() || '').includes(searchLower) ||
+                              (invoiceClient?.name?.toLowerCase() || '').includes(searchLower) ||
+                              (invoiceClient?.client_number?.toLowerCase() || '').includes(searchLower) ||
+                              (invoice.payment_status?.toLowerCase() || '').includes(searchLower)
+                            );
+                          })
+                          .sort((a, b) => {
+                            switch (invoiceSortBy) {
+                              case 'issue_date_asc': {
+                                const aDate = a.issue_date ? new Date(a.issue_date).getTime() : 0;
+                                const bDate = b.issue_date ? new Date(b.issue_date).getTime() : 0;
+                                return aDate - bDate;
+                              }
+                              case 'issue_date_desc': {
+                                const aDate = a.issue_date ? new Date(a.issue_date).getTime() : 0;
+                                const bDate = b.issue_date ? new Date(b.issue_date).getTime() : 0;
+                                return bDate - aDate;
+                              }
+                              case 'payment_date_asc': {
+                                const aDate = a.payment_date ? new Date(a.payment_date).getTime() : 0;
+                                const bDate = b.payment_date ? new Date(b.payment_date).getTime() : 0;
+                                return aDate - bDate;
+                              }
+                              case 'payment_date_desc': {
+                                const aDate = a.payment_date ? new Date(a.payment_date).getTime() : 0;
+                                const bDate = b.payment_date ? new Date(b.payment_date).getTime() : 0;
+                                return bDate - aDate;
+                              }
+                              case 'payment_status': {
+                                const statusOrder: { [key: string]: number } = {
+                                  'Overdue': 1,
+                                  'Unpaid': 2,
+                                  'Paid': 3,
+                                  'Void': 4
+                                };
+                                const aOrder = statusOrder[a.payment_status] || 999;
+                                const bOrder = statusOrder[b.payment_status] || 999;
+                                return aOrder - bOrder;
+                              }
+                              default:
+                                return 0;
+                            }
+                          })
+                          .map((invoice) => {
                           const invoiceProject = projects.find(p => p.id === invoice.project_id);
                           const invoiceClient = clients.find(c => c.id === invoice.client_id);
                           return (
@@ -2288,10 +2380,23 @@ export function ProjectBoard() {
                             </tr>
                           );
                         })}
-                        {fundingInvoices.length === 0 && (
+                        {fundingInvoices.filter((invoice) => {
+                          if (!invoiceSearchQuery) return true;
+                          const searchLower = invoiceSearchQuery.toLowerCase();
+                          const invoiceProject = projects.find(p => p.id === invoice.project_id);
+                          const invoiceClient = clients.find(c => c.id === invoice.client_id);
+                          return (
+                            (invoice.company_name?.toLowerCase() || '').includes(searchLower) ||
+                            (invoice.project_reference?.toLowerCase() || '').includes(searchLower) ||
+                            (invoiceProject?.title?.toLowerCase() || '').includes(searchLower) ||
+                            (invoiceClient?.name?.toLowerCase() || '').includes(searchLower) ||
+                            (invoiceClient?.client_number?.toLowerCase() || '').includes(searchLower) ||
+                            (invoice.payment_status?.toLowerCase() || '').includes(searchLower)
+                          );
+                        }).length === 0 && (
                           <tr>
                             <td colSpan={12} className="py-12 text-center text-slate-500">
-                              No invoices found.
+                              {invoiceSearchQuery ? 'No invoices match your search.' : 'No invoices found.'}
                             </td>
                           </tr>
                         )}

@@ -19,6 +19,7 @@ interface Project {
   sales_source?: string;
   deposit_amount?: number;
   deposit_paid?: boolean;
+  deposit_paid_date?: string;
   service_fee_percentage?: number;
   invoice_number?: string;
   agreement_ref?: string;
@@ -91,6 +92,14 @@ export function ProjectCardFields({ project }: ProjectCardFieldsProps) {
           <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
           <span className="font-medium">Submission:</span>
           <span>{new Date(project.submission_date).toLocaleDateString()}</span>
+        </div>
+      )}
+
+      {project.deposit_paid_date && (
+        <div className="flex items-center gap-2 text-green-600">
+          <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="font-medium">Deposit Paid:</span>
+          <span>{new Date(project.deposit_paid_date).toLocaleDateString()}</span>
         </div>
       )}
 
