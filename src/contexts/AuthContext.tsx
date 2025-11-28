@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('OAuth error:', error, errorDescription);
+        alert(`Login failed: ${errorDescription || error}`);
         window.history.replaceState({}, document.title, window.location.pathname);
         return true;
       }
@@ -54,6 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const urlParams = new URLSearchParams(window.location.search);
         const hasAccessToken = hashParams.has('access_token');
         const hasAuthCode = urlParams.has('code');
+
+        console.log('URL params:', {
+          hasAccessToken,
+          hasAuthCode,
+          searchParams: Array.from(urlParams.entries()),
+          hashParams: Array.from(hashParams.entries())
+        });
 
         if (hasAccessToken || hasAuthCode) {
           console.log('OAuth callback detected, exchanging for session...');
