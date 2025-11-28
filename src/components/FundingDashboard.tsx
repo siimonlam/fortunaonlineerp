@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar } from 'lucide-react';
 
@@ -46,15 +46,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [selectedMonths, setSelectedMonths] = useState(4);
   const [agingProjects, setAgingProjects] = useState<Project[]>([]);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  useEffect(() => {
-    filterAgingProjects();
-  }, [selectedMonths, totalProjects]);
-
-  const filterAgingProjects = async () => {
+  const filterAgingProjects = useCallback(async () => {
     try {
       const qaSubstatusIds = [
         '966d0574-05da-45ab-a137-c874b6729767',
@@ -90,7 +82,15 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
     } catch (error) {
       console.error('Error filtering aging projects:', error);
     }
-  };
+  }, [selectedMonths]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  useEffect(() => {
+    filterAgingProjects();
+  }, [filterAgingProjects]);
 
   const loadDashboardData = async () => {
     try {
