@@ -33,7 +33,11 @@ interface Project {
   submission_date: string | null;
 }
 
-export function FundingDashboard() {
+interface FundingDashboardProps {
+  onProjectClick?: (projectId: string) => void;
+}
+
+export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [dashboardData, setDashboardData] = useState<DashboardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalProjects, setTotalProjects] = useState(0);
@@ -52,15 +56,21 @@ export function FundingDashboard() {
 
   const filterAgingProjects = async () => {
     try {
+      const qaSubstatusIds = [
+        '966d0574-05da-45ab-a137-c874b6729767',
+        'a81bf449-eb87-4261-9141-d5b5a8597da8',
+        '4ae1a3d6-59ff-45be-b60d-4c3e4b0893ff'
+      ];
+
       const { data: projects, error } = await supabase
         .from('projects')
         .select('id, title, submission_date, status_id, project_end_date')
-        .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696');
+        .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696')
+        .in('status_id', qaSubstatusIds);
 
       if (error) throw error;
 
       const currentDate = new Date();
-      const monthsInMs = selectedMonths * 30 * 24 * 60 * 60 * 1000;
 
       const filtered = projects?.filter(p => {
         if (!p.submission_date) return false;
@@ -69,6 +79,12 @@ export function FundingDashboard() {
         const monthsDiff = daysDiff / 30;
         return monthsDiff >= selectedMonths;
       }) || [];
+
+      filtered.sort((a, b) => {
+        if (!a.submission_date) return 1;
+        if (!b.submission_date) return -1;
+        return new Date(a.submission_date).getTime() - new Date(b.submission_date).getTime();
+      });
 
       setAgingProjects(filtered as Project[]);
     } catch (error) {
@@ -329,11 +345,12 @@ export function FundingDashboard() {
                     return (
                       <div
                         key={project.id}
-                        className="p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors"
+                        onClick={() => onProjectClick?.(project.id)}
+                        className="p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{project.title}</p>
+                            <p className="text-sm font-medium text-slate-800 truncate hover:text-blue-600">{project.title}</p>
                             <div className="flex items-center gap-2 mt-1">
                               <Calendar className="w-3 h-3 text-slate-400" />
                               <p className="text-xs text-slate-600">

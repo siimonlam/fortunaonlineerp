@@ -2182,7 +2182,15 @@ export function ProjectBoard() {
                 />
               )
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'dashboard' ? (
-              <FundingDashboard />
+              <FundingDashboard
+                onProjectClick={async (projectId) => {
+                  const project = projects.find(p => p.id === projectId);
+                  if (project) {
+                    setSelectedProject(project);
+                    setFundingProjectTab('projects');
+                  }
+                }}
+              />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'meetings' ? (
               <MeetingsPage projects={filteredProjects.map(p => ({ id: p.id, title: p.title }))} />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
