@@ -48,6 +48,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // Check if we have an OAuth callback in the URL
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasAccessToken = hashParams.has('access_token');
+        const hasAuthCode = urlParams.has('code');
+
+        if (hasAccessToken || hasAuthCode) {
+          console.log('OAuth callback detected, exchanging for session...');
+          // Let Supabase handle the OAuth callback automatically
+          // The session will be set via onAuthStateChange
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error('Error getting session:', error);
@@ -58,7 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('Clearing failed auth code from URL');
             window.history.replaceState({}, document.title, window.location.pathname);
           }
+        } else {
+          // Clear OAuth parameters from URL after successful session retrieval
+          if (hasAccessToken || hasAuthCode) {
+            console.log('Clearing OAuth parameters from URL');
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
         }
+
         console.log('Initial session:', session?.user?.email || 'No user');
         setSession(session);
         setUser(session?.user ?? null);
@@ -131,7 +150,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     });
     if (error) throw error;
