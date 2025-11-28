@@ -67,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (event === 'SIGNED_IN') {
         console.log('[AuthProvider] User signed in successfully');
+        console.log('[AuthProvider] Session object:', session);
 
         if (window.location.search.includes('code=') || window.location.hash.includes('access_token')) {
           console.log('[AuthProvider] Cleaning OAuth params from URL');
@@ -75,23 +76,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         try {
           if (session?.user) {
-            const { data: existingStaff } = await supabase
+            console.log('[AuthProvider] Checking for existing staff record...');
+            const { data: existingStaff, error: selectError } = await supabase
               .from('staff')
               .select('id')
               .eq('id', session.user.id)
               .maybeSingle();
 
+            if (selectError) {
+              console.error('[AuthProvider] Error checking staff record:', selectError);
+            }
+
             if (!existingStaff) {
-              console.log('[AuthProvider] Creating staff record');
-              await supabase.from('staff').insert({
+              console.log('[AuthProvider] No staff record found, creating one...');
+              console.log('[AuthProvider] User metadata:', session.user.user_metadata);
+
+              const { error: insertError } = await supabase.from('staff').insert({
                 id: session.user.id,
                 email: session.user.email!,
-                full_name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
+                full_name: session.user.user_metadata.full_name || session.user.user_metadata.name || session.user.email!.split('@')[0],
               });
+
+              if (insertError) {
+                console.error('[AuthProvider] Error inserting staff record:', insertError);
+              } else {
+                console.log('[AuthProvider] Staff record created successfully');
+              }
+            } else {
+              console.log('[AuthProvider] Staff record already exists');
             }
           }
         } catch (error) {
-          console.error('[AuthProvider] Error creating staff record:', error);
+          console.error('[AuthProvider] Exception in staff record creation:', error);
         }
       }
 
