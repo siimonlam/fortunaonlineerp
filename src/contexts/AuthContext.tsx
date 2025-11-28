@@ -183,16 +183,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    console.log('Initiating Google OAuth with redirect to:', window.location.origin);
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: window.location.origin,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
         },
       },
     });
+    console.log('OAuth response:', { data, error });
     if (error) throw error;
   };
 
