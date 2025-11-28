@@ -28,9 +28,13 @@ Deno.serve(async (req: Request) => {
       .eq('trigger_type', 'periodic')
       .eq('is_active', true);
 
-    if (rulesError) throw rulesError;
+    if (rulesError) {
+      console.error('Error fetching periodic rules:', rulesError);
+      throw rulesError;
+    }
 
     console.log(`Found ${periodicRules?.length || 0} active periodic rules`);
+    console.log('Rules:', JSON.stringify(periodicRules));
 
     if (!periodicRules || periodicRules.length === 0) {
       return new Response(
@@ -47,7 +51,7 @@ Deno.serve(async (req: Request) => {
     let totalExecuted = 0;
     const results = [];
 
-    for (const rule of periodicRules) {
+    const rulePromises = periodicRules.map(async (rule) => {
       try {
         console.log(`Processing rule: ${rule.name}`);
 
@@ -62,7 +66,7 @@ Deno.serve(async (req: Request) => {
 
         if (!targetStatus) {
           console.log(`Status ${rule.main_status} not found for rule ${rule.name}`);
-          continue;
+          return;
         }
 
         const { data: substatuses } = await supabase
@@ -82,7 +86,7 @@ Deno.serve(async (req: Request) => {
 
         console.log(`Found ${projects?.length || 0} projects in status ${rule.main_status}`);
 
-        if (!projects || projects.length === 0) continue;
+        if (!projects || projects.length === 0) return;
 
         for (const project of projects) {
           const { data: existingExecution } = await supabase
@@ -187,12 +191,11 @@ Deno.serve(async (req: Request) => {
 
                 if (taskError) throw taskError;
                 console.log('Task added successfully');
-                totalExecuted++;
-                results.push({ 
-                  rule: rule.name, 
-                  project: project.title, 
-                  action: 'add_task', 
-                  status: 'success' 
+                results.push({
+                  rule: rule.name,
+                  project: project.title,
+                  action: 'add_task',
+                  status: 'success'
                 });
               }
             } else if (rule.action_type === 'add_label') {
@@ -215,12 +218,11 @@ Deno.serve(async (req: Request) => {
 
                   if (insertError) throw insertError;
                   console.log('Label added successfully');
-                  totalExecuted++;
-                  results.push({ 
-                    rule: rule.name, 
-                    project: project.title, 
-                    action: 'add_label', 
-                    status: 'success' 
+                  results.push({
+                    rule: rule.name,
+                    project: project.title,
+                    action: 'add_label',
+                    status: 'success'
                   });
                 }
               }
@@ -235,12 +237,11 @@ Deno.serve(async (req: Request) => {
 
                 if (deleteError) throw deleteError;
                 console.log('Label removed successfully');
-                totalExecuted++;
-                results.push({ 
-                  rule: rule.name, 
-                  project: project.title, 
-                  action: 'remove_label', 
-                  status: 'success' 
+                results.push({
+                  rule: rule.name,
+                  project: project.title,
+                  action: 'remove_label',
+                  status: 'success'
                 });
               }
             } else if (rule.action_type === 'change_status') {
@@ -256,12 +257,11 @@ Deno.serve(async (req: Request) => {
 
                 if (statusError) throw statusError;
                 console.log('Status changed successfully');
-                totalExecuted++;
-                results.push({ 
-                  rule: rule.name, 
-                  project: project.title, 
-                  action: 'change_status', 
-                  status: 'success' 
+                results.push({
+                  rule: rule.name,
+                  project: project.title,
+                  action: 'change_status',
+                  status: 'success'
                 });
               }
             }
@@ -269,15 +269,18 @@ Deno.serve(async (req: Request) => {
         }
       } catch (error: any) {
         console.error('Error processing rule:', rule.name, error);
-        results.push({ 
-          rule: rule.name, 
-          action: rule.action_type, 
-          status: 'error', 
-          error: error.message 
+        results.push({
+          rule: rule.name,
+          action: rule.action_type,
+          status: 'error',
+          error: error.message
         });
       }
-    }
+    });
 
+    await Promise.allSettled(rulePromises);
+
+    totalExecuted = results.filter(r => r.status === 'success').length;
     console.log(`Periodic automation execution completed. Total executed: ${totalExecuted}`);
 
     return new Response(
