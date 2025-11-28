@@ -22,7 +22,6 @@ Deno.serve(async (req: Request) => {
     console.log('Starting periodic automation execution...');
     const now = new Date();
 
-    // Get all active periodic automation rules
     const { data: periodicRules, error: rulesError } = await supabase
       .from('automation_rules')
       .select('*')
@@ -48,61 +47,44 @@ Deno.serve(async (req: Request) => {
     let totalExecuted = 0;
     const results = [];
 
-    // Process each periodic rule
     for (const rule of periodicRules) {
       try {
         console.log(`Processing rule: ${rule.name}`);
-        
-        const intervalDays = rule.trigger_config?.interval_days || 1;
 
-        // Get all projects matching this rule's criteria
-        const query = supabase
+        const intervalDays = rule.trigger_config?.frequency || rule.trigger_config?.interval_days || 1;
+
+        const { data: targetStatus } = await supabase
+          .from('statuses')
+          .select('id, name')
+          .eq('name', rule.main_status)
+          .eq('project_type_id', rule.project_type_id)
+          .maybeSingle();
+
+        if (!targetStatus) {
+          console.log(`Status ${rule.main_status} not found for rule ${rule.name}`);
+          continue;
+        }
+
+        const { data: substatuses } = await supabase
+          .from('statuses')
+          .select('id')
+          .eq('parent_status_id', targetStatus.id);
+
+        const statusIds = [targetStatus.id, ...(substatuses?.map(s => s.id) || [])];
+
+        const { data: projects, error: projectsError } = await supabase
           .from('projects')
-          .select('id, status_id, title')
-          .eq('project_type_id', rule.project_type_id);
-
-        const { data: projects, error: projectsError } = await query;
+          .select('id, status_id, title, sales_person_id')
+          .eq('project_type_id', rule.project_type_id)
+          .in('status_id', statusIds);
 
         if (projectsError) throw projectsError;
 
-        console.log(`Found ${projects?.length || 0} projects for rule ${rule.name}`);
+        console.log(`Found ${projects?.length || 0} projects in status ${rule.main_status}`);
 
         if (!projects || projects.length === 0) continue;
 
-        // Filter projects by main status
-        const projectsInStatus = [];
         for (const project of projects) {
-          const { data: status } = await supabase
-            .from('statuses')
-            .select('id, name, parent_status_id')
-            .eq('id', project.status_id)
-            .maybeSingle();
-
-          if (!status) continue;
-
-          let mainStatusName = status.name;
-          if (status.parent_status_id) {
-            const { data: parentStatus } = await supabase
-              .from('statuses')
-              .select('name')
-              .eq('id', status.parent_status_id)
-              .maybeSingle();
-            
-            if (parentStatus) {
-              mainStatusName = parentStatus.name;
-            }
-          }
-
-          if (mainStatusName === rule.main_status) {
-            projectsInStatus.push(project);
-          }
-        }
-
-        console.log(`${projectsInStatus.length} projects in status ${rule.main_status}`);
-
-        // Check each project to see if it needs automation execution
-        for (const project of projectsInStatus) {
-          // Check if there's an existing execution record
           const { data: existingExecution } = await supabase
             .from('periodic_automation_executions')
             .select('*')
@@ -113,7 +95,6 @@ Deno.serve(async (req: Request) => {
           let shouldExecute = false;
 
           if (!existingExecution) {
-            // First time - create record and execute
             shouldExecute = true;
             const nextExecution = new Date(now);
             nextExecution.setDate(nextExecution.getDate() + intervalDays);
@@ -127,7 +108,6 @@ Deno.serve(async (req: Request) => {
                 next_execution_at: nextExecution.toISOString()
               });
           } else if (new Date(existingExecution.next_execution_at) <= now) {
-            // Time to execute again
             shouldExecute = true;
             const nextExecution = new Date(now);
             nextExecution.setDate(nextExecution.getDate() + intervalDays);
@@ -145,7 +125,6 @@ Deno.serve(async (req: Request) => {
           if (shouldExecute) {
             console.log(`Executing automation for project: ${project.title}`);
             
-            // Execute the action
             if (rule.action_type === 'add_task') {
               const taskConfig = rule.action_config;
               if (taskConfig.title) {
@@ -190,16 +169,9 @@ Deno.serve(async (req: Request) => {
                   }
                 }
 
-                // Resolve assigned_to value
                 let assignedTo = taskConfig.assigned_to || null;
                 if (assignedTo === '__project_sales_person__') {
-                  const { data: projectData } = await supabase
-                    .from('projects')
-                    .select('sales_person_id')
-                    .eq('id', project.id)
-                    .maybeSingle();
-
-                  assignedTo = projectData?.sales_person_id || null;
+                  assignedTo = project.sales_person_id || null;
                 }
 
                 const { error: taskError } = await supabase
