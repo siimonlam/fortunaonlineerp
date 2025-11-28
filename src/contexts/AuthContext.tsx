@@ -20,202 +20,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkForAuthError = () => {
-      const params = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    console.log('AuthProvider: Initializing auth...');
 
-      const error = params.get('error') || hashParams.get('error');
-      const errorDescription = params.get('error_description') || hashParams.get('error_description');
-
-      if (error) {
-        console.error('OAuth error:', error, errorDescription);
-        alert(`Login failed: ${errorDescription || error}`);
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return true;
-      }
-      return false;
-    };
-
-    const initAuth = async () => {
-      try {
-        console.log('Initializing auth...');
-        console.log('Current URL:', window.location.href);
-
-        const hasAuthError = checkForAuthError();
-        if (hasAuthError) {
-          console.log('Auth error detected in URL, clearing session');
-          setSession(null);
-          setUser(null);
-          setLoading(false);
-          return;
-        }
-
-        // Check if we have an OAuth callback in the URL
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const urlParams = new URLSearchParams(window.location.search);
-        const hasAccessToken = hashParams.has('access_token');
-        const hasAuthCode = urlParams.has('code');
-
-        console.log('URL params:', {
-          hasAccessToken,
-          hasAuthCode,
-          searchParams: Array.from(urlParams.entries()),
-          hashParams: Array.from(hashParams.entries())
-        });
-
-        if (hasAccessToken || hasAuthCode) {
-          console.log('OAuth callback detected, exchanging for session...');
-
-          // If we have an auth code, exchange it for a session
-          if (hasAuthCode) {
-            console.log('Exchanging auth code for session...');
-            const authCode = urlParams.get('code');
-            console.log('Auth code present:', !!authCode);
-
-            // Wait a bit for Supabase to process the code
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
-
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error('Error getting session:', error);
-
-          // Clear URL parameters if PKCE exchange failed
-          const params = new URLSearchParams(window.location.search);
-          if (params.has('code')) {
-            console.log('Clearing failed auth code from URL');
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-        } else {
-          console.log('Session retrieved:', session?.user?.email || 'No user');
-
-          // Clear OAuth parameters from URL after successful session retrieval
-          if ((hasAccessToken || hasAuthCode) && session) {
-            console.log('Clearing OAuth parameters from URL after successful auth');
-            window.history.replaceState({}, document.title, window.location.pathname);
-          } else if (hasAuthCode && !session) {
-            console.log('Auth code present but no session - checking again...');
-            // Try one more time after a delay
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const { data: { session: retrySession } } = await supabase.auth.getSession();
-            if (retrySession) {
-              console.log('Session found on retry:', retrySession.user?.email);
-              setSession(retrySession);
-              setUser(retrySession.user);
-              window.history.replaceState({}, document.title, window.location.pathname);
-              setLoading(false);
-              return;
-            } else {
-              console.log('Still no session after retry, clearing URL');
-              window.history.replaceState({}, document.title, window.location.pathname);
-            }
-          }
-        }
-
-        console.log('Initial session:', session?.user?.email || 'No user');
-        setSession(session);
-        setUser(session?.user ?? null);
-      } catch (err) {
-        console.error('Error in initAuth:', err);
-
-        // Clear URL parameters on any auth error
-        const params = new URLSearchParams(window.location.search);
-        if (params.has('code')) {
-          console.log('Clearing auth code from URL after error');
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } finally {
-        console.log('Auth initialization complete, setting loading to false');
-        setLoading(false);
-      }
-    };
-
-    initAuth();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('AuthProvider: Initial session:', session?.user?.email || 'No user');
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state change:', event, session?.user?.email || 'No user');
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('AuthProvider: Auth state change:', event, session?.user?.email || 'No user');
 
       setSession(session);
       setUser(session?.user ?? null);
 
+      if (event === 'SIGNED_IN' && (window.location.search.includes('code=') || window.location.hash.includes('access_token'))) {
+        console.log('AuthProvider: Cleaning up OAuth parameters from URL');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
       if (session?.user) {
-        (async () => {
-          try {
-            const { data: existingStaff, error: fetchError } = await supabase
-              .from('staff')
-              .select('id')
-              .eq('id', session.user.id)
-              .maybeSingle();
+        try {
+          const { data: existingStaff } = await supabase
+            .from('staff')
+            .select('id')
+            .eq('id', session.user.id)
+            .maybeSingle();
 
-            if (fetchError) {
-              console.error('Error fetching staff (non-blocking):', fetchError);
-              return;
-            }
-
-            if (!existingStaff) {
-              console.log('Creating staff record for:', session.user.email);
-              const { error: insertError } = await supabase.from('staff').insert({
-                id: session.user.id,
-                email: session.user.email!,
-                full_name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
-                avatar_url: session.user.user_metadata.avatar_url,
-              });
-
-              if (insertError) {
-                console.error('Error inserting staff (non-blocking):', insertError);
-                if (insertError.code === '23505') {
-                  console.log('Staff record already exists (duplicate key error), continuing...');
-                }
-              }
-            }
-          } catch (err) {
-            console.error('Error managing staff record (non-blocking):', err);
+          if (!existingStaff) {
+            console.log('AuthProvider: Creating staff record for:', session.user.email);
+            await supabase.from('staff').insert({
+              id: session.user.id,
+              email: session.user.email!,
+              full_name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
+            });
           }
-        })();
+        } catch (error) {
+          console.error('AuthProvider: Error creating staff record:', error);
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('AuthProvider: Cleaning up auth listener');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async () => {
-    console.log('Initiating Google OAuth with redirect to:', window.location.origin);
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const redirectTo = window.location.origin;
+    console.log('AuthProvider: Starting Google OAuth with redirectTo:', redirectTo);
+
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
+        redirectTo: redirectTo,
       },
     });
-    console.log('OAuth response:', { data, error });
-    if (error) throw error;
+
+    if (error) {
+      console.error('AuthProvider: Google OAuth error:', error);
+      throw error;
+    }
   };
 
   const signInWithEmail = async (email: string, password: string) => {
-    console.log('Attempting to sign in with:', email);
-    const { data, error } = await supabase.auth.signInWithPassword({
+    console.log('AuthProvider: Signing in with email:', email);
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    console.log('Sign in result:', {
-      user: data?.user?.email || 'No user',
-      session: data?.session ? 'Session exists' : 'No session',
-      error: error?.message || 'No error'
-    });
+
     if (error) {
-      console.error('Sign in error:', error);
+      console.error('AuthProvider: Sign in error:', error);
       throw error;
     }
   };
 
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+    console.log('AuthProvider: Signing up:', email);
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -225,27 +111,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       },
     });
-    if (error) throw error;
 
-    if (data.user) {
-      await supabase.from('staff').insert({
-        id: data.user.id,
-        email: data.user.email!,
-        full_name: fullName,
-      });
+    if (error) {
+      console.error('AuthProvider: Sign up error:', error);
+      throw error;
+    }
+
+    if (data.user && !data.session) {
+      alert('Please check your email to confirm your account.');
     }
   };
 
   const signOut = async () => {
-    console.log('Signing out user:', user?.email);
+    console.log('AuthProvider: Signing out...');
     const { error } = await supabase.auth.signOut();
     if (error) {
-      console.error('Sign out error:', error);
+      console.error('AuthProvider: Sign out error:', error);
       throw error;
     }
-    console.log('Sign out successful');
-    setUser(null);
-    setSession(null);
   };
 
   const value = {
