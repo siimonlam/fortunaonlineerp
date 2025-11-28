@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogIn, Mail, Lock, User } from 'lucide-react';
+import { LogIn, Mail, Lock, User, AlertCircle } from 'lucide-react';
 
 export function LoginPage() {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
@@ -12,6 +12,21 @@ export function LoginPage() {
   const [error, setError] = useState('');
 
   console.log('[LoginPage] Rendered');
+
+  useEffect(() => {
+    // Check for OAuth errors in URL on mount
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const oauthError = urlParams.get('error') || hashParams.get('error');
+    const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+
+    if (oauthError) {
+      console.error('[LoginPage] OAuth error detected:', oauthError, errorDescription);
+      setError(`OAuth Error: ${errorDescription || oauthError}`);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
