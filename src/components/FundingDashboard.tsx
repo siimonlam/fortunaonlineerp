@@ -30,6 +30,7 @@ interface Project {
   title: string;
   project_end_date: string | null;
   status_id: string;
+  submission_date: string | null;
 }
 
 export function FundingDashboard() {
@@ -38,10 +39,42 @@ export function FundingDashboard() {
   const [totalProjects, setTotalProjects] = useState(0);
   const [activeTab, setActiveTab] = useState<'summary' | 'progress'>('summary');
   const [endingSoonProjects, setEndingSoonProjects] = useState<Project[]>([]);
+  const [selectedMonths, setSelectedMonths] = useState(4);
+  const [agingProjects, setAgingProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    filterAgingProjects();
+  }, [selectedMonths, totalProjects]);
+
+  const filterAgingProjects = async () => {
+    try {
+      const { data: projects, error } = await supabase
+        .from('projects')
+        .select('id, title, submission_date, status_id, project_end_date')
+        .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696');
+
+      if (error) throw error;
+
+      const currentDate = new Date();
+      const monthsInMs = selectedMonths * 30 * 24 * 60 * 60 * 1000;
+
+      const filtered = projects?.filter(p => {
+        if (!p.submission_date) return false;
+        const submissionDate = new Date(p.submission_date);
+        const daysDiff = (currentDate.getTime() - submissionDate.getTime()) / (1000 * 60 * 60 * 24);
+        const monthsDiff = daysDiff / 30;
+        return monthsDiff >= selectedMonths;
+      }) || [];
+
+      setAgingProjects(filtered as Project[]);
+    } catch (error) {
+      console.error('Error filtering aging projects:', error);
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -57,7 +90,7 @@ export function FundingDashboard() {
 
       const { data: projects, error: projectError } = await supabase
         .from('projects')
-        .select('id, status_id, project_type_id, title, project_end_date')
+        .select('id, status_id, project_type_id, title, project_end_date, submission_date')
         .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696');
 
       if (projectError) throw projectError;
@@ -224,17 +257,126 @@ export function FundingDashboard() {
       )}
 
       {activeTab === 'progress' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-orange-600 rounded-lg p-2">
-                <Clock className="w-5 h-5 text-white" />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-600 rounded-lg p-2">
+                  <AlertCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">Submission Aging Analysis</h2>
+                  <p className="text-sm text-slate-600">Projects by time since submission</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-800">Projects Ending Soon</h2>
-                <p className="text-sm text-slate-600">Within 3 months</p>
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-slate-700">Filter by:</label>
+                <select
+                  value={selectedMonths}
+                  onChange={(e) => setSelectedMonths(Number(e.target.value))}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={4}>More than 4 months</option>
+                  <option value={5}>More than 5 months</option>
+                  <option value={6}>More than 6 months</option>
+                  <option value={7}>More than 7 months</option>
+                  <option value={8}>More than 8 months</option>
+                </select>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="flex items-center justify-center py-8">
+                <div className="relative">
+                  <svg className="w-48 h-48 transform -rotate-90">
+                    <circle
+                      cx="96"
+                      cy="96"
+                      r="80"
+                      stroke="#e2e8f0"
+                      strokeWidth="16"
+                      fill="none"
+                    />
+                    <circle
+                      cx="96"
+                      cy="96"
+                      r="80"
+                      stroke="#d97706"
+                      strokeWidth="16"
+                      fill="none"
+                      strokeDasharray={`${totalProjects > 0 ? (agingProjects.length / totalProjects) * 502.4 : 0} 502.4`}
+                      className="transition-all duration-1000"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-amber-600">{agingProjects.length}</div>
+                      <div className="text-sm text-slate-600 font-medium">projects</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {agingProjects.length > 0 ? (
+                  agingProjects.map((project) => {
+                    const submissionDate = project.submission_date ? new Date(project.submission_date) : null;
+                    const currentDate = new Date();
+                    const daysDiff = submissionDate
+                      ? Math.floor((currentDate.getTime() - submissionDate.getTime()) / (1000 * 60 * 60 * 24))
+                      : 0;
+
+                    return (
+                      <div
+                        key={project.id}
+                        className="p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">{project.title}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Calendar className="w-3 h-3 text-slate-400" />
+                              <p className="text-xs text-slate-600">
+                                Submitted: {submissionDate
+                                  ? submissionDate.toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })
+                                  : 'No date'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
+                              {daysDiff} days
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-500">No projects older than {selectedMonths} months</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-orange-600 rounded-lg p-2">
+                  <Clock className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">Projects Ending Soon</h2>
+                  <p className="text-sm text-slate-600">Within 3 months</p>
+                </div>
+              </div>
 
             <div className="flex items-center justify-center py-8">
               <div className="relative">
@@ -323,6 +465,7 @@ export function FundingDashboard() {
                   <p className="text-slate-500">No projects ending within 3 months</p>
                 </div>
               )}
+            </div>
             </div>
           </div>
         </div>
