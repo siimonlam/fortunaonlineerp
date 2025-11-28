@@ -25,6 +25,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('URL Search:', window.location.search);
     console.log('URL Hash:', window.location.hash);
     console.log('URL Pathname:', window.location.pathname);
+
+    // Check for OAuth error in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const errorDescription = urlParams.get('error_description');
+    if (error) {
+      console.error('[AuthProvider] OAuth ERROR in URL:', error);
+      console.error('[AuthProvider] OAuth ERROR description:', errorDescription);
+    }
+
     console.log('=== AUTH DEBUG END ===');
 
     let mounted = true;
@@ -36,11 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
           console.error('[AuthProvider] Error getting session:', error);
+          console.error('[AuthProvider] Error details:', JSON.stringify(error, null, 2));
         }
 
         if (!mounted) return;
 
         console.log('[AuthProvider] Initial session result:', session?.user?.email || 'No user');
+        if (session) {
+          console.log('[AuthProvider] Full session object:', session);
+        }
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
