@@ -50,6 +50,7 @@ interface Project {
   attachment?: string;
   deposit_paid?: boolean;
   deposit_amount?: number;
+  deposit_paid_date?: string;
   project_name?: string;
   service_fee_percentage?: number;
   funding_scheme?: number;
@@ -181,6 +182,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     attachment: project.attachment || '',
     depositPaid: project.deposit_paid || false,
     depositAmount: project.deposit_amount?.toString() || '',
+    depositPaidDate: project.deposit_paid_date || '',
     serviceFeePercentage: project.service_fee_percentage?.toString() || '',
     fundingScheme: project.funding_scheme?.toString() || '25',
     startDate: project.start_date || '',
@@ -224,6 +226,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     attachment: project.attachment || '',
     depositPaid: project.deposit_paid || false,
     depositAmount: project.deposit_amount?.toString() || '',
+    depositPaidDate: project.deposit_paid_date || '',
     serviceFeePercentage: project.service_fee_percentage?.toString() || '',
     fundingScheme: project.funding_scheme?.toString() || '25',
     startDate: project.start_date || '',
@@ -850,6 +853,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           attachment: formData.attachment.trim() || null,
           deposit_paid: formData.depositPaid,
           deposit_amount: formData.depositAmount ? parseFloat(formData.depositAmount) : null,
+          deposit_paid_date: formData.depositPaidDate || null,
           service_fee_percentage: formData.serviceFeePercentage ? parseFloat(formData.serviceFeePercentage) : null,
           funding_scheme: formData.fundingScheme ? parseFloat(formData.fundingScheme) : null,
           start_date: formData.startDate || null,
@@ -1752,6 +1756,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   onChange={(e) => setFormData({ ...formData, depositAmount: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                   placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Deposit Paid Date</label>
+                <input
+                  type="date"
+                  disabled={!canEdit}
+                  value={formData.depositPaidDate}
+                  onChange={(e) => setFormData({ ...formData, depositPaidDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                 />
               </div>
               <div>
