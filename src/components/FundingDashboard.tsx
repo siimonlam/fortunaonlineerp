@@ -444,11 +444,12 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
                 endingSoonProjects.map((project) => (
                   <div
                     key={project.id}
-                    className="p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors"
+                    onClick={() => onProjectClick?.(project.id)}
+                    className="p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">{project.title}</p>
+                        <p className="text-sm font-medium text-slate-800 truncate hover:text-blue-600">{project.title}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Calendar className="w-3 h-3 text-slate-400" />
                           <p className="text-xs text-slate-600">
