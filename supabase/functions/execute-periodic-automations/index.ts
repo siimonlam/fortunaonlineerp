@@ -81,9 +81,11 @@ Deno.serve(async (req: Request) => {
 
         const statusIds = [targetStatus.id, ...(substatuses?.map(s => s.id) || [])];
 
+        const dateField = rule.trigger_config?.date_field || 'project_start_date';
+
         const { data: projects, error: projectsError } = await supabase
           .from('projects')
-          .select('id, status_id, title, sales_person_id')
+          .select(`id, status_id, title, sales_person_id, ${dateField}`)
           .eq('project_type_id', rule.project_type_id)
           .in('status_id', statusIds);
 
@@ -94,6 +96,12 @@ Deno.serve(async (req: Request) => {
         if (!projects || projects.length === 0) return;
 
         for (const project of projects) {
+          const projectStartDate = project[dateField];
+          if (!projectStartDate) {
+            console.log(`Project ${project.title} has no ${dateField}, skipping`);
+            continue;
+          }
+
           const { data: existingExecution } = await supabase
             .from('periodic_automation_executions')
             .select('*')
@@ -104,18 +112,25 @@ Deno.serve(async (req: Request) => {
           let shouldExecute = false;
 
           if (!existingExecution) {
-            shouldExecute = true;
-            const nextExecution = new Date(now);
-            nextExecution.setDate(nextExecution.getDate() + intervalDays);
+            const startDate = new Date(projectStartDate);
+            const firstExecutionDate = new Date(startDate);
+            firstExecutionDate.setDate(firstExecutionDate.getDate() + intervalDays);
 
-            await supabase
-              .from('periodic_automation_executions')
-              .insert({
-                automation_rule_id: rule.id,
-                project_id: project.id,
-                last_executed_at: now.toISOString(),
-                next_execution_at: nextExecution.toISOString()
-              });
+            if (firstExecutionDate <= now) {
+              shouldExecute = true;
+
+              const nextExecution = new Date(firstExecutionDate);
+              nextExecution.setDate(nextExecution.getDate() + intervalDays);
+
+              await supabase
+                .from('periodic_automation_executions')
+                .insert({
+                  automation_rule_id: rule.id,
+                  project_id: project.id,
+                  last_executed_at: now.toISOString(),
+                  next_execution_at: nextExecution.toISOString()
+                });
+            }
           } else if (new Date(existingExecution.next_execution_at) <= now) {
             shouldExecute = true;
             const nextExecution = new Date(now);
