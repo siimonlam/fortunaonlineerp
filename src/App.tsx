@@ -12,6 +12,8 @@ function AppContent() {
   const [clientAuthenticated, setClientAuthenticated] = useState(false);
   const [checkingClientAuth, setCheckingClientAuth] = useState(true);
 
+  console.log('[AppContent] Render - loading:', loading, '| user:', user?.email || 'null', '| pathname:', window.location.pathname);
+
   useEffect(() => {
     if (window.location.pathname === '/onboarding' && user) {
       checkClientAccess();

@@ -11,6 +11,8 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  console.log('[LoginPage] Rendered');
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -30,11 +32,14 @@ export function LoginPage() {
   }
 
   async function handleGoogleSignIn() {
+    console.log('[LoginPage] handleGoogleSignIn called');
     setError('');
     setLoading(true);
     try {
       await signInWithGoogle();
+      console.log('[LoginPage] signInWithGoogle completed (should redirect to Google now)');
     } catch (err: any) {
+      console.error('[LoginPage] Google sign-in error:', err);
       setError(err.message || 'Google sign-in failed');
       setLoading(false);
     }
