@@ -87,6 +87,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
 
+      // Ensure loading is false when auth state changes
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        setLoading(false);
+        console.log('[AuthProvider] Loading set to false from auth state change');
+      }
+
       if (event === 'SIGNED_IN') {
         console.log('[AuthProvider] User signed in successfully');
         console.log('[AuthProvider] Session object:', session);
@@ -137,6 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (event === 'SIGNED_OUT') {
         console.log('[AuthProvider] User signed out');
+        setLoading(false);
       }
     });
 
