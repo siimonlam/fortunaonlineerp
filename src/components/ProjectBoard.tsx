@@ -3612,8 +3612,6 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
     isEcommerce: false,
     salesPersonId: '',
     channelPartnerId: '',
-    parentClientId: '',
-    parentCompanyName: '',
   });
 
   useEffect(() => {
@@ -3645,18 +3643,23 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
   }
 
   async function loadNextClientNumber() {
-    const tableName = clientType === 'channel' ? 'channel_partners' : 'clients';
-    const { data } = await supabase
-      .from(tableName)
-      .select('client_number')
-      .order('client_number', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Get next value from the sequence
+    const { data, error } = await supabase.rpc('get_next_client_number');
+
+    if (error) {
+      console.error('Error getting next client number:', error);
+      setNextClientNumber(null);
+      return;
+    }
 
     if (data) {
-      setNextClientNumber(data.client_number + 1);
+      // Extract numeric part from format like "C0618"
+      const numericPart = typeof data === 'string'
+        ? parseInt(data.replace(/\D/g, ''), 10)
+        : data;
+      setNextClientNumber(numericPart);
     } else {
-      setNextClientNumber(1);
+      setNextClientNumber(null);
     }
   }
 
@@ -3693,8 +3696,8 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
             other_industry: formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null,
             is_ecommerce: formData.isEcommerce,
             channel_partner_id: formData.channelPartnerId || null,
-            parent_client_id: formData.parentClientId.trim() || null,
-            parent_company_name: formData.parentCompanyName.trim() || null,
+            // parent_client_id will be auto-set by trigger to match the new client_number
+            parent_company_name: formData.name.trim(), // Use the company name as parent name
           };
 
       const { data, error} = await supabase
@@ -3845,44 +3848,7 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Parent Company Name</label>
-              <select
-                value={formData.parentCompanyName}
-                onChange={(e) => {
-                  const selectedClient = allClients.find(c => c.name === e.target.value);
-                  if (selectedClient) {
-                    setFormData({
-                      ...formData,
-                      parentCompanyName: selectedClient.name,
-                      parentClientId: selectedClient.client_number || ''
-                    });
-                  } else {
-                    setFormData({ ...formData, parentCompanyName: e.target.value });
-                  }
-                }}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select parent company</option>
-                {allClients.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name} ({c.client_number})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Parent Client ID</label>
-              <input
-                type="text"
-                value={formData.parentClientId}
-                readOnly
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
-                placeholder="Auto-filled from parent company"
-              />
-            </div>
-          </div>
+          {/* Parent Client ID will be auto-set to match the new client number */}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
