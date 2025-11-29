@@ -387,17 +387,13 @@ export function ProjectBoard() {
     console.log('[loadData] Called. Current selectedProjectType:', selectedProjectType);
     console.log('Current user ID:', user?.id);
 
-    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes, comSecClientsRes] = await Promise.all([
+    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes, comSecClientsRes, projectLabelsRes] = await Promise.all([
       supabase.from('project_types').select('*').order('name'),
       supabase.from('statuses').select('*').order('order_index'),
       supabase
         .from('projects')
         .select(`
           *,
-          tasks (
-            *,
-            staff:assigned_to (id, full_name, email)
-          ),
           clients (
             id,
             name,
@@ -419,6 +415,7 @@ export function ProjectBoard() {
       supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name'),
       supabase.from('funding_invoice').select('*').order('created_at', { ascending: false }),
       supabase.from('comsec_clients').select('id, company_code, company_name, client_id, parent_client_id').order('created_at', { ascending: false }),
+      supabase.from('project_labels').select('project_id, labels:label_id(id, name, color)'),
     ]);
 
     const userRoleRes = await supabase
@@ -503,27 +500,17 @@ export function ProjectBoard() {
       }
     }
     if (projectsRes.data) {
-      const projectsWithLabelsAndInvoices = await Promise.all(
-        projectsRes.data.map(async (project) => {
-          const { data: labelData } = await supabase
-            .from('project_labels')
-            .select(`
-              labels:label_id (
-                id,
-                name,
-                color
-              )
-            `)
-            .eq('project_id', project.id);
+      const projectsWithLabelsAndInvoices = projectsRes.data.map((project) => {
+        const projectLabels = projectLabelsRes.data
+          ?.filter(pl => pl.project_id === project.id)
+          .map(pl => pl.labels)
+          .filter(Boolean) || [];
 
-          const labels = labelData?.map(pl => pl.labels).filter(Boolean) || [];
+        const invoice = fundingInvoicesRes.data?.find(inv => inv.project_id === project.id);
+        const invoice_number = invoice?.invoice_number || null;
 
-          const invoice = fundingInvoicesRes.data?.find(inv => inv.project_id === project.id);
-          const invoice_number = invoice?.invoice_number || null;
-
-          return { ...project, labels, invoice_number };
-        })
-      );
+        return { ...project, labels: projectLabels, invoice_number, tasks: [] };
+      });
       setProjects(projectsWithLabelsAndInvoices);
     }
     if (staffRes.data) setStaff(staffRes.data);
