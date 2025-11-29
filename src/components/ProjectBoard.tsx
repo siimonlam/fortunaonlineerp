@@ -542,7 +542,7 @@ export function ProjectBoard() {
     console.log('[loadClientsViewData] Loading...');
     const [clientsRes, projectsRes, comSecClientsRes, channelPartnersRes, partnerProjectsRes] = await Promise.all([
       loadWithTimeout(
-        supabase.from('clients').select('*').order('created_at', { ascending: false }),
+        supabase.from('clients').select('*').order('client_number', { ascending: false }),
         'clients'
       ),
       loadWithTimeout(
@@ -554,7 +554,7 @@ export function ProjectBoard() {
         'comsec_clients'
       ),
       loadWithTimeout(
-        supabase.from('channel_partners').select('*').order('created_at', { ascending: false }),
+        supabase.from('channel_partners').select('*').order('client_number', { ascending: false }),
         'channel_partners'
       ),
       loadWithTimeout(
