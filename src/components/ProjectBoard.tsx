@@ -596,6 +596,8 @@ export function ProjectBoard() {
         };
       });
 
+      console.log('[loadClientsViewData] Before sort - First 10:', enrichedClients.slice(0, 10).map(c => c.client_number));
+
       enrichedClients.sort((a, b) => {
         const numA = typeof a.client_number === 'string'
           ? parseInt(a.client_number.replace(/\D/g, ''), 10)
@@ -606,7 +608,7 @@ export function ProjectBoard() {
         return numB - numA;
       });
 
-      console.log('[loadClientsViewData] First 5 clients after sort:', enrichedClients.slice(0, 5).map(c => c.client_number));
+      console.log('[loadClientsViewData] After sort - First 10:', enrichedClients.slice(0, 10).map(c => c.client_number));
       setClients(enrichedClients);
     }
 
