@@ -45,12 +45,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const { data: { session }, error } = await supabase.auth.getSession();
 
+        console.log('[AuthProvider] getSession() returned');
+
         if (error) {
           console.error('[AuthProvider] Error getting session:', error);
           console.error('[AuthProvider] Error details:', JSON.stringify(error, null, 2));
         }
 
-        if (!mounted) return;
+        if (!mounted) {
+          console.log('[AuthProvider] Component unmounted, skipping session setup');
+          return;
+        }
 
         console.log('[AuthProvider] Initial session result:', session?.user?.email || 'No user');
         if (session) {
@@ -59,10 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        console.log('[AuthProvider] Loading state set to false');
       } catch (err) {
         console.error('[AuthProvider] Exception in initializeAuth:', err);
         if (mounted) {
           setLoading(false);
+          console.log('[AuthProvider] Loading state set to false after error');
         }
       }
     };
@@ -114,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
               if (insertError) {
                 console.error('[AuthProvider] Error inserting staff record:', insertError);
+                console.error('[AuthProvider] Insert error details:', JSON.stringify(insertError, null, 2));
               } else {
                 console.log('[AuthProvider] Staff record created successfully');
               }
@@ -121,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.log('[AuthProvider] Staff record already exists');
             }
           }
+          console.log('[AuthProvider] Staff record check completed');
         } catch (error) {
           console.error('[AuthProvider] Exception in staff record creation:', error);
         }
