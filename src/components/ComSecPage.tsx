@@ -185,11 +185,17 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   }
 
   async function loadComSecClients() {
-    const { data } = await supabase
+    console.log('Loading ComSec clients...');
+    const { data, error } = await supabase
       .from('comsec_clients')
       .select('*, case_officer:staff!case_officer_id(full_name), sales_person:staff!sales_person_id(full_name)')
       .order('created_at', { ascending: false });
-    if (data) setComSecClients(data);
+    if (error) {
+      console.error('Error loading ComSec clients:', error);
+    } else {
+      console.log('ComSec clients loaded:', data?.length);
+      if (data) setComSecClients(data);
+    }
   }
 
   async function loadInvoices() {

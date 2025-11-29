@@ -38,11 +38,22 @@ export function AdminPage() {
   }, []);
 
   async function loadData() {
+    console.log('Loading admin data...');
     const [staffRes, rolesRes, permsRes] = await Promise.all([
       supabase.from('staff').select('id, email, full_name'),
       supabase.from('user_roles').select('user_id, role'),
       supabase.from('user_global_permissions').select('*')
     ]);
+
+    if (staffRes.error) console.error('Staff error:', staffRes.error);
+    if (rolesRes.error) console.error('Roles error:', rolesRes.error);
+    if (permsRes.error) console.error('Perms error:', permsRes.error);
+
+    console.log('Admin data loaded:', {
+      staff: staffRes.data?.length,
+      roles: rolesRes.data?.length,
+      perms: permsRes.data?.length
+    });
 
     if (staffRes.data) {
       const rolesMap = new Map(rolesRes.data?.map(r => [r.user_id, r.role]) || []);
