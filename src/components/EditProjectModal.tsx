@@ -278,6 +278,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       loadPermissions();
     }
     loadProjectFolders();
+    loadTasks();
   }, [isAdmin]);
 
   useEffect(() => {
