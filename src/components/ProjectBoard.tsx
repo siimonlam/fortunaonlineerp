@@ -558,7 +558,7 @@ export function ProjectBoard() {
         'channel_partners'
       ),
       loadWithTimeout(
-        supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name'),
+        supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name').order('created_at', { ascending: false }),
         'partner_projects'
       ),
     ]);
