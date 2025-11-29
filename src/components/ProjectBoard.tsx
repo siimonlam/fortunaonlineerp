@@ -606,6 +606,7 @@ export function ProjectBoard() {
         return numB - numA;
       });
 
+      console.log('[loadClientsViewData] First 5 clients after sort:', enrichedClients.slice(0, 5).map(c => c.client_number));
       setClients(enrichedClients);
     }
 
@@ -882,6 +883,17 @@ export function ProjectBoard() {
             projects: [...clientProjects, ...comSecProjectsFromClients],
           };
         });
+
+        enrichedClients.sort((a, b) => {
+          const numA = typeof a.client_number === 'string'
+            ? parseInt(a.client_number.replace(/\D/g, ''), 10)
+            : a.client_number;
+          const numB = typeof b.client_number === 'string'
+            ? parseInt(b.client_number.replace(/\D/g, ''), 10)
+            : b.client_number;
+          return numB - numA;
+        });
+
         console.log('Setting enriched clients:', enrichedClients);
         setClients(enrichedClients);
       } else {
@@ -913,6 +925,17 @@ export function ProjectBoard() {
             projects: [...clientProjects, ...comSecProjectsFromClients],
           };
         });
+
+        enrichedClients.sort((a, b) => {
+          const numA = typeof a.client_number === 'string'
+            ? parseInt(a.client_number.replace(/\D/g, ''), 10)
+            : a.client_number;
+          const numB = typeof b.client_number === 'string'
+            ? parseInt(b.client_number.replace(/\D/g, ''), 10)
+            : b.client_number;
+          return numB - numA;
+        });
+
         console.log('Setting enriched clients (no staff):', enrichedClients);
         setClients(enrichedClients);
       }
@@ -940,6 +963,17 @@ export function ProjectBoard() {
           sales_person: partner.sales_person_id ? staffRes.data.find(s => s.id === partner.sales_person_id) : undefined,
           partner_project_count: partnerProjectCounts.get(partner.id) || 0,
         }));
+
+        enrichedPartners.sort((a, b) => {
+          const numA = typeof a.client_number === 'string'
+            ? parseInt(a.client_number.replace(/\D/g, ''), 10)
+            : a.client_number;
+          const numB = typeof b.client_number === 'string'
+            ? parseInt(b.client_number.replace(/\D/g, ''), 10)
+            : b.client_number;
+          return numB - numA;
+        });
+
         console.log('Setting enriched channel partners:', enrichedPartners);
         setChannelPartners(enrichedPartners);
       } else {
@@ -947,6 +981,17 @@ export function ProjectBoard() {
           ...partner,
           partner_project_count: partnerProjectCounts.get(partner.id) || 0,
         }));
+
+        enrichedPartners.sort((a, b) => {
+          const numA = typeof a.client_number === 'string'
+            ? parseInt(a.client_number.replace(/\D/g, ''), 10)
+            : a.client_number;
+          const numB = typeof b.client_number === 'string'
+            ? parseInt(b.client_number.replace(/\D/g, ''), 10)
+            : b.client_number;
+          return numB - numA;
+        });
+
         setChannelPartners(enrichedPartners);
       }
     } else {
