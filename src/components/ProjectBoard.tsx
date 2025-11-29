@@ -595,6 +595,13 @@ export function ProjectBoard() {
           projects: [...clientProjects, ...comSecProjectsFromClients],
         };
       });
+
+      enrichedClients.sort((a, b) => {
+        const numA = parseInt(a.client_number.replace(/\D/g, ''), 10);
+        const numB = parseInt(b.client_number.replace(/\D/g, ''), 10);
+        return numB - numA;
+      });
+
       setClients(enrichedClients);
     }
 
@@ -615,6 +622,13 @@ export function ProjectBoard() {
         sales_person: partner.sales_person_id ? staff.find(s => s.id === partner.sales_person_id) : undefined,
         partner_project_count: partnerProjectCounts.get(partner.id) || 0,
       }));
+
+      enrichedPartners.sort((a, b) => {
+        const numA = parseInt(a.client_number.replace(/\D/g, ''), 10);
+        const numB = parseInt(b.client_number.replace(/\D/g, ''), 10);
+        return numB - numA;
+      });
+
       setChannelPartners(enrichedPartners);
     }
 
