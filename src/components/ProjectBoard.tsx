@@ -597,8 +597,12 @@ export function ProjectBoard() {
       });
 
       enrichedClients.sort((a, b) => {
-        const numA = parseInt(a.client_number.replace(/\D/g, ''), 10);
-        const numB = parseInt(b.client_number.replace(/\D/g, ''), 10);
+        const numA = typeof a.client_number === 'string'
+          ? parseInt(a.client_number.replace(/\D/g, ''), 10)
+          : a.client_number;
+        const numB = typeof b.client_number === 'string'
+          ? parseInt(b.client_number.replace(/\D/g, ''), 10)
+          : b.client_number;
         return numB - numA;
       });
 
@@ -624,8 +628,12 @@ export function ProjectBoard() {
       }));
 
       enrichedPartners.sort((a, b) => {
-        const numA = parseInt(a.client_number.replace(/\D/g, ''), 10);
-        const numB = parseInt(b.client_number.replace(/\D/g, ''), 10);
+        const numA = typeof a.client_number === 'string'
+          ? parseInt(a.client_number.replace(/\D/g, ''), 10)
+          : a.client_number;
+        const numB = typeof b.client_number === 'string'
+          ? parseInt(b.client_number.replace(/\D/g, ''), 10)
+          : b.client_number;
         return numB - numA;
       });
 
