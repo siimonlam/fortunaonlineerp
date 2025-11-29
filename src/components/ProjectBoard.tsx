@@ -321,6 +321,15 @@ export function ProjectBoard() {
     }
   }, [activeClientTab, channelPartnerSubTab]);
 
+  // Reload data when switching views to ensure fresh data
+  useEffect(() => {
+    console.log('View changed to:', selectedView);
+    loadData();
+    if (selectedView === 'projects') {
+      loadMyTasks();
+    }
+  }, [selectedView]);
+
   async function loadAllLabels() {
     const { data, error } = await supabase
       .from('labels')

@@ -34,8 +34,9 @@ export function AdminPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    console.log('AdminPage mounted or currentView changed:', currentView);
     loadData();
-  }, []);
+  }, [currentView]);
 
   async function loadData() {
     console.log('Loading admin data...');

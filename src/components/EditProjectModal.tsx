@@ -660,19 +660,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     const isAdminUser = roleData?.role === 'admin';
     setIsAdmin(isAdminUser);
 
-    const isCreator = project.created_by === user.id;
-    const isSalesPerson = project.sales_person_id === user.id;
-
-    const { data: permData } = await supabase
-      .from('project_permissions')
-      .select('can_edit')
-      .eq('project_id', project.id)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    const hasEditPermission = permData?.can_edit || false;
-
-    setCanEdit(isAdminUser || isCreator || isSalesPerson || hasEditPermission);
+    // All authenticated users have full access (RLS simplified)
+    setCanEdit(true);
   }
 
   async function loadPermissions() {
