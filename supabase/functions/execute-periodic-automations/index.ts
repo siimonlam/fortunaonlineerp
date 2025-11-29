@@ -120,9 +120,15 @@ Deno.serve(async (req: Request) => {
             if (intervalsPassed >= 1) {
               shouldExecute = true;
 
+              // Calculate next execution date that is in the future
               const nextIntervalCount = intervalsPassed + 1;
-              const nextExecution = new Date(startDate);
+              let nextExecution = new Date(startDate);
               nextExecution.setDate(nextExecution.getDate() + (nextIntervalCount * intervalDays));
+
+              // If calculated next execution is still in the past, keep adding intervals
+              while (nextExecution <= now) {
+                nextExecution.setDate(nextExecution.getDate() + intervalDays);
+              }
 
               await supabase
                 .from('periodic_automation_executions')
@@ -139,9 +145,16 @@ Deno.serve(async (req: Request) => {
             const startDate = new Date(projectStartDate);
             const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
+            // Calculate next execution date that is in the future
+            // Skip all missed intervals and go to the next future date
             const nextIntervalCount = Math.floor(daysSinceStart / intervalDays) + 1;
-            const nextExecution = new Date(startDate);
+            let nextExecution = new Date(startDate);
             nextExecution.setDate(nextExecution.getDate() + (nextIntervalCount * intervalDays));
+
+            // If calculated next execution is still in the past (edge case), keep adding intervals
+            while (nextExecution <= now) {
+              nextExecution.setDate(nextExecution.getDate() + intervalDays);
+            }
 
             await supabase
               .from('periodic_automation_executions')
