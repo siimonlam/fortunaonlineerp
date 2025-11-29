@@ -102,42 +102,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-        try {
-          if (session?.user) {
-            console.log('[AuthProvider] Checking for existing staff record...');
-            const { data: existingStaff, error: selectError } = await supabase
-              .from('staff')
-              .select('id')
-              .eq('id', session.user.id)
-              .maybeSingle();
+        // Don't wait for staff record creation - do it in background
+        if (session?.user) {
+          console.log('[AuthProvider] Queuing staff record creation...');
+          setTimeout(async () => {
+            try {
+              const { data: existingStaff, error: selectError } = await supabase
+                .from('staff')
+                .select('id')
+                .eq('id', session.user.id)
+                .maybeSingle();
 
-            if (selectError) {
-              console.error('[AuthProvider] Error checking staff record:', selectError);
-            }
-
-            if (!existingStaff) {
-              console.log('[AuthProvider] No staff record found, creating one...');
-              console.log('[AuthProvider] User metadata:', session.user.user_metadata);
-
-              const { error: insertError } = await supabase.from('staff').insert({
-                id: session.user.id,
-                email: session.user.email!,
-                full_name: session.user.user_metadata.full_name || session.user.user_metadata.name || session.user.email!.split('@')[0],
-              });
-
-              if (insertError) {
-                console.error('[AuthProvider] Error inserting staff record:', insertError);
-                console.error('[AuthProvider] Insert error details:', JSON.stringify(insertError, null, 2));
-              } else {
-                console.log('[AuthProvider] Staff record created successfully');
+              if (selectError) {
+                console.error('[AuthProvider] Error checking staff record:', selectError);
+                return;
               }
-            } else {
-              console.log('[AuthProvider] Staff record already exists');
+
+              if (!existingStaff) {
+                console.log('[AuthProvider] Creating staff record...');
+                const { error: insertError } = await supabase.from('staff').insert({
+                  id: session.user.id,
+                  email: session.user.email!,
+                  full_name: session.user.user_metadata.full_name || session.user.user_metadata.name || session.user.email!.split('@')[0],
+                });
+
+                if (insertError) {
+                  console.error('[AuthProvider] Error inserting staff record:', insertError);
+                } else {
+                  console.log('[AuthProvider] Staff record created');
+                }
+              }
+            } catch (error) {
+              console.error('[AuthProvider] Exception in staff record creation:', error);
             }
-          }
-          console.log('[AuthProvider] Staff record check completed');
-        } catch (error) {
-          console.error('[AuthProvider] Exception in staff record creation:', error);
+          }, 0);
         }
       }
 

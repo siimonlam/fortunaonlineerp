@@ -193,12 +193,14 @@ export function ProjectBoard() {
   const [showBulkProjectMenu, setShowBulkProjectMenu] = useState(false);
 
   useEffect(() => {
+    console.log('[ProjectBoard] useEffect triggered. User:', user?.email || 'null');
     if (!user) {
       console.log('⏳ Waiting for user authentication before subscribing to realtime');
       return;
     }
 
     console.log('🔄 Setting up realtime subscription for user:', user.email);
+    console.log('[ProjectBoard] Starting loadData...');
     loadData();
     loadAllLabels();
 
@@ -401,39 +403,66 @@ export function ProjectBoard() {
 
   async function loadData() {
     try {
+      console.log('[loadData] Started at:', new Date().toISOString());
       console.log('[loadData] Called. Current selectedProjectType:', selectedProjectType);
       console.log('Current user ID:', user?.id);
 
+      const timeout = (ms: number) => new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Query timeout')), ms)
+      );
+
+      const loadWithTimeout = async (promise: Promise<any>, name: string) => {
+        try {
+          const result = await Promise.race([promise, timeout(10000)]);
+          console.log(`[loadData] ${name} completed`);
+          return result;
+        } catch (error) {
+          console.error(`[loadData] ${name} failed or timed out:`, error);
+          return { data: null, error };
+        }
+      };
+
+      console.log('[loadData] Starting parallel queries...');
       const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes, comSecClientsRes, projectLabelsRes] = await Promise.all([
-      supabase.from('project_types').select('*').order('name'),
-      supabase.from('statuses').select('*').order('order_index'),
-      supabase
-        .from('projects')
-        .select(`
-          *,
-          clients (
-            id,
-            name,
-            client_number
-          )
-        `)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('clients')
-        .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,parent_client_id,parent_company_name')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('channel_partners')
-        .select('id,name,company_name_chinese,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,commission_rate,reference_number')
-        .order('created_at', { ascending: false }),
-      supabase.from('staff').select('*'),
-      supabase.from('status_managers').select('*, staff:user_id(id, full_name, email)'),
-      supabase.from('project_type_permissions').select('project_type_id').eq('user_id', user?.id || ''),
-      supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name'),
-      supabase.from('funding_invoice').select('*').order('created_at', { ascending: false }),
-      supabase.from('comsec_clients').select('id, company_code, company_name, client_id, parent_client_id').order('created_at', { ascending: false }),
-      supabase.from('project_labels').select('project_id, labels:label_id(id, name, color)'),
+      loadWithTimeout(supabase.from('project_types').select('*').order('name'), 'project_types'),
+      loadWithTimeout(supabase.from('statuses').select('*').order('order_index'), 'statuses'),
+      loadWithTimeout(
+        supabase
+          .from('projects')
+          .select(`
+            *,
+            clients (
+              id,
+              name,
+              client_number
+            )
+          `)
+          .order('created_at', { ascending: false }),
+        'projects'
+      ),
+      loadWithTimeout(
+        supabase
+          .from('clients')
+          .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,parent_client_id,parent_company_name')
+          .order('created_at', { ascending: false }),
+        'clients'
+      ),
+      loadWithTimeout(
+        supabase
+          .from('channel_partners')
+          .select('id,name,company_name_chinese,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,commission_rate,reference_number')
+          .order('created_at', { ascending: false }),
+        'channel_partners'
+      ),
+      loadWithTimeout(supabase.from('staff').select('*'), 'staff'),
+      loadWithTimeout(supabase.from('status_managers').select('*, staff:user_id(id, full_name, email)'), 'status_managers'),
+      loadWithTimeout(supabase.from('project_type_permissions').select('project_type_id').eq('user_id', user?.id || ''), 'project_type_permissions'),
+      loadWithTimeout(supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name'), 'partner_projects'),
+      loadWithTimeout(supabase.from('funding_invoice').select('*').order('created_at', { ascending: false }), 'funding_invoice'),
+      loadWithTimeout(supabase.from('comsec_clients').select('id, company_code, company_name, client_id, parent_client_id').order('created_at', { ascending: false }), 'comsec_clients'),
+      loadWithTimeout(supabase.from('project_labels').select('project_id, labels:label_id(id, name, color)'), 'project_labels'),
     ]);
+    console.log('[loadData] All queries completed');
 
     const userRoleRes = await supabase
       .from('user_roles')

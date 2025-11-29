@@ -11,8 +11,20 @@ function AppContent() {
   const { user, loading } = useAuth();
   const [clientAuthenticated, setClientAuthenticated] = useState(false);
   const [checkingClientAuth, setCheckingClientAuth] = useState(true);
+  const [showForceLoad, setShowForceLoad] = useState(false);
 
   console.log('[AppContent] Render - loading:', loading, '| user:', user?.email || 'null', '| pathname:', window.location.pathname);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.warn('[AppContent] Still loading after 5 seconds, showing force load button');
+        setShowForceLoad(true);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   useEffect(() => {
     if (window.location.pathname === '/onboarding' && user) {
@@ -68,7 +80,21 @@ function AppContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-pulse text-slate-600">Loading...</div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-pulse text-slate-600">Loading...</div>
+          {showForceLoad && (
+            <div className="text-center">
+              <p className="text-sm text-slate-500 mb-2">Taking longer than expected...</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Force Reload
+              </button>
+              <p className="text-xs text-slate-400 mt-2">Check console for errors (F12)</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
