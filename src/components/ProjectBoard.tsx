@@ -200,8 +200,20 @@ export function ProjectBoard() {
     }
 
     console.log('🔄 Setting up realtime subscription for user:', user.email);
-    console.log('[ProjectBoard] Starting loadData...');
-    loadData();
+    console.log('[ProjectBoard] Loading essential data first...');
+
+    // Load essential data, then load view-specific data
+    loadEssentialData().then(() => {
+      console.log('[ProjectBoard] Essential data loaded, loading view data...');
+      if (selectedView === 'projects') {
+        loadProjectsViewData();
+      } else if (selectedView === 'clients') {
+        loadClientsViewData();
+      } else if (selectedView === 'admin') {
+        loadAdminViewData();
+      }
+    });
+
     loadAllLabels();
 
     // Set up a single real-time channel with multiple table listeners
@@ -218,7 +230,7 @@ export function ProjectBoard() {
         console.log('Broadcast payload:', payload);
         console.log('Current User:', user?.email);
         console.log('========================================');
-        loadData();
+        reloadCurrentView();
       })
       .on(
         'postgres_changes',
@@ -231,7 +243,7 @@ export function ProjectBoard() {
           console.log('New Data:', payload.new);
           console.log('Current User:', user?.email);
           console.log('========================================');
-          loadData();
+          reloadCurrentView();
         }
       )
       .on(
@@ -239,7 +251,7 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'clients' },
         (payload) => {
           console.log('✅ Clients changed:', payload.eventType);
-          loadData();
+          if (selectedView === 'clients') loadClientsViewData();
         }
       )
       .on(
@@ -256,7 +268,7 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'status_managers' },
         (payload) => {
           console.log('✅ Status managers changed:', payload.eventType);
-          loadData();
+          if (selectedView === 'admin') loadAdminViewData();
         }
       )
       .on(
@@ -264,7 +276,7 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'project_staff' },
         (payload) => {
           console.log('✅ Project staff changed:', payload.eventType);
-          loadData();
+          reloadCurrentView();
         }
       )
       .on(
@@ -272,7 +284,7 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'statuses' },
         (payload) => {
           console.log('✅ Statuses changed:', payload.eventType);
-          loadData();
+          if (selectedView === 'projects' || selectedView === 'admin') reloadCurrentView();
         }
       )
       .on(
@@ -280,7 +292,7 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'project_types' },
         (payload) => {
           console.log('✅ Project types changed:', payload.eventType);
-          loadData();
+          loadEssentialData();
         }
       )
       .on(
@@ -288,7 +300,7 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'staff' },
         (payload) => {
           console.log('✅ Staff changed:', payload.eventType);
-          loadData();
+          loadEssentialData().then(() => reloadCurrentView());
         }
       )
       .on(
@@ -296,7 +308,7 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'project_labels' },
         (payload) => {
           console.log('✅ Project labels changed:', payload.eventType);
-          loadData();
+          if (selectedView === 'projects') loadProjectsViewData();
         }
       )
       .subscribe((status) => {
@@ -333,9 +345,17 @@ export function ProjectBoard() {
     }
 
     console.log('View changed to:', selectedView);
-    loadData();
+
+    // Load data based on the selected view
     if (selectedView === 'projects') {
+      loadProjectsViewData();
       loadMyTasks();
+    } else if (selectedView === 'clients') {
+      loadClientsViewData();
+    } else if (selectedView === 'admin') {
+      loadAdminViewData();
+    } else if (selectedView === 'comsec') {
+      // ComSec has its own component that loads data
     }
   }, [selectedView]);
 
@@ -398,6 +418,244 @@ export function ProjectBoard() {
       console.error('Error loading partner projects:', error);
     } finally {
       setLoadingPartnerProjects(false);
+    }
+  }
+
+  // Helper for timeout handling
+  const timeout = (ms: number) => new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Query timeout')), ms)
+  );
+
+  const loadWithTimeout = async (promise: Promise<any>, name: string) => {
+    try {
+      const result = await Promise.race([promise, timeout(10000)]);
+      console.log(`[${name}] completed`);
+      return result;
+    } catch (error) {
+      console.error(`[${name}] failed or timed out:`, error);
+      return { data: null, error };
+    }
+  };
+
+  // Load essential data needed for all views
+  async function loadEssentialData() {
+    console.log('[loadEssentialData] Loading core data...');
+    const [projectTypesRes, staffRes, userRoleRes] = await Promise.all([
+      loadWithTimeout(supabase.from('project_types').select('*').order('name'), 'project_types'),
+      loadWithTimeout(supabase.from('staff').select('*'), 'staff'),
+      loadWithTimeout(
+        supabase.from('user_roles').select('role').eq('user_id', user?.id).maybeSingle(),
+        'user_roles'
+      ),
+    ]);
+
+    if (projectTypesRes.data) {
+      setProjectTypes(projectTypesRes.data);
+      if (!selectedProjectType && projectTypesRes.data.length > 0) {
+        const filteredProjectTypes = projectTypesRes.data.filter(pt => pt.name !== 'Com Sec');
+        const fundingProject = filteredProjectTypes.find(pt => pt.name === 'Funding Project');
+        const defaultType = fundingProject || filteredProjectTypes[0];
+        setSelectedProjectType(defaultType.id);
+      }
+    }
+
+    if (staffRes.data) setStaff(staffRes.data);
+    setIsAdmin(userRoleRes.data?.role === 'admin');
+
+    console.log('[loadEssentialData] Core data loaded');
+  }
+
+  // Load data for Projects view
+  async function loadProjectsViewData() {
+    console.log('[loadProjectsViewData] Loading...');
+    const [statusesRes, projectsRes, projectLabelsRes, fundingInvoicesRes] = await Promise.all([
+      loadWithTimeout(supabase.from('statuses').select('*').order('order_index'), 'statuses'),
+      loadWithTimeout(
+        supabase
+          .from('projects')
+          .select(`*,clients(id,name,client_number)`)
+          .order('created_at', { ascending: false }),
+        'projects'
+      ),
+      loadWithTimeout(
+        supabase.from('project_labels').select('project_id, labels:label_id(id, name, color)'),
+        'project_labels'
+      ),
+      loadWithTimeout(
+        supabase.from('funding_invoice').select('*').order('created_at', { ascending: false }),
+        'funding_invoice'
+      ),
+    ]);
+
+    if (statusesRes.data) {
+      const organizedStatuses = statusesRes.data.map(status => {
+        if (!status.is_substatus) {
+          const substatus = statusesRes.data.filter(s => s.parent_status_id === status.id);
+          return { ...status, substatus };
+        }
+        return status;
+      });
+      setStatuses(organizedStatuses);
+
+      if (!selectedStatus && statusesRes.data.length > 0 && projectTypes.length > 0) {
+        const filteredTypes = projectTypes.filter(pt => pt.name !== 'Com Sec');
+        const fundingProject = filteredTypes.find(pt => pt.name === 'Funding Project');
+        const defaultType = fundingProject || filteredTypes[0];
+        const firstStatusForType = statusesRes.data.find(
+          s => s.project_type_id === defaultType?.id && !s.is_substatus
+        );
+        if (firstStatusForType) {
+          const firstSubstatus = statusesRes.data.find(s => s.parent_status_id === firstStatusForType.id);
+          setSelectedStatus(firstSubstatus?.id || firstStatusForType.id);
+        }
+      }
+    }
+
+    if (projectsRes.data) {
+      const projectsWithLabels = projectsRes.data.map((project) => {
+        const projectLabels = projectLabelsRes.data
+          ?.filter(pl => pl.project_id === project.id)
+          .map(pl => pl.labels)
+          .filter(Boolean) || [];
+
+        const invoice = fundingInvoicesRes.data?.find(inv => inv.project_id === project.id);
+        const invoice_number = invoice?.invoice_number || null;
+
+        return { ...project, labels: projectLabels, invoice_number, tasks: [] };
+      });
+      setProjects(projectsWithLabels);
+    }
+
+    if (fundingInvoicesRes.data) setFundingInvoices(fundingInvoicesRes.data);
+
+    const { data: receiptsData } = await loadWithTimeout(
+      supabase.from('funding_receipt').select('*').order('created_at', { ascending: false }),
+      'funding_receipts'
+    );
+    if (receiptsData) setFundingReceipts(receiptsData);
+
+    console.log('[loadProjectsViewData] Done');
+  }
+
+  // Load data for Clients view
+  async function loadClientsViewData() {
+    console.log('[loadClientsViewData] Loading...');
+    const [clientsRes, projectsRes, comSecClientsRes, channelPartnersRes, partnerProjectsRes] = await Promise.all([
+      loadWithTimeout(
+        supabase.from('clients').select('*').order('created_at', { ascending: false }),
+        'clients'
+      ),
+      loadWithTimeout(
+        supabase.from('projects').select('*').order('created_at', { ascending: false }),
+        'projects'
+      ),
+      loadWithTimeout(
+        supabase.from('comsec_clients').select('id, company_code, company_name, client_id, parent_client_id').order('created_at', { ascending: false }),
+        'comsec_clients'
+      ),
+      loadWithTimeout(
+        supabase.from('channel_partners').select('*').order('created_at', { ascending: false }),
+        'channel_partners'
+      ),
+      loadWithTimeout(
+        supabase.from('partner_projects').select('id, channel_partner_id, channel_partner_name'),
+        'partner_projects'
+      ),
+    ]);
+
+    const comSecProjectTypeId = projectTypes.find(pt => pt.name === 'Com Sec')?.id;
+
+    if (clientsRes.data) {
+      const enrichedClients = clientsRes.data.map(client => {
+        const isParentClient = client.client_number === client.parent_client_id;
+        const filterClientId = isParentClient ? client.parent_client_id : client.client_number;
+
+        let clientProjects, comSecClientsForClient;
+
+        if (isParentClient) {
+          clientProjects = projectsRes.data?.filter(p => p.parent_client_id === filterClientId) || [];
+          comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === filterClientId) || [];
+        } else {
+          clientProjects = projectsRes.data?.filter(p => p.client_id === client.id) || [];
+          comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.client_id === filterClientId) || [];
+        }
+
+        const comSecProjectsFromClients = comSecClientsForClient.map(cc => ({
+          id: cc.id,
+          title: cc.company_name,
+          project_reference: cc.company_code,
+          project_type_id: comSecProjectTypeId,
+          client_id: client.id,
+        }));
+
+        return {
+          ...client,
+          creator: staff.find(s => s.id === client.created_by),
+          sales_person: client.sales_person_id ? staff.find(s => s.id === client.sales_person_id) : undefined,
+          projects: [...clientProjects, ...comSecProjectsFromClients],
+        };
+      });
+      setClients(enrichedClients);
+    }
+
+    if (channelPartnersRes.data) {
+      const partnerProjectCounts = new Map<string, number>();
+      if (partnerProjectsRes.data) {
+        partnerProjectsRes.data.forEach(pp => {
+          if (pp.channel_partner_id) {
+            const count = partnerProjectCounts.get(pp.channel_partner_id) || 0;
+            partnerProjectCounts.set(pp.channel_partner_id, count + 1);
+          }
+        });
+      }
+
+      const enrichedPartners = channelPartnersRes.data.map(partner => ({
+        ...partner,
+        creator: staff.find(s => s.id === partner.created_by),
+        sales_person: partner.sales_person_id ? staff.find(s => s.id === partner.sales_person_id) : undefined,
+        partner_project_count: partnerProjectCounts.get(partner.id) || 0,
+      }));
+      setChannelPartners(enrichedPartners);
+    }
+
+    console.log('[loadClientsViewData] Done');
+  }
+
+  // Load data for Admin view
+  async function loadAdminViewData() {
+    console.log('[loadAdminViewData] Loading...');
+    const [statusesRes, statusManagersRes] = await Promise.all([
+      loadWithTimeout(supabase.from('statuses').select('*').order('order_index'), 'statuses'),
+      loadWithTimeout(
+        supabase.from('status_managers').select('*, staff:user_id(id, full_name, email)'),
+        'status_managers'
+      ),
+    ]);
+
+    if (statusesRes.data) {
+      const organizedStatuses = statusesRes.data.map(status => {
+        if (!status.is_substatus) {
+          const substatus = statusesRes.data.filter(s => s.parent_status_id === status.id);
+          return { ...status, substatus };
+        }
+        return status;
+      });
+      setStatuses(organizedStatuses);
+    }
+
+    if (statusManagersRes.data) setStatusManagers(statusManagersRes.data);
+
+    console.log('[loadAdminViewData] Done');
+  }
+
+  // Helper to reload current view's data
+  function reloadCurrentView() {
+    if (selectedView === 'projects') {
+      loadProjectsViewData();
+    } else if (selectedView === 'clients') {
+      loadClientsViewData();
+    } else if (selectedView === 'admin') {
+      loadAdminViewData();
     }
   }
 
