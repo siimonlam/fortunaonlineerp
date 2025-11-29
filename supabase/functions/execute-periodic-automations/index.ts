@@ -113,14 +113,16 @@ Deno.serve(async (req: Request) => {
 
           if (!existingExecution) {
             const startDate = new Date(projectStartDate);
-            const firstExecutionDate = new Date(startDate);
-            firstExecutionDate.setDate(firstExecutionDate.getDate() + intervalDays);
+            const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-            if (firstExecutionDate <= now) {
+            const intervalsPassed = Math.floor(daysSinceStart / intervalDays);
+
+            if (intervalsPassed >= 1) {
               shouldExecute = true;
 
-              const nextExecution = new Date(firstExecutionDate);
-              nextExecution.setDate(nextExecution.getDate() + intervalDays);
+              const nextIntervalCount = intervalsPassed + 1;
+              const nextExecution = new Date(startDate);
+              nextExecution.setDate(nextExecution.getDate() + (nextIntervalCount * intervalDays));
 
               await supabase
                 .from('periodic_automation_executions')
@@ -133,8 +135,13 @@ Deno.serve(async (req: Request) => {
             }
           } else if (new Date(existingExecution.next_execution_at) <= now) {
             shouldExecute = true;
-            const nextExecution = new Date(now);
-            nextExecution.setDate(nextExecution.getDate() + intervalDays);
+
+            const startDate = new Date(projectStartDate);
+            const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+            const nextIntervalCount = Math.floor(daysSinceStart / intervalDays) + 1;
+            const nextExecution = new Date(startDate);
+            nextExecution.setDate(nextExecution.getDate() + (nextIntervalCount * intervalDays));
 
             await supabase
               .from('periodic_automation_executions')
