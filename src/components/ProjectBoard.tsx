@@ -542,7 +542,7 @@ export function ProjectBoard() {
     console.log('[loadClientsViewData] Loading...');
     const [clientsRes, projectsRes, comSecClientsRes, channelPartnersRes, partnerProjectsRes] = await Promise.all([
       loadWithTimeout(
-        supabase.from('clients').select('*').order('client_number', { ascending: false }),
+        supabase.from('clients').select('*'),
         'clients'
       ),
       loadWithTimeout(
@@ -554,7 +554,7 @@ export function ProjectBoard() {
         'comsec_clients'
       ),
       loadWithTimeout(
-        supabase.from('channel_partners').select('*').order('client_number', { ascending: false }),
+        supabase.from('channel_partners').select('*'),
         'channel_partners'
       ),
       loadWithTimeout(
@@ -724,15 +724,13 @@ export function ProjectBoard() {
       loadWithTimeout(
         supabase
           .from('clients')
-          .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,parent_client_id,parent_company_name')
-          .order('created_at', { ascending: false }),
+          .select('id,name,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,parent_client_id,parent_company_name'),
         'clients'
       ),
       loadWithTimeout(
         supabase
           .from('channel_partners')
-          .select('id,name,company_name_chinese,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,commission_rate,reference_number')
-          .order('created_at', { ascending: false }),
+          .select('id,name,company_name_chinese,contact_person,email,phone,address,notes,sales_source,industry,abbreviation,created_by,created_at,updated_at,sales_person_id,client_number,commission_rate,reference_number'),
         'channel_partners'
       ),
       loadWithTimeout(supabase.from('staff').select('*'), 'staff'),
