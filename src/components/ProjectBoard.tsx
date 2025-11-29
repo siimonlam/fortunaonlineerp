@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns } from 'lucide-react';
@@ -128,6 +128,7 @@ interface FundingInvoice {
 
 export function ProjectBoard() {
   const { user, signOut } = useAuth();
+  const isInitialMount = useRef(true);
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [selectedProjectType, setSelectedProjectType] = useState<string>('');
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -323,6 +324,12 @@ export function ProjectBoard() {
 
   // Reload data when switching views to ensure fresh data
   useEffect(() => {
+    // Skip on initial mount (data is already loaded by the user effect)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     console.log('View changed to:', selectedView);
     loadData();
     if (selectedView === 'projects') {
@@ -393,10 +400,11 @@ export function ProjectBoard() {
   }
 
   async function loadData() {
-    console.log('[loadData] Called. Current selectedProjectType:', selectedProjectType);
-    console.log('Current user ID:', user?.id);
+    try {
+      console.log('[loadData] Called. Current selectedProjectType:', selectedProjectType);
+      console.log('Current user ID:', user?.id);
 
-    const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes, comSecClientsRes, projectLabelsRes] = await Promise.all([
+      const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes, comSecClientsRes, projectLabelsRes] = await Promise.all([
       supabase.from('project_types').select('*').order('name'),
       supabase.from('statuses').select('*').order('order_index'),
       supabase
@@ -643,13 +651,20 @@ export function ProjectBoard() {
       console.log('No funding invoices data received');
     }
 
-    const { data: receiptsData } = await supabase
-      .from('funding_receipt')
-      .select('*')
-      .order('created_at', { ascending: false });
+      const { data: receiptsData } = await supabase
+        .from('funding_receipt')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (receiptsData) {
-      setFundingReceipts(receiptsData);
+      if (receiptsData) {
+        setFundingReceipts(receiptsData);
+      }
+
+      console.log('[loadData] Completed successfully');
+    } catch (error) {
+      console.error('[loadData] Error loading data:', error);
+      // Even if there's an error, we want to ensure the app doesn't hang
+      // The user will see the error in console and can refresh
     }
   }
 
