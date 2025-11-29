@@ -45,6 +45,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [endingSoonProjects, setEndingSoonProjects] = useState<Project[]>([]);
   const [selectedMonths, setSelectedMonths] = useState(4);
   const [agingProjects, setAgingProjects] = useState<Project[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const filterAgingProjects = useCallback(async () => {
     try {
@@ -102,14 +103,20 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
         .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696')
         .order('order_index');
 
-      if (statusError) throw statusError;
+      if (statusError) {
+        console.error('Status error:', statusError);
+        throw statusError;
+      }
 
       const { data: projects, error: projectError } = await supabase
         .from('projects')
         .select('id, status_id, project_type_id, title, project_end_date, submission_date')
         .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696');
 
-      if (projectError) throw projectError;
+      if (projectError) {
+        console.error('Project error:', projectError);
+        throw projectError;
+      }
 
       setTotalProjects(projects?.length || 0);
 
@@ -155,8 +162,10 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
       }) || [];
 
       setEndingSoonProjects(projectsEndingSoon as Project[]);
+      setError(null);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setError('Failed to load dashboard data. Please try refreshing the page.');
     } finally {
       setLoading(false);
     }
@@ -168,6 +177,27 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-slate-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-slate-600">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              loadDashboardData();
+            }}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
