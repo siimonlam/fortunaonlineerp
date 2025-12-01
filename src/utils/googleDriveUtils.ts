@@ -16,25 +16,41 @@ export async function createBudProjectFolders(
 ): Promise<CreateFoldersResponse> {
   const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-bud-folders`;
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      project_id: projectId,
-      project_name: projectName,
-      project_reference: projectReference,
-    }),
-  });
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        project_id: projectId,
+        project_name: projectName,
+        project_reference: projectReference,
+      }),
+    });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create folders');
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = 'Failed to create folders';
+
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Cannot connect to Supabase. Check if edge function is deployed and accessible.');
+    }
+    throw error;
   }
-
-  return await response.json();
 }
 
 export async function getProjectFolders(projectId: string) {
