@@ -763,9 +763,17 @@ export function ProjectBoard() {
 
     setIsAdmin(userRoleRes.data?.role === 'admin');
 
+    console.log('🔍 [DEBUG] User ID:', user?.id);
+    console.log('🔍 [DEBUG] User Email:', user?.email);
+    console.log('🔍 [DEBUG] Project Type Permissions Query Result:', projectTypePermsRes.data);
+    console.log('🔍 [DEBUG] Project Type Permissions Error:', projectTypePermsRes.error);
+
     if (projectTypePermsRes.data) {
-      setProjectTypePermissions(projectTypePermsRes.data.map(p => p.project_type_id));
+      const permIds = projectTypePermsRes.data.map(p => p.project_type_id);
+      console.log('🔍 [DEBUG] Setting projectTypePermissions to:', permIds);
+      setProjectTypePermissions(permIds);
     } else {
+      console.log('🔍 [DEBUG] No permissions data, setting empty array');
       setProjectTypePermissions([]);
     }
 
@@ -1451,19 +1459,32 @@ export function ProjectBoard() {
               <Users className="w-4 h-4" />
               Clients
             </button>
-            {(isAdmin || projectTypePermissions.includes(projectTypes.find(pt => pt.name === 'Com Sec')?.id || '')) && (
-              <button
-                onClick={() => handleViewChange('comsec')}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
-                  selectedView === 'comsec'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                <Building2 className="w-4 h-4" />
-                Com Sec
-              </button>
-            )}
+            {(() => {
+              const comSecProjectType = projectTypes.find(pt => pt.name === 'Com Sec');
+              const comSecId = comSecProjectType?.id || '';
+              const hasComSecPermission = projectTypePermissions.includes(comSecId);
+              const canSeeComSec = isAdmin || hasComSecPermission;
+
+              console.log('🔍 [DEBUG ComSec Button] isAdmin:', isAdmin);
+              console.log('🔍 [DEBUG ComSec Button] Com Sec ID:', comSecId);
+              console.log('🔍 [DEBUG ComSec Button] projectTypePermissions:', projectTypePermissions);
+              console.log('🔍 [DEBUG ComSec Button] hasComSecPermission:', hasComSecPermission);
+              console.log('🔍 [DEBUG ComSec Button] canSeeComSec:', canSeeComSec);
+
+              return canSeeComSec && (
+                <button
+                  onClick={() => handleViewChange('comsec')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+                    selectedView === 'comsec'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  Com Sec
+                </button>
+              );
+            })()}
             {isAdmin && (
               <button
                 onClick={() => handleViewChange('admin')}
