@@ -376,11 +376,19 @@ export function AdminPage() {
         {currentView === 'funding-auth' && <AuthorizationPage />}
 
         {currentView === 'comsec-auth' && (
-          <ProjectTypeAuthorizationPage projectTypeName="Com Sec" />
+          <ProjectTypeAuthorizationPage
+            projectTypeName="Com Sec"
+            title="Com Sec User Access Control"
+            description="Grant or revoke access to the Com Sec module for users"
+          />
         )}
 
         {currentView === 'marketing-auth' && (
-          <ProjectTypeAuthorizationPage projectTypeName="Marketing" />
+          <ProjectTypeAuthorizationPage
+            projectTypeName="Marketing"
+            title="Marketing User Access Control"
+            description="Grant or revoke access to the Marketing module for users"
+          />
         )}
 
         {currentView === 'labels' && <LabelManagement />}

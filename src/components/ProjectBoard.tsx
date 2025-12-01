@@ -311,6 +311,18 @@ export function ProjectBoard() {
           if (selectedView === 'projects') loadProjectsViewData();
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'project_type_permissions' },
+        (payload) => {
+          console.log('✅ Project type permissions changed:', payload.eventType);
+          // Reload permissions when they change
+          if (payload.new && (payload.new as any).user_id === user.id) {
+            console.log('🔄 User permissions changed, reloading essential data...');
+            loadEssentialData();
+          }
+        }
+      )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log('✅ Real-time subscription active');
