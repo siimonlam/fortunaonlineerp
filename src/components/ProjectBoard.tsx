@@ -478,17 +478,10 @@ export function ProjectBoard() {
     if (staffRes.data) setStaff(staffRes.data);
     setIsAdmin(userRoleRes.data?.role === 'admin');
 
-    console.log('🔍 [DEBUG] User ID:', user?.id);
-    console.log('🔍 [DEBUG] User Email:', user?.email);
-    console.log('🔍 [DEBUG] Project Type Permissions Query Result:', projectTypePermsRes.data);
-    console.log('🔍 [DEBUG] Project Type Permissions Error:', projectTypePermsRes.error);
-
     if (projectTypePermsRes.data) {
       const permIds = projectTypePermsRes.data.map(p => p.project_type_id);
-      console.log('🔍 [DEBUG] Setting projectTypePermissions to:', permIds);
       setProjectTypePermissions(permIds);
     } else {
-      console.log('🔍 [DEBUG] No permissions data, setting empty array');
       setProjectTypePermissions([]);
     }
 
@@ -781,17 +774,10 @@ export function ProjectBoard() {
 
     setIsAdmin(userRoleRes.data?.role === 'admin');
 
-    console.log('🔍 [DEBUG] User ID:', user?.id);
-    console.log('🔍 [DEBUG] User Email:', user?.email);
-    console.log('🔍 [DEBUG] Project Type Permissions Query Result:', projectTypePermsRes.data);
-    console.log('🔍 [DEBUG] Project Type Permissions Error:', projectTypePermsRes.error);
-
     if (projectTypePermsRes.data) {
       const permIds = projectTypePermsRes.data.map(p => p.project_type_id);
-      console.log('🔍 [DEBUG] Setting projectTypePermissions to:', permIds);
       setProjectTypePermissions(permIds);
     } else {
-      console.log('🔍 [DEBUG] No permissions data, setting empty array');
       setProjectTypePermissions([]);
     }
 
@@ -1483,11 +1469,6 @@ export function ProjectBoard() {
               const hasComSecPermission = projectTypePermissions.includes(comSecId);
               const canSeeComSec = isAdmin || hasComSecPermission;
 
-              console.log('🔍 [DEBUG ComSec Button] isAdmin:', isAdmin);
-              console.log('🔍 [DEBUG ComSec Button] Com Sec ID:', comSecId);
-              console.log('🔍 [DEBUG ComSec Button] projectTypePermissions:', projectTypePermissions);
-              console.log('🔍 [DEBUG ComSec Button] hasComSecPermission:', hasComSecPermission);
-              console.log('🔍 [DEBUG ComSec Button] canSeeComSec:', canSeeComSec);
 
               return canSeeComSec && (
                 <button
