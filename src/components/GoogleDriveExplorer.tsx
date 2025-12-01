@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Folder, FileText, Download, Upload, Trash2, RefreshCw, File, FileSpreadsheet, Image, FileCode, FileArchive, FileVideo, FileAudio, ChevronRight, Home } from 'lucide-react';
+import { X, Folder, FileText, Download, Upload, Trash2, RefreshCw, File, FileSpreadsheet, Image, FileCode, FileArchive, FileVideo, FileAudio, ChevronRight, Home, Edit2, FolderOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getProjectFolders } from '../utils/googleDriveUtils';
 
@@ -40,6 +40,10 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
   const [rootFolderId, setRootFolderId] = useState<string>(projectFolderId || budFolderId);
+  const [renamingFile, setRenamingFile] = useState<{ id: string; name: string } | null>(null);
+  const [newFileName, setNewFileName] = useState('');
+  const [moveToFolderModal, setMoveToFolderModal] = useState<{ fileId: string; fileName: string } | null>(null);
+  const [availableFolders, setAvailableFolders] = useState<DriveFile[]>([]);
 
   useEffect(() => {
     loadGoogleDriveAPI();
@@ -376,6 +380,128 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
     }
   }
 
+  async function handleRenameFile(fileId: string, newName: string) {
+    if (!newName.trim()) {
+      alert('File name cannot be empty');
+      return;
+    }
+
+    try {
+      await window.gapi.client.drive.files.update({
+        fileId: fileId,
+        resource: {
+          name: newName
+        }
+      });
+
+      await loadFiles(currentFolderId);
+      setRenamingFile(null);
+      setNewFileName('');
+    } catch (err: any) {
+      alert(`Failed to rename file: ${err.message}`);
+    }
+  }
+
+  async function handleDownloadFile(fileId: string, fileName: string, mimeType: string) {
+    try {
+      const token = window.gapi.auth.getToken().access_token;
+      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Download failed');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Download failed:', err);
+      alert('Failed to download file. Opening in browser instead.');
+      const file = files.find(f => f.id === fileId);
+      if (file?.webViewLink) {
+        window.open(file.webViewLink, '_blank');
+      }
+    }
+  }
+
+  async function loadAllFolders(parentId: string = rootFolderId) {
+    try {
+      const response = await window.gapi.client.drive.files.list({
+        q: `mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name, mimeType, parents)',
+        orderBy: 'name',
+        pageSize: 1000
+      });
+
+      const allFolders = response.result.files || [];
+      const filteredFolders = allFolders.filter((folder: DriveFile) => {
+        if (!folder.parents || folder.parents.length === 0) return false;
+        return isDescendantOf(folder, parentId, allFolders);
+      });
+
+      setAvailableFolders(filteredFolders);
+    } catch (err: any) {
+      console.error('Failed to load folders:', err);
+      alert(`Failed to load folders: ${err.message}`);
+    }
+  }
+
+  function isDescendantOf(folder: DriveFile, ancestorId: string, allFolders: DriveFile[]): boolean {
+    if (!folder.parents || folder.parents.length === 0) return false;
+    if (folder.parents.includes(ancestorId)) return true;
+
+    for (const parentId of folder.parents) {
+      const parentFolder = allFolders.find(f => f.id === parentId);
+      if (parentFolder && isDescendantOf(parentFolder, ancestorId, allFolders)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async function handleMoveFile(fileId: string, targetFolderId: string) {
+    try {
+      const file = files.find(f => f.id === fileId);
+      if (!file || !file.parents || file.parents.length === 0) {
+        alert('Cannot determine file location');
+        return;
+      }
+
+      const previousParent = file.parents[0];
+
+      await window.gapi.client.drive.files.update({
+        fileId: fileId,
+        addParents: targetFolderId,
+        removeParents: previousParent,
+        fields: 'id, parents'
+      });
+
+      await loadFiles(currentFolderId);
+      setMoveToFolderModal(null);
+      alert('File moved successfully!');
+    } catch (err: any) {
+      alert(`Failed to move file: ${err.message}`);
+    }
+  }
+
+  function startRename(file: DriveFile) {
+    setRenamingFile({ id: file.id, name: file.name });
+    setNewFileName(file.name);
+  }
+
+  function openMoveModal(file: DriveFile) {
+    setMoveToFolderModal({ fileId: file.id, fileName: file.name });
+    loadAllFolders();
+  }
+
   function getFileIcon(mimeType: string) {
     if (mimeType === 'application/vnd.google-apps.folder') {
       return <Folder className="w-5 h-5 text-amber-500 flex-shrink-0" />;
@@ -543,50 +669,146 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
                   key={file.id}
                   className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors"
                 >
-                  <div
-                    className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                    onClick={() => {
-                      if (file.mimeType === 'application/vnd.google-apps.folder') {
-                        handleFolderClick(file);
-                      } else if (file.webViewLink) {
-                        window.open(file.webViewLink, '_blank');
-                      }
-                    }}
-                  >
-                    {getFileIcon(file.mimeType)}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {formatFileSize(file.size)} • {formatDate(file.modifiedTime)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    {file.mimeType !== 'application/vnd.google-apps.folder' && file.webViewLink && (
-                      <a
-                        href={file.webViewLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Open in Google Drive"
+                  {renamingFile?.id === file.id ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="text"
+                        value={newFileName}
+                        onChange={(e) => setNewFileName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleRenameFile(file.id, newFileName);
+                          } else if (e.key === 'Escape') {
+                            setRenamingFile(null);
+                            setNewFileName('');
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleRenameFile(file.id, newFileName)}
+                        className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
                       >
-                        <Download className="w-4 h-4" />
-                      </a>
-                    )}
-                    <button
-                      onClick={() => handleDeleteFile(file.id, file.name)}
-                      className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setRenamingFile(null);
+                          setNewFileName('');
+                        }}
+                        className="px-3 py-2 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                        onClick={() => {
+                          if (file.mimeType === 'application/vnd.google-apps.folder') {
+                            handleFolderClick(file);
+                          } else if (file.webViewLink) {
+                            window.open(file.webViewLink, '_blank');
+                          }
+                        }}
+                      >
+                        {getFileIcon(file.mimeType)}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
+                          <p className="text-xs text-slate-500">
+                            {formatFileSize(file.size)} • {formatDate(file.modifiedTime)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 ml-4">
+                        <button
+                          onClick={() => startRename(file)}
+                          className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Rename"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        {file.mimeType !== 'application/vnd.google-apps.folder' && (
+                          <button
+                            onClick={() => handleDownloadFile(file.id, file.name, file.mimeType)}
+                            className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => openMoveModal(file)}
+                          className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          title="Move to folder"
+                        >
+                          <FolderOpen className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteFile(file.id, file.name)}
+                          className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {moveToFolderModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Move to Folder</h3>
+              <button
+                onClick={() => setMoveToFolderModal(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">
+              Move <span className="font-medium">{moveToFolderModal.fileName}</span> to:
+            </p>
+            <div className="max-h-96 overflow-y-auto border border-slate-200 rounded-lg">
+              {availableFolders.length === 0 ? (
+                <div className="p-4 text-center text-slate-500 text-sm">
+                  No folders available
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-200">
+                  {availableFolders.map((folder) => (
+                    <button
+                      key={folder.id}
+                      onClick={() => handleMoveFile(moveToFolderModal.fileId, folder.id)}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 transition-colors text-left"
+                    >
+                      <Folder className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                      <span className="text-sm text-slate-900 truncate">{folder.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setMoveToFolderModal(null)}
+                className="px-4 py-2 text-sm text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
