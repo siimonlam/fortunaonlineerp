@@ -197,23 +197,40 @@ async function createFolderStructureAndCopyFiles(
   const folderMap: Record<string, string> = { '': rootFolderId };
   let filesCopied = 0;
 
-  for (const folderPath of BUD_FOLDER_STRUCTURE) {
-    const parts = folderPath.split('/');
-    const folderName = parts[parts.length - 1];
-    const parentPath = parts.slice(0, -1).join('/');
-    const parentId = folderMap[parentPath];
+  const MAX_DEPTH = Math.max(...BUD_FOLDER_STRUCTURE.map(p => p.split('/').length));
 
-    if (!parentId) {
-      console.error(`Parent folder not found for path: ${folderPath}`);
-      continue;
-    }
+  for (let depth = 1; depth <= MAX_DEPTH; depth++) {
+    const foldersAtDepth = BUD_FOLDER_STRUCTURE.filter(
+      path => path.split('/').length === depth
+    );
 
-    try {
-      const folderId = await createGoogleDriveFolder(folderName, parentId, accessToken);
-      folderMap[folderPath] = folderId;
-      console.log(`Created folder: ${folderPath}`);
-    } catch (error) {
-      console.error(`Failed to create folder ${folderPath}:`, error);
+    const createPromises = foldersAtDepth.map(async (folderPath) => {
+      const parts = folderPath.split('/');
+      const folderName = parts[parts.length - 1];
+      const parentPath = parts.slice(0, -1).join('/');
+      const parentId = folderMap[parentPath];
+
+      if (!parentId) {
+        console.error(`Parent folder not found for path: ${folderPath}`);
+        return null;
+      }
+
+      try {
+        const folderId = await createGoogleDriveFolder(folderName, parentId, accessToken);
+        return { folderPath, folderId };
+      } catch (error) {
+        console.error(`Failed to create folder ${folderPath}:`, error);
+        return null;
+      }
+    });
+
+    const results = await Promise.all(createPromises);
+
+    for (const result of results) {
+      if (result) {
+        folderMap[result.folderPath] = result.folderId;
+        console.log(`Created folder: ${result.folderPath}`);
+      }
     }
   }
 
@@ -222,19 +239,21 @@ async function createFolderStructureAndCopyFiles(
     const templateFiles = await listFilesInFolder(templateFolderId, accessToken);
     console.log(`Found ${templateFiles.length} files in template folder`);
 
-    for (const file of templateFiles) {
-      if (file.mimeType === 'application/vnd.google-apps.folder') {
-        continue;
-      }
+    const copyPromises = templateFiles
+      .filter(file => file.mimeType !== 'application/vnd.google-apps.folder')
+      .map(async (file) => {
+        try {
+          await copyFileToFolder(file.id, file.name, rootFolderId, accessToken);
+          console.log(`Copied file: ${file.name}`);
+          return true;
+        } catch (error) {
+          console.error(`Failed to copy file ${file.name}:`, error);
+          return false;
+        }
+      });
 
-      try {
-        await copyFileToFolder(file.id, file.name, rootFolderId, accessToken);
-        filesCopied++;
-        console.log(`Copied file: ${file.name}`);
-      } catch (error) {
-        console.error(`Failed to copy file ${file.name}:`, error);
-      }
-    }
+    const copyResults = await Promise.all(copyPromises);
+    filesCopied = copyResults.filter(r => r).length;
   } catch (error) {
     console.error('Failed to copy template files:', error);
   }
