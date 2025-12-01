@@ -452,12 +452,16 @@ export function ProjectBoard() {
   // Load essential data needed for all views
   async function loadEssentialData() {
     console.log('[loadEssentialData] Loading core data...');
-    const [projectTypesRes, staffRes, userRoleRes] = await Promise.all([
+    const [projectTypesRes, staffRes, userRoleRes, projectTypePermsRes] = await Promise.all([
       loadWithTimeout(supabase.from('project_types').select('*').order('name'), 'project_types'),
       loadWithTimeout(supabase.from('staff').select('*'), 'staff'),
       loadWithTimeout(
         supabase.from('user_roles').select('role').eq('user_id', user?.id).maybeSingle(),
         'user_roles'
+      ),
+      loadWithTimeout(
+        supabase.from('project_type_permissions').select('project_type_id').eq('user_id', user?.id || ''),
+        'project_type_permissions'
       ),
     ]);
 
@@ -473,6 +477,20 @@ export function ProjectBoard() {
 
     if (staffRes.data) setStaff(staffRes.data);
     setIsAdmin(userRoleRes.data?.role === 'admin');
+
+    console.log('🔍 [DEBUG] User ID:', user?.id);
+    console.log('🔍 [DEBUG] User Email:', user?.email);
+    console.log('🔍 [DEBUG] Project Type Permissions Query Result:', projectTypePermsRes.data);
+    console.log('🔍 [DEBUG] Project Type Permissions Error:', projectTypePermsRes.error);
+
+    if (projectTypePermsRes.data) {
+      const permIds = projectTypePermsRes.data.map(p => p.project_type_id);
+      console.log('🔍 [DEBUG] Setting projectTypePermissions to:', permIds);
+      setProjectTypePermissions(permIds);
+    } else {
+      console.log('🔍 [DEBUG] No permissions data, setting empty array');
+      setProjectTypePermissions([]);
+    }
 
     console.log('[loadEssentialData] Core data loaded');
   }
