@@ -242,34 +242,93 @@ async function createFolderStructureAndCopyFiles(
   return { folderMap, filesCopied };
 }
 
-async function refreshGoogleToken(refreshToken: string): Promise<string> {
-  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
-  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+function pemToBinary(pem: string): ArrayBuffer {
+  const pemContents = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\s/g, '');
 
-  if (!clientId || !clientSecret) {
-    throw new Error('Google OAuth credentials not configured in environment');
+  const binaryString = atob(pemContents);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+async function getServiceAccountToken(): Promise<string> {
+  const serviceAccountEmail = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL');
+  const privateKeyPem = Deno.env.get('GOOGLE_PRIVATE_KEY');
+
+  if (!serviceAccountEmail || !privateKeyPem) {
+    throw new Error('Service account credentials not configured. Set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY environment variables.');
   }
 
-  const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT',
+  };
+
+  const now = Math.floor(Date.now() / 1000);
+  const expiry = now + 3600;
+
+  const payload = {
+    iss: serviceAccountEmail,
+    scope: 'https://www.googleapis.com/auth/drive',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: expiry,
+    iat: now,
+  };
+
+  const encoder = new TextEncoder();
+  const headerBase64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const payloadBase64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const signatureInput = `${headerBase64}.${payloadBase64}`;
+
+  const privateKeyBinary = pemToBinary(privateKeyPem);
+
+  const key = await crypto.subtle.importKey(
+    'pkcs8',
+    privateKeyBinary,
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: 'SHA-256',
+    },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    key,
+    encoder.encode(signatureInput)
+  );
+
+  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+
+  const jwt = `${signatureInput}.${signatureBase64}`;
+
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
     }),
   });
 
-  if (!refreshResponse.ok) {
-    const error = await refreshResponse.text();
-    throw new Error(`Failed to refresh token: ${error}`);
+  if (!tokenResponse.ok) {
+    const error = await tokenResponse.text();
+    throw new Error(`Failed to get service account token: ${error}`);
   }
 
-  const refreshData = await refreshResponse.json();
-  return refreshData.access_token;
+  const tokenData = await tokenResponse.json();
+  return tokenData.access_token;
 }
 
 Deno.serve(async (req: Request) => {
@@ -318,43 +377,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: credentials, error: credError } = await supabase
-      .from('google_oauth_credentials')
-      .select('*')
-      .eq('service_name', 'google_drive')
-      .maybeSingle();
-
-    if (credError || !credentials) {
-      console.error('Failed to fetch OAuth credentials:', credError);
-      return new Response(
-        JSON.stringify({ error: 'Google Drive not connected. Please authorize Google Drive in Settings.' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    let access_token = credentials.access_token;
-    const token_expires_at = new Date(credentials.token_expires_at);
-    const now = new Date();
-
-    if (token_expires_at < new Date(now.getTime() + 5 * 60 * 1000)) {
-      console.log('Access token expired, refreshing...');
-      access_token = await refreshGoogleToken(credentials.refresh_token);
-
-      const new_expires_at = new Date(now.getTime() + 3600 * 1000);
-      await supabase
-        .from('google_oauth_credentials')
-        .update({
-          access_token: access_token,
-          token_expires_at: new_expires_at.toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('service_name', 'google_drive');
-
-      console.log('Token refreshed successfully');
-    }
+    console.log('Getting service account token...');
+    const access_token = await getServiceAccountToken();
 
     const parent_folder_id = '1UGe0xaW7Z-PIFhK9CHLayI78k59HjQ-n';
 
