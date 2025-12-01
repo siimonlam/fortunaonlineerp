@@ -189,6 +189,59 @@ async function listFilesInFolder(
   return data.files || [];
 }
 
+async function copyFilesRecursively(
+  sourceFolderId: string,
+  destinationFolderMap: Record<string, string>,
+  accessToken: string,
+  currentPath: string = ''
+): Promise<number> {
+  let filesCopied = 0;
+
+  try {
+    const files = await listFilesInFolder(sourceFolderId, accessToken);
+
+    const copyPromises = files.map(async (file) => {
+      if (file.mimeType === 'application/vnd.google-apps.folder') {
+        const subfolderPath = currentPath ? `${currentPath}/${file.name}` : file.name;
+        const matchingDestinationId = destinationFolderMap[subfolderPath];
+
+        if (matchingDestinationId) {
+          const subfilesCopied = await copyFilesRecursively(
+            file.id,
+            destinationFolderMap,
+            accessToken,
+            subfolderPath
+          );
+          return subfilesCopied;
+        }
+        return 0;
+      } else {
+        const destinationFolderId = destinationFolderMap[currentPath];
+        if (!destinationFolderId) {
+          console.warn(`No destination folder for path: ${currentPath}`);
+          return 0;
+        }
+
+        try {
+          await copyFileToFolder(file.id, file.name, destinationFolderId, accessToken);
+          console.log(`Copied file: ${currentPath}/${file.name}`);
+          return 1;
+        } catch (error) {
+          console.error(`Failed to copy file ${file.name}:`, error);
+          return 0;
+        }
+      }
+    });
+
+    const results = await Promise.all(copyPromises);
+    filesCopied = results.reduce((sum, count) => sum + count, 0);
+  } catch (error) {
+    console.error(`Failed to copy files from folder at path ${currentPath}:`, error);
+  }
+
+  return filesCopied;
+}
+
 async function createFolderStructureAndCopyFiles(
   rootFolderId: string,
   templateFolderId: string,
@@ -235,25 +288,14 @@ async function createFolderStructureAndCopyFiles(
   }
 
   try {
-    console.log('Listing files in template folder...');
-    const templateFiles = await listFilesInFolder(templateFolderId, accessToken);
-    console.log(`Found ${templateFiles.length} files in template folder`);
-
-    const copyPromises = templateFiles
-      .filter(file => file.mimeType !== 'application/vnd.google-apps.folder')
-      .map(async (file) => {
-        try {
-          await copyFileToFolder(file.id, file.name, rootFolderId, accessToken);
-          console.log(`Copied file: ${file.name}`);
-          return true;
-        } catch (error) {
-          console.error(`Failed to copy file ${file.name}:`, error);
-          return false;
-        }
-      });
-
-    const copyResults = await Promise.all(copyPromises);
-    filesCopied = copyResults.filter(r => r).length;
+    console.log('Copying template files recursively...');
+    filesCopied = await copyFilesRecursively(
+      templateFolderId,
+      folderMap,
+      accessToken,
+      ''
+    );
+    console.log(`Total files copied: ${filesCopied}`);
   } catch (error) {
     console.error('Failed to copy template files:', error);
   }
