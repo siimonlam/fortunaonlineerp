@@ -62,7 +62,6 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
         setCurrentFolderId(projectFolderId);
         fetchFolderName(projectFolderId);
       } else if (projectReference || projectId) {
-        console.log('Navigating to project folder. ProjectId:', projectId, 'ProjectReference:', projectReference);
         navigateToProjectFolder();
       } else {
         setDebugInfo('No project ID or reference provided');
@@ -98,14 +97,12 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
 
       await new Promise((resolve, reject) => {
         if (window.gapi && window.gapi.client) {
-          console.log('Google API already loaded');
           resolve(window.gapi);
           return;
         }
 
         const existingScript = document.querySelector('script[src="https://apis.google.com/js/api.js"]');
         if (existingScript) {
-          console.log('Script tag exists, waiting for gapi...');
           const checkInterval = setInterval(() => {
             if (window.gapi && window.gapi.load) {
               clearInterval(checkInterval);
@@ -119,13 +116,11 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
           return;
         }
 
-        console.log('Loading Google API script...');
         const script = document.createElement('script');
         script.src = 'https://apis.google.com/js/api.js';
         script.async = true;
         script.defer = true;
         script.onload = () => {
-          console.log('Google API script loaded');
           if (window.gapi && window.gapi.load) {
             resolve(window.gapi);
           } else {
@@ -160,13 +155,11 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
           return;
         }
 
-        console.log('Loading Google Identity Services...');
         const gsiScript = document.createElement('script');
         gsiScript.src = 'https://accounts.google.com/gsi/client';
         gsiScript.async = true;
         gsiScript.defer = true;
         gsiScript.onload = () => {
-          console.log('Google Identity Services loaded');
           resolve(true);
         };
         gsiScript.onerror = () => reject(new Error('Failed to load Google Identity Services'));
@@ -180,7 +173,6 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
               apiKey: apiKey,
               discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
             });
-            console.log('GAPI client initialized');
             resolve();
           } catch (err: any) {
             console.error('Failed to initialize GAPI client:', err);
@@ -198,14 +190,12 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
             setError(`Authentication failed: ${response.error}`);
             return;
           }
-          console.log('Access token received');
           setAccessToken(response.access_token);
           window.gapi.client.setToken({ access_token: response.access_token });
           setIsAuthenticated(true);
         },
       });
 
-      console.log('Requesting access token...');
       tokenClient.requestAccessToken({ prompt: '' });
     } catch (err: any) {
       console.error('Failed to load Google Drive API:', err);
@@ -223,12 +213,10 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
       // First, try to get folder info from database if we have projectId
       if (projectId) {
         setDebugInfo(`Looking up project folder in database for project: ${projectId}`);
-        console.log('Looking up project folder in database for project:', projectId);
         const folderInfo = await getProjectFolders(projectId);
 
         if (folderInfo && folderInfo.parent_folder_id) {
           setDebugInfo(`Found folder ID in database: ${folderInfo.parent_folder_id}`);
-          console.log('Found project folder in database:', folderInfo.parent_folder_id);
 
           // Get folder name from Google Drive
           try {
@@ -248,7 +236,6 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
             }
           } catch (err: any) {
             setDebugInfo(`Error accessing folder: ${err.message}. Trying search...`);
-            console.log('Could not fetch folder details from Drive:', err);
           }
         } else {
           setDebugInfo('No folder info found in database. Trying search...');
@@ -258,7 +245,6 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
       // Fallback: Search by project reference
       if (projectReference) {
         setDebugInfo(`Searching for folder with reference: ${projectReference}`);
-        console.log('Searching for project folder by reference:', projectReference);
         const searchQuery = `'${budFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and name contains '${projectReference}' and trashed=false`;
 
         const response = await window.gapi.client.drive.files.list({
@@ -270,7 +256,6 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
         if (response.result.files && response.result.files.length > 0) {
           const projectFolder = response.result.files[0];
           setDebugInfo(`Found and navigated to: ${projectFolder.name}`);
-          console.log('Found project folder:', projectFolder);
           setCurrentFolderId(projectFolder.id);
           setBreadcrumbs([
             { id: budFolderId, name: budFolderName },
@@ -278,7 +263,6 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
           ]);
         } else {
           setDebugInfo(`Project folder not found. Searched in parent: ${budFolderId}`);
-          console.log('Project folder not found by reference');
         }
       }
     } catch (err: any) {
@@ -294,7 +278,6 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
     setError(null);
 
     try {
-      console.log('Loading files from folder:', folderId);
       const response = await window.gapi.client.drive.files.list({
         q: `'${folderId}' in parents and trashed=false`,
         fields: 'files(id, name, mimeType, modifiedTime, size, webViewLink, iconLink, parents)',
@@ -302,8 +285,6 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
         pageSize: 1000
       });
 
-      console.log('Files loaded:', response.result.files?.length || 0, 'files');
-      console.log('Files:', response.result.files);
       setFiles(response.result.files || []);
     } catch (err: any) {
       console.error('Error loading files:', err);
