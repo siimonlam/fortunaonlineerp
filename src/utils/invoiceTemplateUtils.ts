@@ -27,6 +27,10 @@ export async function getFieldMappings(): Promise<FieldMapping[]> {
   return data || [];
 }
 
+function sanitizeForWinAnsi(text: string): string {
+  return text.replace(/[^\x00-\xFF]/g, '?');
+}
+
 function applyTransform(value: any, transformFunction?: string): string {
   if (value === null || value === undefined) return '';
 
@@ -97,7 +101,7 @@ export async function generateInvoiceFromTemplate(
     if (invoiceData.invoiceNumber) {
       try {
         const field = form.getTextField('invoice_number');
-        field.setText(invoiceData.invoiceNumber);
+        field.setText(sanitizeForWinAnsi(invoiceData.invoiceNumber));
       } catch (error) {
         console.warn('invoice_number field not found in PDF');
       }
@@ -109,7 +113,7 @@ export async function generateInvoiceFromTemplate(
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`;
-        field.setText(formattedAmount);
+        field.setText(sanitizeForWinAnsi(formattedAmount));
       } catch (error) {
         console.warn('amount field not found in PDF');
       }
@@ -118,11 +122,12 @@ export async function generateInvoiceFromTemplate(
       try {
         const field = form.getTextField('issue_date');
         const date = new Date(invoiceData.issueDate);
-        field.setText(date.toLocaleDateString('en-US', {
+        const formattedDate = date.toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
-        }));
+        });
+        field.setText(sanitizeForWinAnsi(formattedDate));
       } catch (error) {
         console.warn('issue_date field not found in PDF');
       }
@@ -131,11 +136,12 @@ export async function generateInvoiceFromTemplate(
       try {
         const field = form.getTextField('due_date');
         const date = new Date(invoiceData.dueDate);
-        field.setText(date.toLocaleDateString('en-US', {
+        const formattedDate = date.toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
-        }));
+        });
+        field.setText(sanitizeForWinAnsi(formattedDate));
       } catch (error) {
         console.warn('due_date field not found in PDF');
       }
@@ -178,7 +184,7 @@ export async function generateInvoiceFromTemplate(
 
     try {
       const field = form.getTextField(mapping.tag.tag_name);
-      field.setText(transformedValue);
+      field.setText(sanitizeForWinAnsi(transformedValue));
     } catch (error) {
       console.warn(`Field not found in PDF: ${mapping.tag.tag_name}`);
     }
@@ -202,6 +208,10 @@ export async function uploadInvoiceToGoogleDrive(
   fileName: string,
   folderId: string
 ): Promise<string> {
+  if (!import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID || !import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_SECRET) {
+    throw new Error('Google Drive API credentials not configured. Please contact your administrator to add VITE_GOOGLE_DRIVE_CLIENT_ID and VITE_GOOGLE_DRIVE_CLIENT_SECRET to the environment variables.');
+  }
+
   const { data: tokenData, error: tokenError } = await supabase
     .from('google_oauth_credentials')
     .select('*')
@@ -233,7 +243,7 @@ export async function uploadInvoiceToGoogleDrive(
     if (!refreshResponse.ok) {
       const errorData = await refreshResponse.json().catch(() => ({}));
       console.error('Token refresh failed:', errorData);
-      throw new Error('Failed to refresh Google Drive token. Please contact your administrator to re-authorize in Settings > Authorization.');
+      throw new Error(`Failed to refresh Google Drive token: ${errorData.error || 'Unknown error'}. Please contact your administrator to re-authorize in Settings > Authorization.`);
     }
 
     const refreshData = await refreshResponse.json();

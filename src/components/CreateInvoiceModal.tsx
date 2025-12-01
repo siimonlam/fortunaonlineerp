@@ -49,6 +49,10 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
   }, [project.client_number]);
 
   async function getGoogleDriveAccessToken() {
+    if (!import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID || !import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_SECRET) {
+      throw new Error('Google Drive API credentials not configured. Please contact your administrator to add VITE_GOOGLE_DRIVE_CLIENT_ID and VITE_GOOGLE_DRIVE_CLIENT_SECRET to the environment variables.');
+    }
+
     const { data: tokenData, error: tokenError } = await supabase
       .from('google_oauth_credentials')
       .select('*')
@@ -78,7 +82,9 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
       });
 
       if (!refreshResponse.ok) {
-        throw new Error('Failed to refresh Google Drive token. Please contact your administrator to re-authorize in Settings > Authorization.');
+        const errorData = await refreshResponse.json().catch(() => ({}));
+        console.error('Token refresh failed:', errorData);
+        throw new Error(`Failed to refresh Google Drive token: ${errorData.error || 'Unknown error'}. Please contact your administrator to re-authorize in Settings > Authorization.`);
       }
 
       const refreshData = await refreshResponse.json();
