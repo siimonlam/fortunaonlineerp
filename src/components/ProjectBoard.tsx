@@ -3247,7 +3247,7 @@ export function ProjectBoard() {
                         const client: any = {};
 
                         headers.forEach((header, index) => {
-                          if (values[index]) {
+                          if (values[index] && values[index].trim() !== '') {
                             client[header] = values[index];
                           }
                         });
