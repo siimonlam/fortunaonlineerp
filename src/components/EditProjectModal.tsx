@@ -129,6 +129,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [projectLabels, setProjectLabels] = useState<Label[]>([]);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
+  const [clientData, setClientData] = useState<any>(null);
   const [projectType, setProjectType] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files'>('project');
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -462,21 +463,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   async function loadClientChannelPartner() {
     if (!project.client_id) return;
 
-    const { data: clientData } = await supabase
+    const { data: client } = await supabase
       .from('clients')
-      .select('channel_partner_id')
+      .select('*, channel_partners:channel_partner_id(*)')
       .eq('id', project.client_id)
       .maybeSingle();
 
-    if (clientData?.channel_partner_id) {
-      const { data: partnerData } = await supabase
-        .from('channel_partners')
-        .select('id, name, reference_number')
-        .eq('id', clientData.channel_partner_id)
-        .maybeSingle();
-
-      if (partnerData) {
-        setClientChannelPartner(partnerData);
+    if (client) {
+      setClientData(client);
+      if (client.channel_partner_id && client.channel_partners) {
+        setClientChannelPartner(client.channel_partners);
       }
     }
   }
@@ -1703,6 +1699,72 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               </div>
             </div>
           </div>
+
+          {projectType?.name === 'Marketing' && clientData && (
+            <div className="space-y-4">
+              <div className="flex justify-center mb-6">
+                <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                  Client Information
+                </h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {clientData.industry && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Industry</label>
+                    <div className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900">
+                      {clientData.industry}
+                    </div>
+                  </div>
+                )}
+                {clientData.other_industry && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Other Industry</label>
+                    <div className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900">
+                      {clientData.other_industry}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {clientData.abbreviation && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Abbreviation</label>
+                    <div className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900">
+                      {clientData.abbreviation}
+                    </div>
+                  </div>
+                )}
+                {clientData.is_ecommerce !== null && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">E-Commerce</label>
+                    <div className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                      clientData.is_ecommerce
+                        ? 'bg-green-100 text-green-800 border border-green-200'
+                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}>
+                      {clientData.is_ecommerce ? 'Yes' : 'No'}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {(clientData as any).sales_source_detail && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source Detail</label>
+                  <div className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900">
+                    {(clientData as any).sales_source_detail}
+                  </div>
+                </div>
+              )}
+              {clientData.notes && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Client Notes</label>
+                  <div className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                    {clientData.notes}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-4">
             <div className="flex justify-center mb-6">

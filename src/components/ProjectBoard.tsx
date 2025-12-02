@@ -497,7 +497,7 @@ export function ProjectBoard() {
       loadWithTimeout(
         supabase
           .from('projects')
-          .select(`*,clients(id,name,client_number)`)
+          .select(`*,clients(id,name,client_number),project_staff(user_id,can_view,can_edit)`)
           .order('created_at', { ascending: false }),
         'projects'
       ),
@@ -1081,10 +1081,23 @@ export function ProjectBoard() {
   );
 
   const isFundingProjectType = currentProjectType?.name === 'Funding Project';
+  const isMarketingProjectType = currentProjectType?.name === 'Marketing';
 
   const filteredProjects = projects
     .filter((p) => {
       if (p.project_type_id !== selectedProjectType) return false;
+
+      if (isMarketingProjectType && !isAdmin) {
+        const isCreator = p.created_by === user?.id;
+        const isSalesPerson = p.sales_person_id === user?.id;
+        const hasExplicitAccess = p.project_staff?.some(
+          (ps: any) => ps.user_id === user?.id && ps.can_view
+        );
+
+        if (!isCreator && !isSalesPerson && !hasExplicitAccess) {
+          return false;
+        }
+      }
 
       if (isFundingProjectType && projectSearchQuery.trim()) {
         const query = projectSearchQuery.toLowerCase();
