@@ -3308,11 +3308,13 @@ export function ProjectBoard() {
                       if (updatedCount > 0) successMsg.push(`${updatedCount} clients updated`);
 
                       setImportProgress(`Success! ${successMsg.join(', ')}!`);
+
+                      await loadClientsViewData();
+
                       setTimeout(() => {
                         setShowImportModal(false);
                         setImportFile(null);
                         setImportProgress('');
-                        window.location.reload();
                       }, 2000);
                     } catch (error: any) {
                       console.error('Import error:', error);
