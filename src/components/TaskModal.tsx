@@ -127,8 +127,9 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
       setNewTaskDescription('');
       setNewTaskAssignee('');
       setNewTaskDeadline('');
+      setEditingTaskId(null);
       setShowAddTask(false);
-      loadTasks();
+      await loadTasks();
     } catch (error) {
       console.error('Error adding task:', error);
       alert('Failed to add task. Please try again.');
