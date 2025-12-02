@@ -32,29 +32,45 @@ Deno.serve(async (req: Request) => {
 
     console.log('Executing automation for:', { project_id, project_type_id, status_id, trigger_type });
 
-    const { data: status, error: statusError } = await supabase
-      .from('statuses')
-      .select('id, name, parent_status_id')
-      .eq('id', status_id)
-      .maybeSingle();
+    let mainStatusName = '';
 
-    if (statusError) throw statusError;
-    if (!status) throw new Error('Status not found');
-
-    let mainStatusName = status.name;
-    if (status.parent_status_id) {
-      const { data: parentStatus } = await supabase
+    if (status_id) {
+      const { data: status, error: statusError } = await supabase
         .from('statuses')
-        .select('name')
-        .eq('id', status.parent_status_id)
+        .select('id, name, parent_status_id')
+        .eq('id', status_id)
         .maybeSingle();
-      
-      if (parentStatus) {
-        mainStatusName = parentStatus.name;
+
+      if (statusError) throw statusError;
+      if (!status) throw new Error('Status not found');
+
+      mainStatusName = status.name;
+      if (status.parent_status_id) {
+        const { data: parentStatus } = await supabase
+          .from('statuses')
+          .select('name')
+          .eq('id', status.parent_status_id)
+          .maybeSingle();
+
+        if (parentStatus) {
+          mainStatusName = parentStatus.name;
+        }
+      }
+
+      console.log('Main status name:', mainStatusName);
+    } else {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('status_id, statuses(name, parent_status_id, parent:parent_status_id(name))')
+        .eq('id', project_id)
+        .maybeSingle();
+
+      if (project?.statuses) {
+        const status = project.statuses as any;
+        mainStatusName = status.parent?.name || status.name;
+        console.log('Main status name from project:', mainStatusName);
       }
     }
-
-    console.log('Main status name:', mainStatusName);
 
     const query = supabase
       .from('automation_rules')
@@ -98,6 +114,14 @@ Deno.serve(async (req: Request) => {
           if (trigger_data?.task_name !== rule.trigger_config.task_name) {
             console.log(`Skipping rule - task name mismatch: "${trigger_data?.task_name}" !== "${rule.trigger_config.task_name}"`);
             results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'task_name_mismatch' });
+            continue;
+          }
+        }
+
+        if (trigger_type === 'label_added' && rule.trigger_config?.label_id) {
+          if (trigger_data?.label_id !== rule.trigger_config.label_id) {
+            console.log(`Skipping rule - label mismatch: "${trigger_data?.label_id}" !== "${rule.trigger_config.label_id}"`);
+            results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'label_mismatch' });
             continue;
           }
         }

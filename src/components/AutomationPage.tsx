@@ -7,7 +7,7 @@ interface AutomationRule {
   name: string;
   project_type_id: string;
   main_status: string;
-  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date' | 'deposit_paid' | 'application_number_set' | 'approval_date_set';
+  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date' | 'deposit_paid' | 'application_number_set' | 'approval_date_set' | 'label_added';
   trigger_config: any;
   condition_type?: 'no_condition' | 'sales_source' | 'sales_person';
   condition_config?: any;
@@ -53,7 +53,8 @@ const TRIGGER_TYPES = [
   { value: 'periodic', label: 'Periodically Action' },
   { value: 'days_after_date', label: 'X days after a date field' },
   { value: 'application_number_set', label: 'Application number is set' },
-  { value: 'approval_date_set', label: 'Approval Date is set' }
+  { value: 'approval_date_set', label: 'Approval Date is set' },
+  { value: 'label_added', label: 'A label is added' }
 ];
 
 const ACTION_TYPES = [
@@ -246,6 +247,11 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
     if (rule.trigger_type === 'status_changed' && rule.trigger_config.status_id) {
       const status = statuses.find(s => s.id === rule.trigger_config.status_id);
       return `${triggerLabel}: ${status?.name || 'Unknown Status'}`;
+    }
+
+    if (rule.trigger_type === 'label_added' && rule.trigger_config.label_id) {
+      const label = labels.find(l => l.id === rule.trigger_config.label_id);
+      return `${triggerLabel}: ${label?.name || 'Unknown Label'}`;
     }
 
     if (rule.trigger_type === 'periodic' && rule.trigger_config) {
@@ -470,6 +476,25 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                       <option value="">Select substatus...</option>
                       {statuses.filter(status => status.is_substatus).map(status => (
                         <option key={status.id} value={status.id}>{status.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {formData.trigger_type === 'label_added' && (
+                  <div className="ml-4 p-3 bg-slate-50 rounded-lg">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Label</label>
+                    <select
+                      value={formData.trigger_config.label_id || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        trigger_config: { ...formData.trigger_config, label_id: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select label...</option>
+                      {labels.map(label => (
+                        <option key={label.id} value={label.id}>{label.name}</option>
                       ))}
                     </select>
                   </div>
