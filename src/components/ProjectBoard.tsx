@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns, Scan } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -16,6 +16,7 @@ import { FundingDashboard } from './FundingDashboard';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import { MeetingsPage } from './MeetingsPage';
+import { BusinessCardScanner } from './BusinessCardScanner';
 
 interface Status {
   id: string;
@@ -3622,6 +3623,7 @@ interface AddClientModalProps {
 function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClientModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [channelPartners, setChannelPartners] = useState<ChannelPartner[]>([]);
   const [allClients, setAllClients] = useState<Client[]>([]);
@@ -3692,6 +3694,17 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
       setNextClientNumber(null);
     }
   }
+
+  const handleScanData = (scannedData: any) => {
+    setFormData(prev => ({
+      ...prev,
+      ...(scannedData.company_name && { name: scannedData.company_name }),
+      ...(scannedData.contact_name && { contactPerson: scannedData.contact_name }),
+      ...(scannedData.email && { email: scannedData.email }),
+      ...(scannedData.phone && { phone: scannedData.phone }),
+      ...(scannedData.address && { address: scannedData.address }),
+    }));
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -3781,6 +3794,17 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-center justify-center pb-2">
+            <button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
+            >
+              <Scan className="w-5 h-5" />
+              Scan Business Card
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Company Name *</label>
@@ -4031,6 +4055,13 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
           </div>
         </form>
       </div>
+
+      {showScanner && (
+        <BusinessCardScanner
+          onDataExtracted={handleScanData}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 }
