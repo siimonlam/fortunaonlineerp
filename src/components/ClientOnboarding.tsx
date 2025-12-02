@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, User, Mail, Phone, Briefcase, CheckCircle, AlertCircle, MapPin, FileText } from 'lucide-react';
+import { Building2, User, Mail, Phone, Briefcase, CheckCircle, AlertCircle, MapPin, FileText, Scan } from 'lucide-react';
+import { BusinessCardScanner } from './BusinessCardScanner';
 
 export function ClientOnboarding() {
   const [formData, setFormData] = useState({
@@ -20,6 +21,7 @@ export function ClientOnboarding() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     const loadUserEmail = async () => {
@@ -38,6 +40,16 @@ export function ClientOnboarding() {
       ...formData,
       [name]: newValue
     });
+  };
+
+  const handleScanData = (scannedData: any) => {
+    setFormData(prev => ({
+      ...prev,
+      ...(scannedData.company_name && { company_name: scannedData.company_name }),
+      ...(scannedData.contact_name && { contact_name: scannedData.contact_name }),
+      ...(scannedData.phone && { phone: scannedData.phone }),
+      ...(scannedData.address && { address: scannedData.address }),
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,6 +135,17 @@ export function ClientOnboarding() {
               <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
+
+          <div className="flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
+            >
+              <Scan className="w-5 h-5" />
+              Scan Business Card
+            </button>
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -368,6 +391,13 @@ export function ClientOnboarding() {
           </p>
         </form>
       </div>
+
+      {showScanner && (
+        <BusinessCardScanner
+          onDataExtracted={handleScanData}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 }
