@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Camera, X, Upload, Loader2, CheckCircle, AlertCircle, QrCode, Smartphone } from 'lucide-react';
 import Tesseract from 'tesseract.js';
-import QRCode from 'qrcode';
+import * as QRCode from 'qrcode';
 import { supabase } from '../lib/supabase';
 
 interface BusinessCardData {
@@ -36,8 +36,12 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
 
   useEffect(() => {
     let channel: any;
+    let pollInterval: any;
 
     if (sessionId) {
+      console.log('Setting up realtime channel for session:', sessionId);
+      setProcessing(true);
+
       channel = supabase
         .channel(`scan_session_${sessionId}`)
         .on(
@@ -49,18 +53,42 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
             filter: `session_id=eq.${sessionId}`
           },
           (payload) => {
+            console.log('Received realtime update:', payload);
             if (payload.new.status === 'scanned' && payload.new.image_data) {
-              processImage(payload.new.image_data);
+              console.log('Processing image from phone...');
               setShowQRCode(false);
+              if (pollInterval) clearInterval(pollInterval);
+              processImage(payload.new.image_data);
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('Realtime subscription status:', status);
+        });
+
+      pollInterval = setInterval(async () => {
+        const { data } = await supabase
+          .from('scan_sessions')
+          .select('*')
+          .eq('session_id', sessionId)
+          .single();
+
+        if (data && data.status === 'scanned' && data.image_data) {
+          console.log('Polling detected scanned image');
+          setShowQRCode(false);
+          clearInterval(pollInterval);
+          processImage(data.image_data);
+        }
+      }, 2000);
     }
 
     return () => {
       if (channel) {
+        console.log('Cleaning up realtime channel');
         supabase.removeChannel(channel);
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval);
       }
     };
   }, [sessionId]);

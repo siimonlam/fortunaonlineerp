@@ -60,13 +60,19 @@ export function PhoneScanPage() {
     setIsUploading(true);
     try {
       if (sessionId) {
-        const { error: updateError } = await supabase
+        console.log('Uploading to session:', sessionId);
+        console.log('Image data length:', capturedImage.length);
+
+        const { data, error: updateError } = await supabase
           .from('scan_sessions')
           .update({
             image_data: capturedImage,
             status: 'scanned'
           })
-          .eq('session_id', sessionId);
+          .eq('session_id', sessionId)
+          .select();
+
+        console.log('Update result:', { data, error: updateError });
 
         if (updateError) throw updateError;
 
@@ -171,6 +177,12 @@ export function PhoneScanPage() {
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4">
+        {error && (
+          <div className="absolute top-20 left-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg">
+            <p className="text-sm">{error}</p>
+          </div>
+        )}
+
         {!capturedImage ? (
           <div className="text-center">
             <input
@@ -183,7 +195,8 @@ export function PhoneScanPage() {
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-8 shadow-lg transition-all active:scale-95"
+              disabled={isUploading}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-8 shadow-lg transition-all active:scale-95 disabled:opacity-50"
             >
               <Camera className="w-16 h-16" />
             </button>
