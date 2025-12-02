@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X, User } from 'lucide-react';
 
 interface Meeting {
   id: string;
