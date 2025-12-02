@@ -219,22 +219,32 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
     setEditingTaskIndex(null);
   };
 
-  const openEditModal = (meeting: Meeting) => {
+  const openEditModal = async (meeting: Meeting) => {
     setEditingMeeting(meeting);
     setSelectedProjectId(meeting.project_id || '');
     setEditingTaskIndex(null);
+
+    const { data: tasks } = await supabase
+      .from('tasks')
+      .select(`
+        *,
+        staff:assigned_to(full_name)
+      `)
+      .eq('meeting_id', meeting.id)
+      .order('created_at', { ascending: true });
+
     setFormData({
       title: meeting.title,
       description: meeting.description,
       meeting_date: new Date(meeting.meeting_date).toISOString().slice(0, 16),
       location: meeting.location,
       attendees: meeting.attendees,
-      tasks: meetingTasks[meeting.id]?.map(task => ({
+      tasks: (tasks || []).map(task => ({
         title: task.title,
         description: task.description || '',
         assigned_to: task.assigned_to,
         deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : null
-      })) || []
+      }))
     });
     setShowModal(true);
   };
