@@ -1303,7 +1303,7 @@ export function ProjectBoard() {
       const query = searchQuery.toLowerCase();
       return (
         client.name.toLowerCase().includes(query) ||
-        client.client_number.toString().includes(query) ||
+        (client.client_number && client.client_number.toLowerCase().includes(query)) ||
         client.contact_person?.toLowerCase().includes(query) ||
         client.email?.toLowerCase().includes(query) ||
         client.phone?.toLowerCase().includes(query) ||
@@ -2480,6 +2480,7 @@ export function ProjectBoard() {
                         {channelPartners.filter(partner =>
                           !searchQuery ||
                           partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (partner.client_number && partner.client_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
                         ).map((client) => (
@@ -2501,6 +2502,7 @@ export function ProjectBoard() {
                         {channelPartners.filter(partner =>
                           !searchQuery ||
                           partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (partner.client_number && partner.client_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
                         ).length === 0 && (
