@@ -450,13 +450,31 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
-              <input
-                type="text"
-                value={formData.salesSource}
-                onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter sales source"
-              />
+              {projectTypeName === 'Marketing' ? (
+                <select
+                  value={formData.salesSource}
+                  onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select sales source</option>
+                  <option value="Cold Call">Cold Call</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Website">Website</option>
+                  <option value="Social Media">Social Media</option>
+                  <option value="Event">Event</option>
+                  <option value="Email Campaign">Email Campaign</option>
+                  <option value="Partner">Partner</option>
+                  <option value="Other">Other</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={formData.salesSource}
+                  onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter sales source"
+                />
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Sales Person</label>
