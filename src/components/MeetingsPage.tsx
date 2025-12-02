@@ -53,6 +53,7 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
   const [expandedMeetings, setExpandedMeetings] = useState<Set<string>>(new Set());
   const [meetingTasks, setMeetingTasks] = useState<Record<string, MeetingTask[]>>({});
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [editingTaskIndex, setEditingTaskIndex] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -215,11 +216,13 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
     setSelectedProjectId('');
     setEditingMeeting(null);
     setShowModal(false);
+    setEditingTaskIndex(null);
   };
 
   const openEditModal = (meeting: Meeting) => {
     setEditingMeeting(meeting);
     setSelectedProjectId(meeting.project_id || '');
+    setEditingTaskIndex(null);
     setFormData({
       title: meeting.title,
       description: meeting.description,
@@ -237,10 +240,12 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
   };
 
   const addTaskField = () => {
+    const newIndex = formData.tasks.length;
     setFormData(prev => ({
       ...prev,
       tasks: [...prev.tasks, { title: '', description: '', assigned_to: null, deadline: null }]
     }));
+    setEditingTaskIndex(newIndex);
   };
 
   const removeTaskField = (index: number) => {
@@ -248,6 +253,11 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
       ...prev,
       tasks: prev.tasks.filter((_, i) => i !== index)
     }));
+    if (editingTaskIndex === index) {
+      setEditingTaskIndex(null);
+    } else if (editingTaskIndex !== null && editingTaskIndex > index) {
+      setEditingTaskIndex(editingTaskIndex - 1);
+    }
   };
 
   const updateTaskField = (index: number, field: string, value: any) => {
@@ -556,58 +566,110 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
 
                   <div className="space-y-3">
                     {formData.tasks.map((task, index) => (
-                      <div key={index} className="p-4 bg-slate-50 rounded-lg space-y-3">
-                        <div className="flex items-start gap-2">
-                          <input
-                            type="text"
-                            value={task.title}
-                            onChange={(e) => updateTaskField(index, 'title', e.target.value)}
-                            placeholder="Task title"
-                            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeTaskField(index)}
-                            className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <textarea
-                          value={task.description}
-                          onChange={(e) => updateTaskField(index, 'description', e.target.value)}
-                          placeholder="Task description"
-                          rows={2}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">
-                              Assign To
-                            </label>
-                            <select
-                              value={task.assigned_to || ''}
-                              onChange={(e) => updateTaskField(index, 'assigned_to', e.target.value || null)}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                            >
-                              <option value="">Unassigned</option>
-                              {staff.map(s => (
-                                <option key={s.id} value={s.id}>{s.full_name}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">
-                              Deadline
-                            </label>
-                            <input
-                              type="datetime-local"
-                              value={task.deadline || ''}
-                              onChange={(e) => updateTaskField(index, 'deadline', e.target.value || null)}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      <div key={index} className="p-4 bg-slate-50 rounded-lg">
+                        {editingTaskIndex === index ? (
+                          <div className="space-y-3">
+                            <div className="flex items-start gap-2">
+                              <input
+                                type="text"
+                                value={task.title}
+                                onChange={(e) => updateTaskField(index, 'title', e.target.value)}
+                                placeholder="Task title"
+                                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </div>
+                            <textarea
+                              value={task.description}
+                              onChange={(e) => updateTaskField(index, 'description', e.target.value)}
+                              placeholder="Task description"
+                              rows={2}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">
+                                  Assign To
+                                </label>
+                                <select
+                                  value={task.assigned_to || ''}
+                                  onChange={(e) => updateTaskField(index, 'assigned_to', e.target.value || null)}
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                >
+                                  <option value="">Unassigned</option>
+                                  {staff.map(s => (
+                                    <option key={s.id} value={s.id}>{s.full_name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">
+                                  Deadline
+                                </label>
+                                <input
+                                  type="datetime-local"
+                                  value={task.deadline || ''}
+                                  onChange={(e) => updateTaskField(index, 'deadline', e.target.value || null)}
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-2 pt-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingTaskIndex(null)}
+                                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-white transition-colors text-sm"
+                              >
+                                Done
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeTaskField(index)}
+                                className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-slate-900">{task.title || 'Untitled Task'}</h4>
+                              {task.description && (
+                                <p className="text-sm text-slate-600 mt-1">{task.description}</p>
+                              )}
+                              <div className="flex items-center gap-4 mt-2">
+                                {task.assigned_to && (
+                                  <div className="flex items-center gap-1 text-sm text-slate-600">
+                                    <User className="w-4 h-4" />
+                                    {staff.find(s => s.id === task.assigned_to)?.full_name || 'Unknown'}
+                                  </div>
+                                )}
+                                {task.deadline && (
+                                  <div className="flex items-center gap-1 text-sm text-slate-600">
+                                    <Calendar className="w-4 h-4" />
+                                    {new Date(task.deadline).toLocaleString()}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditingTaskIndex(index)}
+                                className="text-slate-400 hover:text-blue-600 transition-colors"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeTaskField(index)}
+                                className="text-slate-400 hover:text-red-600 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
