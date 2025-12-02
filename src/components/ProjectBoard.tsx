@@ -3242,6 +3242,9 @@ export function ProjectBoard() {
                       const newClients = [];
                       const updateClients = [];
 
+                      console.log('CSV Headers:', headers);
+                      console.log('Total data rows:', lines.length - 1);
+
                       for (let i = 1; i < lines.length; i++) {
                         const values = lines[i].match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => v.trim().replace(/^"(.*)"$/, '$1')) || [];
                         const client: any = {};
@@ -3252,15 +3255,23 @@ export function ProjectBoard() {
                           }
                         });
 
+                        console.log(`Row ${i} parsed client:`, client);
+
                         if (client.name) {
                           if (client.client_number && client.client_number.trim()) {
+                            console.log(`Row ${i}: Adding to updateClients (has client_number: ${client.client_number})`);
                             updateClients.push(client);
                           } else {
+                            console.log(`Row ${i}: Adding to newClients (no client_number)`);
                             client.created_by = user?.id;
                             newClients.push(client);
                           }
+                        } else {
+                          console.log(`Row ${i}: Skipping (no name field)`);
                         }
                       }
+
+                      console.log('Summary - New clients:', newClients.length, 'Update clients:', updateClients.length);
 
                       if (newClients.length === 0 && updateClients.length === 0) {
                         alert('No valid clients found in CSV');
@@ -3272,13 +3283,18 @@ export function ProjectBoard() {
 
                       if (newClients.length > 0) {
                         setImportProgress(`Importing ${newClients.length} new clients...`);
+                        console.log('New clients to import:', newClients);
                         const { data, error } = await supabase
                           .from('clients')
                           .insert(newClients)
                           .select();
 
-                        if (error) throw error;
-                        insertedCount = data.length;
+                        if (error) {
+                          console.error('Insert error:', error);
+                          throw error;
+                        }
+                        console.log('Insert success:', data);
+                        insertedCount = data?.length || 0;
                       }
 
                       if (updateClients.length > 0) {
