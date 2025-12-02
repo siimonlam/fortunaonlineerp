@@ -1,6 +1,8 @@
-import { useState, useRef } from 'react';
-import { Camera, X, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Camera, X, Upload, Loader2, CheckCircle, AlertCircle, QrCode, Smartphone } from 'lucide-react';
 import Tesseract from 'tesseract.js';
+import QRCode from 'qrcode';
+import { supabase } from '../lib/supabase';
 
 interface BusinessCardData {
   company_name?: string;
@@ -24,10 +26,72 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [sessionId, setSessionId] = useState<string>('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let channel: any;
+
+    if (sessionId) {
+      channel = supabase
+        .channel(`scan_session_${sessionId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'scan_sessions',
+            filter: `session_id=eq.${sessionId}`
+          },
+          (payload) => {
+            if (payload.new.status === 'scanned' && payload.new.image_data) {
+              processImage(payload.new.image_data);
+              setShowQRCode(false);
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [sessionId]);
+
+  const generateQRCode = async () => {
+    try {
+      setError('');
+      const newSessionId = Math.random().toString(36).substring(2, 15);
+
+      const { error: insertError } = await supabase
+        .from('scan_sessions')
+        .insert({
+          session_id: newSessionId,
+          status: 'waiting'
+        });
+
+      if (insertError) throw insertError;
+
+      const scanUrl = `${window.location.origin}/phone-scan?session=${newSessionId}`;
+      const qrDataUrl = await QRCode.toDataURL(scanUrl, {
+        width: 300,
+        margin: 2
+      });
+
+      setSessionId(newSessionId);
+      setQrCodeUrl(qrDataUrl);
+      setShowQRCode(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate QR code');
+    }
+  };
 
   const startCamera = async () => {
     try {
@@ -197,8 +261,14 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
     }
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     stopCamera();
+    if (sessionId) {
+      await supabase
+        .from('scan_sessions')
+        .update({ status: 'completed' })
+        .eq('session_id', sessionId);
+    }
     onClose();
   };
 
@@ -230,7 +300,7 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
             </div>
           )}
 
-          {!showCamera && !capturedImage && (
+          {!showCamera && !capturedImage && !showQRCode && (
             <div className="space-y-4">
               <p className="text-sm text-slate-600">
                 Take a photo of a business card or upload an image to automatically extract contact information.
@@ -256,6 +326,24 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
                 </button>
               </div>
 
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-slate-500">or use your phone</span>
+                </div>
+              </div>
+
+              <button
+                onClick={generateQRCode}
+                disabled={processing}
+                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              >
+                <Smartphone className="w-5 h-5" />
+                Scan with Phone Camera
+              </button>
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -263,6 +351,37 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
                 onChange={handleFileUpload}
                 className="hidden"
               />
+            </div>
+          )}
+
+          {showQRCode && (
+            <div className="space-y-4 text-center">
+              <div className="bg-slate-50 rounded-lg p-6 border-2 border-slate-200">
+                <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-4" />
+                <p className="text-sm font-medium text-slate-700 mb-2">
+                  Scan this QR code with your phone
+                </p>
+                <p className="text-xs text-slate-500">
+                  Your phone's camera will open automatically. Take a photo of the business card.
+                </p>
+              </div>
+
+              {processing && (
+                <div className="flex items-center justify-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                  <p className="text-sm text-blue-800">Waiting for photo from phone...</p>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setShowQRCode(false);
+                  setSessionId('');
+                }}
+                className="w-full px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           )}
 

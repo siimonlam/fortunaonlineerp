@@ -1,16 +1,47 @@
-import { useState, useRef } from 'react';
-import { Camera, Upload, X, Check } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Camera, Upload, X, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export function PhoneScanPage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [sessionValid, setSessionValid] = useState<boolean | null>(null);
+  const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const urlParams = new URLSearchParams(window.location.search);
   const sessionId = urlParams.get('session');
   const companyCode = urlParams.get('company');
+
+  useEffect(() => {
+    if (sessionId) {
+      validateSession();
+    } else {
+      setSessionValid(false);
+    }
+  }, [sessionId]);
+
+  async function validateSession() {
+    try {
+      const { data, error: sessionError } = await supabase
+        .from('scan_sessions')
+        .select('*')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (sessionError || !data) {
+        setSessionValid(false);
+        setError('Session not found or expired.');
+        return;
+      }
+
+      setSessionValid(true);
+    } catch (err: any) {
+      setSessionValid(false);
+      setError('Failed to validate session.');
+    }
+  }
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -24,45 +55,50 @@ export function PhoneScanPage() {
   };
 
   const handleUpload = async () => {
-    if (!capturedImage || !companyCode) return;
+    if (!capturedImage) return;
 
     setIsUploading(true);
     try {
-      // Convert base64 to blob
-      const response = await fetch(capturedImage);
-      const blob = await response.blob();
+      if (sessionId) {
+        const { error: updateError } = await supabase
+          .from('scan_sessions')
+          .update({
+            image_data: capturedImage,
+            status: 'scanned'
+          })
+          .eq('session_id', sessionId);
 
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = `scan_${timestamp}.jpg`;
-      const filePath = `${companyCode}/Others/${fileName}`;
+        if (updateError) throw updateError;
 
-      console.log('Uploading to:', filePath);
-      console.log('Blob size:', blob.size, 'bytes');
+        setUploadSuccess(true);
+        setTimeout(() => {
+          window.close();
+        }, 2000);
+      } else if (companyCode) {
+        const response = await fetch(capturedImage);
+        const blob = await response.blob();
 
-      const { data, error } = await supabase.storage
-        .from('comsec-documents')
-        .upload(filePath, blob, {
-          contentType: 'image/jpeg',
-          upsert: false
-        });
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `scan_${timestamp}.jpg`;
+        const filePath = `${companyCode}/Others/${fileName}`;
 
-      console.log('Upload result:', { data, error });
+        const { error } = await supabase.storage
+          .from('comsec-documents')
+          .upload(filePath, blob, {
+            contentType: 'image/jpeg',
+            upsert: false
+          });
 
-      if (error) {
-        console.error('Upload error:', error);
-        alert(`Failed to upload image: ${error.message}`);
-        setIsUploading(false);
-        return;
+        if (error) throw error;
+
+        setUploadSuccess(true);
+        setTimeout(() => {
+          setCapturedImage(null);
+          setUploadSuccess(false);
+        }, 2000);
       }
-
-      setUploadSuccess(true);
-      setTimeout(() => {
-        setCapturedImage(null);
-        setUploadSuccess(false);
-      }, 2000);
     } catch (error: any) {
-      console.error('Upload error:', error);
-      alert(`Failed to upload image: ${error.message || 'Unknown error'}`);
+      setError(error.message || 'Failed to upload image');
     } finally {
       setIsUploading(false);
     }
@@ -73,13 +109,33 @@ export function PhoneScanPage() {
     setUploadSuccess(false);
   };
 
-  if (!companyCode) {
+  if (sessionValid === null) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <Loader2 className="w-12 h-12 text-white animate-spin" />
+      </div>
+    );
+  }
+
+  if (!sessionId && !companyCode) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full text-center">
           <X className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-slate-900 mb-2">Invalid Link</h1>
           <p className="text-slate-600">This scan link is invalid or expired.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionId && sessionValid === false) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-slate-900 mb-2">Session Expired</h1>
+          <p className="text-slate-600">{error || 'This scan session has expired or is invalid.'}</p>
         </div>
       </div>
     );
@@ -106,9 +162,11 @@ export function PhoneScanPage() {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
       <div className="bg-slate-800 p-4 text-white">
-        <h1 className="text-lg font-semibold text-center">Phone Scan</h1>
+        <h1 className="text-lg font-semibold text-center">
+          {sessionId ? 'Scan Business Card' : 'Phone Scan'}
+        </h1>
         <p className="text-sm text-slate-300 text-center mt-1">
-          Uploading to: {companyCode}/Others
+          {sessionId ? 'Take a photo of the business card' : `Uploading to: ${companyCode}/Others`}
         </p>
       </div>
 
