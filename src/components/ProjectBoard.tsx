@@ -516,7 +516,7 @@ export function ProjectBoard() {
       loadWithTimeout(
         supabase
           .from(tableName)
-          .select(`*,clients(id,name,client_number)`)
+          .select(`*,clients(id,name,client_number),project_staff(user_id,can_view,can_edit)`)
           .order('created_at', { ascending: false }),
         tableName
       ),
