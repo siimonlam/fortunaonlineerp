@@ -646,9 +646,15 @@ export function ProjectBoard() {
         let clientProjects, marketingProjects, comSecClientsForClient;
 
         if (isParentClient) {
-          clientProjects = projectsRes.data?.filter(p => p.parent_client_id === filterClientId) || [];
-          marketingProjects = marketingProjectsRes.data?.filter(p => p.parent_client_id === filterClientId) || [];
-          comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === filterClientId) || [];
+          clientProjects = projectsRes.data?.filter(p =>
+            p.parent_client_id === filterClientId || p.client_id === client.id
+          ) || [];
+          marketingProjects = marketingProjectsRes.data?.filter(p =>
+            p.parent_client_id === filterClientId || p.client_id === client.id
+          ) || [];
+          comSecClientsForClient = comSecClientsRes.data?.filter(cc =>
+            cc.parent_client_id === filterClientId || cc.client_id === filterClientId
+          ) || [];
         } else {
           clientProjects = projectsRes.data?.filter(p => p.client_id === client.id) || [];
           marketingProjects = marketingProjectsRes.data?.filter(p => p.client_id === client.id) || [];
