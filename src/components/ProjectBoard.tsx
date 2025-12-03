@@ -179,6 +179,7 @@ export function ProjectBoard() {
   const [filterSubmissionDateFrom, setFilterSubmissionDateFrom] = useState('');
   const [filterSubmissionDateTo, setFilterSubmissionDateTo] = useState('');
   const [filterSalesPerson, setFilterSalesPerson] = useState<string[]>([]);
+  const [quickFilterSalesPerson, setQuickFilterSalesPerson] = useState<string>('');
   const [allLabels, setAllLabels] = useState<any[]>([]);
   const [filterWithReminder, setFilterWithReminder] = useState(false);
   const [projectTypePermissions, setProjectTypePermissions] = useState<string[]>([]);
@@ -1219,8 +1220,18 @@ export function ProjectBoard() {
           return false;
         }
 
+        if (quickFilterSalesPerson && p.sales_person_id !== quickFilterSalesPerson) {
+          return false;
+        }
+
         if (projectSearchQuery.trim()) {
           return true;
+        }
+      }
+
+      if (isFundingProjectType) {
+        if (quickFilterSalesPerson && p.sales_person_id !== quickFilterSalesPerson) {
+          return false;
         }
       }
 
@@ -1867,6 +1878,22 @@ export function ProjectBoard() {
                     <option value="deposit_paid_date_newest">Deposit Paid Date (Latest First)</option>
                     <option value="created_newest">Created (Newest)</option>
                     <option value="created_oldest">Created (Oldest)</option>
+                  </select>
+                  <select
+                    value={quickFilterSalesPerson}
+                    onChange={(e) => setQuickFilterSalesPerson(e.target.value)}
+                    className={`px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-colors ${
+                      quickFilterSalesPerson
+                        ? 'bg-blue-600 text-white border-blue-600 font-medium'
+                        : 'bg-white text-slate-700 border-slate-300'
+                    }`}
+                  >
+                    <option value="">All Sales Persons</option>
+                    {staff.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.full_name}
+                      </option>
+                    ))}
                   </select>
                   <div className="relative">
                     <button
