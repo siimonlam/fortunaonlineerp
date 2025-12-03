@@ -195,7 +195,7 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
 
   const toggleTaskComplete = async (task: MeetingTask) => {
     const { error } = await supabase
-      .from('meeting_tasks')
+      .from('tasks')
       .update({ completed: !task.completed })
       .eq('id', task.id);
 
