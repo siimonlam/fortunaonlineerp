@@ -178,6 +178,7 @@ export function ProjectBoard() {
   const [filterEndDateTo, setFilterEndDateTo] = useState('');
   const [filterSubmissionDateFrom, setFilterSubmissionDateFrom] = useState('');
   const [filterSubmissionDateTo, setFilterSubmissionDateTo] = useState('');
+  const [filterSalesPerson, setFilterSalesPerson] = useState<string[]>([]);
   const [allLabels, setAllLabels] = useState<any[]>([]);
   const [filterWithReminder, setFilterWithReminder] = useState(false);
   const [projectTypePermissions, setProjectTypePermissions] = useState<string[]>([]);
@@ -1131,7 +1132,7 @@ export function ProjectBoard() {
         }
       }
 
-      if (isFundingProjectType && projectSearchQuery.trim()) {
+      if ((isFundingProjectType || isMarketingProjectType) && projectSearchQuery.trim()) {
         const query = projectSearchQuery.toLowerCase();
         const matchesSearch =
           p.title?.toLowerCase().includes(query) ||
@@ -1206,6 +1207,16 @@ export function ProjectBoard() {
             return daysUntilDue >= 0 && daysUntilDue <= 7;
           });
           if (!hasUpcomingUserTasks) return false;
+        }
+
+        if (projectSearchQuery.trim()) {
+          return true;
+        }
+      }
+
+      if (isMarketingProjectType) {
+        if (filterSalesPerson.length > 0 && !filterSalesPerson.includes(p.sales_person_id || '')) {
+          return false;
         }
 
         if (projectSearchQuery.trim()) {
@@ -1830,7 +1841,7 @@ export function ProjectBoard() {
                 )}
               </div>
 
-              {!isClientSection && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab === 'projects' && (
+              {!isClientSection && !isAdminSection && !isComSecSection && (isFundingProjectType || isMarketingProjectType) && fundingProjectTab === 'projects' && (
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1979,6 +1990,31 @@ export function ProjectBoard() {
                               </label>
                             </div>
                           </div>
+
+                          {isMarketingProjectType && (
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-2">Sales Person</label>
+                              <div className="space-y-1 max-h-48 overflow-y-auto border border-slate-200 rounded p-2">
+                                {staff.map((person) => (
+                                  <label key={person.id} className="flex items-center gap-2 hover:bg-slate-50 p-1 rounded cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={filterSalesPerson.includes(person.id)}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setFilterSalesPerson([...filterSalesPerson, person.id]);
+                                        } else {
+                                          setFilterSalesPerson(filterSalesPerson.filter(s => s !== person.id));
+                                        }
+                                      }}
+                                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-slate-700">{person.full_name}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Start Date</label>
