@@ -412,6 +412,8 @@ export function ProjectBoard() {
           id,
           title,
           project_type_id,
+          company_name,
+          client_number,
           clients (
             name,
             client_number
@@ -438,6 +440,8 @@ export function ProjectBoard() {
               id,
               title,
               project_type_id,
+              company_name,
+              client_number,
               clients (
                 name,
                 client_number
@@ -589,7 +593,19 @@ export function ProjectBoard() {
         const invoice = fundingInvoicesRes.data?.find(inv => inv.project_id === project.id);
         const invoice_number = invoice?.invoice_number || null;
 
-        return { ...project, labels: projectLabels, invoice_number, tasks: [], table_source: tableName };
+        // For marketing projects, add the project_type_id since the table doesn't have it
+        const projectTypeId = isMarketing
+          ? projectTypes.find(pt => pt.name === 'Marketing')?.id
+          : project.project_type_id;
+
+        return {
+          ...project,
+          labels: projectLabels,
+          invoice_number,
+          tasks: [],
+          table_source: tableName,
+          project_type_id: projectTypeId
+        };
       });
       setProjects(projectsWithLabels);
     }
