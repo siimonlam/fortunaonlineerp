@@ -536,9 +536,12 @@ export function ProjectBoard() {
   async function loadProjectsViewData() {
     console.log('[loadProjectsViewData] Loading...');
 
+    // Use projectTypes state which should be populated by loadEssentialData
     const selectedProjectTypeName = projectTypes.find(pt => pt.id === selectedProjectType)?.name;
     const isMarketing = selectedProjectTypeName === 'Marketing';
     const tableName = isMarketing ? 'marketing_projects' : 'projects';
+
+    console.log('[loadProjectsViewData] Selected project type:', selectedProjectTypeName, 'isMarketing:', isMarketing, 'table:', tableName);
 
     const [statusesRes, projectsRes, projectLabelsRes, fundingInvoicesRes] = await Promise.all([
       loadWithTimeout(supabase.from('statuses').select('*').order('order_index'), 'statuses'),
@@ -584,6 +587,8 @@ export function ProjectBoard() {
     }
 
     if (projectsRes.data) {
+      console.log('[loadProjectsViewData] Loaded', projectsRes.data.length, 'projects from', tableName);
+
       const projectsWithLabels = projectsRes.data.map((project) => {
         const projectLabels = projectLabelsRes.data
           ?.filter(pl => pl.project_id === project.id)
@@ -607,7 +612,11 @@ export function ProjectBoard() {
           project_type_id: projectTypeId
         };
       });
+
+      console.log('[loadProjectsViewData] Setting', projectsWithLabels.length, 'projects, first project type_id:', projectsWithLabels[0]?.project_type_id);
       setProjects(projectsWithLabels);
+    } else {
+      console.log('[loadProjectsViewData] No projects data returned, error:', projectsRes.error);
     }
 
     if (fundingInvoicesRes.data) setFundingInvoices(fundingInvoicesRes.data);
