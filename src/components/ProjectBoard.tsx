@@ -3055,6 +3055,7 @@ export function ProjectBoard() {
       {selectedProject && (() => {
         const projectType = projectTypes.find(pt => pt.id === selectedProject.project_type_id);
         const isFundingProject = projectType?.name === 'Funding Project';
+        const isMarketingProject = projectType?.name === 'Marketing';
 
         console.log('Selected Project:', {
           id: selectedProject.id,
@@ -3062,10 +3063,11 @@ export function ProjectBoard() {
           project_type_id: selectedProject.project_type_id,
           projectTypeName: projectType?.name,
           isFundingProject,
+          isMarketingProject,
           allFields: selectedProject
         });
 
-        return isFundingProject ? (
+        return (isFundingProject || isMarketingProject) ? (
           <EditProjectModal
             project={selectedProject}
             statuses={statuses}
