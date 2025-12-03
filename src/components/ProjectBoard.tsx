@@ -188,6 +188,7 @@ export function ProjectBoard() {
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [myTasks, setMyTasks] = useState<any[]>([]);
+  const [selectedTaskUser, setSelectedTaskUser] = useState<string>('all');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importProgress, setImportProgress] = useState<string>('');
@@ -3304,6 +3305,7 @@ export function ProjectBoard() {
       <button
         onClick={() => {
           setShowMyTasks(true);
+          setSelectedTaskUser('all');
           loadMyTasks();
         }}
         className="fixed bottom-6 left-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105 z-50"
@@ -3534,14 +3536,42 @@ export function ProjectBoard() {
       {showMyTasks && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-slate-900">{isAdmin ? 'All Tasks' : 'My Tasks'}</h2>
-              <button
-                onClick={() => setShowMyTasks(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-slate-900">{isAdmin ? 'All Tasks' : 'My Tasks'}</h2>
+                <button
+                  onClick={() => setShowMyTasks(false)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              {isAdmin && (
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-slate-700">Filter by user:</label>
+                  <select
+                    value={selectedTaskUser}
+                    onChange={(e) => setSelectedTaskUser(e.target.value)}
+                    className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Users</option>
+                    {(() => {
+                      const uniqueUsers = myTasks.reduce((acc: any[], task: any) => {
+                        const userId = task.assigned_to;
+                        const userName = task.assigned_user?.full_name || task.assigned_user?.email;
+                        if (userId && userName && !acc.find(u => u.id === userId)) {
+                          acc.push({ id: userId, name: userName });
+                        }
+                        return acc;
+                      }, []);
+                      return uniqueUsers.map(user => (
+                        <option key={user.id} value={user.id}>{user.name}</option>
+                      ));
+                    })()}
+                    <option value="unassigned">Unassigned</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               {myTasks.length === 0 ? (
@@ -3551,7 +3581,13 @@ export function ProjectBoard() {
                 </div>
               ) : isAdmin ? (
                 (() => {
-                  const tasksByUser = myTasks.reduce((acc: any, task: any) => {
+                  const filteredTasks = selectedTaskUser === 'all'
+                    ? myTasks
+                    : selectedTaskUser === 'unassigned'
+                    ? myTasks.filter(task => !task.assigned_to)
+                    : myTasks.filter(task => task.assigned_to === selectedTaskUser);
+
+                  const tasksByUser = filteredTasks.reduce((acc: any, task: any) => {
                     const userId = task.assigned_to || 'unassigned';
                     const userName = task.assigned_user?.full_name || task.assigned_user?.email || 'Unassigned';
                     if (!acc[userId]) {
