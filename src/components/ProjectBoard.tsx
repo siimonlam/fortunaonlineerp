@@ -3490,24 +3490,50 @@ export function ProjectBoard() {
                 <div className="space-y-4">
                   {myTasks.map((task: any) => {
                     const isPastDue = task.deadline && new Date(task.deadline) < new Date();
-                    const companyName = task.projects?.clients?.name || (task.meetings ? 'Meeting Task' : 'No Company');
-                    const clientNumber = task.projects?.clients?.client_number;
                     const isMeetingTask = !!task.meetings;
+
+                    let companyName = 'No Company';
+                    let clientNumber = '';
+
+                    if (isMeetingTask) {
+                      companyName = task.meetings?.title || 'Meeting';
+                    } else if (task.projects?.clients?.name) {
+                      companyName = task.projects.clients.name;
+                      clientNumber = task.projects.clients.client_number;
+                    } else if (task.projects?.company_name) {
+                      companyName = task.projects.company_name;
+                      clientNumber = task.projects.client_number;
+                    }
 
                     return (
                       <div
                         key={task.id}
-                        onClick={() => {
+                        onClick={async () => {
+                          setShowMyTasks(false);
+
                           if (task.project_id && task.projects) {
-                            setShowMyTasks(false);
                             const projectTypeId = task.projects.project_type_id;
                             const projectType = projectTypes.find(pt => pt.id === projectTypeId);
+
                             if (projectType) {
-                              setSelectedProjectTypeId(projectType.id);
+                              setSelectedProjectType(projectType.id);
                               setSelectedView('projects');
+
+                              // Load the full project data
+                              const isMarketing = projectType.name === 'Marketing';
+                              const tableName = isMarketing ? 'marketing_projects' : 'projects';
+
+                              const { data: projectData } = await supabase
+                                .from(tableName)
+                                .select('*')
+                                .eq('id', task.project_id)
+                                .maybeSingle();
+
+                              if (projectData) {
+                                setSelectedProject({ ...projectData, table_source: isMarketing ? 'marketing_projects' : 'projects' });
+                              }
                             }
                           } else if (task.meeting_id) {
-                            setShowMyTasks(false);
                             setSelectedView('meetings');
                           }
                         }}
@@ -3520,12 +3546,18 @@ export function ProjectBoard() {
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-semibold text-slate-500">
-                                {clientNumber ? `#${clientNumber}` : ''} {companyName}
-                              </span>
+                              {isMeetingTask ? (
+                                <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-blue-600" />
+                                  {companyName}
+                                </span>
+                              ) : (
+                                <span className="text-sm font-semibold text-slate-500">
+                                  {clientNumber ? `#${clientNumber} ` : ''}{companyName}
+                                </span>
+                              )}
                               {isMeetingTask && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
                                   Meeting
                                 </span>
                               )}
