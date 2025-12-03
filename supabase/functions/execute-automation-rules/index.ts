@@ -126,23 +126,26 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        if (trigger_type === 'status_changed' && rule.action_config?.to_status_id) {
-          const targetStatusId = rule.action_config.to_status_id;
-          const newStatusId = trigger_data?.new_status_id;
+        if (trigger_type === 'status_changed') {
+          const targetStatusId = rule.trigger_config?.status_id || rule.action_config?.to_status_id;
 
-          const { data: newStatus } = await supabase
-            .from('statuses')
-            .select('id, parent_status_id')
-            .eq('id', newStatusId)
-            .maybeSingle();
+          if (targetStatusId) {
+            const newStatusId = trigger_data?.new_status_id;
 
-          const matchesDirectly = newStatusId === targetStatusId;
-          const matchesParent = newStatus?.parent_status_id === targetStatusId;
+            const { data: newStatus } = await supabase
+              .from('statuses')
+              .select('id, parent_status_id')
+              .eq('id', newStatusId)
+              .maybeSingle();
 
-          if (!matchesDirectly && !matchesParent) {
-            console.log(`Skipping rule - status change mismatch: new_status="${newStatusId}", target="${targetStatusId}", parent="${newStatus?.parent_status_id}"`);
-            results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'status_change_mismatch' });
-            continue;
+            const matchesDirectly = newStatusId === targetStatusId;
+            const matchesParent = newStatus?.parent_status_id === targetStatusId;
+
+            if (!matchesDirectly && !matchesParent) {
+              console.log(`Skipping rule - status change mismatch: new_status="${newStatusId}", target="${targetStatusId}", parent="${newStatus?.parent_status_id}"`);
+              results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'status_change_mismatch' });
+              continue;
+            }
           }
         }
 
@@ -264,6 +267,22 @@ Deno.serve(async (req: Request) => {
                   }
                 }
               }
+            }
+
+            // Check for duplicate task created in the last 10 seconds
+            const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
+            const { data: existingTask } = await supabase
+              .from('tasks')
+              .select('id, created_at')
+              .eq('project_id', project_id)
+              .eq('title', taskConfig.title)
+              .gte('created_at', tenSecondsAgo)
+              .maybeSingle();
+
+            if (existingTask) {
+              console.log(`Task "${taskConfig.title}" already exists (created ${existingTask.created_at}), skipping duplicate`);
+              results.push({ rule: rule.name, action: 'add_task', status: 'skipped', reason: 'duplicate_task' });
+              continue;
             }
 
             // Resolve assigned_to value
