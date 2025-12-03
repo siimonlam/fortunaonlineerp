@@ -552,6 +552,8 @@ export function ProjectBoard() {
 
     console.log('[loadProjectsViewData] Selected project type:', selectedProjectTypeName, 'isMarketing:', isMarketing, 'table:', tableName);
 
+    console.log('[loadProjectsViewData] Querying table:', tableName);
+
     const [statusesRes, projectsRes, projectLabelsRes, fundingInvoicesRes] = await Promise.all([
       loadWithTimeout(supabase.from('statuses').select('*').order('order_index'), 'statuses'),
       loadWithTimeout(
@@ -598,6 +600,11 @@ export function ProjectBoard() {
     if (projectsRes.data) {
       console.log('[loadProjectsViewData] Loaded', projectsRes.data.length, 'projects from', tableName);
       console.log('[loadProjectsViewData] Sample project data:', projectsRes.data[0]);
+
+      if (tableName === 'marketing_projects') {
+        const mp0010 = projectsRes.data.find(p => p.project_reference === 'MP0010');
+        console.log('[loadProjectsViewData] MP0010 found in data:', mp0010 ? 'YES' : 'NO', mp0010);
+      }
 
       const projectsWithLabels = projectsRes.data.map((project) => {
         const projectLabels = projectLabelsRes.data
