@@ -124,7 +124,9 @@ export function ProjectCard({
   const relatedFundingProjects = relatedProjects.filter(p => p.project_type_id === fundingProjectTypeId);
   const relatedComSecProjects = relatedProjects.filter(p => p.project_type_id === comSecProjectTypeId);
 
-  const isFundingProject = projectTypes?.find(pt => pt.id === project.project_type_id)?.name === 'Funding Project';
+  const projectTypeName = projectTypes?.find(pt => pt.id === project.project_type_id)?.name;
+  const isFundingProject = projectTypeName === 'Funding Project';
+  const isMarketingProject = projectTypeName === 'Marketing';
 
   const upcomingTasks = project.tasks?.filter(task => {
     if (!task.deadline || task.completed) return false;
@@ -243,7 +245,7 @@ export function ProjectCard({
               {project.client_number}
             </span>
           )}
-          {isFundingProject && project.project_reference && (
+          {(isFundingProject || isMarketingProject) && project.project_reference && (
             <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-1 rounded ml-2 flex-shrink-0">
               {project.project_reference}
             </span>
