@@ -45,18 +45,28 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
   const [defaultStatus, setDefaultStatus] = useState<Status | null>(null);
   const [directors, setDirectors] = useState<{name: string; id_number: string}[]>([{name: '', id_number: ''}]);
   const [members, setMembers] = useState<{name: string; id_number: string}[]>([{name: '', id_number: ''}]);
+  const [channelPartners, setChannelPartners] = useState<any[]>([]);
+  const [allClients, setAllClients] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     title: client.name || '',
     description: client.notes || '',
     companyName: client.name || '',
+    companyNameChinese: (client as any).company_name_chinese || '',
     contactName: client.contact_person || '',
     contactNumber: client.phone || '',
     email: client.email || '',
     address: client.address || '',
     salesSource: client.sales_source || '',
+    salesSourceDetail: (client as any).sales_source_detail || '',
     salesPersonId: client.sales_person_id || '',
-    abbreviation: '',
+    industry: client.industry || '',
+    otherIndustry: (client as any).other_industry || '',
+    isEcommerce: (client as any).is_ecommerce || false,
+    abbreviation: client.abbreviation || '',
+    channelPartnerId: (client as any).channel_partner_id || '',
+    parentClientId: (client as any).parent_client_id || '',
+    parentCompanyName: (client as any).parent_company_name || '',
     projectSize: '',
     agreementRef: '',
     invoiceNumber: '',
@@ -86,11 +96,31 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
   useEffect(() => {
     loadStaff();
     loadDefaultStatus();
+    if (projectTypeName === 'Marketing') {
+      loadChannelPartners();
+      loadAllClients();
+    }
   }, []);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
     if (data) setStaff(data);
+  }
+
+  async function loadChannelPartners() {
+    const { data } = await supabase
+      .from('channel_partners')
+      .select('id, name, reference_number')
+      .order('reference_number');
+    if (data) setChannelPartners(data);
+  }
+
+  async function loadAllClients() {
+    const { data } = await supabase
+      .from('clients')
+      .select('id, name, client_number')
+      .order('client_number');
+    if (data) setAllClients(data);
   }
 
   async function loadDefaultStatus() {
@@ -271,6 +301,7 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
         created_by: user.id,
         client_id: client.id,
         company_name: formData.companyName.trim() || null,
+        company_name_chinese: formData.companyNameChinese.trim() || null,
         contact_name: formData.contactName.trim() || null,
         contact_number: formData.contactNumber.trim() || null,
         email: formData.email.trim() || null,
@@ -378,130 +409,386 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Project Title *</label>
-              <input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter project title"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Company Name</label>
-              <input
-                type="text"
-                value={formData.companyName}
-                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter company name"
-              />
-            </div>
-          </div>
+          {projectTypeName === 'Marketing' ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Company Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter company name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Abbreviation</label>
+                  <input
+                    type="text"
+                    value={formData.abbreviation}
+                    onChange={(e) => setFormData({ ...formData, abbreviation: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter abbreviation"
+                  />
+                </div>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Abbreviation</label>
-            <input
-              type="text"
-              value={formData.abbreviation}
-              onChange={(e) => setFormData({ ...formData, abbreviation: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter abbreviation"
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contact Name</label>
-              <input
-                type="text"
-                value={formData.contactName}
-                onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter contact name"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
-              <input
-                type="text"
-                value={formData.contactNumber}
-                onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter contact number"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter email"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
-            <input
-              type="text"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter address"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
-              {projectTypeName === 'Marketing' ? (
-                <select
-                  value={formData.salesSource}
-                  onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select sales source</option>
-                  <option value="Cold Call">Cold Call</option>
-                  <option value="Referral">Referral</option>
-                  <option value="Website">Website</option>
-                  <option value="Social Media">Social Media</option>
-                  <option value="Event">Event</option>
-                  <option value="Email Campaign">Email Campaign</option>
-                  <option value="Partner">Partner</option>
-                  <option value="Other">Other</option>
-                </select>
-              ) : (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Company Name in Chinese</label>
                 <input
                   type="text"
-                  value={formData.salesSource}
-                  onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+                  value={formData.companyNameChinese}
+                  onChange={(e) => setFormData({ ...formData, companyNameChinese: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter sales source"
+                  placeholder="输入中文公司名称"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Parent Company Name</label>
+                  <select
+                    value={formData.parentCompanyName}
+                    onChange={(e) => {
+                      const selectedClient = allClients.find((c: any) => c.name === e.target.value);
+                      if (selectedClient) {
+                        setFormData({
+                          ...formData,
+                          parentCompanyName: selectedClient.name,
+                          parentClientId: selectedClient.client_number || ''
+                        });
+                      } else {
+                        setFormData({ ...formData, parentCompanyName: e.target.value });
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select parent company</option>
+                    {allClients.map((c: any) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name} ({c.client_number})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Parent Client ID</label>
+                  <input
+                    type="text"
+                    value={formData.parentClientId}
+                    readOnly
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+                    placeholder="Auto-filled from parent company"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Person</label>
+                  <input
+                    type="text"
+                    value={formData.contactName}
+                    onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter contact person name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Sales Person</label>
+                  <select
+                    value={formData.salesPersonId}
+                    onChange={(e) => setFormData({ ...formData, salesPersonId: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select sales person</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name || s.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
+                  <input
+                    type="text"
+                    value={formData.contactNumber}
+                    onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter contact number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter email"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter address"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
+                  <select
+                    value={formData.salesSource}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({ ...formData, salesSource: value, salesSourceDetail: '' });
+
+                      const selectedPartner = channelPartners.find((cp: any) => cp.reference_number === value);
+                      if (selectedPartner) {
+                        setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: selectedPartner.id, salesSourceDetail: '' }));
+                      } else {
+                        setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: '', salesSourceDetail: '' }));
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select sales source</option>
+                    <option value="Cold Call">Cold Call</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Walk-in">Walk-in</option>
+                    <option value="Phone Enquiry">Phone Enquiry</option>
+                    <option value="Seminar">Seminar</option>
+                    <option value="Exhibition">Exhibition</option>
+                    <option value="Website">Website</option>
+                    <option value="Email">Email</option>
+                    <option value="HKPC">HKPC</option>
+                    <option value="Google Search">Google Search</option>
+                    <option value="Return Client">Return Client</option>
+                    {channelPartners.map((cp: any) => (
+                      <option key={cp.id} value={cp.reference_number}>
+                        {cp.reference_number} - {cp.name}
+                      </option>
+                    ))}
+                    <option value="Others">Others</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Industry</label>
+                  <select
+                    value={formData.industry}
+                    onChange={(e) => setFormData({ ...formData, industry: e.target.value, otherIndustry: e.target.value !== 'Other' ? '' : formData.otherIndustry })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select an industry</option>
+                    <option value="Accounting">Accounting</option>
+                    <option value="Advertising & Marketing">Advertising & Marketing</option>
+                    <option value="Agriculture">Agriculture</option>
+                    <option value="Automotive">Automotive</option>
+                    <option value="Aviation / Aerospace">Aviation / Aerospace</option>
+                    <option value="Banking & Financial Services">Banking & Financial Services</option>
+                    <option value="Biotechnology">Biotechnology</option>
+                    <option value="Construction">Construction</option>
+                    <option value="Consulting">Consulting</option>
+                    <option value="Consumer Goods">Consumer Goods</option>
+                    <option value="Education">Education</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Energy">Energy</option>
+                    <option value="Entertainment & Media">Entertainment & Media</option>
+                    <option value="Environmental Services">Environmental Services</option>
+                    <option value="Fashion & Apparel">Fashion & Apparel</option>
+                    <option value="Food & Beverage">Food & Beverage</option>
+                    <option value="Healthcare">Healthcare</option>
+                    <option value="Hospitality & Tourism">Hospitality & Tourism</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Insurance">Insurance</option>
+                    <option value="Legal Services">Legal Services</option>
+                    <option value="Logistics & Supply Chain">Logistics & Supply Chain</option>
+                    <option value="Manufacturing">Manufacturing</option>
+                    <option value="Pharmaceuticals">Pharmaceuticals</option>
+                    <option value="Real Estate">Real Estate</option>
+                    <option value="Retail">Retail</option>
+                    <option value="Telecommunications">Telecommunications</option>
+                    <option value="Transportation">Transportation</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {formData.industry === 'Other' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Specify Other Industry</label>
+                  <input
+                    type="text"
+                    value={formData.otherIndustry}
+                    onChange={(e) => setFormData({ ...formData, otherIndustry: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter industry name"
+                  />
+                </div>
               )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Sales Person</label>
-              <select
-                value={formData.salesPersonId}
-                onChange={(e) => setFormData({ ...formData, salesPersonId: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select sales person</option>
-                {staff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.full_name || s.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+
+              {(formData.salesSource === 'Seminar' || formData.salesSource === 'Exhibition') && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    {formData.salesSource === 'Seminar' ? 'Which Seminar?' : 'Which Exhibition?'}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.salesSourceDetail}
+                    onChange={(e) => setFormData({ ...formData, salesSourceDetail: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={`Enter ${formData.salesSource.toLowerCase()} name`}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">E-commerce Business?</label>
+                <select
+                  value={formData.isEcommerce ? 'yes' : 'no'}
+                  onChange={(e) => setFormData({ ...formData, isEcommerce: e.target.value === 'yes' })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter any additional notes"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Project Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter project title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Company Name</label>
+                  <input
+                    type="text"
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter company name"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Abbreviation</label>
+                <input
+                  type="text"
+                  value={formData.abbreviation}
+                  onChange={(e) => setFormData({ ...formData, abbreviation: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter abbreviation"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Name</label>
+                  <input
+                    type="text"
+                    value={formData.contactName}
+                    onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter contact name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
+                  <input
+                    type="text"
+                    value={formData.contactNumber}
+                    onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter contact number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter email"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter address"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
+                  <input
+                    type="text"
+                    value={formData.salesSource}
+                    onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter sales source"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Sales Person</label>
+                  <select
+                    value={formData.salesPersonId}
+                    onChange={(e) => setFormData({ ...formData, salesPersonId: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select sales person</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name || s.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
 
           {projectTypeName === 'Com Sec' && (
             <>
