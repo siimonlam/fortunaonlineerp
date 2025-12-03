@@ -53,6 +53,48 @@ export async function createBudProjectFolders(
   }
 }
 
+export async function createMarketingProjectFolders(
+  projectId: string,
+  companyName: string
+): Promise<{ success: boolean; root_folder_id: string; folder_map: Record<string, string> }> {
+  const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-marketing-folders`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        projectId,
+        companyName,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = 'Failed to create folders';
+
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Cannot connect to Supabase. Check if edge function is deployed and accessible.');
+    }
+    throw error;
+  }
+}
+
 export async function getProjectFolders(projectId: string) {
   const { data, error } = await supabase
     .from('project_folders')

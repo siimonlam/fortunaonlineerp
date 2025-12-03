@@ -11,7 +11,7 @@ import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import html2pdf from 'html2pdf.js';
-import { createBudProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
+import { createBudProjectFolders, createMarketingProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
 
 interface Staff {
   id: string;
@@ -724,11 +724,18 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
     try {
       const projectName = project.company_name || project.title;
-      const result = await createBudProjectFolders(
-        project.id,
-        projectName,
-        project.project_reference
-      );
+      const isMarketingProject = projectType?.name === 'Marketing';
+
+      let result;
+      if (isMarketingProject) {
+        result = await createMarketingProjectFolders(project.id, projectName);
+      } else {
+        result = await createBudProjectFolders(
+          project.id,
+          projectName,
+          project.project_reference
+        );
+      }
 
       setProjectFolderInfo({
         parent_folder_id: result.root_folder_id,
@@ -747,7 +754,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
       setFormData(prev => ({ ...prev, googleDriveFolderId: result.root_folder_id }));
 
-      alert(`Successfully created ${result.folders_created} folders!${result.errors ? `\n\nSome folders had errors - check console for details.` : ''}`);
+      if (isMarketingProject) {
+        alert(`Successfully created folder structure for marketing project!`);
+      } else {
+        alert(`Successfully created ${result.folders_created} folders!${result.errors ? `\n\nSome folders had errors - check console for details.` : ''}`);
+      }
     } catch (error: any) {
       console.error('Error creating folders:', error);
       setFolderCreationError(error.message);
@@ -1457,6 +1468,33 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               }`}
             >
               Invoices
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('files')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeTab === 'files'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Files
+            </button>
+          </div>
+        )}
+
+        {projectType?.name === 'Marketing' && (
+          <div className="flex gap-2 px-6 pt-4 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab('project')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeTab === 'project'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Project
             </button>
             <button
               type="button"
@@ -2997,10 +3035,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-blue-900 mb-1">
-                        Create BUD Folder Structure
+                        {projectType?.name === 'Marketing' ? 'Create Marketing Folder Structure' : 'Create BUD Folder Structure'}
                       </p>
                       <p className="text-xs text-blue-700 mb-3">
-                        Automatically create the complete BUD project folder structure with 80+ folders on Google Drive
+                        {projectType?.name === 'Marketing'
+                          ? 'Automatically create the marketing project folder structure on Google Drive'
+                          : 'Automatically create the complete BUD project folder structure with 80+ folders on Google Drive'}
                       </p>
                       <button
                         type="button"
