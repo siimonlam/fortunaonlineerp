@@ -1312,7 +1312,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   } else {
     projectStatuses = statuses?.filter(s =>
       s.project_type_id === project.project_type_id &&
-      s.is_substatus === true
+      (s.is_substatus === true || s.is_substatus === false)
     ) || [];
   }
 
