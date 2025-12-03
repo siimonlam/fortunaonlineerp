@@ -557,10 +557,15 @@ export function ProjectBoard() {
     const [statusesRes, projectsRes, projectLabelsRes, fundingInvoicesRes] = await Promise.all([
       loadWithTimeout(supabase.from('statuses').select('*').order('order_index'), 'statuses'),
       loadWithTimeout(
-        supabase
-          .from(tableName)
-          .select(`*,clients(id,name,client_number),project_staff(user_id,can_view,can_edit)`)
-          .order('created_at', { ascending: false }),
+        isMarketing
+          ? supabase
+              .from(tableName)
+              .select(`*,project_staff(user_id,can_view,can_edit)`)
+              .order('created_at', { ascending: false })
+          : supabase
+              .from(tableName)
+              .select(`*,clients(id,name,client_number),project_staff(user_id,can_view,can_edit)`)
+              .order('created_at', { ascending: false }),
         tableName
       ),
       loadWithTimeout(
