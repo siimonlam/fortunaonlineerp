@@ -137,12 +137,26 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
       }
     }
 
-    if (projectTypeName === 'Funding Project' || projectTypeName === 'Marketing') {
+    if (projectTypeName === 'Funding Project') {
       const { data } = await supabase
         .from('statuses')
         .select('*')
         .eq('project_type_id', projectTypeId)
         .eq('is_substatus', true)
+        .eq('name', 'Hi-Po')
+        .maybeSingle();
+
+      if (data) {
+        setDefaultStatus(data);
+        return;
+      }
+    }
+
+    if (projectTypeName === 'Marketing') {
+      const { data } = await supabase
+        .from('statuses')
+        .select('*')
+        .eq('project_type_id', projectTypeId)
         .eq('name', 'Hi-Po')
         .maybeSingle();
 

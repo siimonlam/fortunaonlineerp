@@ -583,7 +583,7 @@ export function ProjectBoard() {
   // Load data for Clients view
   async function loadClientsViewData() {
     console.log('[loadClientsViewData] Loading...');
-    const [clientsRes, projectsRes, comSecClientsRes, channelPartnersRes, partnerProjectsRes] = await Promise.all([
+    const [clientsRes, projectsRes, marketingProjectsRes, comSecClientsRes, channelPartnersRes, partnerProjectsRes] = await Promise.all([
       loadWithTimeout(
         supabase.from('clients').select('*'),
         'clients'
@@ -591,6 +591,10 @@ export function ProjectBoard() {
       loadWithTimeout(
         supabase.from('projects').select('*').order('created_at', { ascending: false }),
         'projects'
+      ),
+      loadWithTimeout(
+        supabase.from('marketing_projects').select('*').order('created_at', { ascending: false }),
+        'marketing_projects'
       ),
       loadWithTimeout(
         supabase.from('comsec_clients').select('id, company_code, company_name, client_id, parent_client_id').order('created_at', { ascending: false }),
@@ -607,19 +611,22 @@ export function ProjectBoard() {
     ]);
 
     const comSecProjectTypeId = projectTypes.find(pt => pt.name === 'Com Sec')?.id;
+    const marketingProjectTypeId = projectTypes.find(pt => pt.name === 'Marketing')?.id;
 
     if (clientsRes.data) {
       const enrichedClients = clientsRes.data.map(client => {
         const isParentClient = client.client_number === client.parent_client_id;
         const filterClientId = isParentClient ? client.parent_client_id : client.client_number;
 
-        let clientProjects, comSecClientsForClient;
+        let clientProjects, marketingProjects, comSecClientsForClient;
 
         if (isParentClient) {
           clientProjects = projectsRes.data?.filter(p => p.parent_client_id === filterClientId) || [];
+          marketingProjects = marketingProjectsRes.data?.filter(p => p.parent_client_id === filterClientId) || [];
           comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.parent_client_id === filterClientId) || [];
         } else {
           clientProjects = projectsRes.data?.filter(p => p.client_id === client.id) || [];
+          marketingProjects = marketingProjectsRes.data?.filter(p => p.client_id === client.id) || [];
           comSecClientsForClient = comSecClientsRes.data?.filter(cc => cc.client_id === filterClientId) || [];
         }
 
@@ -631,11 +638,17 @@ export function ProjectBoard() {
           client_id: client.id,
         }));
 
+        const marketingProjectsWithType = marketingProjects.map(mp => ({
+          ...mp,
+          project_type_id: marketingProjectTypeId,
+          table_source: 'marketing_projects',
+        }));
+
         return {
           ...client,
           creator: staff.find(s => s.id === client.created_by),
           sales_person: client.sales_person_id ? staff.find(s => s.id === client.sales_person_id) : undefined,
-          projects: [...clientProjects, ...comSecProjectsFromClients],
+          projects: [...clientProjects, ...marketingProjectsWithType, ...comSecProjectsFromClients],
         };
       });
 
