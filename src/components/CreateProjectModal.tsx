@@ -262,40 +262,50 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
     if (!defaultStatus) return;
     setLoading(true);
     try {
+      const tableName = projectTypeName === 'Marketing' ? 'marketing_projects' : 'projects';
+
+      const baseData = {
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        status_id: defaultStatus.id,
+        created_by: user.id,
+        client_id: client.id,
+        company_name: formData.companyName.trim() || null,
+        contact_name: formData.contactName.trim() || null,
+        contact_number: formData.contactNumber.trim() || null,
+        email: formData.email.trim() || null,
+        address: formData.address.trim() || null,
+        sales_source: formData.salesSource.trim() || null,
+        sales_person_id: formData.salesPersonId || null,
+      };
+
+      const insertData = projectTypeName === 'Marketing'
+        ? baseData
+        : {
+            ...baseData,
+            project_type_id: projectTypeId,
+            abbreviation: formData.abbreviation.trim() || null,
+            project_size: formData.projectSize.trim() || null,
+            agreement_ref: formData.agreementRef.trim() || null,
+            invoice_number: formData.invoiceNumber.trim() || null,
+            whatsapp_group_id: formData.whatsappGroupId.trim() || null,
+            upload_link: formData.uploadLink.trim() || null,
+            attachment: formData.attachment.trim() || null,
+            deposit_paid: formData.depositPaid,
+            deposit_amount: formData.depositAmount ? parseFloat(formData.depositAmount) : null,
+            service_fee_percentage: formData.serviceFeePercentage ? parseFloat(formData.serviceFeePercentage) : null,
+            start_date: formData.startDate || null,
+            project_start_date: formData.projectStartDate || null,
+            project_end_date: formData.projectEndDate || null,
+            submission_date: formData.submissionDate || null,
+            approval_date: formData.approvalDate || null,
+            next_due_date: formData.nextDueDate || null,
+            next_hkpc_due_date: formData.nextHkpcDueDate || null,
+          };
+
       const { data, error } = await supabase
-        .from('projects')
-        .insert({
-          title: formData.title.trim(),
-          description: formData.description.trim() || null,
-          status_id: defaultStatus.id,
-          project_type_id: projectTypeId,
-          created_by: user.id,
-          client_id: client.id,
-          company_name: formData.companyName.trim() || null,
-          contact_name: formData.contactName.trim() || null,
-          contact_number: formData.contactNumber.trim() || null,
-          email: formData.email.trim() || null,
-          address: formData.address.trim() || null,
-          sales_source: formData.salesSource.trim() || null,
-          sales_person_id: formData.salesPersonId || null,
-          abbreviation: formData.abbreviation.trim() || null,
-          project_size: formData.projectSize.trim() || null,
-          agreement_ref: formData.agreementRef.trim() || null,
-          invoice_number: formData.invoiceNumber.trim() || null,
-          whatsapp_group_id: formData.whatsappGroupId.trim() || null,
-          upload_link: formData.uploadLink.trim() || null,
-          attachment: formData.attachment.trim() || null,
-          deposit_paid: formData.depositPaid,
-          deposit_amount: formData.depositAmount ? parseFloat(formData.depositAmount) : null,
-          service_fee_percentage: formData.serviceFeePercentage ? parseFloat(formData.serviceFeePercentage) : null,
-          start_date: formData.startDate || null,
-          project_start_date: formData.projectStartDate || null,
-          project_end_date: formData.projectEndDate || null,
-          submission_date: formData.submissionDate || null,
-          approval_date: formData.approvalDate || null,
-          next_due_date: formData.nextDueDate || null,
-          next_hkpc_due_date: formData.nextHkpcDueDate || null,
-        })
+        .from(tableName)
+        .insert(insertData)
         .select()
         .single();
 

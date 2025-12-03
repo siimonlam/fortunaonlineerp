@@ -249,6 +249,20 @@ export function ProjectBoard() {
       )
       .on(
         'postgres_changes',
+        { event: '*', schema: 'public', table: 'marketing_projects' },
+        (payload) => {
+          console.log('✅ ========== MARKETING PROJECT CHANGE DETECTED ==========');
+          console.log('Event Type:', payload.eventType);
+          console.log('Project ID:', payload.new?.id);
+          console.log('Old Data:', payload.old);
+          console.log('New Data:', payload.new);
+          console.log('Current User:', user?.email);
+          console.log('========================================');
+          reloadCurrentView();
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'clients' },
         (payload) => {
           console.log('✅ Clients changed:', payload.eventType);
@@ -492,14 +506,19 @@ export function ProjectBoard() {
   // Load data for Projects view
   async function loadProjectsViewData() {
     console.log('[loadProjectsViewData] Loading...');
+
+    const selectedProjectTypeName = projectTypes.find(pt => pt.id === selectedProjectType)?.name;
+    const isMarketing = selectedProjectTypeName === 'Marketing';
+    const tableName = isMarketing ? 'marketing_projects' : 'projects';
+
     const [statusesRes, projectsRes, projectLabelsRes, fundingInvoicesRes] = await Promise.all([
       loadWithTimeout(supabase.from('statuses').select('*').order('order_index'), 'statuses'),
       loadWithTimeout(
         supabase
-          .from('projects')
-          .select(`*,clients(id,name,client_number),project_staff(user_id,can_view,can_edit)`)
+          .from(tableName)
+          .select(`*,clients(id,name,client_number)`)
           .order('created_at', { ascending: false }),
-        'projects'
+        tableName
       ),
       loadWithTimeout(
         supabase.from('project_labels').select('project_id, labels:label_id(id, name, color)'),
@@ -545,7 +564,7 @@ export function ProjectBoard() {
         const invoice = fundingInvoicesRes.data?.find(inv => inv.project_id === project.id);
         const invoice_number = invoice?.invoice_number || null;
 
-        return { ...project, labels: projectLabels, invoice_number, tasks: [] };
+        return { ...project, labels: projectLabels, invoice_number, tasks: [], table_source: tableName };
       });
       setProjects(projectsWithLabels);
     }

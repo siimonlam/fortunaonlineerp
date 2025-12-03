@@ -75,6 +75,7 @@ interface Project {
   parent_client_id?: string;
   parent_company_name?: string;
   created_at: string;
+  table_source?: string;
 }
 
 interface Status {
@@ -345,8 +346,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   async function refreshProjectData() {
     try {
       // Fetch the latest project data from database
+      const tableName = project.table_source || 'projects';
       const { data, error } = await supabase
-        .from('projects')
+        .from(tableName)
         .select('*')
         .eq('id', project.id)
         .maybeSingle();
@@ -578,8 +580,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     }
 
     try {
+      const tableName = project.table_source || 'projects';
       const { error } = await supabase
-        .from('projects')
+        .from(tableName)
         .update({
           next_hkpc_due_date: qaDueDate
         })
@@ -713,8 +716,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         status: 'completed',
       });
 
+      const tableName = project.table_source || 'projects';
       await supabase
-        .from('projects')
+        .from(tableName)
         .update({
           google_drive_folder_id: result.root_folder_id,
           updated_at: new Date().toISOString(),
@@ -813,8 +817,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     try {
       const statusChanged = formData.statusId !== project.status_id;
 
+      const tableName = project.table_source || 'projects';
       const { error } = await supabase
-        .from('projects')
+        .from(tableName)
         .update({
           title: formData.title.trim(),
           company_name_chinese: formData.companyNameChinese.trim() || null,
@@ -960,8 +965,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
     setLoading(true);
     try {
+      const tableName = project.table_source || 'projects';
       const { error } = await supabase
-        .from('projects')
+        .from(tableName)
         .delete()
         .eq('id', project.id);
 
@@ -1083,8 +1089,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     try {
       console.log('Triggering automation for task:', taskTitle);
 
+      const tableName = project.table_source || 'projects';
       const { data: projectData, error: projectError } = await supabase
-        .from('projects')
+        .from(tableName)
         .select('id, project_type_id, status_id')
         .eq('id', project.id)
         .maybeSingle();
