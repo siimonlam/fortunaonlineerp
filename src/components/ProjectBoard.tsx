@@ -206,10 +206,10 @@ export function ProjectBoard() {
     console.log('[ProjectBoard] Loading essential data first...');
 
     // Load essential data, then load view-specific data
-    loadEssentialData().then(() => {
+    loadEssentialData().then((essentialData) => {
       console.log('[ProjectBoard] Essential data loaded, loading view data...');
       if (selectedView === 'projects') {
-        loadProjectsViewData();
+        loadProjectsViewData(essentialData.projectTypes, essentialData.selectedType);
       } else if (selectedView === 'clients') {
         loadClientsViewData();
       } else if (selectedView === 'admin') {
@@ -530,14 +530,23 @@ export function ProjectBoard() {
     }
 
     console.log('[loadEssentialData] Core data loaded');
+
+    // Return the loaded data so it can be used immediately without waiting for state updates
+    return {
+      projectTypes: projectTypesRes.data || [],
+      selectedType: selectedProjectType || (projectTypesRes.data?.[0]?.id)
+    };
   }
 
   // Load data for Projects view
-  async function loadProjectsViewData() {
+  async function loadProjectsViewData(projectTypesData?: any[], selectedTypeId?: string) {
     console.log('[loadProjectsViewData] Loading...');
 
-    // Use projectTypes state which should be populated by loadEssentialData
-    const selectedProjectTypeName = projectTypes.find(pt => pt.id === selectedProjectType)?.name;
+    // Use passed data or fall back to state
+    const typesData = projectTypesData || projectTypes;
+    const typeId = selectedTypeId || selectedProjectType;
+
+    const selectedProjectTypeName = typesData.find(pt => pt.id === typeId)?.name;
     const isMarketing = selectedProjectTypeName === 'Marketing';
     const tableName = isMarketing ? 'marketing_projects' : 'projects';
 
@@ -600,7 +609,7 @@ export function ProjectBoard() {
 
         // For marketing projects, add the project_type_id since the table doesn't have it
         const projectTypeId = isMarketing
-          ? projectTypes.find(pt => pt.name === 'Marketing')?.id
+          ? typesData.find(pt => pt.name === 'Marketing')?.id
           : project.project_type_id;
 
         return {
