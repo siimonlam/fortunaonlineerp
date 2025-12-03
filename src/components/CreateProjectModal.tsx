@@ -96,8 +96,10 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
   useEffect(() => {
     loadStaff();
     loadDefaultStatus();
-    if (projectTypeName === 'Marketing') {
+    if (projectTypeName === 'Marketing' || projectTypeName === 'Funding Project') {
       loadChannelPartners();
+    }
+    if (projectTypeName === 'Marketing') {
       loadAllClients();
     }
   }, []);
@@ -589,24 +591,22 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
                     }}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select sales source</option>
-                    <option value="Cold Call">Cold Call</option>
+                    <option value="">-- Select Sales Source --</option>
+                    <option value="Direct">Direct</option>
                     <option value="Referral">Referral</option>
-                    <option value="Walk-in">Walk-in</option>
-                    <option value="Phone Enquiry">Phone Enquiry</option>
+                    <option value="Website">Website</option>
                     <option value="Seminar">Seminar</option>
                     <option value="Exhibition">Exhibition</option>
-                    <option value="Website">Website</option>
-                    <option value="Email">Email</option>
-                    <option value="HKPC">HKPC</option>
-                    <option value="Google Search">Google Search</option>
-                    <option value="Return Client">Return Client</option>
-                    {channelPartners.map((cp: any) => (
-                      <option key={cp.id} value={cp.reference_number}>
-                        {cp.reference_number} - {cp.name}
-                      </option>
-                    ))}
+                    <option value="Marketing">Marketing</option>
+                    <option value="Social Media">Social Media</option>
                     <option value="Others">Others</option>
+                    <optgroup label="Channel Partners">
+                      {channelPartners.map((cp: any) => (
+                        <option key={cp.id} value={cp.reference_number}>
+                          {cp.reference_number} - {cp.name}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
                 <div>
@@ -787,13 +787,31 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.salesSource}
-                    onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({ ...formData, salesSource: value, salesSourceDetail: '' });
+                    }}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter sales source"
-                  />
+                  >
+                    <option value="">-- Select Sales Source --</option>
+                    <option value="Direct">Direct</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Website">Website</option>
+                    <option value="Seminar">Seminar</option>
+                    <option value="Exhibition">Exhibition</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="Others">Others</option>
+                    <optgroup label="Channel Partners">
+                      {channelPartners.map((cp: any) => (
+                        <option key={cp.id} value={cp.reference_number}>
+                          {cp.reference_number} - {cp.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Sales Person</label>
@@ -811,6 +829,21 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
                   </select>
                 </div>
               </div>
+
+              {(formData.salesSource === 'Seminar' || formData.salesSource === 'Exhibition') && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    {formData.salesSource === 'Seminar' ? 'Which Seminar?' : 'Which Exhibition?'}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.salesSourceDetail}
+                    onChange={(e) => setFormData({ ...formData, salesSourceDetail: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={formData.salesSource === 'Seminar' ? 'Enter seminar name' : 'Enter exhibition name'}
+                  />
+                </div>
+              )}
             </>
           )}
 
