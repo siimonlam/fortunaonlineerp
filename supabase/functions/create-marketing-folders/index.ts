@@ -73,6 +73,36 @@ async function copyFolderStructure(
   return folderMap;
 }
 
+async function refreshGoogleToken(refreshToken: string): Promise<string> {
+  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Google OAuth credentials not configured');
+  }
+
+  const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+
+  if (!refreshResponse.ok) {
+    const error = await refreshResponse.text();
+    throw new Error(`Failed to refresh token: ${error}`);
+  }
+
+  const refreshData = await refreshResponse.json();
+  return refreshData.access_token;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -98,14 +128,16 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('google_oauth_tokens')
-      .select('access_token, refresh_token, expires_at')
-      .single();
+    const { data: credentials, error: credError } = await supabase
+      .from('google_oauth_credentials')
+      .select('*')
+      .eq('service_name', 'google_drive')
+      .maybeSingle();
 
-    if (tokenError || !tokenData) {
+    if (credError || !credentials) {
+      console.error('Failed to fetch OAuth credentials:', credError);
       return new Response(
-        JSON.stringify({ error: 'Failed to retrieve Google OAuth token' }),
+        JSON.stringify({ error: 'Google Drive not connected. Please authorize Google Drive in Settings.' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -113,25 +145,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    let accessToken = tokenData.access_token;
-    const expiresAt = new Date(tokenData.expires_at);
+    let accessToken = credentials.access_token;
+    const tokenExpiresAt = new Date(credentials.token_expires_at);
+    const now = new Date();
 
-    if (expiresAt <= new Date()) {
-      const refreshResponse = await fetch(`${supabaseUrl}/functions/v1/google-oauth-refresh`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken: tokenData.refresh_token }),
-      });
+    if (tokenExpiresAt < new Date(now.getTime() + 5 * 60 * 1000)) {
+      console.log('Access token expired, refreshing...');
+      accessToken = await refreshGoogleToken(credentials.refresh_token);
 
-      if (!refreshResponse.ok) {
-        throw new Error('Failed to refresh access token');
-      }
+      const newExpiresAt = new Date(now.getTime() + 3600 * 1000);
+      await supabase
+        .from('google_oauth_credentials')
+        .update({
+          access_token: accessToken,
+          token_expires_at: newExpiresAt.toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('service_name', 'google_drive');
 
-      const refreshData = await refreshResponse.json();
-      accessToken = refreshData.access_token;
+      console.log('Token refreshed successfully');
     }
 
     console.log(`Creating folder structure for: ${companyName}`);
