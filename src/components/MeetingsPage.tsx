@@ -61,7 +61,7 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
     meeting_date: '',
     location: '',
     attendees: [] as string[],
-    tasks: [] as { title: string; description: string; assigned_to: string | null; deadline: string | null }[]
+    tasks: [] as { id?: string; title: string; description: string; assigned_to: string | null; deadline: string | null; completed: boolean }[]
   });
 
   useEffect(() => {
@@ -240,20 +240,51 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
       location: meeting.location,
       attendees: meeting.attendees,
       tasks: (tasks || []).map(task => ({
+        id: task.id,
         title: task.title,
         description: task.description || '',
         assigned_to: task.assigned_to,
-        deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : null
+        deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : null,
+        completed: task.completed || false
       }))
     });
     setShowModal(true);
+  };
+
+  const toggleTaskCompleteInModal = async (index: number) => {
+    const task = formData.tasks[index];
+    if (task.id) {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed: !task.completed })
+        .eq('id', task.id);
+
+      if (!error) {
+        setFormData(prev => ({
+          ...prev,
+          tasks: prev.tasks.map((t, i) =>
+            i === index ? { ...t, completed: !t.completed } : t
+          )
+        }));
+        if (editingMeeting) {
+          fetchMeetingTasks(editingMeeting.id);
+        }
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        tasks: prev.tasks.map((t, i) =>
+          i === index ? { ...t, completed: !t.completed } : t
+        )
+      }));
+    }
   };
 
   const addTaskField = () => {
     const newIndex = formData.tasks.length;
     setFormData(prev => ({
       ...prev,
-      tasks: [...prev.tasks, { title: '', description: '', assigned_to: null, deadline: null }]
+      tasks: [...prev.tasks, { title: '', description: '', assigned_to: null, deadline: null, completed: false }]
     }));
     setEditingTaskIndex(newIndex);
   };
@@ -642,8 +673,19 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
                           </div>
                         ) : (
                           <div className="flex items-start gap-3">
+                            <button
+                              type="button"
+                              onClick={() => toggleTaskCompleteInModal(index)}
+                              className="mt-0.5 text-slate-400 hover:text-blue-600 transition-colors"
+                            >
+                              {task.completed ? (
+                                <CheckSquare className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <Square className="w-5 h-5" />
+                              )}
+                            </button>
                             <div className="flex-1">
-                              <h4 className="font-medium text-slate-900">{task.title || 'Untitled Task'}</h4>
+                              <h4 className={`font-medium ${task.completed ? 'line-through text-slate-500' : 'text-slate-900'}`}>{task.title || 'Untitled Task'}</h4>
                               {task.description && (
                                 <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                               )}
