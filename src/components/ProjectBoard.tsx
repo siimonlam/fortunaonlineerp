@@ -404,13 +404,14 @@ export function ProjectBoard() {
   async function loadMyTasks() {
     if (!user) return;
 
-    const { data, error } = await supabase
+    const { data: tasksData, error } = await supabase
       .from('tasks')
       .select(`
         *,
         projects (
           id,
           title,
+          project_type_id,
           clients (
             name,
             client_number
@@ -428,8 +429,30 @@ export function ProjectBoard() {
 
     if (error) {
       console.error('Error loading my tasks:', error);
-    } else if (data) {
-      setMyTasks(data);
+    } else if (tasksData) {
+      const enrichedTasks = await Promise.all(tasksData.map(async (task) => {
+        if (task.project_id && !task.projects) {
+          const { data: marketingProject } = await supabase
+            .from('marketing_projects')
+            .select(`
+              id,
+              title,
+              project_type_id,
+              clients (
+                name,
+                client_number
+              )
+            `)
+            .eq('id', task.project_id)
+            .maybeSingle();
+
+          if (marketingProject) {
+            return { ...task, projects: marketingProject };
+          }
+        }
+        return task;
+      }));
+      setMyTasks(enrichedTasks);
     }
   }
 
@@ -3474,10 +3497,24 @@ export function ProjectBoard() {
                     return (
                       <div
                         key={task.id}
-                        className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
+                        onClick={() => {
+                          if (task.project_id && task.projects) {
+                            setShowMyTasks(false);
+                            const projectTypeId = task.projects.project_type_id;
+                            const projectType = projectTypes.find(pt => pt.id === projectTypeId);
+                            if (projectType) {
+                              setSelectedProjectTypeId(projectType.id);
+                              setSelectedView('projects');
+                            }
+                          } else if (task.meeting_id) {
+                            setShowMyTasks(false);
+                            setSelectedView('meetings');
+                          }
+                        }}
+                        className={`p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${
                           isPastDue
-                            ? 'border-red-200 bg-red-50'
-                            : 'border-slate-200 bg-white'
+                            ? 'border-red-200 bg-red-50 hover:bg-red-100'
+                            : 'border-slate-200 bg-white hover:bg-slate-50'
                         }`}
                       >
                         <div className="flex justify-between items-start mb-2">

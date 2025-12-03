@@ -214,11 +214,18 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                   {client.notes && (
                     <div className="text-sm text-slate-500 truncate max-w-xs">{client.notes}</div>
                   )}
-                  {client.projects && client.projects.length > 0 && (
-                    <div className="text-xs text-slate-500 mt-1">
-                      {client.projects.length} project{client.projects.length !== 1 ? 's' : ''}
-                    </div>
-                  )}
+                  {client.projects && client.projects.length > 0 && (() => {
+                    const fundingCount = client.projects.filter((p: any) => !p.table_source || p.table_source === 'projects').length;
+                    const marketingCount = client.projects.filter((p: any) => p.table_source === 'marketing_projects').length;
+                    const comsecCount = client.projects.filter((p: any) => p.project_reference?.startsWith('CS')).length;
+                    return (
+                      <div className="text-xs text-slate-500 mt-1 flex gap-2">
+                        {fundingCount > 0 && <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{fundingCount} Funding</span>}
+                        {marketingCount > 0 && <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">{marketingCount} Marketing</span>}
+                        {comsecCount > 0 && <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">{comsecCount} ComSec</span>}
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
                   {client.industry ? (
@@ -327,6 +334,19 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                       {client.notes}
                     </p>
                   )}
+
+                  {client.projects && client.projects.length > 0 && (() => {
+                    const fundingCount = client.projects.filter((p: any) => !p.table_source || p.table_source === 'projects').length;
+                    const marketingCount = client.projects.filter((p: any) => p.table_source === 'marketing_projects').length;
+                    const comsecCount = client.projects.filter((p: any) => p.project_reference?.startsWith('CS')).length;
+                    return (
+                      <div className="mb-3 flex flex-wrap gap-1.5">
+                        {fundingCount > 0 && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">{fundingCount} Funding</span>}
+                        {marketingCount > 0 && <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-medium">{marketingCount} Marketing</span>}
+                        {comsecCount > 0 && <span className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded font-medium">{comsecCount} ComSec</span>}
+                      </div>
+                    );
+                  })()}
 
                   <div className="pt-3 border-t border-slate-100">
                     <div className="text-xs text-slate-500">
