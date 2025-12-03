@@ -597,6 +597,7 @@ export function ProjectBoard() {
 
     if (projectsRes.data) {
       console.log('[loadProjectsViewData] Loaded', projectsRes.data.length, 'projects from', tableName);
+      console.log('[loadProjectsViewData] Sample project data:', projectsRes.data[0]);
 
       const projectsWithLabels = projectsRes.data.map((project) => {
         const projectLabels = projectLabelsRes.data

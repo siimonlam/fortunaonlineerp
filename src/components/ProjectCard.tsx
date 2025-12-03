@@ -128,6 +128,16 @@ export function ProjectCard({
   const isFundingProject = projectTypeName === 'Funding Project';
   const isMarketingProject = projectTypeName === 'Marketing';
 
+  // Debug logging for marketing projects
+  if (isMarketingProject && project.title?.includes('Weaver')) {
+    console.log('[ProjectCard] MP0010 project data:', {
+      title: project.title,
+      project_reference: project.project_reference,
+      projectTypeName,
+      isMarketingProject
+    });
+  }
+
   const upcomingTasks = project.tasks?.filter(task => {
     if (!task.deadline || task.completed) return false;
     if (!task.assigned_to || task.assigned_to !== currentUserId) return false;
