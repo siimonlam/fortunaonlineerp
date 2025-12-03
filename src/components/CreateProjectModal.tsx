@@ -311,7 +311,17 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
       };
 
       const insertData = projectTypeName === 'Marketing'
-        ? baseData
+        ? {
+            ...baseData,
+            abbreviation: formData.abbreviation.trim() || null,
+            industry: formData.industry.trim() || null,
+            other_industry: formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null,
+            is_ecommerce: formData.isEcommerce,
+            channel_partner_id: formData.channelPartnerId || null,
+            parent_client_id: formData.parentClientId.trim() || null,
+            parent_company_name: formData.parentCompanyName.trim() || null,
+            sales_source_detail: formData.salesSourceDetail.trim() || null,
+          }
         : {
             ...baseData,
             project_type_id: projectTypeId,

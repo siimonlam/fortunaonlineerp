@@ -115,6 +115,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [channelPartners, setChannelPartners] = useState<any[]>([]);
+  const [allClients, setAllClients] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [permissions, setPermissions] = useState<ProjectPermission[]>([]);
@@ -173,8 +174,13 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     email: project.email || '',
     address: project.address || '',
     salesSource: project.sales_source || '',
+    salesSourceDetail: (project as any).sales_source_detail || '',
     salesPersonId: project.sales_person_id || '',
     abbreviation: project.abbreviation || '',
+    industry: (project as any).industry || '',
+    otherIndustry: (project as any).other_industry || '',
+    isEcommerce: (project as any).is_ecommerce || false,
+    channelPartnerId: (project as any).channel_partner_id || '',
     applicationNumber: project.application_number || '',
     projectSize: project.project_size || '',
     agreementRef: project.agreement_ref || '',
@@ -217,8 +223,13 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     email: project.email || '',
     address: project.address || '',
     salesSource: project.sales_source || '',
+    salesSourceDetail: (project as any).sales_source_detail || '',
     salesPersonId: project.sales_person_id || '',
     abbreviation: project.abbreviation || '',
+    industry: (project as any).industry || '',
+    otherIndustry: (project as any).other_industry || '',
+    isEcommerce: (project as any).is_ecommerce || false,
+    channelPartnerId: (project as any).channel_partner_id || '',
     applicationNumber: project.application_number || '',
     projectSize: project.project_size || '',
     agreementRef: project.agreement_ref || '',
@@ -268,6 +279,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   useEffect(() => {
     loadStaff();
     loadChannelPartners();
+    loadAllClients();
     checkPermissions();
     loadLabels();
     loadProjectLabels();
@@ -311,6 +323,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       .select('id, name, reference_number')
       .order('reference_number');
     if (data) setChannelPartners(data);
+  }
+
+  async function loadAllClients() {
+    const { data } = await supabase
+      .from('clients')
+      .select('id, name, client_number')
+      .order('client_number');
+    if (data) setAllClients(data);
   }
 
   async function loadInvoices() {
@@ -818,50 +838,70 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       const statusChanged = formData.statusId !== project.status_id;
 
       const tableName = project.table_source || 'projects';
+
+      const baseUpdate = {
+        title: formData.title.trim(),
+        company_name_chinese: formData.companyNameChinese.trim() || null,
+        description: formData.description.trim() || null,
+        status_id: formData.statusId,
+        project_name: formData.projectName.trim() || null,
+        project_reference: formData.projectReference.trim() || null,
+        company_name: formData.companyName.trim() || null,
+        contact_name: formData.contactName.trim() || null,
+        contact_number: formData.contactNumber.trim() || null,
+        email: formData.email.trim() || null,
+        address: formData.address.trim() || null,
+        sales_source: formData.salesSource.trim() || null,
+        sales_person_id: formData.salesPersonId || null,
+        abbreviation: formData.abbreviation.trim() || null,
+      };
+
+      const marketingFields = tableName === 'marketing_projects' ? {
+        sales_source_detail: formData.salesSourceDetail.trim() || null,
+        industry: formData.industry.trim() || null,
+        other_industry: formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null,
+        is_ecommerce: formData.isEcommerce,
+        channel_partner_id: formData.channelPartnerId || null,
+        parent_client_id: formData.parentClientId.trim() || null,
+        parent_company_name: formData.parentCompanyName.trim() || null,
+      } : {};
+
+      const projectFields = tableName === 'projects' ? {
+        application_number: formData.applicationNumber.trim() || null,
+        project_size: formData.projectSize.trim() || null,
+        agreement_ref: formData.agreementRef.trim() || null,
+        invoice_number: formData.invoiceNumber.trim() || null,
+        whatsapp_group_id: formData.whatsappGroupId.trim() || null,
+        upload_link: formData.uploadLink.trim() || null,
+        attachment: formData.attachment.trim() || null,
+        deposit_paid: formData.depositPaid,
+        deposit_amount: formData.depositAmount ? parseFloat(formData.depositAmount) : null,
+        deposit_paid_date: formData.depositPaidDate || null,
+        service_fee_percentage: formData.serviceFeePercentage ? parseFloat(formData.serviceFeePercentage) : null,
+        funding_scheme: formData.fundingScheme ? parseFloat(formData.fundingScheme) : null,
+        start_date: formData.startDate || null,
+        project_start_date: formData.projectStartDate || null,
+        project_end_date: formData.projectEndDate || null,
+        submission_date: formData.submissionDate || null,
+        approval_date: formData.approvalDate || null,
+        next_due_date: formData.nextDueDate || null,
+        next_hkpc_due_date: formData.nextHkpcDueDate || null,
+        google_drive_folder_id: formData.googleDriveFolderId.trim() || null,
+        brand_name: formData.brandName.trim() || null,
+        agreement_sign_date: formData.agreementSignDate || null,
+        hkpc_officer_name: formData.hkpcOfficerName.trim() || null,
+        hkpc_officer_email: formData.hkpcOfficerEmail.trim() || null,
+        hkpc_officer_phone: formData.hkpcOfficerPhone.trim() || null,
+        parent_client_id: formData.parentClientId.trim() || null,
+        parent_company_name: formData.parentCompanyName.trim() || null,
+      } : {};
+
       const { error } = await supabase
         .from(tableName)
         .update({
-          title: formData.title.trim(),
-          company_name_chinese: formData.companyNameChinese.trim() || null,
-          description: formData.description.trim() || null,
-          status_id: formData.statusId,
-          project_name: formData.projectName.trim() || null,
-          project_reference: formData.projectReference.trim() || null,
-          company_name: formData.companyName.trim() || null,
-          contact_name: formData.contactName.trim() || null,
-          contact_number: formData.contactNumber.trim() || null,
-          email: formData.email.trim() || null,
-          address: formData.address.trim() || null,
-          sales_source: formData.salesSource.trim() || null,
-          sales_person_id: formData.salesPersonId || null,
-          abbreviation: formData.abbreviation.trim() || null,
-          application_number: formData.applicationNumber.trim() || null,
-          project_size: formData.projectSize.trim() || null,
-          agreement_ref: formData.agreementRef.trim() || null,
-          invoice_number: formData.invoiceNumber.trim() || null,
-          whatsapp_group_id: formData.whatsappGroupId.trim() || null,
-          upload_link: formData.uploadLink.trim() || null,
-          attachment: formData.attachment.trim() || null,
-          deposit_paid: formData.depositPaid,
-          deposit_amount: formData.depositAmount ? parseFloat(formData.depositAmount) : null,
-          deposit_paid_date: formData.depositPaidDate || null,
-          service_fee_percentage: formData.serviceFeePercentage ? parseFloat(formData.serviceFeePercentage) : null,
-          funding_scheme: formData.fundingScheme ? parseFloat(formData.fundingScheme) : null,
-          start_date: formData.startDate || null,
-          project_start_date: formData.projectStartDate || null,
-          project_end_date: formData.projectEndDate || null,
-          submission_date: formData.submissionDate || null,
-          approval_date: formData.approvalDate || null,
-          next_due_date: formData.nextDueDate || null,
-          next_hkpc_due_date: formData.nextHkpcDueDate || null,
-          google_drive_folder_id: formData.googleDriveFolderId.trim() || null,
-          brand_name: formData.brandName.trim() || null,
-          agreement_sign_date: formData.agreementSignDate || null,
-          hkpc_officer_name: formData.hkpcOfficerName.trim() || null,
-          hkpc_officer_email: formData.hkpcOfficerEmail.trim() || null,
-          hkpc_officer_phone: formData.hkpcOfficerPhone.trim() || null,
-          parent_client_id: formData.parentClientId.trim() || null,
-          parent_company_name: formData.parentCompanyName.trim() || null,
+          ...baseUpdate,
+          ...marketingFields,
+          ...projectFields,
           updated_at: new Date().toISOString(),
         })
         .eq('id', project.id);
@@ -1588,24 +1628,51 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Parent Company Name</label>
-                <input
-                  type="text"
-                  disabled={!canEdit}
-                  value={formData.parentCompanyName}
-                  onChange={(e) => setFormData({ ...formData, parentCompanyName: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
-                  placeholder="Parent company name"
-                />
+                {projectType?.name === 'Marketing' ? (
+                  <select
+                    disabled={!canEdit}
+                    value={formData.parentCompanyName}
+                    onChange={(e) => {
+                      const selectedClient = allClients.find((c: any) => c.name === e.target.value);
+                      if (selectedClient) {
+                        setFormData({
+                          ...formData,
+                          parentCompanyName: selectedClient.name,
+                          parentClientId: selectedClient.client_number || ''
+                        });
+                      } else {
+                        setFormData({ ...formData, parentCompanyName: e.target.value });
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  >
+                    <option value="">Select parent company</option>
+                    {allClients.map((c: any) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name} ({c.client_number})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    disabled={!canEdit}
+                    value={formData.parentCompanyName}
+                    onChange={(e) => setFormData({ ...formData, parentCompanyName: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                    placeholder="Parent company name"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Parent Client ID</label>
                 <input
                   type="text"
-                  disabled={!canEdit}
+                  disabled
                   value={formData.parentClientId}
-                  onChange={(e) => setFormData({ ...formData, parentClientId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
-                  placeholder="Parent client ID"
+                  readOnly
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+                  placeholder="Auto-filled from parent company"
                 />
               </div>
             </div>
@@ -1668,25 +1735,63 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Sales Source</label>
-                <select
-                  disabled={!canEdit}
-                  value={formData.salesSource}
-                  onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
-                >
-                  <option value="">-- Select Sales Source --</option>
-                  <option value="Direct">Direct</option>
-                  <option value="Referral">Referral</option>
-                  <option value="Website">Website</option>
-                  <option value="Social Media">Social Media</option>
-                  <optgroup label="Channel Partners">
-                    {channelPartners.map(partner => (
-                      <option key={partner.id} value={partner.reference_number}>
-                        {partner.reference_number} - {partner.name}
+                {projectType?.name === 'Marketing' ? (
+                  <select
+                    disabled={!canEdit}
+                    value={formData.salesSource}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({ ...formData, salesSource: value, salesSourceDetail: '' });
+
+                      const selectedPartner = channelPartners.find((cp: any) => cp.reference_number === value);
+                      if (selectedPartner) {
+                        setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: selectedPartner.id, salesSourceDetail: '' }));
+                      } else {
+                        setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: '', salesSourceDetail: '' }));
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  >
+                    <option value="">Select sales source</option>
+                    <option value="Cold Call">Cold Call</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Walk-in">Walk-in</option>
+                    <option value="Phone Enquiry">Phone Enquiry</option>
+                    <option value="Seminar">Seminar</option>
+                    <option value="Exhibition">Exhibition</option>
+                    <option value="Website">Website</option>
+                    <option value="Email">Email</option>
+                    <option value="HKPC">HKPC</option>
+                    <option value="Google Search">Google Search</option>
+                    <option value="Return Client">Return Client</option>
+                    {channelPartners.map((cp: any) => (
+                      <option key={cp.id} value={cp.reference_number}>
+                        {cp.reference_number} - {cp.name}
                       </option>
                     ))}
-                  </optgroup>
-                </select>
+                    <option value="Others">Others</option>
+                  </select>
+                ) : (
+                  <select
+                    disabled={!canEdit}
+                    value={formData.salesSource}
+                    onChange={(e) => setFormData({ ...formData, salesSource: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  >
+                    <option value="">-- Select Sales Source --</option>
+                    <option value="Direct">Direct</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Website">Website</option>
+                    <option value="Social Media">Social Media</option>
+                    <optgroup label="Channel Partners">
+                      {channelPartners.map(partner => (
+                        <option key={partner.id} value={partner.reference_number}>
+                          {partner.reference_number} - {partner.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Sales Person</label>
@@ -1705,9 +1810,100 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 </select>
               </div>
             </div>
+
+            {projectType?.name === 'Marketing' && (formData.salesSource === 'Seminar' || formData.salesSource === 'Exhibition') && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {formData.salesSource === 'Seminar' ? 'Which Seminar?' : 'Which Exhibition?'}
+                </label>
+                <input
+                  type="text"
+                  disabled={!canEdit}
+                  value={formData.salesSourceDetail}
+                  onChange={(e) => setFormData({ ...formData, salesSourceDetail: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder={`Enter ${formData.salesSource.toLowerCase()} name`}
+                />
+              </div>
+            )}
+
+            {projectType?.name === 'Marketing' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Industry</label>
+                    <select
+                      disabled={!canEdit}
+                      value={formData.industry}
+                      onChange={(e) => setFormData({ ...formData, industry: e.target.value, otherIndustry: e.target.value !== 'Other' ? '' : formData.otherIndustry })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                    >
+                      <option value="">Select an industry</option>
+                      <option value="Accounting">Accounting</option>
+                      <option value="Advertising & Marketing">Advertising & Marketing</option>
+                      <option value="Agriculture">Agriculture</option>
+                      <option value="Automotive">Automotive</option>
+                      <option value="Aviation / Aerospace">Aviation / Aerospace</option>
+                      <option value="Banking & Financial Services">Banking & Financial Services</option>
+                      <option value="Biotechnology">Biotechnology</option>
+                      <option value="Construction">Construction</option>
+                      <option value="Consulting">Consulting</option>
+                      <option value="Consumer Goods">Consumer Goods</option>
+                      <option value="Education">Education</option>
+                      <option value="Electronics">Electronics</option>
+                      <option value="Energy">Energy</option>
+                      <option value="Entertainment & Media">Entertainment & Media</option>
+                      <option value="Environmental Services">Environmental Services</option>
+                      <option value="Fashion & Apparel">Fashion & Apparel</option>
+                      <option value="Food & Beverage">Food & Beverage</option>
+                      <option value="Healthcare">Healthcare</option>
+                      <option value="Hospitality & Tourism">Hospitality & Tourism</option>
+                      <option value="Information Technology">Information Technology</option>
+                      <option value="Insurance">Insurance</option>
+                      <option value="Legal Services">Legal Services</option>
+                      <option value="Logistics & Supply Chain">Logistics & Supply Chain</option>
+                      <option value="Manufacturing">Manufacturing</option>
+                      <option value="Pharmaceuticals">Pharmaceuticals</option>
+                      <option value="Real Estate">Real Estate</option>
+                      <option value="Retail">Retail</option>
+                      <option value="Telecommunications">Telecommunications</option>
+                      <option value="Transportation">Transportation</option>
+                      <option value="Utilities">Utilities</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">E-commerce Business?</label>
+                    <select
+                      disabled={!canEdit}
+                      value={formData.isEcommerce ? 'yes' : 'no'}
+                      onChange={(e) => setFormData({ ...formData, isEcommerce: e.target.value === 'yes' })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </div>
+                </div>
+
+                {formData.industry === 'Other' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Specify Other Industry</label>
+                    <input
+                      type="text"
+                      disabled={!canEdit}
+                      value={formData.otherIndustry}
+                      onChange={(e) => setFormData({ ...formData, otherIndustry: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                      placeholder="Enter industry name"
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
-          {projectType?.name === 'Marketing' && clientData && (
+          {projectType?.name === 'Marketing' && clientData && false && (
             <div className="space-y-4">
               <div className="flex justify-center mb-6">
                 <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
