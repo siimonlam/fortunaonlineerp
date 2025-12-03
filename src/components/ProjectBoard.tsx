@@ -560,7 +560,7 @@ export function ProjectBoard() {
         isMarketing
           ? supabase
               .from(tableName)
-              .select(`*`)
+              .select(`*,marketing_project_staff(user_id,can_view,can_edit)`)
               .order('created_at', { ascending: false })
           : supabase
               .from(tableName)
