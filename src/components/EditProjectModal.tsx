@@ -1400,7 +1400,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               </div>
             )}
 
-            {canEdit && (
+            {canEdit && projectType?.name !== 'Marketing' && (
               <div className="flex gap-2 mt-3">
                 <button
                   type="button"
@@ -1969,12 +1969,13 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             </div>
           )}
 
-          <div className="space-y-4">
-            <div className="flex justify-center mb-6">
-              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
-                Financial Details
-              </h3>
-            </div>
+          {projectType?.name !== 'Marketing' && (
+            <div className="space-y-4">
+              <div className="flex justify-center mb-6">
+                <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                  Financial Details
+                </h3>
+              </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-3">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Deposit Status</label>
@@ -2048,7 +2049,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 />
               </div>
             </div>
-          </div>
+            </div>
+          )}
 
 
 
@@ -2106,12 +2108,13 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex justify-center mb-6">
-              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
-                HKPC Officer Information
-              </h3>
-            </div>
+          {projectType?.name !== 'Marketing' && (
+            <div className="space-y-4">
+              <div className="flex justify-center mb-6">
+                <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                  HKPC Officer Information
+                </h3>
+              </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">HKPC Officer Name</label>
@@ -2147,12 +2150,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 />
               </div>
             </div>
-          </div>
+            </div>
+          )}
 
-          <div className="space-y-4">
-            <div className="flex justify-center mb-6">
-              <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
-                Important Dates
+          {projectType?.name !== 'Marketing' && (
+            <div className="space-y-4">
+              <div className="flex justify-center mb-6">
+                <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                  Important Dates
               </h3>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -2237,7 +2242,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 />
               </div>
             </div>
-          </div>
+            </div>
+          )}
 
           <div className="space-y-4">
             <div className="flex justify-center mb-6">
