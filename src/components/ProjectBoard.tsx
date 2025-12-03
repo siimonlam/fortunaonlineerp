@@ -404,10 +404,15 @@ export function ProjectBoard() {
   async function loadMyTasks() {
     if (!user) return;
 
-    const { data: tasksData, error } = await supabase
+    let query = supabase
       .from('tasks')
       .select(`
         *,
+        assigned_user:staff!tasks_assigned_to_fkey (
+          id,
+          full_name,
+          email
+        ),
         projects (
           id,
           title,
@@ -425,9 +430,14 @@ export function ProjectBoard() {
           meeting_date
         )
       `)
-      .eq('assigned_to', user.id)
       .eq('completed', false)
       .order('deadline', { ascending: true, nullsFirst: false });
+
+    if (!isAdmin) {
+      query = query.eq('assigned_to', user.id);
+    }
+
+    const { data: tasksData, error } = await query;
 
     if (error) {
       console.error('Error loading my tasks:', error);
@@ -3525,7 +3535,7 @@ export function ProjectBoard() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-slate-900">My Tasks</h2>
+              <h2 className="text-2xl font-bold text-slate-900">{isAdmin ? 'All Tasks' : 'My Tasks'}</h2>
               <button
                 onClick={() => setShowMyTasks(false)}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -3537,8 +3547,145 @@ export function ProjectBoard() {
               {myTasks.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
                   <CheckSquare className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  <p className="text-lg">No tasks assigned to you</p>
+                  <p className="text-lg">{isAdmin ? 'No tasks found' : 'No tasks assigned to you'}</p>
                 </div>
+              ) : isAdmin ? (
+                (() => {
+                  const tasksByUser = myTasks.reduce((acc: any, task: any) => {
+                    const userId = task.assigned_to || 'unassigned';
+                    const userName = task.assigned_user?.full_name || task.assigned_user?.email || 'Unassigned';
+                    if (!acc[userId]) {
+                      acc[userId] = { userName, tasks: [] };
+                    }
+                    acc[userId].tasks.push(task);
+                    return acc;
+                  }, {});
+
+                  return (
+                    <div className="space-y-6">
+                      {Object.entries(tasksByUser).map(([userId, userGroup]: [string, any]) => (
+                        <div key={userId} className="border border-slate-200 rounded-lg overflow-hidden">
+                          <div className="bg-slate-100 px-4 py-3 border-b border-slate-200">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-semibold text-slate-900">{userGroup.userName}</h3>
+                              <span className="text-sm text-slate-600 bg-slate-200 px-2 py-1 rounded">
+                                {userGroup.tasks.length} task{userGroup.tasks.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-4 space-y-3">
+                            {userGroup.tasks.map((task: any) => {
+                    const isPastDue = task.deadline && new Date(task.deadline) < new Date();
+                    const isMeetingTask = !!task.meetings;
+
+                    let companyName = 'No Company';
+                    let clientNumber = '';
+
+                    if (isMeetingTask) {
+                      companyName = task.meetings?.title || 'Meeting';
+                    } else if (task.projects?.clients?.name) {
+                      companyName = task.projects.clients.name;
+                      clientNumber = task.projects.clients.client_number;
+                    } else if (task.projects?.company_name) {
+                      companyName = task.projects.company_name;
+                      clientNumber = task.projects.client_number;
+                    }
+
+                    return (
+                      <div
+                        key={task.id}
+                        onClick={async () => {
+                          setShowMyTasks(false);
+
+                          if (task.project_id && task.projects) {
+                            const projectTypeId = task.projects.project_type_id;
+                            const projectType = projectTypes.find(pt => pt.id === projectTypeId);
+
+                            if (projectType) {
+                              setSelectedProjectType(projectType.id);
+                              setSelectedView('projects');
+
+                              // Load the full project data
+                              const isMarketing = projectType.name === 'Marketing';
+                              const tableName = isMarketing ? 'marketing_projects' : 'projects';
+
+                              const { data: projectData } = await supabase
+                                .from(tableName)
+                                .select('*')
+                                .eq('id', task.project_id)
+                                .maybeSingle();
+
+                              if (projectData) {
+                                setSelectedProject({ ...projectData, table_source: isMarketing ? 'marketing_projects' : 'projects' });
+                              }
+                            }
+                          } else if (task.meeting_id) {
+                            setSelectedView('meetings');
+                          }
+                        }}
+                        className={`p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${
+                          isPastDue
+                            ? 'border-red-200 bg-red-50 hover:bg-red-100'
+                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              {isMeetingTask ? (
+                                <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-blue-600" />
+                                  {companyName}
+                                </span>
+                              ) : (
+                                <span className="text-sm font-semibold text-slate-500">
+                                  {clientNumber ? `#${clientNumber} ` : ''}{companyName}
+                                </span>
+                              )}
+                              {isMeetingTask && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                  Meeting
+                                </span>
+                              )}
+                              {isPastDue && (
+                                <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium">
+                                  PAST DUE
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                              {task.title}
+                            </h3>
+                            {task.description && (
+                              <p className="text-sm text-slate-600 mb-2">{task.description}</p>
+                            )}
+                            <div className="flex items-center gap-4 text-sm">
+                              {task.projects?.title ? (
+                                <span className="text-slate-500">
+                                  Project: {task.projects.title}
+                                </span>
+                              ) : task.meetings?.title ? (
+                                <span className="text-slate-500">
+                                  Meeting: {task.meetings.title}
+                                </span>
+                              ) : null}
+                              {task.deadline && (
+                                <span className={`font-medium ${isPastDue ? 'text-red-600' : 'text-slate-700'}`}>
+                                  Due: {new Date(task.deadline).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
               ) : (
                 <div className="space-y-4">
                   {myTasks.map((task: any) => {
@@ -3572,7 +3719,6 @@ export function ProjectBoard() {
                               setSelectedProjectType(projectType.id);
                               setSelectedView('projects');
 
-                              // Load the full project data
                               const isMarketing = projectType.name === 'Marketing';
                               const tableName = isMarketing ? 'marketing_projects' : 'projects';
 
