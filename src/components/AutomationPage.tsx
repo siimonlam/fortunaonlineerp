@@ -13,6 +13,7 @@ interface AutomationRule {
   condition_config?: any;
   action_type: 'add_task' | 'add_label' | 'remove_label' | 'change_status' | 'set_field_value';
   action_config: any;
+  execution_frequency_days?: number;
   is_active: boolean;
   created_at: string;
 }
@@ -100,7 +101,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
       due_date_offset: 0,
       due_date_direction: 'after',
       status_id: ''
-    }
+    },
+    execution_frequency_days: 1
   });
 
   useEffect(() => {
@@ -183,6 +185,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
       condition_config: formData.condition_config || {},
       action_type: formData.action_type,
       action_config: formData.action_config,
+      execution_frequency_days: formData.execution_frequency_days || 1,
       updated_at: new Date().toISOString()
     };
 
@@ -208,7 +211,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
           due_date_base: '',
           due_date_offset: 0,
           due_date_direction: 'after'
-        }
+        },
+        execution_frequency_days: 1
       });
       await loadData();
     }
@@ -232,7 +236,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
         due_date_base: rule.action_config?.due_date_base || '',
         due_date_offset: rule.action_config?.due_date_offset || 0,
         due_date_direction: rule.action_config?.due_date_direction || 'after'
-      }
+      },
+      execution_frequency_days: rule.execution_frequency_days || 1
     });
     setShowNewRuleForm(true);
   }
@@ -255,7 +260,10 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
     }
 
     if (rule.trigger_type === 'periodic' && rule.trigger_config) {
-      return `${triggerLabel} - Every ${rule.trigger_config.frequency || '?'} days from ${rule.trigger_config.date_field || 'project start'}`;
+      const execFreq = rule.execution_frequency_days || 1;
+      const actionFreq = rule.trigger_config.frequency || '?';
+      const dateField = rule.trigger_config.date_field || 'project start';
+      return `${triggerLabel} - Runs every ${execFreq} day(s), Action on day ${actionFreq}, ${actionFreq * 2}, ${actionFreq * 3}... from ${dateField}`;
     }
 
     return triggerLabel;
@@ -503,7 +511,26 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                 {formData.trigger_type === 'periodic' && (
                   <div className="space-y-3 ml-4 p-3 bg-slate-50 rounded-lg">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Frequency (days)</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Execution Frequency (days)
+                      </label>
+                      <p className="text-xs text-slate-500 mb-2">How often this automation runs (1 = daily, 7 = weekly, etc.)</p>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.execution_frequency_days || 1}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          execution_frequency_days: parseInt(e.target.value) || 1
+                        })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Action Frequency (N days)
+                      </label>
+                      <p className="text-xs text-slate-500 mb-2">How often the action triggers from start date (e.g., day 30, 60, 90...)</p>
                       <input
                         type="number"
                         min="1"
