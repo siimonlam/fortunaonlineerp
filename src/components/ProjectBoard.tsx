@@ -411,18 +411,11 @@ export function ProjectBoard() {
   useEffect(() => {
     if (!user) return;
 
-    const sessionKey = `task_notification_shown_${user.id}`;
-    const lastShown = sessionStorage.getItem(sessionKey);
-    const today = new Date().toDateString();
+    const timer = setTimeout(() => {
+      setShowTaskNotification(true);
+    }, 1000);
 
-    if (lastShown !== today) {
-      const timer = setTimeout(() => {
-        setShowTaskNotification(true);
-        sessionStorage.setItem(sessionKey, today);
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
+    return () => clearTimeout(timer);
   }, [user]);
 
   async function loadAllLabels() {
