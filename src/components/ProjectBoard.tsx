@@ -409,13 +409,21 @@ export function ProjectBoard() {
   }, [selectedProjectType]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      console.log('[TaskNotification] No user, skipping notification');
+      return;
+    }
 
+    console.log('[TaskNotification] Setting up notification timer for user:', user.email);
     const timer = setTimeout(() => {
+      console.log('[TaskNotification] Timer fired, showing notification');
       setShowTaskNotification(true);
-    }, 1000);
+    }, 1500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      console.log('[TaskNotification] Cleanup timer');
+      clearTimeout(timer);
+    };
   }, [user]);
 
   async function loadAllLabels() {
