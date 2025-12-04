@@ -4067,6 +4067,7 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
   const [formData, setFormData] = useState({
     name: '',
     companyNameChinese: '',
+    brandName: '',
     abbreviation: '',
     contactPerson: '',
     email: '',
@@ -4154,6 +4155,7 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
       const baseData = {
         name: formData.name.trim(),
         company_name_chinese: formData.companyNameChinese.trim() || null,
+        brand_name: formData.brandName.trim() || null,
         abbreviation: formData.abbreviation.trim() || null,
         contact_person: formData.contactPerson.trim() || null,
         email: formData.email.trim() || null,
@@ -4265,15 +4267,27 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name in Chinese</label>
-            <input
-              type="text"
-              value={formData.companyNameChinese}
-              onChange={(e) => setFormData({ ...formData, companyNameChinese: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="输入中文公司名称"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Company Name in Chinese</label>
+              <input
+                type="text"
+                value={formData.companyNameChinese}
+                onChange={(e) => setFormData({ ...formData, companyNameChinese: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="输入中文公司名称"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Brand Name</label>
+              <input
+                type="text"
+                value={formData.brandName}
+                onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter brand name"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
