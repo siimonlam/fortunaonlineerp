@@ -82,6 +82,14 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
   const tasksTable = isMarketing ? 'marketing_tasks' : 'tasks';
   const projectIdField = isMarketing ? 'marketing_project_id' : 'project_id';
 
+  console.log('[TaskModal] Initialized with:', {
+    projectId: project.id,
+    projectTitle: project.title,
+    isMarketing,
+    tasksTable,
+    projectIdField
+  });
+
   useEffect(() => {
     loadTasks();
     checkAdminStatus();
@@ -125,9 +133,19 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
         deadline: newTaskDeadline || null,
       };
 
+      console.log('[TaskModal] Adding task:', {
+        tasksTable,
+        taskData,
+        isMarketing,
+        projectIdField
+      });
+
       const { error } = await supabase.from(tasksTable).insert(taskData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[TaskModal] Error adding task:', error);
+        throw error;
+      }
 
       setNewTaskTitle('');
       setNewTaskDescription('');

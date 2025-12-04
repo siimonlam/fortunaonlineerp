@@ -3241,7 +3241,7 @@ export function ProjectBoard() {
       {selectedProject && (() => {
         const projectType = projectTypes.find(pt => pt.id === selectedProject.project_type_id);
         const isFundingProject = projectType?.name === 'Funding Project';
-        const isMarketingProject = projectType?.name === 'Marketing';
+        const isMarketingProject = projectType?.name === 'Marketing' || !selectedProject.project_type_id;
 
         console.log('Selected Project:', {
           id: selectedProject.id,
@@ -3250,6 +3250,7 @@ export function ProjectBoard() {
           projectTypeName: projectType?.name,
           isFundingProject,
           isMarketingProject,
+          isMarketingProjectType,
           allFields: selectedProject
         });
 
@@ -3265,6 +3266,7 @@ export function ProjectBoard() {
             onRefresh={() => {
               loadData();
             }}
+            isMarketing={isMarketingProject && !isFundingProject}
           />
         ) : (
           <TaskModal
@@ -3275,7 +3277,7 @@ export function ProjectBoard() {
               setSelectedProject(null);
               loadData();
             }}
-            isMarketing={isMarketingProjectType}
+            isMarketing={false}
           />
         );
       })()}

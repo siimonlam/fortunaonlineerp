@@ -108,9 +108,10 @@ interface EditProjectModalProps {
   onClose: () => void;
   onSuccess: () => void;
   onRefresh?: () => void;
+  isMarketing?: boolean;
 }
 
-export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefresh }: EditProjectModalProps) {
+export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefresh, isMarketing = false }: EditProjectModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -158,8 +159,13 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     contact_name: project.contact_name,
     email: project.email,
     abbreviation: project.abbreviation,
-    application_number: project.application_number
+    application_number: project.application_number,
+    isMarketing
   });
+
+  const tasksTable = isMarketing ? 'marketing_tasks' : 'tasks';
+  const projectIdField = isMarketing ? 'marketing_project_id' : 'project_id';
+  const projectsTable = isMarketing ? 'marketing_projects' : 'projects';
 
   const [formData, setFormData] = useState({
     title: project.title,
@@ -1034,14 +1040,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
   async function loadTasks() {
     try {
-      console.log('[loadTasks] Reloading tasks for project:', project.id);
+      console.log('[loadTasks] Reloading tasks for project:', project.id, 'using table:', tasksTable);
       const { data, error } = await supabase
-        .from('tasks')
+        .from(tasksTable)
         .select(`
           *,
           staff:assigned_to (id, full_name, email)
         `)
-        .eq('project_id', project.id)
+        .eq(projectIdField, project.id)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -1067,17 +1073,22 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     }
 
     try {
-      console.log('[handleAddTask] Attempting to insert task...');
+      console.log('[handleAddTask] Attempting to insert task into:', tasksTable, 'with field:', projectIdField);
+
+      const taskData: any = {
+        [projectIdField]: project.id,
+        title: newTask.title.trim(),
+        description: newTask.description.trim() || null,
+        deadline: newTask.deadline || null,
+        assigned_to: newTask.assignedTo || null,
+        completed: false,
+      };
+
+      console.log('[handleAddTask] Task data:', taskData);
+
       const { data, error } = await supabase
-        .from('tasks')
-        .insert({
-          project_id: project.id,
-          title: newTask.title.trim(),
-          description: newTask.description.trim() || null,
-          deadline: newTask.deadline || null,
-          assigned_to: newTask.assignedTo || null,
-          completed: false,
-        })
+        .from(tasksTable)
+        .insert(taskData)
         .select(`
           *,
           staff:assigned_to (id, full_name, email)
@@ -1111,10 +1122,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
-      console.log(`[handleToggleTask] Updating task "${task.title}" to completed=${completed}`);
+      console.log(`[handleToggleTask] Updating task "${task.title}" to completed=${completed} in table:`, tasksTable);
 
       const { error } = await supabase
-        .from('tasks')
+        .from(tasksTable)
         .update({ completed, updated_at: new Date().toISOString() })
         .eq('id', taskId);
 
@@ -1217,8 +1228,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         if (oldTask.assigned_to !== editingTask.assignedTo) changes.push('assignee updated');
       }
 
-      const { error } = await supabase
-        .from('tasks')
+      const { error} = await supabase
+        .from(tasksTable)
         .update({
           title: editingTask.title,
           description: editingTask.description || null,
@@ -1248,7 +1259,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     try {
       const task = tasks.find(t => t.id === taskId);
       const { error } = await supabase
-        .from('tasks')
+        .from(tasksTable)
         .delete()
         .eq('id', taskId);
 
