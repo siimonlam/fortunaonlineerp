@@ -281,8 +281,15 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'tasks' },
         (payload) => {
           console.log('✅ Tasks changed:', payload.eventType);
-          // Task changes don't affect the board view since tasks are loaded in the modal
-          // Skip reloading to prevent losing the current project type selection
+          if (selectedView === 'projects') loadProjectsViewData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'marketing_tasks' },
+        (payload) => {
+          console.log('✅ Marketing tasks changed:', payload.eventType);
+          if (selectedView === 'projects') loadProjectsViewData();
         }
       )
       .on(
@@ -298,6 +305,14 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'project_staff' },
         (payload) => {
           console.log('✅ Project staff changed:', payload.eventType);
+          reloadCurrentView();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'marketing_project_staff' },
+        (payload) => {
+          console.log('✅ Marketing project staff changed:', payload.eventType);
           reloadCurrentView();
         }
       )
@@ -684,6 +699,17 @@ export function ProjectBoard() {
         console.log('[loadProjectsViewData] MP0010 found in data:', mp0010 ? 'YES' : 'NO', mp0010);
       }
 
+      const tasksTableName = isMarketing ? 'marketing_tasks' : 'tasks';
+      const projectIdField = isMarketing ? 'marketing_project_id' : 'project_id';
+
+      const { data: tasksData } = await loadWithTimeout(
+        supabase
+          .from(tasksTableName)
+          .select(`*, assigned_user:staff!${tasksTableName}_assigned_to_fkey(id, full_name, email)`)
+          .in(projectIdField, projectsRes.data.map(p => p.id)),
+        tasksTableName
+      );
+
       const projectsWithLabels = projectsRes.data.map((project) => {
         const projectLabels = projectLabelsRes.data
           ?.filter(pl => pl.project_id === project.id)
@@ -692,6 +718,10 @@ export function ProjectBoard() {
 
         const invoice = fundingInvoicesRes.data?.find(inv => inv.project_id === project.id);
         const invoice_number = invoice?.invoice_number || null;
+
+        const projectTasks = tasksData?.filter(task =>
+          task[projectIdField] === project.id
+        ) || [];
 
         // For marketing projects, add the project_type_id since the table doesn't have it
         const projectTypeId = isMarketing
@@ -702,7 +732,7 @@ export function ProjectBoard() {
           ...project,
           labels: projectLabels,
           invoice_number,
-          tasks: [],
+          tasks: projectTasks,
           table_source: tableName,
           project_type_id: projectTypeId
         };
@@ -1473,7 +1503,7 @@ export function ProjectBoard() {
   }
 
   function getStatusPastDueCount(statusId: string) {
-    if (!isFundingProjectType) return 0;
+    if (!isFundingProjectType && !isMarketingProjectType) return 0;
 
     const statusObj = statuses.find(s => s.id === statusId);
     let relevantProjects: Project[] = [];

@@ -152,8 +152,8 @@ export function ProjectCard({
     return daysUntilDue < 0;
   }) || [];
 
-  const hasUpcomingDeadline = isFundingProject && upcomingTasks.length > 0;
-  const hasPastDueTasks = isFundingProject && pastDueTasks.length > 0;
+  const hasUpcomingDeadline = (isFundingProject || isMarketingProject) && upcomingTasks.length > 0;
+  const hasPastDueTasks = (isFundingProject || isMarketingProject) && pastDueTasks.length > 0;
 
   function getProjectTypeAndStatus(proj: Project) {
     const type = projectTypes?.find(pt => pt.id === proj.project_type_id);
