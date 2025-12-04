@@ -1213,7 +1213,7 @@ export function ProjectBoard() {
       if (isMarketingProjectType && !isAdmin) {
         const isCreator = p.created_by === user?.id;
         const isSalesPerson = p.sales_person_id === user?.id;
-        const hasExplicitAccess = p.project_staff?.some(
+        const hasExplicitAccess = (p as any).marketing_project_staff?.some(
           (ps: any) => ps.user_id === user?.id && ps.can_view
         );
 
