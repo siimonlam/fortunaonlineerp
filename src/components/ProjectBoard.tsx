@@ -498,13 +498,16 @@ export function ProjectBoard() {
         marketing_projects (
           id,
           title,
-          project_type_id,
           company_name,
-          client_number,
           clients (
             name,
             client_number
           )
+        ),
+        meetings (
+          id,
+          title,
+          meeting_date
         )
       `)
       .eq('completed', false)
@@ -1475,7 +1478,7 @@ export function ProjectBoard() {
     });
 
   function getStatusUpcomingCount(statusId: string) {
-    if (!isFundingProjectType) return 0;
+    if (!isFundingProjectType && !isMarketingProjectType) return 0;
 
     const statusObj = statuses.find(s => s.id === statusId);
     let relevantProjects: Project[] = [];
@@ -1937,34 +1940,36 @@ export function ProjectBoard() {
                   </div>
                 ))}
               </nav>
-              <div className="mt-6 pt-4 border-t border-slate-200 space-y-2">
-                <button
-                  onClick={() => setFundingProjectTab('dashboard')}
-                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
-                    fundingProjectTab === 'dashboard'
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    Dashboard
-                  </span>
-                </button>
-                <button
-                  onClick={() => setFundingProjectTab('meetings')}
-                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
-                    fundingProjectTab === 'meetings'
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Meetings
-                  </span>
-                </button>
-              </div>
+              {isFundingProjectType && (
+                <div className="mt-6 pt-4 border-t border-slate-200 space-y-2">
+                  <button
+                    onClick={() => setFundingProjectTab('dashboard')}
+                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                      fundingProjectTab === 'dashboard'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Dashboard
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setFundingProjectTab('meetings')}
+                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                      fundingProjectTab === 'meetings'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Meetings
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           </aside>
         )}
