@@ -66,6 +66,8 @@ interface Project {
 interface Client {
   id: string;
   name: string;
+  company_name_chinese: string | null;
+  brand_name: string | null;
   client_number: string;
   contact_person: string | null;
   email: string | null;

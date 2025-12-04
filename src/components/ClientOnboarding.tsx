@@ -7,6 +7,7 @@ export function ClientOnboarding() {
   const [formData, setFormData] = useState({
     company_name: '',
     company_name_chinese: '',
+    brand_name: '',
     abbreviation: '',
     contact_name: '',
     email: '',
@@ -65,6 +66,7 @@ export function ClientOnboarding() {
         p_phone: formData.phone,
         p_industry: formData.industry,
         p_company_name_chinese: formData.company_name_chinese || null,
+        p_brand_name: formData.brand_name || null,
         p_abbreviation: formData.abbreviation || null,
         p_address: formData.address || null,
         p_other_industry: formData.industry === 'Other' ? formData.other_industry || null : null,
@@ -79,6 +81,7 @@ export function ClientOnboarding() {
       setFormData({
         company_name: '',
         company_name_chinese: '',
+        brand_name: '',
         abbreviation: '',
         contact_name: '',
         email: '',
@@ -179,19 +182,35 @@ export function ClientOnboarding() {
             </div>
           </div>
 
-          <div>
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-              <Building2 className="w-4 h-4" />
-              Company Name in Chinese
-            </label>
-            <input
-              type="text"
-              name="company_name_chinese"
-              value={formData.company_name_chinese}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder="输入中文公司名称"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                <Building2 className="w-4 h-4" />
+                Company Name in Chinese
+              </label>
+              <input
+                type="text"
+                name="company_name_chinese"
+                value={formData.company_name_chinese}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="输入中文公司名称"
+              />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                <Building2 className="w-4 h-4" />
+                Brand Name
+              </label>
+              <input
+                type="text"
+                name="brand_name"
+                value={formData.brand_name}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="Enter brand name"
+              />
+            </div>
           </div>
 
           <div>
