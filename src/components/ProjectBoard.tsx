@@ -391,6 +391,21 @@ export function ProjectBoard() {
     }
   }, [selectedView]);
 
+  // Reload projects when project type changes
+  useEffect(() => {
+    // Skip on initial mount
+    if (isInitialMount.current) {
+      return;
+    }
+
+    // Only reload if we're in projects view
+    if (selectedView === 'projects' && selectedProjectType) {
+      console.log('Project type changed, reloading projects for:', selectedProjectType);
+      loadProjectsViewData();
+      loadMyTasks();
+    }
+  }, [selectedProjectType]);
+
   async function loadAllLabels() {
     const { data, error } = await supabase
       .from('labels')
