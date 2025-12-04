@@ -442,7 +442,7 @@ export function ProjectBoard() {
   async function loadMyTasks() {
     if (!user) return;
 
-    let query = supabase
+    let fundingQuery = supabase
       .from('tasks')
       .select(`
         *,
@@ -471,41 +471,66 @@ export function ProjectBoard() {
       .eq('completed', false)
       .order('deadline', { ascending: true, nullsFirst: false });
 
+    let marketingQuery = supabase
+      .from('marketing_tasks')
+      .select(`
+        *,
+        assigned_user:staff!marketing_tasks_assigned_to_fkey (
+          id,
+          full_name,
+          email
+        ),
+        marketing_projects (
+          id,
+          title,
+          project_type_id,
+          company_name,
+          client_number,
+          clients (
+            name,
+            client_number
+          )
+        )
+      `)
+      .eq('completed', false)
+      .order('deadline', { ascending: true, nullsFirst: false });
+
     if (!isAdmin) {
-      query = query.eq('assigned_to', user.id);
+      fundingQuery = fundingQuery.eq('assigned_to', user.id);
+      marketingQuery = marketingQuery.eq('assigned_to', user.id);
     }
 
-    const { data: tasksData, error } = await query;
+    const [fundingResult, marketingResult] = await Promise.all([
+      fundingQuery,
+      marketingQuery
+    ]);
 
-    if (error) {
-      console.error('Error loading my tasks:', error);
-    } else if (tasksData) {
-      const enrichedTasks = await Promise.all(tasksData.map(async (task) => {
-        if (task.project_id && !task.projects) {
-          const { data: marketingProject } = await supabase
-            .from('marketing_projects')
-            .select(`
-              id,
-              title,
-              project_type_id,
-              company_name,
-              client_number,
-              clients (
-                name,
-                client_number
-              )
-            `)
-            .eq('id', task.project_id)
-            .maybeSingle();
-
-          if (marketingProject) {
-            return { ...task, projects: marketingProject };
-          }
-        }
-        return task;
-      }));
-      setMyTasks(enrichedTasks);
+    if (fundingResult.error) {
+      console.error('Error loading funding tasks:', fundingResult.error);
     }
+    if (marketingResult.error) {
+      console.error('Error loading marketing tasks:', marketingResult.error);
+    }
+
+    const fundingTasks = (fundingResult.data || []).map(task => ({
+      ...task,
+      task_type: 'funding'
+    }));
+
+    const marketingTasks = (marketingResult.data || []).map(task => ({
+      ...task,
+      task_type: 'marketing',
+      projects: task.marketing_projects
+    }));
+
+    const allTasks = [...fundingTasks, ...marketingTasks].sort((a, b) => {
+      if (!a.deadline && !b.deadline) return 0;
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+    });
+
+    setMyTasks(allTasks);
   }
 
   async function loadPartnerProjects() {
@@ -3673,7 +3698,8 @@ export function ProjectBoard() {
                         onClick={async () => {
                           setShowMyTasks(false);
 
-                          if (task.project_id && task.projects) {
+                          const projectId = task.project_id || task.marketing_project_id;
+                          if (projectId && task.projects) {
                             const projectTypeId = task.projects.project_type_id;
                             const projectType = projectTypes.find(pt => pt.id === projectTypeId);
 
@@ -3681,14 +3707,13 @@ export function ProjectBoard() {
                               setSelectedProjectType(projectType.id);
                               setSelectedView('projects');
 
-                              // Load the full project data
-                              const isMarketing = projectType.name === 'Marketing';
+                              const isMarketing = task.task_type === 'marketing' || projectType.name === 'Marketing';
                               const tableName = isMarketing ? 'marketing_projects' : 'projects';
 
                               const { data: projectData } = await supabase
                                 .from(tableName)
                                 .select('*')
-                                .eq('id', task.project_id)
+                                .eq('id', projectId)
                                 .maybeSingle();
 
                               if (projectData) {
@@ -3721,6 +3746,16 @@ export function ProjectBoard() {
                               {isMeetingTask && (
                                 <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
                                   Meeting
+                                </span>
+                              )}
+                              {task.task_type === 'marketing' && !isMeetingTask && (
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                                  Marketing
+                                </span>
+                              )}
+                              {task.task_type === 'funding' && !isMeetingTask && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                                  Funding
                                 </span>
                               )}
                               {isPastDue && (
@@ -3787,7 +3822,8 @@ export function ProjectBoard() {
                         onClick={async () => {
                           setShowMyTasks(false);
 
-                          if (task.project_id && task.projects) {
+                          const projectId = task.project_id || task.marketing_project_id;
+                          if (projectId && task.projects) {
                             const projectTypeId = task.projects.project_type_id;
                             const projectType = projectTypes.find(pt => pt.id === projectTypeId);
 
@@ -3795,13 +3831,13 @@ export function ProjectBoard() {
                               setSelectedProjectType(projectType.id);
                               setSelectedView('projects');
 
-                              const isMarketing = projectType.name === 'Marketing';
+                              const isMarketing = task.task_type === 'marketing' || projectType.name === 'Marketing';
                               const tableName = isMarketing ? 'marketing_projects' : 'projects';
 
                               const { data: projectData } = await supabase
                                 .from(tableName)
                                 .select('*')
-                                .eq('id', task.project_id)
+                                .eq('id', projectId)
                                 .maybeSingle();
 
                               if (projectData) {
@@ -3834,6 +3870,16 @@ export function ProjectBoard() {
                               {isMeetingTask && (
                                 <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
                                   Meeting
+                                </span>
+                              )}
+                              {task.task_type === 'marketing' && !isMeetingTask && (
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                                  Marketing
+                                </span>
+                              )}
+                              {task.task_type === 'funding' && !isMeetingTask && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                                  Funding
                                 </span>
                               )}
                               {isPastDue && (
