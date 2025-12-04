@@ -17,6 +17,7 @@ import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import { MeetingsPage } from './MeetingsPage';
 import { BusinessCardScanner } from './BusinessCardScanner';
+import { TaskNotificationModal } from './TaskNotificationModal';
 
 interface Status {
   id: string;
@@ -196,6 +197,7 @@ export function ProjectBoard() {
   const [importProgress, setImportProgress] = useState<string>('');
   const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
   const [showExportOptions, setShowExportOptions] = useState(false);
+  const [showTaskNotification, setShowTaskNotification] = useState(false);
   const [showBulkProjectMenu, setShowBulkProjectMenu] = useState(false);
 
   useEffect(() => {
@@ -405,6 +407,23 @@ export function ProjectBoard() {
       loadMyTasks();
     }
   }, [selectedProjectType]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const sessionKey = `task_notification_shown_${user.id}`;
+    const lastShown = sessionStorage.getItem(sessionKey);
+    const today = new Date().toDateString();
+
+    if (lastShown !== today) {
+      const timer = setTimeout(() => {
+        setShowTaskNotification(true);
+        sessionStorage.setItem(sessionKey, today);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
 
   async function loadAllLabels() {
     const { data, error } = await supabase
@@ -4526,6 +4545,12 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
         <BusinessCardScanner
           onDataExtracted={handleScanData}
           onClose={() => setShowScanner(false)}
+        />
+      )}
+
+      {showTaskNotification && (
+        <TaskNotificationModal
+          onClose={() => setShowTaskNotification(false)}
         />
       )}
     </div>
