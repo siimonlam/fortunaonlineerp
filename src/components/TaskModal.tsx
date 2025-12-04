@@ -60,9 +60,10 @@ interface TaskModalProps {
   staff: Staff[];
   onClose: () => void;
   onSuccess: () => void;
+  isMarketing?: boolean;
 }
 
-export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps) {
+export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = false }: TaskModalProps) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -77,6 +78,9 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
   const [editDescription, setEditDescription] = useState('');
   const [editAssignee, setEditAssignee] = useState('');
   const [editDeadline, setEditDeadline] = useState('');
+
+  const tasksTable = isMarketing ? 'marketing_tasks' : 'tasks';
+  const projectIdField = isMarketing ? 'marketing_project_id' : 'project_id';
 
   useEffect(() => {
     loadTasks();
@@ -96,12 +100,12 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
 
   async function loadTasks() {
     const { data } = await supabase
-      .from('tasks')
+      .from(tasksTable)
       .select(`
         *,
         staff:assigned_to (full_name)
       `)
-      .eq('project_id', project.id)
+      .eq(projectIdField, project.id)
       .order('created_at', { ascending: false });
 
     if (data) setTasks(data);
@@ -113,13 +117,15 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
 
     setLoading(true);
     try {
-      const { error } = await supabase.from('tasks').insert({
-        project_id: project.id,
+      const taskData: any = {
+        [projectIdField]: project.id,
         title: newTaskTitle.trim(),
         description: newTaskDescription.trim() || null,
         assigned_to: newTaskAssignee || null,
         deadline: newTaskDeadline || null,
-      });
+      };
+
+      const { error } = await supabase.from(tasksTable).insert(taskData);
 
       if (error) throw error;
 
@@ -130,9 +136,9 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
       setEditingTaskId(null);
       setShowAddTask(false);
       await loadTasks();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding task:', error);
-      alert('Failed to add task. Please try again.');
+      alert(`Failed to add task: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -141,7 +147,7 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
   async function handleToggleComplete(taskId: string, completed: boolean) {
     const newCompletedStatus = !completed;
     const { error } = await supabase
-      .from('tasks')
+      .from(tasksTable)
       .update({ completed: newCompletedStatus, updated_at: new Date().toISOString() })
       .eq('id', taskId);
 
@@ -161,8 +167,9 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
     try {
       console.log('Triggering automation for task:', taskTitle);
 
+      const projectTable = isMarketing ? 'marketing_projects' : 'projects';
       const { data: projectData, error: projectError } = await supabase
-        .from('projects')
+        .from(projectTable)
         .select('id, project_type_id, status_id')
         .eq('id', project.id)
         .maybeSingle();
@@ -222,7 +229,7 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
   async function handleDeleteTask(taskId: string) {
     if (!confirm('Are you sure you want to delete this task?')) return;
 
-    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    const { error } = await supabase.from(tasksTable).delete().eq('id', taskId);
 
     if (!error) loadTasks();
   }
@@ -250,7 +257,7 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
     setLoading(true);
     try {
       const { error } = await supabase
-        .from('tasks')
+        .from(tasksTable)
         .update({
           title: editTitle.trim(),
           description: editDescription.trim() || null,
@@ -284,8 +291,9 @@ export function TaskModal({ project, staff, onClose, onSuccess }: TaskModalProps
 
     setLoading(true);
     try {
+      const projectTable = isMarketing ? 'marketing_projects' : 'projects';
       const { error } = await supabase
-        .from('projects')
+        .from(projectTable)
         .delete()
         .eq('id', project.id);
 

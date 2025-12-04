@@ -3256,6 +3256,7 @@ export function ProjectBoard() {
               setSelectedProject(null);
               loadData();
             }}
+            isMarketing={isMarketingProjectType}
           />
         );
       })()}
