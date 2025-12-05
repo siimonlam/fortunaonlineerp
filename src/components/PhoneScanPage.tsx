@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, X, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { BusinessCardFieldSelector } from './BusinessCardFieldSelector';
 
 export function PhoneScanPage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -8,6 +9,8 @@ export function PhoneScanPage() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [sessionValid, setSessionValid] = useState<boolean | null>(null);
   const [error, setError] = useState('');
+  const [showFieldSelector, setShowFieldSelector] = useState(false);
+  const [extractedData, setExtractedData] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -49,9 +52,21 @@ export function PhoneScanPage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setCapturedImage(reader.result as string);
+        setShowFieldSelector(true);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleFieldSelectionComplete = (data: any) => {
+    setExtractedData(data);
+    setShowFieldSelector(false);
+  };
+
+  const handleFieldSelectionCancel = () => {
+    setShowFieldSelector(false);
+    setCapturedImage(null);
+    setExtractedData(null);
   };
 
   const handleUpload = async () => {
@@ -63,12 +78,18 @@ export function PhoneScanPage() {
         console.log('Uploading to session:', sessionId);
         console.log('Image data length:', capturedImage.length);
 
+        const updateData: any = {
+          image_data: capturedImage,
+          status: 'scanned'
+        };
+
+        if (extractedData) {
+          updateData.extracted_data = extractedData;
+        }
+
         const { data, error: updateError } = await supabase
           .from('scan_sessions')
-          .update({
-            image_data: capturedImage,
-            status: 'scanned'
-          })
+          .update(updateData)
           .eq('session_id', sessionId)
           .select();
 
@@ -147,13 +168,25 @@ export function PhoneScanPage() {
     );
   }
 
+  if (showFieldSelector && capturedImage) {
+    return (
+      <BusinessCardFieldSelector
+        imageData={capturedImage}
+        onComplete={handleFieldSelectionComplete}
+        onCancel={handleFieldSelectionCancel}
+      />
+    );
+  }
+
   if (uploadSuccess) {
     return (
       <div className="min-h-screen bg-green-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full text-center">
           <Check className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-slate-900 mb-2">Upload Successful!</h1>
-          <p className="text-slate-600 mb-4">Photo saved to {companyCode}/Others</p>
+          <p className="text-slate-600 mb-4">
+            {sessionId ? 'Business card data extracted and saved!' : `Photo saved to ${companyCode}/Others`}
+          </p>
           <button
             onClick={handleRetake}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -211,6 +244,18 @@ export function PhoneScanPage() {
                 className="w-full h-auto"
               />
             </div>
+
+            {extractedData && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-green-900 mb-2">Extracted Data</h3>
+                <div className="space-y-1 text-xs text-green-800">
+                  {extractedData.company_name && <p><strong>Company:</strong> {extractedData.company_name}</p>}
+                  {extractedData.contact_name && <p><strong>Name:</strong> {extractedData.contact_name}</p>}
+                  {extractedData.email && <p><strong>Email:</strong> {extractedData.email}</p>}
+                  {extractedData.phone && <p><strong>Phone:</strong> {extractedData.phone}</p>}
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button

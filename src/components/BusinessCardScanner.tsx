@@ -55,10 +55,22 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
           (payload) => {
             console.log('Received realtime update:', payload);
             if (payload.new.status === 'scanned' && payload.new.image_data) {
-              console.log('Processing image from phone...');
+              console.log('Image received from phone...');
               setShowQRCode(false);
+              setProcessing(false);
               if (pollInterval) clearInterval(pollInterval);
-              processImage(payload.new.image_data);
+
+              if (payload.new.extracted_data) {
+                console.log('Extracted data found:', payload.new.extracted_data);
+                onDataExtracted(payload.new.extracted_data);
+                setSuccess(true);
+                setTimeout(() => {
+                  onClose();
+                }, 1500);
+              } else {
+                setCapturedImage(payload.new.image_data);
+                setShowFieldSelector(true);
+              }
             }
           }
         )
@@ -76,8 +88,20 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
         if (data && data.status === 'scanned' && data.image_data) {
           console.log('Polling detected scanned image');
           setShowQRCode(false);
+          setProcessing(false);
           clearInterval(pollInterval);
-          processImage(data.image_data);
+
+          if (data.extracted_data) {
+            console.log('Extracted data found:', data.extracted_data);
+            onDataExtracted(data.extracted_data);
+            setSuccess(true);
+            setTimeout(() => {
+              onClose();
+            }, 1500);
+          } else {
+            setCapturedImage(data.image_data);
+            setShowFieldSelector(true);
+          }
         }
       }, 2000);
     }
