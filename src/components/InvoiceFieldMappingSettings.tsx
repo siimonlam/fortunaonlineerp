@@ -71,6 +71,7 @@ const INVOICE_FIELDS = [
   { value: 'payment_method', label: 'Payment Method' },
   { value: 'project_reference', label: 'Invoice Project Reference' },
   { value: 'company_name', label: 'Invoice Company Name' },
+  { value: 'remark', label: 'Remark' },
   { value: 'created_at', label: 'Invoice Creation Date' },
 ];
 
