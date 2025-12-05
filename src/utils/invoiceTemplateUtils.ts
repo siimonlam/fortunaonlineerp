@@ -83,6 +83,7 @@ export async function generateInvoiceFromTemplate(
     issueDate?: string;
     dueDate?: string;
     paymentType?: string;
+    remark?: string;
   }
 ): Promise<Blob> {
   const { data: project, error: projectError } = await supabase
@@ -153,6 +154,14 @@ export async function generateInvoiceFromTemplate(
         console.warn('due_date field not found in PDF');
       }
     }
+    if (invoiceData.remark) {
+      try {
+        const field = form.getTextField('remark');
+        field.setText(sanitizeForWinAnsi(invoiceData.remark));
+      } catch (error) {
+        console.warn('remark field not found in PDF');
+      }
+    }
   }
 
   // Fill other fields from mappings
@@ -180,6 +189,8 @@ export async function generateInvoiceFromTemplate(
         value = invoiceData.issueDate;
       } else if (mapping.source_field === 'due_date') {
         value = invoiceData.dueDate;
+      } else if (mapping.source_field === 'remark') {
+        value = invoiceData.remark;
       }
     }
 

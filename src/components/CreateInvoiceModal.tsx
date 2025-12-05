@@ -123,6 +123,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
           issueDate: formData.issueDate,
           dueDate: formData.dueDate,
           paymentType: formData.paymentType,
+          remark: formData.remark,
         }
       );
 
