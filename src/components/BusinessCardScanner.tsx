@@ -3,6 +3,7 @@ import { Camera, X, Upload, Loader2, CheckCircle, AlertCircle, QrCode, Smartphon
 import Tesseract from 'tesseract.js';
 import * as QRCode from 'qrcode';
 import { supabase } from '../lib/supabase';
+import { BusinessCardFieldSelector } from './BusinessCardFieldSelector';
 
 interface BusinessCardData {
   company_name?: string;
@@ -29,6 +30,7 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [sessionId, setSessionId] = useState<string>('');
+  const [showFieldSelector, setShowFieldSelector] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -323,6 +325,32 @@ export function BusinessCardScanner({ onDataExtracted, onClose }: BusinessCardSc
     }
     onClose();
   };
+
+  const handleFieldSelectionComplete = (data: BusinessCardData) => {
+    setShowFieldSelector(false);
+    onDataExtracted(data);
+    setSuccess(true);
+    setTimeout(() => {
+      onClose();
+    }, 1500);
+  };
+
+  const handleFieldSelectionCancel = () => {
+    setShowFieldSelector(false);
+    setCapturedImage(null);
+    setShowQRCode(false);
+    setSessionId('');
+  };
+
+  if (showFieldSelector && capturedImage) {
+    return (
+      <BusinessCardFieldSelector
+        imageData={capturedImage}
+        onComplete={handleFieldSelectionComplete}
+        onCancel={handleFieldSelectionCancel}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
