@@ -4182,6 +4182,7 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showTaskNotification, setShowTaskNotification] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [channelPartners, setChannelPartners] = useState<ChannelPartner[]>([]);
   const [allClients, setAllClients] = useState<Client[]>([]);
