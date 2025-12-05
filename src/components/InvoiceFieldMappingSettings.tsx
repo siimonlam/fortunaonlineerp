@@ -80,6 +80,7 @@ const TRANSFORM_FUNCTIONS = [
   { value: 'lowercase', label: 'Lowercase' },
   { value: 'date_format', label: 'Date Format' },
   { value: 'currency', label: 'Currency Format' },
+  { value: 'number_format', label: 'Number Format (with commas)' },
 ];
 
 export function InvoiceFieldMappingSettings({ onClose }: InvoiceFieldMappingSettingsProps) {

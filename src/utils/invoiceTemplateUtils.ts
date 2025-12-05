@@ -62,6 +62,13 @@ function applyTransform(value: any, transformFunction?: string): string {
       } catch {
         return stringValue;
       }
+    case 'number_format':
+      try {
+        const num = parseFloat(stringValue);
+        return num.toLocaleString('en-US');
+      } catch {
+        return stringValue;
+      }
     default:
       return stringValue;
   }

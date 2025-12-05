@@ -24,6 +24,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
     amount: project.deposit_amount?.toString() || '',
     paymentMethod: '',
     paymentType: 'Deposit',
+    remark: '',
   });
 
   useEffect(() => {
@@ -215,6 +216,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
           company_name: project.company_name || null,
           payment_method: formData.paymentMethod || null,
           payment_type: formData.paymentType,
+          remark: formData.remark || null,
           google_drive_url: driveFileUrl,
           created_by: (await supabase.auth.getUser()).data.user?.id,
         });
@@ -359,6 +361,19 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Bank Transfer, Cheque, etc."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Remark
+              </label>
+              <textarea
+                value={formData.remark}
+                onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                placeholder="Add any additional notes or remarks..."
+                rows={3}
               />
             </div>
 
