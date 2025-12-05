@@ -2608,7 +2608,10 @@ export function ProjectBoard() {
                       </>
                     )}
                     <button
-                      onClick={() => setIsAddClientModalOpen(true)}
+                      onClick={() => {
+                        setAddClientType(activeClientTab);
+                        setIsAddClientModalOpen(true);
+                      }}
                       className={`${
                         activeClientTab === 'company'
                           ? 'bg-blue-600 hover:bg-blue-700'
