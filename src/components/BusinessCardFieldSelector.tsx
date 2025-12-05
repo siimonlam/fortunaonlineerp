@@ -3,7 +3,7 @@ import { X, Check, Loader2, Edit3, Scissors } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 
 interface FieldSelection {
-  field: 'company_name' | 'contact_name' | 'email' | 'phone' | 'address' | 'website';
+  field: 'company_name' | 'company_name_chinese' | 'contact_name' | 'email' | 'phone' | 'address' | 'website';
   x: number;
   y: number;
   width: number;
@@ -19,6 +19,7 @@ interface BusinessCardFieldSelectorProps {
 
 const FIELD_LABELS = {
   company_name: 'Company Name',
+  company_name_chinese: 'Company Name (Chinese)',
   contact_name: 'Contact Name',
   email: 'Email',
   phone: 'Phone',
@@ -28,8 +29,9 @@ const FIELD_LABELS = {
 
 const FIELD_COLORS = {
   company_name: 'bg-blue-500',
+  company_name_chinese: 'bg-indigo-500',
   contact_name: 'bg-green-500',
-  email: 'bg-purple-500',
+  email: 'bg-violet-500',
   phone: 'bg-orange-500',
   address: 'bg-pink-500',
   website: 'bg-teal-500'
@@ -44,10 +46,27 @@ export function BusinessCardFieldSelector({ imageData, onComplete, onCancel }: B
   const [processing, setProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<any>({});
   const [showManualEdit, setShowManualEdit] = useState(false);
+  const [suggestionsApplied, setSuggestionsApplied] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const generateDefaultSelections = (width: number, height: number): FieldSelection[] => {
+    const rowHeight = height / 8;
+    const margin = width * 0.05;
+    const fieldWidth = width - (margin * 2);
+
+    return [
+      { field: 'company_name', x: margin, y: rowHeight * 0.5, width: fieldWidth, height: rowHeight },
+      { field: 'company_name_chinese', x: margin, y: rowHeight * 1.5, width: fieldWidth, height: rowHeight },
+      { field: 'contact_name', x: margin, y: rowHeight * 2.5, width: fieldWidth * 0.6, height: rowHeight },
+      { field: 'email', x: margin, y: rowHeight * 4, width: fieldWidth, height: rowHeight * 0.8 },
+      { field: 'phone', x: margin, y: rowHeight * 5, width: fieldWidth * 0.5, height: rowHeight * 0.8 },
+      { field: 'website', x: margin, y: rowHeight * 6, width: fieldWidth * 0.6, height: rowHeight * 0.8 },
+      { field: 'address', x: margin, y: rowHeight * 7, width: fieldWidth, height: rowHeight * 0.8 }
+    ];
+  };
 
   useEffect(() => {
     if (imageData && imageRef.current) {
@@ -56,12 +75,19 @@ export function BusinessCardFieldSelector({ imageData, onComplete, onCancel }: B
         if (canvasRef.current) {
           canvasRef.current.width = img.width;
           canvasRef.current.height = img.height;
+
+          if (!suggestionsApplied) {
+            const defaultSelections = generateDefaultSelections(img.width, img.height);
+            setSelections(defaultSelections);
+            setSuggestionsApplied(true);
+          }
+
           drawCanvas();
         }
       };
       img.src = imageData;
     }
-  }, [imageData, selections, currentRect]);
+  }, [imageData, selections, currentRect, suggestionsApplied]);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -70,23 +96,37 @@ export function BusinessCardFieldSelector({ imageData, onComplete, onCancel }: B
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    const colorMap: Record<string, string> = {
+      'bg-blue-500': '#3b82f6',
+      'bg-indigo-500': '#6366f1',
+      'bg-green-500': '#22c55e',
+      'bg-violet-500': '#8b5cf6',
+      'bg-orange-500': '#f97316',
+      'bg-pink-500': '#ec4899',
+      'bg-teal-500': '#14b8a6'
+    };
+
     selections.forEach((selection) => {
-      const color = FIELD_COLORS[selection.field];
-      ctx.strokeStyle = color.replace('bg-', '#').replace('-500', '');
+      const colorClass = FIELD_COLORS[selection.field];
+      const color = colorMap[colorClass] || '#3b82f6';
+
+      ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.strokeRect(selection.x, selection.y, selection.width, selection.height);
 
-      ctx.fillStyle = color.replace('bg-', '#').replace('-500', '') + '40';
+      ctx.fillStyle = color + '40';
       ctx.fillRect(selection.x, selection.y, selection.width, selection.height);
 
-      ctx.fillStyle = color.replace('bg-', '#').replace('-500', '');
-      ctx.font = '16px Arial';
+      ctx.fillStyle = color;
+      ctx.font = 'bold 16px Arial';
       ctx.fillText(FIELD_LABELS[selection.field], selection.x + 5, selection.y - 5);
     });
 
     if (currentRect && activeField) {
-      const color = FIELD_COLORS[activeField];
-      ctx.strokeStyle = color.replace('bg-', '#').replace('-500', '');
+      const colorClass = FIELD_COLORS[activeField];
+      const color = colorMap[colorClass] || '#3b82f6';
+
+      ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.setLineDash([5, 5]);
       ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
@@ -260,7 +300,7 @@ export function BusinessCardFieldSelector({ imageData, onComplete, onCancel }: B
                 <img src={imageData} alt="Business card" className="w-full rounded-lg border border-slate-200" />
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto">
                 <h3 className="text-sm font-medium text-slate-700 mb-3">Extracted Information</h3>
 
                 {Object.keys(FIELD_LABELS).map((field) => {
@@ -315,7 +355,7 @@ export function BusinessCardFieldSelector({ imageData, onComplete, onCancel }: B
           <div>
             <h2 className="text-xl font-bold text-slate-900">Select Fields on Business Card</h2>
             <p className="text-sm text-slate-600 mt-1">
-              Click and drag on the image to select each field
+              Adjust the suggested fields by clicking and dragging. Click a field name to redraw it.
             </p>
           </div>
           <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 transition-colors">
