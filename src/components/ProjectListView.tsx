@@ -1,4 +1,5 @@
-import { CheckCircle2, Circle, Bell } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, Circle, Bell, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface Staff {
   id: string;
@@ -84,6 +85,9 @@ interface ProjectListViewProps {
   onClientClick?: (client: Client) => void;
 }
 
+type SortField = 'next_hkpc_due_date' | 'submission_date' | 'project_start_date' | 'project_end_date';
+type SortDirection = 'asc' | 'desc' | null;
+
 export function ProjectListView({
   projects,
   projectTypes,
@@ -92,6 +96,9 @@ export function ProjectListView({
   onProjectClick,
   onClientClick
 }: ProjectListViewProps) {
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
   const isFundingProject = (project: Project) => {
     return projectTypes?.find(pt => pt.id === project.project_type_id)?.name === 'Funding Project';
   };
@@ -112,6 +119,52 @@ export function ProjectListView({
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString();
   };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortDirection(null);
+        setSortField(null);
+      } else {
+        setSortDirection('asc');
+      }
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortedProjects = () => {
+    if (!sortField || !sortDirection) return projects;
+
+    return [...projects].sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+
+      if (!aValue && !bValue) return 0;
+      if (!aValue) return sortDirection === 'asc' ? 1 : -1;
+      if (!bValue) return sortDirection === 'asc' ? -1 : 1;
+
+      const aDate = new Date(aValue).getTime();
+      const bDate = new Date(bValue).getTime();
+
+      return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+    });
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-4 h-4 text-slate-400" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="w-4 h-4 text-blue-600" />;
+    }
+    return <ArrowDown className="w-4 h-4 text-blue-600" />;
+  };
+
+  const sortedProjects = getSortedProjects();
 
   const renderProjectRows = (statusProjects: Project[]) => (
     <>
@@ -181,7 +234,7 @@ export function ProjectListView({
               {project.abbreviation || '-'}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
-              {formatDate(project.next_due_date)}
+              {formatDate(project.next_hkpc_due_date)}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
               {formatDate(project.submission_date)}
@@ -232,17 +285,41 @@ export function ProjectListView({
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Abbreviation
               </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                Next Due Date
+              <th
+                className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-200 transition-colors"
+                onClick={() => handleSort('next_hkpc_due_date')}
+              >
+                <div className="flex items-center gap-2">
+                  Next HKPC Due Date
+                  {getSortIcon('next_hkpc_due_date')}
+                </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                Submission Date
+              <th
+                className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-200 transition-colors"
+                onClick={() => handleSort('submission_date')}
+              >
+                <div className="flex items-center gap-2">
+                  Submission Date
+                  {getSortIcon('submission_date')}
+                </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                Start Date
+              <th
+                className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-200 transition-colors"
+                onClick={() => handleSort('project_start_date')}
+              >
+                <div className="flex items-center gap-2">
+                  Start Date
+                  {getSortIcon('project_start_date')}
+                </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                End Date
+              <th
+                className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-200 transition-colors"
+                onClick={() => handleSort('project_end_date')}
+              >
+                <div className="flex items-center gap-2">
+                  End Date
+                  {getSortIcon('project_end_date')}
+                </div>
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Tasks
@@ -250,7 +327,7 @@ export function ProjectListView({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {renderProjectRows(projects)}
+            {renderProjectRows(sortedProjects)}
           </tbody>
         </table>
       </div>
