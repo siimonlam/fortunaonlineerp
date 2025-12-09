@@ -86,6 +86,10 @@ export async function generateInvoiceFromTemplate(
     remark?: string;
   }
 ): Promise<Blob> {
+  console.log('=== Starting Invoice Generation ===');
+  console.log('Project ID:', projectId);
+  console.log('Invoice Data:', invoiceData);
+
   const { data: project, error: projectError } = await supabase
     .from('projects')
     .select('*, client:clients(*)')
@@ -93,16 +97,25 @@ export async function generateInvoiceFromTemplate(
     .single();
 
   if (projectError || !project) {
+    console.error('Failed to fetch project data:', projectError);
     throw new Error('Failed to fetch project data');
   }
 
+  console.log('Project fetched:', {
+    company_name: project.company_name,
+    contact_name: project.contact_name,
+    client: project.client?.company_name
+  });
+
   const mappings = await getFieldMappings();
+  console.log('Field mappings loaded:', mappings.length);
 
   const pdfDoc = await PDFDocument.load(templateArrayBuffer);
   const form = pdfDoc.getForm();
   const fields = form.getFields();
 
   console.log('Available PDF fields:', fields.map(f => f.getName()));
+  console.log('Total fields in template:', fields.length);
 
   // Note: We rely on the NeedAppearances flag set below to let PDF readers
   // render Chinese characters using their own fonts. This is more reliable
@@ -133,6 +146,7 @@ export async function generateInvoiceFromTemplate(
   };
 
   // Fill fields from mappings
+  let fieldsSet = 0;
   for (const mapping of mappings) {
     if (!mapping.tag?.tag_name) continue;
 
@@ -167,8 +181,12 @@ export async function generateInvoiceFromTemplate(
     }
 
     const transformedValue = applyTransform(value, mapping.transform_function);
+    console.log(`Setting field "${mapping.tag.tag_name}" = "${transformedValue}" (from ${mapping.source_type}.${mapping.source_field})`);
     await setFieldText(mapping.tag.tag_name, transformedValue);
+    fieldsSet++;
   }
+
+  console.log(`Total fields set: ${fieldsSet}`);
 
   // Set the NeedAppearances flag to tell PDF readers to generate appearances
   // This allows readers to use their own fonts that support Chinese characters
@@ -182,7 +200,10 @@ export async function generateInvoiceFromTemplate(
   }
 
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes], { type: 'application/pdf' });
+  console.log('PDF generated successfully, size:', pdfBytes.length, 'bytes');
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  console.log('=== Invoice Generation Complete ===');
+  return blob;
 }
 
 export async function getPdfFieldNames(templateArrayBuffer: ArrayBuffer): Promise<string[]> {

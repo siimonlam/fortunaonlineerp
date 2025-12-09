@@ -11,10 +11,13 @@ interface InvoicePreviewProps {
 export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePreviewProps) {
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
 
   useEffect(() => {
     const url = URL.createObjectURL(pdfBlob);
     setPdfUrl(url);
+    console.log('PDF Blob size:', pdfBlob.size, 'bytes');
+    console.log('PDF URL created:', url);
     return () => URL.revokeObjectURL(url);
   }, [pdfBlob]);
 
@@ -68,11 +71,30 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
 
         <div className="flex-1 overflow-hidden bg-slate-100 p-2">
           <div className="w-full h-full bg-white rounded-lg shadow-inner overflow-hidden">
-            <iframe
-              src={pdfUrl}
-              className="w-full h-full border-0"
-              title="Invoice Preview"
-            />
+            {iframeError ? (
+              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <p className="text-slate-600 mb-4">
+                  Cannot preview PDF in browser. Please download to view.
+                </p>
+                <button
+                  onClick={handleDownload}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <Download className="w-5 h-5" />
+                  Download PDF
+                </button>
+              </div>
+            ) : (
+              <iframe
+                src={`${pdfUrl}#view=FitH`}
+                className="w-full h-full border-0"
+                title="Invoice Preview"
+                onError={() => {
+                  console.error('Iframe failed to load PDF');
+                  setIframeError(true);
+                }}
+              />
+            )}
           </div>
         </div>
       </div>
