@@ -203,6 +203,8 @@ export function ProjectListView({
                 >
                   #{project.clients.client_number}
                 </button>
+              ) : project.client_number ? (
+                <span className="text-sm font-semibold text-slate-700">#{project.client_number}</span>
               ) : (
                 <span className="text-sm text-slate-500">-</span>
               )}
@@ -235,6 +237,16 @@ export function ProjectListView({
                   )}
                 </div>
               </div>
+            </td>
+            <td className="px-6 py-4 whitespace-nowrap text-center">
+              {hasQAAttentionLabel(project) ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200">
+                  <Tag className="w-3 h-3" />
+                  Q&A Attention
+                </span>
+              ) : (
+                <span className="text-sm text-slate-400">-</span>
+              )}
             </td>
             <td className="px-6 py-4 whitespace-nowrap">
               {project.status_id && (
@@ -274,16 +286,6 @@ export function ProjectListView({
                 <span className="text-sm text-slate-500">-</span>
               )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-center">
-              {hasQAAttentionLabel(project) ? (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200">
-                  <Tag className="w-3 h-3" />
-                  Q&A Attention
-                </span>
-              ) : (
-                <span className="text-sm text-slate-400">-</span>
-              )}
-            </td>
           </tr>
         );
       })}
@@ -301,6 +303,9 @@ export function ProjectListView({
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Project
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Q&A Attention
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Status
@@ -346,9 +351,6 @@ export function ProjectListView({
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Tasks
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                Q&A Attention
               </th>
             </tr>
           </thead>
