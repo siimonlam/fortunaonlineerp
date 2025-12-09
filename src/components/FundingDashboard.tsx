@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar, Tag } from 'lucide-react';
 
 interface Status {
   id: string;
@@ -37,6 +37,8 @@ interface FundingDashboardProps {
   onProjectClick?: (projectId: string) => void;
 }
 
+const QA_ATTENTION_LABEL_ID = 'd144c662-d462-4554-be6b-19710a4733a1';
+
 export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [dashboardData, setDashboardData] = useState<DashboardData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [selectedMonths, setSelectedMonths] = useState(4);
   const [agingProjects, setAgingProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [filterQAAttention, setFilterQAAttention] = useState(false);
 
   const filterAgingProjects = useCallback(async () => {
     try {
@@ -63,9 +66,21 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
       if (error) throw error;
 
+      let filteredByLabel = projects || [];
+
+      if (filterQAAttention) {
+        const { data: projectLabels } = await supabase
+          .from('project_labels')
+          .select('project_id')
+          .eq('label_id', QA_ATTENTION_LABEL_ID);
+
+        const qaProjectIds = new Set(projectLabels?.map(pl => pl.project_id) || []);
+        filteredByLabel = filteredByLabel.filter(p => qaProjectIds.has(p.id));
+      }
+
       const currentDate = new Date();
 
-      const filtered = projects?.filter(p => {
+      const filtered = filteredByLabel?.filter(p => {
         if (!p.submission_date) return false;
         const submissionDate = new Date(p.submission_date);
         const daysDiff = (currentDate.getTime() - submissionDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -83,11 +98,11 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
     } catch (error) {
       console.error('Error filtering aging projects:', error);
     }
-  }, [selectedMonths]);
+  }, [selectedMonths, filterQAAttention]);
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [filterQAAttention]);
 
   useEffect(() => {
     filterAgingProjects();
@@ -108,23 +123,37 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
         throw statusError;
       }
 
-      const { data: projects, error: projectError } = await supabase
+      let projectQuery = supabase
         .from('projects')
         .select('id, status_id, project_type_id, title, project_end_date, submission_date')
         .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696');
+
+      const { data: projects, error: projectError } = await projectQuery;
 
       if (projectError) {
         console.error('Project error:', projectError);
         throw projectError;
       }
 
-      setTotalProjects(projects?.length || 0);
+      let filteredProjects = projects || [];
+
+      if (filterQAAttention) {
+        const { data: projectLabels } = await supabase
+          .from('project_labels')
+          .select('project_id')
+          .eq('label_id', QA_ATTENTION_LABEL_ID);
+
+        const qaProjectIds = new Set(projectLabels?.map(pl => pl.project_id) || []);
+        filteredProjects = filteredProjects.filter(p => qaProjectIds.has(p.id));
+      }
+
+      setTotalProjects(filteredProjects?.length || 0);
 
       const parentStatuses = statuses?.filter(s => !s.is_substatus) || [];
       const childStatuses = statuses?.filter(s => s.is_substatus) || [];
 
       const statusCounts = new Map<string, number>();
-      projects?.forEach(project => {
+      filteredProjects?.forEach(project => {
         const count = statusCounts.get(project.status_id) || 0;
         statusCounts.set(project.status_id, count + 1);
       });
@@ -154,7 +183,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
       const threeMonthsFromNow = new Date();
       threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
 
-      const projectsEndingSoon = projects?.filter(p => {
+      const projectsEndingSoon = filteredProjects?.filter(p => {
         if (!p.project_end_date) return false;
         const endDate = new Date(p.project_end_date);
         const now = new Date();
@@ -218,26 +247,45 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('summary')}
+            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'summary'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            Project Summary
+          </button>
+          <button
+            onClick={() => setActiveTab('progress')}
+            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'progress'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            Progress
+          </button>
+        </div>
+
         <button
-          onClick={() => setActiveTab('summary')}
-          className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-            activeTab === 'summary'
-              ? 'bg-blue-600 text-white shadow-md'
+          onClick={() => setFilterQAAttention(!filterQAAttention)}
+          className={`px-4 py-2.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+            filterQAAttention
+              ? 'bg-red-600 text-white shadow-md'
               : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
           }`}
         >
-          Project Summary
-        </button>
-        <button
-          onClick={() => setActiveTab('progress')}
-          className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-            activeTab === 'progress'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          Progress
+          <Tag className="w-4 h-4" />
+          Q&A Attention
+          {filterQAAttention && (
+            <span className="ml-1 bg-white bg-opacity-20 px-2 py-0.5 rounded-full text-xs">
+              Active
+            </span>
+          )}
         </button>
       </div>
 
