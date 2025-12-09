@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { PDFDocument, PDFName } from 'pdf-lib';
+import { PDFDocument, PDFName, rgb, StandardFonts } from 'pdf-lib';
 
 interface FieldMapping {
   tag_id: string;
@@ -104,55 +104,82 @@ export async function generateInvoiceFromTemplate(
 
   console.log('Available PDF fields:', fields.map(f => f.getName()));
 
+  // Fetch a font that supports Chinese characters from Google Fonts
+  let chineseFont = null;
+  try {
+    const fontResponse = await fetch('https://fonts.gstatic.com/s/notosanssc/v36/k3kXo84MPvpLmixcA63oeALhL4iJ-Q7m8w.ttf');
+    const fontBytes = await fontResponse.arrayBuffer();
+    chineseFont = await pdfDoc.embedFont(fontBytes);
+  } catch (error) {
+    console.warn('Failed to load Chinese font:', error);
+  }
+
+  // Helper function to safely set field text
+  const setFieldText = async (fieldName: string, text: string) => {
+    try {
+      const field = form.getTextField(fieldName);
+
+      try {
+        field.setText(text);
+      } catch (encodingError: any) {
+        if (encodingError.message?.includes('cannot encode') && chineseFont) {
+          const pages = pdfDoc.getPages();
+          const fieldWidget = field.acroField.getWidgets()[0];
+          const fieldRect = fieldWidget.getRectangle();
+
+          for (let i = 0; i < pages.length; i++) {
+            const page = pages[i];
+            const pageHeight = page.getHeight();
+
+            page.drawText(text, {
+              x: fieldRect.x + 2,
+              y: pageHeight - fieldRect.y - fieldRect.height + 2,
+              size: 10,
+              font: chineseFont,
+              color: rgb(0, 0, 0),
+            });
+            break;
+          }
+
+          field.setText('');
+        } else {
+          throw encodingError;
+        }
+      }
+    } catch (error) {
+      console.warn(`Field ${fieldName} not found in PDF or error setting value:`, error);
+    }
+  };
+
   // Fill invoice-specific fields from invoiceData parameter
   if (invoiceData) {
     if (invoiceData.invoiceNumber) {
-      try {
-        const field = form.getTextField('invoice_number');
-        field.setText(invoiceData.invoiceNumber);
-      } catch (error) {
-        console.warn('invoice_number field not found in PDF');
-      }
+      await setFieldText('invoice_number', invoiceData.invoiceNumber);
     }
     if (invoiceData.amount) {
-      try {
-        const field = form.getTextField('amount');
-        const formattedAmount = `HKD $${parseFloat(invoiceData.amount).toLocaleString('en-US', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`;
-        field.setText(formattedAmount);
-      } catch (error) {
-        console.warn('amount field not found in PDF');
-      }
+      const formattedAmount = `HKD $${parseFloat(invoiceData.amount).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+      await setFieldText('amount', formattedAmount);
     }
     if (invoiceData.issueDate) {
-      try {
-        const field = form.getTextField('issue_date');
-        const date = new Date(invoiceData.issueDate);
-        const formattedDate = date.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-        field.setText(formattedDate);
-      } catch (error) {
-        console.warn('issue_date field not found in PDF');
-      }
+      const date = new Date(invoiceData.issueDate);
+      const formattedDate = date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      await setFieldText('issue_date', formattedDate);
     }
     if (invoiceData.dueDate) {
-      try {
-        const field = form.getTextField('due_date');
-        const date = new Date(invoiceData.dueDate);
-        const formattedDate = date.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-        field.setText(formattedDate);
-      } catch (error) {
-        console.warn('due_date field not found in PDF');
-      }
+      const date = new Date(invoiceData.dueDate);
+      const formattedDate = date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      await setFieldText('due_date', formattedDate);
     }
   }
 
@@ -191,16 +218,7 @@ export async function generateInvoiceFromTemplate(
     }
 
     const transformedValue = applyTransform(value, mapping.transform_function);
-
-    try {
-      const field = form.getTextField(mapping.tag.tag_name);
-      field.setText(transformedValue);
-      // Enable rich text for this field to support Unicode characters
-      field.enableReadOnly();
-      field.disableReadOnly();
-    } catch (error) {
-      console.warn(`Field not found in PDF: ${mapping.tag.tag_name}`);
-    }
+    await setFieldText(mapping.tag.tag_name, transformedValue);
   }
 
   // Set the NeedAppearances flag to tell PDF readers to generate appearances
