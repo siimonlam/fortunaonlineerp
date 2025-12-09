@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { toLocalDateTimeString, fromLocalDateTimeString } from '../utils/dateTimeUtils';
 
 interface Staff {
   id: string;
@@ -1195,9 +1196,9 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Next HKPC Due Date</label>
                     <input
-                      type="date"
-                      value={formData.nextHkpcDueDate}
-                      onChange={(e) => setFormData({ ...formData, nextHkpcDueDate: e.target.value })}
+                      type="datetime-local"
+                      value={toLocalDateTimeString(formData.nextHkpcDueDate)}
+                      onChange={(e) => setFormData({ ...formData, nextHkpcDueDate: fromLocalDateTimeString(e.target.value) })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>

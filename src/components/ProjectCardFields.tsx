@@ -63,7 +63,7 @@ export function ProjectCardFields({ project }: ProjectCardFieldsProps) {
         <div className="flex items-center gap-2 text-orange-600">
           <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
           <span className="font-medium">HKPC Due:</span>
-          <span>{new Date(project.next_hkpc_due_date).toLocaleDateString()}</span>
+          <span>{new Date(project.next_hkpc_due_date).toLocaleString()}</span>
         </div>
       )}
 
@@ -71,7 +71,7 @@ export function ProjectCardFields({ project }: ProjectCardFieldsProps) {
         <div className="flex items-center gap-2 text-blue-600">
           <Clock className="w-3.5 h-3.5 flex-shrink-0" />
           <span className="font-medium">Next Task:</span>
-          <span>{new Date(nextUpcomingTask.deadline!).toLocaleDateString()}</span>
+          <span>{new Date(nextUpcomingTask.deadline!).toLocaleString()}</span>
         </div>
       )}
 

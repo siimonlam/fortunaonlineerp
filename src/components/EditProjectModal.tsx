@@ -1389,7 +1389,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 <p className="text-xs font-medium text-slate-500 mb-1">Next HKPC Due Date</p>
                 {project.next_hkpc_due_date ? (
                   <p className="text-sm font-semibold text-slate-900">
-                    {new Date(project.next_hkpc_due_date).toLocaleDateString()}
+                    {new Date(project.next_hkpc_due_date).toLocaleString()}
                   </p>
                 ) : (
                   <p className="text-sm text-slate-400">Not set</p>
@@ -2284,10 +2284,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Next HKPC Due Date</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   disabled={!canEdit}
-                  value={formData.nextHkpcDueDate}
-                  onChange={(e) => setFormData({ ...formData, nextHkpcDueDate: e.target.value })}
+                  value={toLocalDateTimeString(formData.nextHkpcDueDate)}
+                  onChange={(e) => setFormData({ ...formData, nextHkpcDueDate: fromLocalDateTimeString(e.target.value) })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                 />
               </div>

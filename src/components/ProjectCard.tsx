@@ -322,7 +322,7 @@ export function ProjectCard({
                             ? 'text-red-600 font-medium'
                             : 'text-slate-500'
                         }`}>
-                          Due: {new Date(task.deadline).toLocaleDateString()}
+                          Due: {new Date(task.deadline).toLocaleString()}
                         </span>
                       )}
                       {task.staff && (
