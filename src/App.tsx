@@ -5,6 +5,7 @@ import { ProjectBoard } from './components/ProjectBoard';
 import { ClientOnboarding } from './components/ClientOnboarding';
 import { ClientAuthPage } from './components/ClientAuthPage';
 import { PhoneScanPage } from './components/PhoneScanPage';
+import { TaskDueSummaryModal } from './components/TaskDueSummaryModal';
 import { supabase } from './lib/supabase';
 
 function AppContent() {
@@ -12,6 +13,7 @@ function AppContent() {
   const [clientAuthenticated, setClientAuthenticated] = useState(false);
   const [checkingClientAuth, setCheckingClientAuth] = useState(true);
   const [showForceLoad, setShowForceLoad] = useState(false);
+  const [showTaskSummary, setShowTaskSummary] = useState(false);
 
   console.log('[AppContent] Render - loading:', loading, '| user:', user?.email || 'null', '| pathname:', window.location.pathname);
 
@@ -33,6 +35,19 @@ function AppContent() {
       setCheckingClientAuth(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && !loading && window.location.pathname !== '/onboarding' && window.location.pathname !== '/phone-scan') {
+      const taskSummaryShown = sessionStorage.getItem('taskSummaryShown');
+      if (!taskSummaryShown) {
+        const timer = setTimeout(() => {
+          setShowTaskSummary(true);
+          sessionStorage.setItem('taskSummaryShown', 'true');
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user, loading]);
 
   const checkClientAccess = async () => {
     if (!user) {
@@ -99,7 +114,17 @@ function AppContent() {
     );
   }
 
-  return user ? <ProjectBoard /> : <LoginPage />;
+  return (
+    <>
+      {user ? <ProjectBoard /> : <LoginPage />}
+      {showTaskSummary && user && (
+        <TaskDueSummaryModal
+          userId={user.id}
+          onClose={() => setShowTaskSummary(false)}
+        />
+      )}
+    </>
+  );
 }
 
 function App() {
