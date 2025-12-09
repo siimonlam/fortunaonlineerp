@@ -65,7 +65,10 @@ function applyTransform(value: any, transformFunction?: string): string {
     case 'number_format':
       try {
         const num = parseFloat(stringValue);
-        return num.toLocaleString('en-US');
+        return num.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
       } catch {
         return stringValue;
       }
