@@ -198,6 +198,7 @@ export function ProjectBoard() {
   const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [showTaskNotification, setShowTaskNotification] = useState(false);
+  const [filterMyTasks, setFilterMyTasks] = useState(false);
   const [showBulkProjectMenu, setShowBulkProjectMenu] = useState(false);
 
   useEffect(() => {
@@ -1392,12 +1393,21 @@ export function ProjectBoard() {
           if (!hasUpcomingUserTasks) return false;
         }
 
+        if (filterMyTasks) {
+          const hasUserTasks = p.tasks?.some(task => task.assigned_to === user?.id);
+          if (!hasUserTasks) return false;
+        }
+
         if (projectSearchQuery.trim()) {
           return true;
         }
       }
 
       if (isMarketingProjectType) {
+        if (filterMyTasks) {
+          const hasUserTasks = p.tasks?.some(task => task.assigned_to === user?.id);
+          if (!hasUserTasks) return false;
+        }
         if (filterSalesPerson.length > 0 && !filterSalesPerson.includes(p.sales_person_id || '')) {
           return false;
         }
@@ -2048,6 +2058,18 @@ export function ProjectBoard() {
                       className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                     />
                   </div>
+                  <button
+                    onClick={() => setFilterMyTasks(!filterMyTasks)}
+                    className={`px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-colors inline-flex items-center gap-2 ${
+                      filterMyTasks
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                    title="Show only projects where I have tasks"
+                  >
+                    <CheckSquare className="w-4 h-4" />
+                    My Tasks
+                  </button>
                   <select
                     value={projectSortBy}
                     onChange={(e) => setProjectSortBy(e.target.value as any)}
