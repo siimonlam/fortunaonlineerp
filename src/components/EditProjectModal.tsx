@@ -601,16 +601,20 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
   async function handleNewQAReceived() {
     if (!qaDueDate) {
-      alert('Please select a due date');
+      alert('Please select a due date and time');
       return;
     }
 
     try {
       const tableName = project.table_source || 'projects';
+
+      // Convert datetime-local string to ISO timestamp
+      const timestamp = new Date(qaDueDate).toISOString();
+
       const { error } = await supabase
         .from(tableName)
         .update({
-          next_hkpc_due_date: qaDueDate
+          next_hkpc_due_date: timestamp
         })
         .eq('id', project.id);
 
@@ -618,7 +622,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
       setShowQADatePicker(false);
       setQaDueDate('');
-      alert('Next HKPC due date updated successfully');
+      alert('Next HKPC due date and time updated successfully');
       onSuccess();
     } catch (error: any) {
       console.error('Error updating due date:', error);
@@ -3103,14 +3107,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
       <h3 className="text-lg font-semibold text-slate-900 mb-2">New Q&A Received</h3>
       <p className="text-slate-600 mb-4">
-        Set the next HKPC due date for this project
+        Set the next HKPC due date and time for this project
       </p>
       <div className="mb-6">
         <label className="block text-sm font-medium text-slate-700 mb-2">
-          Next HKPC Due Date
+          Next HKPC Due Date & Time
         </label>
         <input
-          type="date"
+          type="datetime-local"
           value={qaDueDate}
           onChange={(e) => setQaDueDate(e.target.value)}
           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

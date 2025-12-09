@@ -493,7 +493,7 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
               {project.next_hkpc_due_date && (
                 <div className="text-sm">
                   <span className="text-slate-500">Next HKPC Due:</span>
-                  <span className="ml-2 text-slate-900">{new Date(project.next_hkpc_due_date).toLocaleDateString()}</span>
+                  <span className="ml-2 text-slate-900">{new Date(project.next_hkpc_due_date).toLocaleString()}</span>
                 </div>
               )}
               {project.next_due_date && (
