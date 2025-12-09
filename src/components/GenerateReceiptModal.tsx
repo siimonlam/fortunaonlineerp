@@ -198,6 +198,9 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
       }
     }
 
+    form.updateFieldAppearances();
+    form.flatten();
+
     const pdfBytes = await pdfDoc.save();
     return new Blob([pdfBytes], { type: 'application/pdf' });
   }

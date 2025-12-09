@@ -27,9 +27,6 @@ export async function getFieldMappings(): Promise<FieldMapping[]> {
   return data || [];
 }
 
-function sanitizeForWinAnsi(text: string): string {
-  return text.replace(/[^\x00-\xFF]/g, '?');
-}
 
 function applyTransform(value: any, transformFunction?: string): string {
   if (value === null || value === undefined) return '';
@@ -112,7 +109,7 @@ export async function generateInvoiceFromTemplate(
     if (invoiceData.invoiceNumber) {
       try {
         const field = form.getTextField('invoice_number');
-        field.setText(sanitizeForWinAnsi(invoiceData.invoiceNumber));
+        field.setText(invoiceData.invoiceNumber);
       } catch (error) {
         console.warn('invoice_number field not found in PDF');
       }
@@ -124,7 +121,7 @@ export async function generateInvoiceFromTemplate(
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`;
-        field.setText(sanitizeForWinAnsi(formattedAmount));
+        field.setText(formattedAmount);
       } catch (error) {
         console.warn('amount field not found in PDF');
       }
@@ -138,7 +135,7 @@ export async function generateInvoiceFromTemplate(
           month: 'long',
           day: 'numeric',
         });
-        field.setText(sanitizeForWinAnsi(formattedDate));
+        field.setText(formattedDate);
       } catch (error) {
         console.warn('issue_date field not found in PDF');
       }
@@ -152,7 +149,7 @@ export async function generateInvoiceFromTemplate(
           month: 'long',
           day: 'numeric',
         });
-        field.setText(sanitizeForWinAnsi(formattedDate));
+        field.setText(formattedDate);
       } catch (error) {
         console.warn('due_date field not found in PDF');
       }
@@ -197,12 +194,13 @@ export async function generateInvoiceFromTemplate(
 
     try {
       const field = form.getTextField(mapping.tag.tag_name);
-      field.setText(sanitizeForWinAnsi(transformedValue));
+      field.setText(transformedValue);
     } catch (error) {
       console.warn(`Field not found in PDF: ${mapping.tag.tag_name}`);
     }
   }
 
+  form.updateFieldAppearances();
   form.flatten();
 
   const pdfBytes = await pdfDoc.save();
