@@ -1394,8 +1394,13 @@ export function ProjectBoard() {
         }
 
         if (filterMyTasks) {
-          const hasUserTasks = p.tasks?.some(task => task.assigned_to === user?.id);
-          if (!hasUserTasks) return false;
+          const hasUrgentUserTasks = p.tasks?.some(task => {
+            if (!task.assigned_to || task.assigned_to !== user?.id) return false;
+            if (task.completed || !task.deadline) return false;
+            const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            return daysUntilDue <= 7;
+          });
+          if (!hasUrgentUserTasks) return false;
         }
 
         if (projectSearchQuery.trim()) {
@@ -1405,8 +1410,13 @@ export function ProjectBoard() {
 
       if (isMarketingProjectType) {
         if (filterMyTasks) {
-          const hasUserTasks = p.tasks?.some(task => task.assigned_to === user?.id);
-          if (!hasUserTasks) return false;
+          const hasUrgentUserTasks = p.tasks?.some(task => {
+            if (!task.assigned_to || task.assigned_to !== user?.id) return false;
+            if (task.completed || !task.deadline) return false;
+            const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            return daysUntilDue <= 7;
+          });
+          if (!hasUrgentUserTasks) return false;
         }
         if (filterSalesPerson.length > 0 && !filterSalesPerson.includes(p.sales_person_id || '')) {
           return false;
@@ -2065,7 +2075,7 @@ export function ProjectBoard() {
                         ? 'bg-blue-600 text-white border-blue-600'
                         : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                     }`}
-                    title="Show only projects where I have tasks"
+                    title="Show only projects with my tasks due soon or past due"
                   >
                     <CheckSquare className="w-4 h-4" />
                     My Tasks
