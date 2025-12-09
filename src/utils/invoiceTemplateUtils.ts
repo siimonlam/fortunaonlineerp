@@ -157,14 +157,6 @@ export async function generateInvoiceFromTemplate(
         console.warn('due_date field not found in PDF');
       }
     }
-    if (invoiceData.remark) {
-      try {
-        const field = form.getTextField('remark');
-        field.setText(sanitizeForWinAnsi(invoiceData.remark));
-      } catch (error) {
-        console.warn('remark field not found in PDF');
-      }
-    }
   }
 
   // Fill other fields from mappings
