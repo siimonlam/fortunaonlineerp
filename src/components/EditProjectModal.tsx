@@ -12,6 +12,7 @@ import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import html2pdf from 'html2pdf.js';
 import { createBudProjectFolders, createMarketingProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
+import { toLocalDateTimeString, fromLocalDateTimeString } from '../utils/dateTimeUtils';
 
 interface Staff {
   id: string;
@@ -2275,8 +2276,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 <input
                   type="datetime-local"
                   disabled={!canEdit}
-                  value={formData.agreementSignDate ? new Date(formData.agreementSignDate).toISOString().slice(0, 16) : ''}
-                  onChange={(e) => setFormData({ ...formData, agreementSignDate: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                  value={toLocalDateTimeString(formData.agreementSignDate)}
+                  onChange={(e) => setFormData({ ...formData, agreementSignDate: fromLocalDateTimeString(e.target.value) })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                 />
               </div>

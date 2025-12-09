@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X, User } from 'lucide-react';
+import { toLocalDateTimeString, fromLocalDateTimeString } from '../utils/dateTimeUtils';
 
 interface Meeting {
   id: string;
@@ -236,7 +237,7 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
     setFormData({
       title: meeting.title,
       description: meeting.description,
-      meeting_date: new Date(meeting.meeting_date).toISOString().slice(0, 16),
+      meeting_date: toLocalDateTimeString(meeting.meeting_date),
       location: meeting.location,
       attendees: meeting.attendees,
       tasks: (tasks || []).map(task => ({
@@ -244,7 +245,7 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
         title: task.title,
         description: task.description || '',
         assigned_to: task.assigned_to,
-        deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : null,
+        deadline: task.deadline ? toLocalDateTimeString(task.deadline) : null,
         completed: task.completed || false
       }))
     });
