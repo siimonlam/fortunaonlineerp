@@ -117,6 +117,12 @@ export function ReceiptFieldMappingSettings({ onClose }: ReceiptFieldMappingSett
       return;
     }
 
+    const existingTag = tags.find(t => t.tag_name === newTag.tag_name);
+    if (existingTag) {
+      alert(`A tag with the name "${newTag.tag_name}" already exists. Please choose a different PDF field.`);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('receipt_template_tags')
@@ -128,7 +134,13 @@ export function ReceiptFieldMappingSettings({ onClose }: ReceiptFieldMappingSett
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          alert(`A tag with the name "${newTag.tag_name}" already exists. Please choose a different PDF field.`);
+          return;
+        }
+        throw error;
+      }
 
       setTags([...tags, data]);
       setNewTag({ tag_name: '', description: '' });
