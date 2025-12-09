@@ -28,8 +28,9 @@ interface ProjectComment {
 
 interface ProjectActivitySidebarProps {
   projectId: string;
-  isOpen: boolean;
-  onToggle: () => void;
+  isOpen?: boolean;
+  onToggle?: () => void;
+  embedded?: boolean;
 }
 
 const COMMENT_TYPES = [
@@ -38,7 +39,7 @@ const COMMENT_TYPES = [
   { value: 'Meeting', label: 'Meeting', icon: MessageSquare },
 ];
 
-export function ProjectActivitySidebar({ projectId, isOpen, onToggle }: ProjectActivitySidebarProps) {
+export function ProjectActivitySidebar({ projectId, isOpen = true, onToggle, embedded = false }: ProjectActivitySidebarProps) {
   const { user } = useAuth();
   const [history, setHistory] = useState<ProjectHistory[]>([]);
   const [comments, setComments] = useState<ProjectComment[]>([]);
@@ -47,7 +48,7 @@ export function ProjectActivitySidebar({ projectId, isOpen, onToggle }: ProjectA
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (embedded || isOpen) {
       loadHistory();
       loadComments();
 
@@ -75,7 +76,7 @@ export function ProjectActivitySidebar({ projectId, isOpen, onToggle }: ProjectA
         supabase.removeChannel(channel);
       };
     }
-  }, [projectId, isOpen]);
+  }, [projectId, isOpen, embedded]);
 
   async function loadHistory() {
     try {
@@ -161,28 +162,9 @@ export function ProjectActivitySidebar({ projectId, isOpen, onToggle }: ProjectA
     return commentType ? commentType.icon : FileText;
   };
 
-  return (
+  const activityContent = (
     <>
-      <button
-        onClick={onToggle}
-        className={`fixed top-1/2 -translate-y-1/2 z-50 bg-blue-600 text-white p-2 rounded-l-lg shadow-lg hover:bg-blue-700 transition-all ${
-          isOpen ? 'right-96' : 'right-0'
-        }`}
-      >
-        {isOpen ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-      </button>
-
-      <div
-        className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-40 ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div className="h-full flex flex-col">
-          <div className="p-4 border-b border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900">Project Activity</h3>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
             <div>
               <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center">
                 <Clock className="w-4 h-4 mr-2" />
@@ -241,8 +223,8 @@ export function ProjectActivitySidebar({ projectId, isOpen, onToggle }: ProjectA
             </div>
           </div>
 
-          <div className="border-t border-slate-200 p-4 bg-slate-50">
-            <form onSubmit={handleAddComment} className="space-y-3">
+      <div className="border-t border-slate-200 p-4 bg-slate-50">
+        <form onSubmit={handleAddComment} className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
                 <select
@@ -268,15 +250,50 @@ export function ProjectActivitySidebar({ projectId, isOpen, onToggle }: ProjectA
                   required
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loading || !newComment.trim()}
-                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-sm font-medium transition-colors"
-              >
-                {loading ? 'Adding...' : 'Add Comment'}
-              </button>
-            </form>
+          <button
+            type="submit"
+            disabled={loading || !newComment.trim()}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+          >
+            {loading ? 'Adding...' : 'Add Comment'}
+          </button>
+        </form>
+      </div>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="h-full flex flex-col border-l border-slate-200 bg-slate-50">
+        <div className="p-4 border-b border-slate-200 bg-white">
+          <h3 className="text-lg font-semibold text-slate-900">Project Activity</h3>
+        </div>
+        {activityContent}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={onToggle}
+        className={`fixed top-1/2 -translate-y-1/2 z-50 bg-blue-600 text-white p-2 rounded-l-lg shadow-lg hover:bg-blue-700 transition-all ${
+          isOpen ? 'right-96' : 'right-0'
+        }`}
+      >
+        {isOpen ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+      </button>
+
+      <div
+        className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-40 ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="h-full flex flex-col">
+          <div className="p-4 border-b border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-900">Project Activity</h3>
           </div>
+          {activityContent}
         </div>
       </div>
 

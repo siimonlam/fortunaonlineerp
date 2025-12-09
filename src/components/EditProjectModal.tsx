@@ -126,7 +126,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [newCanEdit, setNewCanEdit] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showQADatePicker, setShowQADatePicker] = useState(false);
   const [qaDueDate, setQaDueDate] = useState('');
   const [allLabels, setAllLabels] = useState<Label[]>([]);
@@ -1338,9 +1337,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     .sort((a, b) => new Date(b.deadline!).getTime() - new Date(a.deadline!).getTime());
 
   return (
+    <>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
+      <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex">
+        <div className="flex-1 overflow-y-auto">
+          <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-bold text-slate-900">
@@ -3087,76 +3088,79 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </div>
         )}
       </div>
+    </div>
 
-      {showQADatePicker && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">New Q&A Received</h3>
-            <p className="text-slate-600 mb-4">
-              Set the next HKPC due date for this project
-            </p>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Next HKPC Due Date
-              </label>
-              <input
-                type="date"
-                value={qaDueDate}
-                onChange={(e) => setQaDueDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => {
-                  setShowQADatePicker(false);
-                  setQaDueDate('');
-                }}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleNewQAReceived}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Update Due Date
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showUnsavedWarning && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Unsaved Changes</h3>
-            <p className="text-slate-600 mb-6">
-              You have unsaved changes. Are you sure you want to close without saving?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowUnsavedWarning(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                Continue Editing
-              </button>
-              <button
-                onClick={confirmClose}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Discard Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div className="w-[400px]">
       <ProjectActivitySidebar
         projectId={project.id}
-        isOpen={isSidebarOpen}
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        embedded={true}
       />
+    </div>
+  </div>
+
+{showQADatePicker && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <h3 className="text-lg font-semibold text-slate-900 mb-2">New Q&A Received</h3>
+      <p className="text-slate-600 mb-4">
+        Set the next HKPC due date for this project
+      </p>
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-slate-700 mb-2">
+          Next HKPC Due Date
+        </label>
+        <input
+          type="date"
+          value={qaDueDate}
+          onChange={(e) => setQaDueDate(e.target.value)}
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={() => {
+            setShowQADatePicker(false);
+            setQaDueDate('');
+          }}
+          className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleNewQAReceived}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Update Due Date
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{showUnsavedWarning && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <h3 className="text-lg font-semibold text-slate-900 mb-2">Unsaved Changes</h3>
+      <p className="text-slate-600 mb-6">
+        You have unsaved changes. Are you sure you want to close without saving?
+      </p>
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={() => setShowUnsavedWarning(false)}
+          className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+        >
+          Continue Editing
+        </button>
+        <button
+          onClick={confirmClose}
+          className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+        >
+          Discard Changes
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {showAddPartnerProjectModal && (
         <AddPartnerProjectModal
@@ -3234,6 +3238,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           }}
         />
       )}
-    </div>
+    </>
   );
 }
