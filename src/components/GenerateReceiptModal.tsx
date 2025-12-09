@@ -198,10 +198,9 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
       }
     }
 
-    form.updateFieldAppearances();
-    form.flatten();
-
-    const pdfBytes = await pdfDoc.save();
+    // Don't update field appearances or flatten - this allows the PDF to render Chinese characters
+    // using the reader's fonts instead of the limited WinAnsi encoding in the template
+    const pdfBytes = await pdfDoc.save({ updateFieldAppearances: false });
     return new Blob([pdfBytes], { type: 'application/pdf' });
   }
 
