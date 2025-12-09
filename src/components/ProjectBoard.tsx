@@ -1273,6 +1273,23 @@ export function ProjectBoard() {
     }
   }
 
+  async function handleVoidInvoice(invoiceId: string) {
+    if (!confirm('Are you sure you want to void this invoice?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('funding_invoice')
+        .update({ payment_status: 'Void' })
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+      await loadData();
+    } catch (error: any) {
+      console.error('Error voiding invoice:', error);
+      alert('Failed to void invoice: ' + error.message);
+    }
+  }
+
   function handleDragStart(project: Project) {
     setDraggedProject(project);
   }
@@ -3096,6 +3113,14 @@ export function ProjectBoard() {
                                       className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs"
                                     >
                                       Mark Paid
+                                    </button>
+                                  )}
+                                  {invoice.payment_status !== 'Paid' && (
+                                    <button
+                                      onClick={() => handleVoidInvoice(invoice.id)}
+                                      className="px-3 py-1 bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors text-xs"
+                                    >
+                                      Void
                                     </button>
                                   )}
                                   <button
