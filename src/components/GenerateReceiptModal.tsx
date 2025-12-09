@@ -160,7 +160,7 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
     const response = await fetch('/Funding_Receipt_Template.pdf');
     const existingPdfBytes = await response.arrayBuffer();
 
-    const { PDFDocument } = await import('pdf-lib');
+    const { PDFDocument, PDFName } = await import('pdf-lib');
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
     const form = pdfDoc.getForm();
 
@@ -190,6 +190,11 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
             const field = form.getField(mapping.tag.tag_name);
             if (field && 'setText' in field) {
               field.setText(String(value));
+              // Enable rich text for this field to support Unicode characters
+              if ('enableReadOnly' in field && 'disableReadOnly' in field) {
+                (field as any).enableReadOnly();
+                (field as any).disableReadOnly();
+              }
             }
           }
         } catch (err) {
@@ -198,9 +203,14 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
       }
     }
 
-    // Don't update field appearances or flatten - this allows the PDF to render Chinese characters
-    // using the reader's fonts instead of the limited WinAnsi encoding in the template
-    const pdfBytes = await pdfDoc.save({ updateFieldAppearances: false });
+    // Set the NeedAppearances flag to tell PDF readers to generate appearances
+    // This allows readers to use their own fonts that support Chinese characters
+    const acroForm = pdfDoc.catalog.lookup(PDFName.of('AcroForm'));
+    if (acroForm) {
+      (acroForm as any).dict.set(PDFName.of('NeedAppearances'), true);
+    }
+
+    const pdfBytes = await pdfDoc.save();
     return new Blob([pdfBytes], { type: 'application/pdf' });
   }
 

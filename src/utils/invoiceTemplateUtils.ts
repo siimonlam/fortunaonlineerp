@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName } from 'pdf-lib';
 
 interface FieldMapping {
   tag_id: string;
@@ -195,14 +195,22 @@ export async function generateInvoiceFromTemplate(
     try {
       const field = form.getTextField(mapping.tag.tag_name);
       field.setText(transformedValue);
+      // Enable rich text for this field to support Unicode characters
+      field.enableReadOnly();
+      field.disableReadOnly();
     } catch (error) {
       console.warn(`Field not found in PDF: ${mapping.tag.tag_name}`);
     }
   }
 
-  // Don't update field appearances or flatten - this allows the PDF to render Chinese characters
-  // using the reader's fonts instead of the limited WinAnsi encoding in the template
-  const pdfBytes = await pdfDoc.save({ updateFieldAppearances: false });
+  // Set the NeedAppearances flag to tell PDF readers to generate appearances
+  // This allows readers to use their own fonts that support Chinese characters
+  const acroForm = pdfDoc.catalog.lookup(PDFName.of('AcroForm'));
+  if (acroForm) {
+    (acroForm as any).dict.set(PDFName.of('NeedAppearances'), true);
+  }
+
+  const pdfBytes = await pdfDoc.save();
   return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
