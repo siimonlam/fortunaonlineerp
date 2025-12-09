@@ -37,8 +37,9 @@ export function TaskDueSummaryModal({ userId, onClose }: TaskDueSummaryModalProp
     setLoading(true);
     try {
       const now = new Date();
-      const sevenDaysFromNow = new Date();
-      sevenDaysFromNow.setDate(now.getDate() + 7);
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const endOfToday = new Date(startOfToday);
+      endOfToday.setDate(endOfToday.getDate() + 1);
 
       const [tasksResult, marketingTasksResult] = await Promise.all([
         supabase
@@ -85,21 +86,21 @@ export function TaskDueSummaryModal({ userId, onClose }: TaskDueSummaryModalProp
       });
 
       const pastDue: Task[] = [];
-      const upcoming: Task[] = [];
+      const dueToday: Task[] = [];
 
       allTasks.forEach((task) => {
         if (task.deadline) {
           const deadlineDate = new Date(task.deadline);
-          if (deadlineDate < now) {
+          if (deadlineDate < startOfToday) {
             pastDue.push(task);
-          } else if (deadlineDate <= sevenDaysFromNow) {
-            upcoming.push(task);
+          } else if (deadlineDate >= startOfToday && deadlineDate < endOfToday) {
+            dueToday.push(task);
           }
         }
       });
 
       setPastDueTasks(pastDue);
-      setUpcomingTasks(upcoming);
+      setUpcomingTasks(dueToday);
     } catch (error) {
       console.error('Error loading task summary:', error);
     } finally {
@@ -139,7 +140,7 @@ export function TaskDueSummaryModal({ userId, onClose }: TaskDueSummaryModalProp
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex justify-between items-center p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50">
           <div className="flex items-center gap-3">
             <Clock className="w-6 h-6 text-blue-600" />
             <h2 className="text-xl font-semibold text-slate-800">Task Summary</h2>
@@ -201,16 +202,16 @@ export function TaskDueSummaryModal({ userId, onClose }: TaskDueSummaryModalProp
           {upcomingTasks.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-orange-600" />
-                <h3 className="text-lg font-semibold text-orange-600">
-                  Due Soon ({upcomingTasks.length})
+                <Clock className="w-5 h-5 text-amber-600" />
+                <h3 className="text-lg font-semibold text-amber-600">
+                  Due Today ({upcomingTasks.length})
                 </h3>
               </div>
               <div className="space-y-2">
                 {upcomingTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="bg-orange-50 border border-orange-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    className="bg-amber-50 border border-amber-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
@@ -231,8 +232,8 @@ export function TaskDueSummaryModal({ userId, onClose }: TaskDueSummaryModalProp
                       </div>
                       <div className="text-right">
                         {task.deadline && (
-                          <span className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-sm font-medium rounded-full">
-                            {formatDeadline(task.deadline)}
+                          <span className="inline-block px-3 py-1 bg-amber-100 text-amber-700 text-sm font-medium rounded-full">
+                            Today
                           </span>
                         )}
                       </div>
