@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, Bell, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { CheckCircle2, Circle, Bell, ArrowUpDown, ArrowUp, ArrowDown, Tag } from 'lucide-react';
 
 interface Staff {
   id: string;
@@ -22,6 +22,12 @@ interface Client {
   client_number: string;
 }
 
+interface Label {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface Project {
   id: string;
   title: string;
@@ -38,6 +44,7 @@ interface Project {
   client_number?: string;
   tasks?: Task[];
   clients?: Client;
+  labels?: Label[];
   sales_source?: string;
   sales_person_id?: string;
   upload_link?: string;
@@ -88,6 +95,8 @@ interface ProjectListViewProps {
 type SortField = 'next_hkpc_due_date' | 'submission_date' | 'project_start_date' | 'project_end_date';
 type SortDirection = 'asc' | 'desc' | null;
 
+const QA_ATTENTION_LABEL_ID = 'd144c662-d462-4554-be6b-19710a4733a1';
+
 export function ProjectListView({
   projects,
   projectTypes,
@@ -101,6 +110,10 @@ export function ProjectListView({
 
   const isFundingProject = (project: Project) => {
     return projectTypes?.find(pt => pt.id === project.project_type_id)?.name === 'Funding Project';
+  };
+
+  const hasQAAttentionLabel = (project: Project) => {
+    return project.labels?.some(label => label.id === QA_ATTENTION_LABEL_ID) || false;
   };
 
   const getUpcomingTasksCount = (project: Project) => {
@@ -261,6 +274,16 @@ export function ProjectListView({
                 <span className="text-sm text-slate-500">-</span>
               )}
             </td>
+            <td className="px-6 py-4 whitespace-nowrap text-center">
+              {hasQAAttentionLabel(project) ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200">
+                  <Tag className="w-3 h-3" />
+                  Q&A Attention
+                </span>
+              ) : (
+                <span className="text-sm text-slate-400">-</span>
+              )}
+            </td>
           </tr>
         );
       })}
@@ -323,6 +346,9 @@ export function ProjectListView({
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Tasks
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Q&A Attention
               </th>
             </tr>
           </thead>
