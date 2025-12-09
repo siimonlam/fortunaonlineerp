@@ -157,8 +157,8 @@ export function ProjectListView({
       const bValue = b[sortField];
 
       if (!aValue && !bValue) return 0;
-      if (!aValue) return sortDirection === 'asc' ? 1 : -1;
-      if (!bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (!aValue) return 1;
+      if (!bValue) return -1;
 
       const aDate = new Date(aValue).getTime();
       const bDate = new Date(bValue).getTime();
