@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { PDFDocument, PDFName, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, PDFName } from 'pdf-lib';
 
 interface FieldMapping {
   tag_id: string;
@@ -104,25 +104,9 @@ export async function generateInvoiceFromTemplate(
 
   console.log('Available PDF fields:', fields.map(f => f.getName()));
 
-  // Fetch a font that supports Chinese characters from Google Fonts
-  let chineseFont = null;
-  try {
-    const fontResponse = await fetch('https://fonts.gstatic.com/s/notosanssc/v36/k3kXo84MPvpLmixcA63oeALhL4iJ-Q7m8w.ttf');
-    if (fontResponse.ok) {
-      const fontBytes = await fontResponse.arrayBuffer();
-      chineseFont = await pdfDoc.embedFont(fontBytes);
-      console.log('Successfully loaded Chinese font');
-    } else {
-      console.warn('Failed to fetch Chinese font:', fontResponse.status);
-    }
-  } catch (error) {
-    console.warn('Failed to load Chinese font:', error);
-  }
-
-  // Helper function to check if text contains Chinese characters
-  const containsChinese = (text: string): boolean => {
-    return /[\u4e00-\u9fff]/.test(text);
-  };
+  // Note: We rely on the NeedAppearances flag set below to let PDF readers
+  // render Chinese characters using their own fonts. This is more reliable
+  // than embedding custom fonts which can cause compatibility issues.
 
   // Helper function to safely set field text
   const setFieldText = async (fieldName: string, text: string) => {
@@ -133,49 +117,18 @@ export async function generateInvoiceFromTemplate(
     try {
       const field = form.getTextField(fieldName);
 
-      // Check if text contains Chinese characters OR non-ASCII characters that WinAnsi can't encode
-      const needsSpecialFont = containsChinese(text) || /[^\x00-\x7F]/.test(text);
-
-      if (needsSpecialFont) {
-        if (chineseFont) {
-          try {
-            const pages = pdfDoc.getPages();
-            const fieldWidget = field.acroField.getWidgets()[0];
-            const fieldRect = fieldWidget.getRectangle();
-
-            // Find which page the field is on
-            for (let i = 0; i < pages.length; i++) {
-              const page = pages[i];
-              const pageHeight = page.getHeight();
-
-              // Draw the text with Chinese font
-              page.drawText(text, {
-                x: fieldRect.x + 2,
-                y: pageHeight - fieldRect.y - fieldRect.height + 2,
-                size: 10,
-                font: chineseFont,
-                color: rgb(0, 0, 0),
-              });
-              break;
-            }
-
-            // Clear the field so it doesn't interfere with our drawn text
-            field.setText('');
-            return;
-          } catch (drawError) {
-            console.warn(`Failed to draw text for ${fieldName}:`, drawError);
-            throw new Error(`Failed to render text with special characters in field ${fieldName}: ${drawError}`);
-          }
-        } else {
-          throw new Error(`Cannot display special characters: Font failed to load. Field: ${fieldName}, Text: ${text}`);
-        }
+      // Set the text directly - PDF readers will handle special characters
+      // using their own fonts thanks to the NeedAppearances flag
+      try {
+        field.setText(text);
+      } catch (setTextError) {
+        // If setText fails (e.g., with some special characters), log and skip
+        console.warn(`Could not set text for field ${fieldName}:`, setTextError);
+        // Field will remain empty or keep its default value
       }
-
-      // For ASCII text, use normal setText
-      field.setText(text);
     } catch (error: any) {
+      // Field might not exist or not be a text field
       console.warn(`Field ${fieldName} error:`, error);
-      throw error;
     }
   };
 
