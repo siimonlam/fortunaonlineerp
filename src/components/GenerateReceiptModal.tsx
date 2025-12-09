@@ -160,9 +160,29 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
     const response = await fetch('/Funding_Receipt_Template.pdf');
     const existingPdfBytes = await response.arrayBuffer();
 
-    const { PDFDocument, PDFName } = await import('pdf-lib');
+    const { PDFDocument, PDFName, rgb } = await import('pdf-lib');
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
     const form = pdfDoc.getForm();
+
+    // Fetch a font that supports Chinese characters
+    let chineseFont = null;
+    try {
+      const fontResponse = await fetch('https://fonts.gstatic.com/s/notosanssc/v36/k3kXo84MPvpLmixcA63oeALhL4iJ-Q7m8w.ttf');
+      if (fontResponse.ok) {
+        const fontBytes = await fontResponse.arrayBuffer();
+        chineseFont = await pdfDoc.embedFont(fontBytes);
+        console.log('Successfully loaded Chinese font for receipt');
+      } else {
+        console.warn('Failed to fetch Chinese font for receipt:', fontResponse.status);
+      }
+    } catch (error) {
+      console.warn('Failed to load Chinese font for receipt:', error);
+    }
+
+    // Helper function to check if text contains Chinese characters
+    const containsChinese = (text: string): boolean => {
+      return /[\u4e00-\u9fff]/.test(text);
+    };
 
     const { data: mappings } = await supabase
       .from('receipt_field_mappings')
@@ -189,11 +209,73 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
           if (mapping.tag?.tag_name) {
             const field = form.getField(mapping.tag.tag_name);
             if (field && 'setText' in field) {
-              field.setText(String(value));
-              // Enable rich text for this field to support Unicode characters
-              if ('enableReadOnly' in field && 'disableReadOnly' in field) {
-                (field as any).enableReadOnly();
-                (field as any).disableReadOnly();
+              const textValue = String(value);
+
+              // If text contains Chinese and we have the font, draw it directly
+              if (containsChinese(textValue) && chineseFont) {
+                try {
+                  const textField = field as any;
+                  const pages = pdfDoc.getPages();
+                  const fieldWidget = textField.acroField.getWidgets()[0];
+                  const fieldRect = fieldWidget.getRectangle();
+
+                  for (let i = 0; i < pages.length; i++) {
+                    const page = pages[i];
+                    const pageHeight = page.getHeight();
+
+                    page.drawText(textValue, {
+                      x: fieldRect.x + 2,
+                      y: pageHeight - fieldRect.y - fieldRect.height + 2,
+                      size: 10,
+                      font: chineseFont,
+                      color: rgb(0, 0, 0),
+                    });
+                    break;
+                  }
+
+                  field.setText('');
+                } catch (drawError) {
+                  console.warn(`Failed to draw Chinese text for ${mapping.tag.tag_name}:`, drawError);
+                  // Try normal setText as fallback
+                  try {
+                    field.setText(textValue);
+                  } catch (setError: any) {
+                    if (setError.message?.includes('cannot encode')) {
+                      console.error(`Cannot encode Chinese characters in field ${mapping.tag.tag_name}`);
+                    }
+                  }
+                }
+              } else {
+                // Try normal setText
+                try {
+                  field.setText(textValue);
+                } catch (setError: any) {
+                  if (setError.message?.includes('cannot encode') && chineseFont) {
+                    // Fallback to drawing
+                    const textField = field as any;
+                    const pages = pdfDoc.getPages();
+                    const fieldWidget = textField.acroField.getWidgets()[0];
+                    const fieldRect = fieldWidget.getRectangle();
+
+                    for (let i = 0; i < pages.length; i++) {
+                      const page = pages[i];
+                      const pageHeight = page.getHeight();
+
+                      page.drawText(textValue, {
+                        x: fieldRect.x + 2,
+                        y: pageHeight - fieldRect.y - fieldRect.height + 2,
+                        size: 10,
+                        font: chineseFont,
+                        color: rgb(0, 0, 0),
+                      });
+                      break;
+                    }
+
+                    field.setText('');
+                  } else {
+                    throw setError;
+                  }
+                }
               }
             }
           }

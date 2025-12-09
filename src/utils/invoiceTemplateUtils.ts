@@ -108,21 +108,30 @@ export async function generateInvoiceFromTemplate(
   let chineseFont = null;
   try {
     const fontResponse = await fetch('https://fonts.gstatic.com/s/notosanssc/v36/k3kXo84MPvpLmixcA63oeALhL4iJ-Q7m8w.ttf');
-    const fontBytes = await fontResponse.arrayBuffer();
-    chineseFont = await pdfDoc.embedFont(fontBytes);
+    if (fontResponse.ok) {
+      const fontBytes = await fontResponse.arrayBuffer();
+      chineseFont = await pdfDoc.embedFont(fontBytes);
+      console.log('Successfully loaded Chinese font');
+    } else {
+      console.warn('Failed to fetch Chinese font:', fontResponse.status);
+    }
   } catch (error) {
     console.warn('Failed to load Chinese font:', error);
   }
+
+  // Helper function to check if text contains Chinese characters
+  const containsChinese = (text: string): boolean => {
+    return /[\u4e00-\u9fff]/.test(text);
+  };
 
   // Helper function to safely set field text
   const setFieldText = async (fieldName: string, text: string) => {
     try {
       const field = form.getTextField(fieldName);
 
-      try {
-        field.setText(text);
-      } catch (encodingError: any) {
-        if (encodingError.message?.includes('cannot encode') && chineseFont) {
+      // If text contains Chinese and we have the font, draw it directly
+      if (containsChinese(text) && chineseFont) {
+        try {
           const pages = pdfDoc.getPages();
           const fieldWidget = field.acroField.getWidgets()[0];
           const fieldRect = fieldWidget.getRectangle();
@@ -142,12 +151,48 @@ export async function generateInvoiceFromTemplate(
           }
 
           field.setText('');
+          return;
+        } catch (drawError) {
+          console.warn(`Failed to draw Chinese text for ${fieldName}:`, drawError);
+        }
+      }
+
+      // Try to set text normally
+      try {
+        field.setText(text);
+      } catch (encodingError: any) {
+        if (encodingError.message?.includes('cannot encode')) {
+          console.warn(`Cannot encode characters in field ${fieldName}. Text: ${text}`);
+          if (chineseFont) {
+            const pages = pdfDoc.getPages();
+            const fieldWidget = field.acroField.getWidgets()[0];
+            const fieldRect = fieldWidget.getRectangle();
+
+            for (let i = 0; i < pages.length; i++) {
+              const page = pages[i];
+              const pageHeight = page.getHeight();
+
+              page.drawText(text, {
+                x: fieldRect.x + 2,
+                y: pageHeight - fieldRect.y - fieldRect.height + 2,
+                size: 10,
+                font: chineseFont,
+                color: rgb(0, 0, 0),
+              });
+              break;
+            }
+
+            field.setText('');
+          } else {
+            throw new Error(`Cannot display Chinese characters: Chinese font failed to load. Field: ${fieldName}, Text: ${text}`);
+          }
         } else {
           throw encodingError;
         }
       }
     } catch (error) {
       console.warn(`Field ${fieldName} not found in PDF or error setting value:`, error);
+      throw error;
     }
   };
 
