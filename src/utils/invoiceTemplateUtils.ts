@@ -1,9 +1,9 @@
 import { supabase } from '../lib/supabase';
-import { PDFDocument, PDFName } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFBool } from 'pdf-lib';
 
 interface FieldMapping {
   tag_id: string;
-  source_type: 'project' | 'client';
+  source_type: 'project' | 'client' | 'invoice';
   source_field: string;
   default_value?: string;
   transform_function?: string;
@@ -172,9 +172,13 @@ export async function generateInvoiceFromTemplate(
 
   // Set the NeedAppearances flag to tell PDF readers to generate appearances
   // This allows readers to use their own fonts that support Chinese characters
-  const acroForm = pdfDoc.catalog.lookup(PDFName.of('AcroForm'));
-  if (acroForm) {
-    (acroForm as any).dict.set(PDFName.of('NeedAppearances'), true);
+  try {
+    const acroForm = pdfDoc.catalog.lookup(PDFName.of('AcroForm'));
+    if (acroForm) {
+      (acroForm as any).dict.set(PDFName.of('NeedAppearances'), PDFBool.True);
+    }
+  } catch (error) {
+    console.warn('Could not set NeedAppearances flag:', error);
   }
 
   const pdfBytes = await pdfDoc.save();

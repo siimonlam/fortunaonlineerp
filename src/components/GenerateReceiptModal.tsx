@@ -160,7 +160,7 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
     const response = await fetch('/Funding_Receipt_Template.pdf');
     const existingPdfBytes = await response.arrayBuffer();
 
-    const { PDFDocument, PDFName } = await import('pdf-lib');
+    const { PDFDocument, PDFName, PDFBool } = await import('pdf-lib');
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
     const form = pdfDoc.getForm();
 
@@ -213,9 +213,13 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
 
     // Set the NeedAppearances flag to tell PDF readers to generate appearances
     // This allows readers to use their own fonts that support Chinese characters
-    const acroForm = pdfDoc.catalog.lookup(PDFName.of('AcroForm'));
-    if (acroForm) {
-      (acroForm as any).dict.set(PDFName.of('NeedAppearances'), true);
+    try {
+      const acroForm = pdfDoc.catalog.lookup(PDFName.of('AcroForm'));
+      if (acroForm) {
+        (acroForm as any).dict.set(PDFName.of('NeedAppearances'), PDFBool.True);
+      }
+    } catch (error) {
+      console.warn('Could not set NeedAppearances flag:', error);
     }
 
     const pdfBytes = await pdfDoc.save();
