@@ -126,52 +126,29 @@ export async function generateInvoiceFromTemplate(
 
   // Helper function to safely set field text
   const setFieldText = async (fieldName: string, text: string) => {
+    if (!text) {
+      return; // Skip empty values
+    }
+
     try {
       const field = form.getTextField(fieldName);
 
-      // If text contains Chinese and we have the font, draw it directly
-      if (containsChinese(text) && chineseFont) {
-        try {
-          const pages = pdfDoc.getPages();
-          const fieldWidget = field.acroField.getWidgets()[0];
-          const fieldRect = fieldWidget.getRectangle();
+      // Check if text contains Chinese characters OR non-ASCII characters that WinAnsi can't encode
+      const needsSpecialFont = containsChinese(text) || /[^\x00-\x7F]/.test(text);
 
-          for (let i = 0; i < pages.length; i++) {
-            const page = pages[i];
-            const pageHeight = page.getHeight();
-
-            page.drawText(text, {
-              x: fieldRect.x + 2,
-              y: pageHeight - fieldRect.y - fieldRect.height + 2,
-              size: 10,
-              font: chineseFont,
-              color: rgb(0, 0, 0),
-            });
-            break;
-          }
-
-          field.setText('');
-          return;
-        } catch (drawError) {
-          console.warn(`Failed to draw Chinese text for ${fieldName}:`, drawError);
-        }
-      }
-
-      // Try to set text normally
-      try {
-        field.setText(text);
-      } catch (encodingError: any) {
-        if (encodingError.message?.includes('cannot encode')) {
-          console.warn(`Cannot encode characters in field ${fieldName}. Text: ${text}`);
-          if (chineseFont) {
+      if (needsSpecialFont) {
+        if (chineseFont) {
+          try {
             const pages = pdfDoc.getPages();
             const fieldWidget = field.acroField.getWidgets()[0];
             const fieldRect = fieldWidget.getRectangle();
 
+            // Find which page the field is on
             for (let i = 0; i < pages.length; i++) {
               const page = pages[i];
               const pageHeight = page.getHeight();
 
+              // Draw the text with Chinese font
               page.drawText(text, {
                 x: fieldRect.x + 2,
                 y: pageHeight - fieldRect.y - fieldRect.height + 2,
@@ -182,16 +159,22 @@ export async function generateInvoiceFromTemplate(
               break;
             }
 
+            // Clear the field so it doesn't interfere with our drawn text
             field.setText('');
-          } else {
-            throw new Error(`Cannot display Chinese characters: Chinese font failed to load. Field: ${fieldName}, Text: ${text}`);
+            return;
+          } catch (drawError) {
+            console.warn(`Failed to draw text for ${fieldName}:`, drawError);
+            throw new Error(`Failed to render text with special characters in field ${fieldName}: ${drawError}`);
           }
         } else {
-          throw encodingError;
+          throw new Error(`Cannot display special characters: Font failed to load. Field: ${fieldName}, Text: ${text}`);
         }
       }
-    } catch (error) {
-      console.warn(`Field ${fieldName} not found in PDF or error setting value:`, error);
+
+      // For ASCII text, use normal setText
+      field.setText(text);
+    } catch (error: any) {
+      console.warn(`Field ${fieldName} error:`, error);
       throw error;
     }
   };
