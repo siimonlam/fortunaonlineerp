@@ -20,7 +20,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
     invoiceNumber: '',
     issueDate: new Date().toISOString().split('T')[0],
     dueDate: '',
-    paymentStatus: 'Pending',
+    paymentStatus: 'Unpaid',
     amount: project.deposit_amount?.toString() || '',
     paymentMethod: '',
     paymentType: 'Deposit',
@@ -329,10 +329,10 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                   onChange={(e) => setFormData({ ...formData, paymentStatus: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="Pending">Pending</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Overdue">Overdue</option>
+                  <option value="Unpaid">Unpaid</option>
                   <option value="Void">Void</option>
+                  <option value="Overdue">Overdue</option>
+                  <option value="Paid">Paid</option>
                 </select>
               </div>
               <div>

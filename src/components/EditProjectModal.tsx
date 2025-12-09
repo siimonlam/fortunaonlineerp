@@ -478,6 +478,23 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     }
   }
 
+  async function handleVoidInvoice(invoiceId: string) {
+    if (!confirm('Are you sure you want to void this invoice?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('funding_invoice')
+        .update({ payment_status: 'Void' })
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+      loadInvoices();
+    } catch (error: any) {
+      console.error('Error voiding invoice:', error);
+      alert('Failed to void invoice: ' + error.message);
+    }
+  }
+
 
   async function loadProjectType() {
     const { data } = await supabase
@@ -2825,10 +2842,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                   onChange={(e) => setEditingInvoice({ ...editingInvoice, paymentStatus: e.target.value })}
                                   className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
                                 >
-                                  <option value="Pending">Pending</option>
-                                  <option value="Paid">Paid</option>
-                                  <option value="Overdue">Overdue</option>
+                                  <option value="Unpaid">Unpaid</option>
                                   <option value="Void">Void</option>
+                                  <option value="Overdue">Overdue</option>
+                                  <option value="Paid">Paid</option>
                                 </select>
                               </td>
                               <td className="px-3 py-2">
@@ -2945,7 +2962,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                 <div className="flex items-center gap-2">
                                   {canEdit && (
                                     <>
-                                      {invoice.payment_status !== 'Paid' && (
+                                      {invoice.payment_status !== 'Paid' && invoice.payment_status !== 'Void' && (
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -2955,6 +2972,15 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                           className="text-blue-600 hover:text-blue-800 text-xs font-medium"
                                         >
                                           Mark Paid
+                                        </button>
+                                      )}
+                                      {invoice.payment_status !== 'Void' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleVoidInvoice(invoice.id)}
+                                          className="text-slate-600 hover:text-slate-800 text-xs font-medium"
+                                        >
+                                          Void
                                         </button>
                                       )}
                                       <button
