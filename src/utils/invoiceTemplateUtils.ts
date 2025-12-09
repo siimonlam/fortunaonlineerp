@@ -196,39 +196,7 @@ export async function generateInvoiceFromTemplate(
     }
   };
 
-  // Fill invoice-specific fields from invoiceData parameter
-  if (invoiceData) {
-    if (invoiceData.invoiceNumber) {
-      await setFieldText('invoice_number', invoiceData.invoiceNumber);
-    }
-    if (invoiceData.amount) {
-      const formattedAmount = `HKD $${parseFloat(invoiceData.amount).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`;
-      await setFieldText('amount', formattedAmount);
-    }
-    if (invoiceData.issueDate) {
-      const date = new Date(invoiceData.issueDate);
-      const formattedDate = date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      await setFieldText('issue_date', formattedDate);
-    }
-    if (invoiceData.dueDate) {
-      const date = new Date(invoiceData.dueDate);
-      const formattedDate = date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      await setFieldText('due_date', formattedDate);
-    }
-  }
-
-  // Fill other fields from mappings
+  // Fill fields from mappings
   for (const mapping of mappings) {
     if (!mapping.tag?.tag_name) continue;
 
