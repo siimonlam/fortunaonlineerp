@@ -1361,7 +1361,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     <>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex">
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
@@ -1479,6 +1479,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </button>
         </div>
 
+        <div className="flex-1 overflow-y-auto">
         {projectType?.name === 'Funding Project' && (
           <div className="flex gap-2 px-6 pt-4 border-b border-slate-200">
             <button
@@ -3117,6 +3118,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
 
