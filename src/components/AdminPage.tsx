@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
 import { AutomationPage } from './AutomationPage';
 import { ProjectTypeAuthorizationPage } from './ProjectTypeAuthorizationPage';
+import { FinanceAuthorizationPage } from './FinanceAuthorizationPage';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'labels' | 'automation';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation';
 
 interface User {
   id: string;
@@ -188,6 +189,17 @@ export function AdminPage() {
           >
             <Lock className="w-4 h-4" />
             Marketing Authorization
+          </button>
+          <button
+            onClick={() => setCurrentView('finance-auth')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
+              currentView === 'finance-auth'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <DollarSign className="w-4 h-4" />
+            Finance Authorization
           </button>
           <button
             onClick={() => setCurrentView('labels')}
@@ -390,6 +402,8 @@ export function AdminPage() {
             description="Grant or revoke access to the Marketing module for users"
           />
         )}
+
+        {currentView === 'finance-auth' && <FinanceAuthorizationPage />}
 
         {currentView === 'labels' && <LabelManagement />}
 

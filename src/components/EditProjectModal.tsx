@@ -120,6 +120,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [allClients, setAllClients] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [hasFinanceAccess, setHasFinanceAccess] = useState(false);
   const [permissions, setPermissions] = useState<ProjectPermission[]>([]);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [newCanView, setNewCanView] = useState(true);
@@ -710,6 +711,15 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
     const isAdminUser = roleData?.role === 'admin';
     setIsAdmin(isAdminUser);
+
+    // Check if user has finance permissions
+    const { data: financeData } = await supabase
+      .from('finance_permissions')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    setHasFinanceAccess(isAdminUser || !!financeData);
 
     // All authenticated users have full access (RLS simplified)
     setCanEdit(true);
@@ -2982,7 +2992,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
-                                  {canEdit && (
+                                  {hasFinanceAccess && (
                                     <>
                                       {invoice.payment_status !== 'Paid' && invoice.payment_status !== 'Void' && (
                                         <button
@@ -3007,23 +3017,25 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                       )}
                                       <button
                                         type="button"
-                                        onClick={() => {
-                                          setSelectedInvoiceForReceipt(invoice);
-                                          setShowGenerateReceipt(true);
-                                        }}
-                                        className="text-green-600 hover:text-green-800 text-xs flex items-center gap-1"
-                                      >
-                                        <Receipt className="w-3 h-3" />
-                                        Receipt
-                                      </button>
-                                      <button
-                                        type="button"
                                         onClick={() => handleDeleteInvoice(invoice.id)}
                                         className="text-red-600 hover:text-red-800 text-xs"
                                       >
                                         Delete
                                       </button>
                                     </>
+                                  )}
+                                  {canEdit && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedInvoiceForReceipt(invoice);
+                                        setShowGenerateReceipt(true);
+                                      }}
+                                      className="text-green-600 hover:text-green-800 text-xs flex items-center gap-1"
+                                    >
+                                      <Receipt className="w-3 h-3" />
+                                      Receipt
+                                    </button>
                                   )}
                                 </div>
                               </td>
