@@ -55,22 +55,30 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
       const fields = form.getFields();
 
       const values: Record<string, string> = {};
+
+      console.log('Total fields found:', fields.length);
+
       fields.forEach(field => {
         const fieldName = field.getName();
+        console.log('Processing field:', fieldName, 'Type:', field.constructor.name);
+
         try {
-          if (field.constructor.name === 'PDFTextField') {
-            const textField = form.getTextField(fieldName);
-            values[fieldName] = textField.getText() || '';
-          }
+          // Try to get it as a text field
+          const textField = form.getTextField(fieldName);
+          values[fieldName] = textField.getText() || '';
+          console.log(`  - Text field "${fieldName}" = "${values[fieldName]}"`);
         } catch (error) {
-          console.warn(`Could not read field ${fieldName}:`, error);
+          // Not a text field or couldn't read it, but still show it
+          console.warn(`Could not read field ${fieldName} as text field, will skip:`, error);
         }
       });
 
       setFieldValues(values);
       console.log('Extracted field values:', values);
+      console.log('Total editable fields:', Object.keys(values).length);
     } catch (error) {
       console.error('Error extracting field values:', error);
+      alert('Failed to extract PDF field values. This PDF might not have editable fields.');
     }
   };
 
@@ -210,7 +218,12 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50">
-              <h3 className="text-lg font-semibold text-slate-800">Edit PDF Field Values</h3>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800">Edit PDF Field Values</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  {Object.keys(fieldValues).length} editable field{Object.keys(fieldValues).length !== 1 ? 's' : ''} found
+                </p>
+              </div>
               <button
                 onClick={() => setShowEditModal(false)}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -220,21 +233,36 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-4">
-                {Object.entries(fieldValues).map(([fieldName, value]) => (
-                  <div key={fieldName}>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      {fieldName}
-                    </label>
-                    <input
-                      type="text"
-                      value={value}
-                      onChange={(e) => setFieldValues({ ...fieldValues, [fieldName]: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+              {Object.keys(fieldValues).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="text-slate-400 mb-4">
+                    <Edit3 className="w-16 h-16 mx-auto" />
                   </div>
-                ))}
-              </div>
+                  <h4 className="text-lg font-medium text-slate-700 mb-2">No Editable Fields Found</h4>
+                  <p className="text-slate-600 max-w-md">
+                    This PDF doesn't have any editable text fields, or they couldn't be detected.
+                    You can still download the PDF as is.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(fieldValues).map(([fieldName, value]) => (
+                    <div key={fieldName}>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        {fieldName}
+                        {!value && <span className="ml-2 text-xs text-amber-600">(empty)</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => setFieldValues({ ...fieldValues, [fieldName]: e.target.value })}
+                        placeholder="Enter value..."
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 p-4 border-t border-slate-200 bg-slate-50">
@@ -244,13 +272,15 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
               >
                 Cancel
               </button>
-              <button
-                onClick={regeneratePdfWithEdits}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <Check className="w-4 h-4" />
-                Apply Changes
-              </button>
+              {Object.keys(fieldValues).length > 0 && (
+                <button
+                  onClick={regeneratePdfWithEdits}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  Apply Changes
+                </button>
+              )}
             </div>
           </div>
         </div>
