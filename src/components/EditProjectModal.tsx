@@ -303,6 +303,39 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   }, [isAdmin]);
 
   useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('finance-permissions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'finance_permissions',
+          filter: `user_id=eq.${user.id}`
+        },
+        async (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            setHasFinanceAccess(true);
+          } else if (payload.eventType === 'DELETE') {
+            const { data: roleData } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            setHasFinanceAccess(roleData?.role === 'admin');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  useEffect(() => {
     const normalizeData = (data: any) => {
       const normalized: any = {};
       Object.keys(data).forEach(key => {
