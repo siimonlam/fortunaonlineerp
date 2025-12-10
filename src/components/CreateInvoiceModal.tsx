@@ -164,10 +164,11 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
     try {
       const accessToken = await getGoogleDriveAccessToken();
 
-      const today = new Date();
-      const datePrefix = today.getFullYear().toString() +
-                        (today.getMonth() + 1).toString().padStart(2, '0') +
-                        today.getDate().toString().padStart(2, '0');
+      // Use invoice issue date instead of current date for filename
+      const invoiceDate = new Date(formData.issueDate);
+      const datePrefix = invoiceDate.getFullYear().toString() +
+                        (invoiceDate.getMonth() + 1).toString().padStart(2, '0') +
+                        invoiceDate.getDate().toString().padStart(2, '0');
       const fileName = `${datePrefix}_${formData.invoiceNumber}_${project.company_name || 'Invoice'}.pdf`;
 
       const metadata = {

@@ -31,6 +31,7 @@ interface ProjectActivitySidebarProps {
   isOpen?: boolean;
   onToggle?: () => void;
   embedded?: boolean;
+  isMarketingProject?: boolean;
 }
 
 const COMMENT_TYPES = [
@@ -39,7 +40,7 @@ const COMMENT_TYPES = [
   { value: 'Meeting', label: 'Meeting', icon: MessageSquare },
 ];
 
-export function ProjectActivitySidebar({ projectId, isOpen = true, onToggle, embedded = false }: ProjectActivitySidebarProps) {
+export function ProjectActivitySidebar({ projectId, isOpen = true, onToggle, embedded = false, isMarketingProject = false }: ProjectActivitySidebarProps) {
   const { user } = useAuth();
   const [history, setHistory] = useState<ProjectHistory[]>([]);
   const [comments, setComments] = useState<ProjectComment[]>([]);
@@ -103,8 +104,9 @@ export function ProjectActivitySidebar({ projectId, isOpen = true, onToggle, emb
 
   async function loadComments() {
     try {
+      const tableName = isMarketingProject ? 'marketing_project_comments' : 'project_comments';
       const { data, error } = await supabase
-        .from('project_comments')
+        .from(tableName)
         .select(`
           *,
           staff:user_id (
@@ -129,8 +131,9 @@ export function ProjectActivitySidebar({ projectId, isOpen = true, onToggle, emb
 
     setLoading(true);
     try {
+      const tableName = isMarketingProject ? 'marketing_project_comments' : 'project_comments';
       const { error } = await supabase
-        .from('project_comments')
+        .from(tableName)
         .insert({
           project_id: projectId,
           user_id: user.id,

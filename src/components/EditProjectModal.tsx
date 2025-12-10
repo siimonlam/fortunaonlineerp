@@ -3145,6 +3145,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           <ProjectActivitySidebar
             projectId={project.id}
             embedded={true}
+            isMarketingProject={isMarketing}
           />
         </div>
         </div>
