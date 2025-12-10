@@ -265,7 +265,7 @@ export function ProjectActivitySidebar({ projectId, isOpen = true, onToggle, emb
   if (embedded) {
     return (
       <div className="h-full flex flex-col border-l border-slate-200 bg-slate-50">
-        <div className="p-4 border-b border-slate-200 bg-white">
+        <div className="p-4 border-b border-slate-200 bg-white shrink-0">
           <h3 className="text-lg font-semibold text-slate-900">Project Activity</h3>
         </div>
         {activityContent}

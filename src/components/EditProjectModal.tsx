@@ -1360,9 +1360,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   return (
     <>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex">
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
+      <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-white shrink-0">
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-bold text-slate-900">
@@ -1410,9 +1409,22 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               <div>
                 <p className="text-xs font-medium text-slate-500 mb-1">Next HKPC Due Date</p>
                 {project.next_hkpc_due_date ? (
-                  <p className="text-sm font-semibold text-slate-900">
-                    {new Date(project.next_hkpc_due_date).toLocaleString()}
-                  </p>
+                  <div>
+                    <p className="text-sm font-semibold text-orange-700">
+                      {new Date(project.next_hkpc_due_date).toLocaleDateString()}
+                    </p>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {(() => {
+                        const due = new Date(project.next_hkpc_due_date);
+                        const today = new Date();
+                        const diffTime = due.getTime() - today.getTime();
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
+                        if (diffDays === 0) return 'Due today';
+                        return `${diffDays} days remaining`;
+                      })()}
+                    </p>
+                  </div>
                 ) : (
                   <p className="text-sm text-slate-400">Not set</p>
                 )}
@@ -1447,22 +1459,26 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
             {canEdit && projectType?.name !== 'Marketing' && (
               <div className="flex gap-2 mt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowQADatePicker(true)}
-                  className="px-3 py-1.5 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  New Q&A received
-                </button>
-                <button
-                  type="button"
-                  onClick={handleUpdateFinalReport}
-                  className="px-3 py-1.5 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  Update Final Report File
-                </button>
+                {projectType?.name === 'Funding Project' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleQAReceived}
+                    className="px-3 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    New Q&A received
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUpdateFinalReport}
+                    className="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Update Final Report
+                  </button>
+                </>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowAddPartnerProjectModal(true)}
@@ -1479,6 +1495,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </button>
         </div>
 
+        <div className="flex-1 flex overflow-hidden min-h-0">
         <div className="flex-1 overflow-y-auto">
         {projectType?.name === 'Funding Project' && (
           <div className="flex gap-2 px-6 pt-4 border-b border-slate-200">
@@ -3119,18 +3136,18 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </div>
         )}
         </div>
+
+        <div className="w-[400px]">
+          <ProjectActivitySidebar
+            projectId={project.id}
+            embedded={true}
+          />
+        </div>
+        </div>
       </div>
     </div>
 
-    <div className="w-[400px]">
-      <ProjectActivitySidebar
-        projectId={project.id}
-        embedded={true}
-      />
-    </div>
-  </div>
-
-{showQADatePicker && (
+    {showQADatePicker && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
     <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
       <h3 className="text-lg font-semibold text-slate-900 mb-2">New Q&A Received</h3>
