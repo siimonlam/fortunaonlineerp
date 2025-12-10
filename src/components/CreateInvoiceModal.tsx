@@ -147,8 +147,10 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
     }
   }
 
-  async function handleSave() {
-    if (!pdfBlob) {
+  async function handleSave(editedBlob?: Blob) {
+    const blobToSave = editedBlob || pdfBlob;
+
+    if (!blobToSave) {
       alert('Please generate preview first');
       return;
     }
@@ -179,7 +181,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
         'metadata',
         new Blob([JSON.stringify(metadata)], { type: 'application/json' })
       );
-      formDataUpload.append('file', pdfBlob);
+      formDataUpload.append('file', blobToSave);
 
       const uploadResponse = await fetch(
         'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
