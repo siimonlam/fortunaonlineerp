@@ -14,11 +14,30 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
   const [iframeError, setIframeError] = useState(false);
 
   useEffect(() => {
+    console.log('=== InvoicePreview useEffect ===');
+    console.log('PDF Blob:', pdfBlob);
+    console.log('PDF Blob size:', pdfBlob.size, 'bytes');
+    console.log('PDF Blob type:', pdfBlob.type);
+
     const url = URL.createObjectURL(pdfBlob);
     setPdfUrl(url);
-    console.log('PDF Blob size:', pdfBlob.size, 'bytes');
     console.log('PDF URL created:', url);
-    return () => URL.revokeObjectURL(url);
+
+    // Test if we can read the blob
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const arrayBuffer = e.target?.result as ArrayBuffer;
+      console.log('Blob readable, ArrayBuffer size:', arrayBuffer?.byteLength || 0);
+      const bytes = new Uint8Array(arrayBuffer);
+      const header = String.fromCharCode(...bytes.slice(0, 8));
+      console.log('PDF header:', header);
+    };
+    reader.readAsArrayBuffer(pdfBlob);
+
+    return () => {
+      console.log('Revoking URL:', url);
+      URL.revokeObjectURL(url);
+    };
   }, [pdfBlob]);
 
   const handleDownload = () => {
@@ -89,8 +108,11 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
                 src={`${pdfUrl}#view=FitH`}
                 className="w-full h-full border-0"
                 title="Invoice Preview"
-                onError={() => {
-                  console.error('Iframe failed to load PDF');
+                onLoad={() => {
+                  console.log('Iframe loaded successfully');
+                }}
+                onError={(e) => {
+                  console.error('Iframe failed to load PDF', e);
                   setIframeError(true);
                 }}
               />

@@ -107,12 +107,19 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
   async function handlePreview() {
     setLoading(true);
     try {
+      console.log('=== Starting Invoice Preview ===');
+      console.log('Fetching template from: /Funding_Invoice_Template.pdf');
+
       const templateResponse = await fetch('/Funding_Invoice_Template.pdf');
+      console.log('Template response status:', templateResponse.status);
+      console.log('Template response headers:', Object.fromEntries(templateResponse.headers.entries()));
+
       if (!templateResponse.ok) {
         throw new Error('Failed to load invoice template');
       }
 
       const templateArrayBuffer = await templateResponse.arrayBuffer();
+      console.log('Template loaded, size:', templateArrayBuffer.byteLength, 'bytes');
 
       const pdfBlob = await generateInvoiceFromTemplate(
         project.id,
@@ -126,6 +133,9 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
           remark: formData.remark,
         }
       );
+
+      console.log('PDF Blob generated, size:', pdfBlob.size, 'bytes');
+      console.log('PDF Blob type:', pdfBlob.type);
 
       setPdfBlob(pdfBlob);
       setShowPreview(true);
