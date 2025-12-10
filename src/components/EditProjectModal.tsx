@@ -647,6 +647,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     }
   }
 
+  function handleQAReceived() {
+    setShowQADatePicker(true);
+  }
+
   async function handleUpdateFinalReport() {
     try {
       const { data: labelData } = await supabase
