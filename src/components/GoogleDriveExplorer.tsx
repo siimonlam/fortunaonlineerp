@@ -301,6 +301,25 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
     }
   }
 
+  function handleFileOpen(file: DriveFile) {
+    // Check if it's a Microsoft Office file
+    const isMicrosoftOffice =
+      file.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || // .xlsx
+      file.mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || // .pptx
+      file.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || // .docx
+      file.mimeType === 'application/vnd.ms-excel' || // .xls
+      file.mimeType === 'application/vnd.ms-powerpoint' || // .ppt
+      file.mimeType === 'application/msword'; // .doc
+
+    if (isMicrosoftOffice) {
+      // Download Microsoft Office files so they open in local Microsoft Office apps
+      handleDownloadFile(file.id, file.name, file.mimeType);
+    } else if (file.webViewLink) {
+      // For other files, use the default webViewLink (Google Docs, PDFs, images, etc.)
+      window.open(file.webViewLink, '_blank');
+    }
+  }
+
   function handleBreadcrumbClick(index: number) {
     const clickedBreadcrumb = breadcrumbs[index];
 
@@ -690,8 +709,8 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
                         onClick={() => {
                           if (file.mimeType === 'application/vnd.google-apps.folder') {
                             handleFolderClick(file);
-                          } else if (file.webViewLink) {
-                            window.open(file.webViewLink, '_blank');
+                          } else {
+                            handleFileOpen(file);
                           }
                         }}
                       >
