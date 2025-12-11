@@ -2940,7 +2940,37 @@ export function ProjectBoard() {
               <div className="bg-white rounded-lg shadow-sm border border-slate-200">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-slate-900">Invoice Summary</h3>
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">Invoice Summary</h3>
+                      <p className="text-sm text-slate-600 mt-1">
+                        Total Amount: <span className="font-semibold text-slate-900">
+                          ${fundingInvoices
+                            .filter((invoice) => {
+                              const matchesSearch = !invoiceSearchQuery || (() => {
+                                const searchLower = invoiceSearchQuery.toLowerCase();
+                                const invoiceProject = projects.find(p => p.id === invoice.project_id);
+                                const invoiceClient = clients.find(c => c.id === invoice.client_id);
+                                return (
+                                  (invoice.company_name?.toLowerCase() || '').includes(searchLower) ||
+                                  (invoice.project_reference?.toLowerCase() || '').includes(searchLower) ||
+                                  (invoiceProject?.title?.toLowerCase() || '').includes(searchLower) ||
+                                  (invoiceClient?.name?.toLowerCase() || '').includes(searchLower) ||
+                                  (invoiceClient?.client_number?.toLowerCase() || '').includes(searchLower) ||
+                                  (invoice.payment_status?.toLowerCase() || '').includes(searchLower)
+                                );
+                              })();
+
+                              const matchesPaymentStatus = invoicePaymentStatusFilter === 'all' ||
+                                invoice.payment_status?.toLowerCase() === invoicePaymentStatusFilter;
+
+                              return matchesSearch && matchesPaymentStatus;
+                            })
+                            .reduce((sum, invoice) => sum + (Number(invoice.amount) || 0), 0)
+                            .toFixed(2)
+                            .replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                        </span>
+                      </p>
+                    </div>
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
