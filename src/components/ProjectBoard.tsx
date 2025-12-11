@@ -154,6 +154,7 @@ export function ProjectBoard() {
   const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
   const [invoiceSortBy, setInvoiceSortBy] = useState<'payment_date_asc' | 'payment_date_desc' | 'issue_date_asc' | 'issue_date_desc' | 'payment_status'>('issue_date_desc');
+  const [invoicePaymentStatusFilter, setInvoicePaymentStatusFilter] = useState<'all' | 'paid' | 'unpaid' | 'void' | 'overdue'>('all');
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
@@ -2952,6 +2953,17 @@ export function ProjectBoard() {
                         />
                       </div>
                       <select
+                        value={invoicePaymentStatusFilter}
+                        onChange={(e) => setInvoicePaymentStatusFilter(e.target.value as any)}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="paid">Paid</option>
+                        <option value="unpaid">Unpaid</option>
+                        <option value="void">Void</option>
+                        <option value="overdue">Overdue</option>
+                      </select>
+                      <select
                         value={invoiceSortBy}
                         onChange={(e) => setInvoiceSortBy(e.target.value as any)}
                         className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
@@ -2985,18 +2997,24 @@ export function ProjectBoard() {
                       <tbody>
                         {fundingInvoices
                           .filter((invoice) => {
-                            if (!invoiceSearchQuery) return true;
-                            const searchLower = invoiceSearchQuery.toLowerCase();
-                            const invoiceProject = projects.find(p => p.id === invoice.project_id);
-                            const invoiceClient = clients.find(c => c.id === invoice.client_id);
-                            return (
-                              (invoice.company_name?.toLowerCase() || '').includes(searchLower) ||
-                              (invoice.project_reference?.toLowerCase() || '').includes(searchLower) ||
-                              (invoiceProject?.title?.toLowerCase() || '').includes(searchLower) ||
-                              (invoiceClient?.name?.toLowerCase() || '').includes(searchLower) ||
-                              (invoiceClient?.client_number?.toLowerCase() || '').includes(searchLower) ||
-                              (invoice.payment_status?.toLowerCase() || '').includes(searchLower)
-                            );
+                            const matchesSearch = !invoiceSearchQuery || (() => {
+                              const searchLower = invoiceSearchQuery.toLowerCase();
+                              const invoiceProject = projects.find(p => p.id === invoice.project_id);
+                              const invoiceClient = clients.find(c => c.id === invoice.client_id);
+                              return (
+                                (invoice.company_name?.toLowerCase() || '').includes(searchLower) ||
+                                (invoice.project_reference?.toLowerCase() || '').includes(searchLower) ||
+                                (invoiceProject?.title?.toLowerCase() || '').includes(searchLower) ||
+                                (invoiceClient?.name?.toLowerCase() || '').includes(searchLower) ||
+                                (invoiceClient?.client_number?.toLowerCase() || '').includes(searchLower) ||
+                                (invoice.payment_status?.toLowerCase() || '').includes(searchLower)
+                              );
+                            })();
+
+                            const matchesPaymentStatus = invoicePaymentStatusFilter === 'all' ||
+                              invoice.payment_status?.toLowerCase() === invoicePaymentStatusFilter;
+
+                            return matchesSearch && matchesPaymentStatus;
                           })
                           .sort((a, b) => {
                             switch (invoiceSortBy) {
