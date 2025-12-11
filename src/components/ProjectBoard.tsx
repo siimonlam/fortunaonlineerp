@@ -3190,6 +3190,7 @@ export function ProjectBoard() {
                       'final report': 'bg-purple-300 text-slate-900',
                       'conditional approval': 'bg-green-300 text-slate-900',
                       'final report (q&a)': 'bg-purple-600 text-white',
+                      'final report-q&a': 'bg-purple-600 text-white',
                       'extension/change request': 'bg-green-700 text-white',
                       'final report-final stage': 'bg-teal-600 text-white',
                       'withdraw': 'bg-slate-400 text-white',

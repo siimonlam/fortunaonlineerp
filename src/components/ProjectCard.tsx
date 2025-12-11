@@ -178,6 +178,7 @@ export function ProjectCard({
       'final report': { bg: 'bg-purple-300', text: 'text-slate-900' },
       'conditional approval': { bg: 'bg-green-300', text: 'text-slate-900' },
       'final report (q&a)': { bg: 'bg-purple-600', text: 'text-white' },
+      'final report-q&a': { bg: 'bg-purple-600', text: 'text-white' },
       'extension/change request': { bg: 'bg-green-700', text: 'text-white' },
       'final report-final stage': { bg: 'bg-teal-600', text: 'text-white' },
       'withdraw': { bg: 'bg-slate-400', text: 'text-white' },
