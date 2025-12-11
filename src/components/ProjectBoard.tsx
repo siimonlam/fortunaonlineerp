@@ -3189,9 +3189,9 @@ export function ProjectBoard() {
                       'approved': 'bg-orange-300 text-slate-900',
                       'final report': 'bg-purple-300 text-slate-900',
                       'conditional approval': 'bg-green-300 text-slate-900',
-                      'final report (q&a)': 'bg-pink-400 text-white',
+                      'final report (q&a)': 'bg-purple-600 text-white',
                       'extension/change request': 'bg-green-700 text-white',
-                      'final report-final stage': 'bg-red-600 text-white',
+                      'final report-final stage': 'bg-teal-600 text-white',
                       'withdraw': 'bg-slate-400 text-white',
                       'rejected': 'bg-slate-900 text-white',
                       'end': 'bg-slate-900 text-white'
