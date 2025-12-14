@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns, Scan } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns, Scan, Instagram } from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -18,6 +18,7 @@ import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import { MeetingsPage } from './MeetingsPage';
 import { BusinessCardScanner } from './BusinessCardScanner';
 import { TaskNotificationModal } from './TaskNotificationModal';
+import InstagramAccountsPage from './InstagramAccountsPage';
 
 interface Status {
   id: string;
@@ -143,7 +144,7 @@ export function ProjectBoard() {
   const [statusManagers, setStatusManagers] = useState<StatusManager[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [expandedStatuses, setExpandedStatuses] = useState<Set<string>>(new Set());
-  const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin' | 'comsec'>('projects');
+  const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin' | 'comsec' | 'instagram'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list' | 'substatus'>('grid');
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel'>('company');
@@ -1310,6 +1311,7 @@ export function ProjectBoard() {
   const isClientSection = selectedView === 'clients';
   const isAdminSection = selectedView === 'admin';
   const isComSecSection = selectedView === 'comsec';
+  const isInstagramSection = selectedView === 'instagram';
 
   const filteredStatuses = statuses.filter(
     (s) => s.project_type_id === selectedProjectType
@@ -1772,6 +1774,17 @@ export function ProjectBoard() {
                 </button>
               );
             })()}
+            <button
+              onClick={() => handleViewChange('instagram')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+                selectedView === 'instagram'
+                  ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <Instagram className="w-4 h-4" />
+              Instagram
+            </button>
             {isAdmin && (
               <button
                 onClick={() => handleViewChange('admin')}
@@ -2016,7 +2029,7 @@ export function ProjectBoard() {
           <div className="p-8">
             <div className="flex justify-between items-center mb-6">
               <div className="flex-1">
-                {!isAdminSection && !isComSecSection && (
+                {!isAdminSection && !isComSecSection && !isInstagramSection && (
                   <>
                     <h2 className="text-2xl font-bold text-slate-900">
                       {isClientSection ? 'Clients' : (
@@ -2074,7 +2087,7 @@ export function ProjectBoard() {
                 )}
               </div>
 
-              {!isClientSection && !isAdminSection && !isComSecSection && (isFundingProjectType || isMarketingProjectType) && fundingProjectTab === 'projects' && (
+              {!isClientSection && !isAdminSection && !isComSecSection && !isInstagramSection && (isFundingProjectType || isMarketingProjectType) && fundingProjectTab === 'projects' && (
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -2676,7 +2689,9 @@ export function ProjectBoard() {
               )}
             </div>
 
-            {isComSecSection ? (
+            {isInstagramSection ? (
+              <InstagramAccountsPage />
+            ) : isComSecSection ? (
               <ComSecPage
                 activeModule={comSecModule}
                 onClientClick={(clientId) => {

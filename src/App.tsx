@@ -76,6 +76,10 @@ function AppContent() {
     return <PhoneScanPage />;
   }
 
+  if (window.location.pathname === '/instagram-callback') {
+    return <ProjectBoard />;
+  }
+
   if (window.location.pathname === '/onboarding') {
     if (checkingClientAuth) {
       return (
