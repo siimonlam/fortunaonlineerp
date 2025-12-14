@@ -41,6 +41,7 @@ Deno.serve(async (req: Request) => {
     const { accessToken, clientNumber } = await req.json();
 
     let tokenToUse = accessToken;
+    let useSystemUser = false;
 
     if (!tokenToUse) {
       const { data: systemToken, error: tokenError } = await supabase
@@ -57,11 +58,29 @@ Deno.serve(async (req: Request) => {
       }
 
       tokenToUse = systemToken.value;
+      useSystemUser = true;
     }
 
-    const pagesResponse = await fetch(
-      `https://graph.facebook.com/v21.0/me/accounts?access_token=${tokenToUse}`
-    );
+    let pagesEndpoint = `https://graph.facebook.com/v21.0/me/accounts?access_token=${tokenToUse}`;
+
+    if (useSystemUser) {
+      const { data: systemUserId, error: userIdError } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "meta_system_user_id")
+        .maybeSingle();
+
+      if (userIdError || !systemUserId) {
+        return new Response(
+          JSON.stringify({ error: "System user ID not configured" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      pagesEndpoint = `https://graph.facebook.com/v21.0/${systemUserId.value}/accounts?access_token=${tokenToUse}`;
+    }
+
+    const pagesResponse = await fetch(pagesEndpoint);
 
     if (!pagesResponse.ok) {
       const error = await pagesResponse.json();
