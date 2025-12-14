@@ -40,15 +40,27 @@ Deno.serve(async (req: Request) => {
 
     const { accessToken, clientNumber } = await req.json();
 
-    if (!accessToken) {
-      return new Response(
-        JSON.stringify({ error: "Access token is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let tokenToUse = accessToken;
+
+    if (!tokenToUse) {
+      const { data: systemToken, error: tokenError } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "meta_system_user_token")
+        .maybeSingle();
+
+      if (tokenError || !systemToken) {
+        return new Response(
+          JSON.stringify({ error: "No access token provided and no system token configured" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      tokenToUse = systemToken.value;
     }
 
     const pagesResponse = await fetch(
-      `https://graph.facebook.com/v21.0/me/accounts?access_token=${accessToken}`
+      `https://graph.facebook.com/v21.0/me/accounts?access_token=${tokenToUse}`
     );
 
     if (!pagesResponse.ok) {
@@ -74,7 +86,7 @@ Deno.serve(async (req: Request) => {
     for (const page of pages) {
       try {
         const igAccountResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
+          `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${tokenToUse}`
         );
 
         if (!igAccountResponse.ok) continue;
@@ -85,7 +97,7 @@ Deno.serve(async (req: Request) => {
         if (!igBusinessAccount) continue;
 
         const igDetailsResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${igBusinessAccount.id}?fields=id,username,name,biography,profile_picture_url,website,followers_count,follows_count,media_count&access_token=${page.access_token}`
+          `https://graph.facebook.com/v21.0/${igBusinessAccount.id}?fields=id,username,name,biography,profile_picture_url,website,followers_count,follows_count,media_count&access_token=${tokenToUse}`
         );
 
         if (!igDetailsResponse.ok) continue;

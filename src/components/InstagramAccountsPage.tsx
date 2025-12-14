@@ -76,7 +76,7 @@ export default function InstagramAccountsPage() {
     window.location.href = authUrl;
   };
 
-  const handleSyncAccounts = async (accessToken: string) => {
+  const handleSyncAccounts = async (accessToken?: string) => {
     setSyncing(true);
     setError(null);
     setSuccessMessage(null);
@@ -95,7 +95,7 @@ export default function InstagramAccountsPage() {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ accessToken }),
+          body: JSON.stringify({ accessToken: accessToken || null }),
         }
       );
 
@@ -113,6 +113,10 @@ export default function InstagramAccountsPage() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleQuickSync = () => {
+    handleSyncAccounts();
   };
 
   useEffect(() => {
@@ -169,23 +173,34 @@ export default function InstagramAccountsPage() {
           </div>
         </div>
 
-        <button
-          onClick={handleMetaLogin}
-          disabled={syncing}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {syncing ? (
-            <>
-              <RefreshCw className="animate-spin" size={18} />
-              Syncing...
-            </>
-          ) : (
-            <>
-              <RefreshCw size={18} />
-              Sync from Meta
-            </>
-          )}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleQuickSync}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {syncing ? (
+              <>
+                <RefreshCw className="animate-spin" size={18} />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw size={18} />
+                Quick Sync
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleMetaLogin}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Instagram size={18} />
+            Add Account (OAuth)
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -205,15 +220,24 @@ export default function InstagramAccountsPage() {
           <Instagram className="mx-auto text-gray-400 mb-4" size={48} />
           <h3 className="text-lg font-semibold text-gray-700 mb-2">No Instagram accounts yet</h3>
           <p className="text-gray-600 mb-4">
-            Click "Sync from Meta" to connect your Instagram Business accounts
+            Click "Quick Sync" to sync accounts from your System User, or use OAuth to add individual accounts
           </p>
-          <button
-            onClick={handleMetaLogin}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity"
-          >
-            <Instagram size={20} />
-            Connect Instagram
-          </button>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={handleQuickSync}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <RefreshCw size={20} />
+              Quick Sync
+            </button>
+            <button
+              onClick={handleMetaLogin}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity"
+            >
+              <Instagram size={20} />
+              Connect via OAuth
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
