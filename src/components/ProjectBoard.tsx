@@ -4899,26 +4899,21 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
         />
       )}
 
-      {showAddMarketingProjectButtonModal ? (
-        <>
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,0,0,0.3)', zIndex: 9999, pointerEvents: 'none' }}>
-            <div style={{ color: 'white', fontSize: '24px', padding: '20px' }}>MODAL SHOULD BE HERE</div>
-          </div>
-          <AddMarketingProjectButtonModal
-            sourceProjectId={marketingButtonSourceProjectId}
-            onClose={() => {
-              console.log('Modal onClose called');
-              setShowAddMarketingProjectButtonModal(false);
-              setMarketingButtonSourceProjectId(undefined);
-            }}
-            onSuccess={() => {
-              console.log('Modal onSuccess called');
-              loadMarketingProjectButtons();
-              setMarketingButtonSourceProjectId(undefined);
-            }}
-          />
-        </>
-      ) : null}
+      {showAddMarketingProjectButtonModal && (
+        <AddMarketingProjectButtonModal
+          sourceProjectId={marketingButtonSourceProjectId}
+          onClose={() => {
+            console.log('Modal onClose called');
+            setShowAddMarketingProjectButtonModal(false);
+            setMarketingButtonSourceProjectId(undefined);
+          }}
+          onSuccess={() => {
+            console.log('Modal onSuccess called');
+            loadMarketingProjectButtons();
+            setMarketingButtonSourceProjectId(undefined);
+          }}
+        />
+      )}
     </div>
   );
 }
