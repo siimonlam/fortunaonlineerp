@@ -17,7 +17,6 @@ interface AddMarketingProjectButtonModalProps {
 }
 
 export function AddMarketingProjectButtonModal({ sourceProjectId, onClose, onSuccess }: AddMarketingProjectButtonModalProps) {
-  console.log('🚀 AddMarketingProjectButtonModal COMPONENT RENDERING', 'sourceProjectId:', sourceProjectId);
   const [buttonName, setButtonName] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [dealWonProjects, setDealWonProjects] = useState<MarketingProject[]>([]);
@@ -26,7 +25,6 @@ export function AddMarketingProjectButtonModal({ sourceProjectId, onClose, onSuc
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('AddMarketingProjectButtonModal mounted, loading Deal Won projects...');
     loadDealWonProjects();
   }, []);
 
@@ -35,10 +33,24 @@ export function AddMarketingProjectButtonModal({ sourceProjectId, onClose, onSuc
       setLoading(true);
       setError(null);
 
+      const { data: projectTypeData, error: ptError } = await supabase
+        .from('project_types')
+        .select('id')
+        .eq('name', 'Marketing')
+        .maybeSingle();
+
+      if (ptError) throw ptError;
+      if (!projectTypeData) {
+        setError('Marketing project type not found');
+        setLoading(false);
+        return;
+      }
+
       const { data: statusData, error: statusError } = await supabase
-        .from('marketing_statuses')
+        .from('statuses')
         .select('id')
         .eq('name', 'Deal won')
+        .eq('project_type_id', projectTypeData.id)
         .maybeSingle();
 
       if (statusError) throw statusError;
@@ -56,10 +68,8 @@ export function AddMarketingProjectButtonModal({ sourceProjectId, onClose, onSuc
 
       if (projectsError) throw projectsError;
 
-      console.log('Loaded Deal Won projects:', projects?.length || 0, 'projects');
       setDealWonProjects(projects || []);
     } catch (err) {
-      console.error('Error loading Deal Won projects:', err);
       setError(err instanceof Error ? err.message : 'Failed to load projects');
     } finally {
       setLoading(false);
@@ -102,25 +112,20 @@ export function AddMarketingProjectButtonModal({ sourceProjectId, onClose, onSuc
 
       if (insertError) throw insertError;
 
-      console.log('Marketing project button created successfully:', buttonName);
       onSuccess();
       onClose();
     } catch (err) {
-      console.error('Error creating button:', err);
       setError(err instanceof Error ? err.message : 'Failed to create button');
     } finally {
       setSaving(false);
     }
   };
 
-  console.log('AddMarketingProjectButtonModal rendering, dealWonProjects:', dealWonProjects.length);
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]" onClick={(e) => {
-      console.log('Modal backdrop clicked');
       if (e.target === e.currentTarget) onClose();
     }}>
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full border-4 border-red-500">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <h2 className="text-xl font-semibold text-slate-900">Add Marketing Project Button</h2>
           <button
