@@ -4899,9 +4899,13 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
         />
       )}
 
+      <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, background: 'red', color: 'white', padding: '20px', borderRadius: '8px', fontSize: '16px' }}>
+        ALWAYS VISIBLE TEST - State: {String(showAddMarketingProjectButtonModal)}
+      </div>
+
       {showAddMarketingProjectButtonModal && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ background: 'white', padding: '40px', borderRadius: '8px', color: 'black', fontSize: '24px' }}>
               TEST MODAL IS RENDERING!
             </div>
