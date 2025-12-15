@@ -5,6 +5,7 @@ import { Settings, Save, Instagram, Check, AlertCircle } from 'lucide-react';
 export default function InstagramSettingsPage() {
   const [systemUserId, setSystemUserId] = useState('');
   const [systemUserToken, setSystemUserToken] = useState('');
+  const [instagramAccountIds, setInstagramAccountIds] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -27,8 +28,15 @@ export default function InstagramSettingsPage() {
         .eq('key', 'meta_system_user_token')
         .maybeSingle();
 
+      const { data: accountIdsData } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'instagram_account_ids')
+        .maybeSingle();
+
       if (userIdData) setSystemUserId(userIdData.value);
       if (tokenData) setSystemUserToken(tokenData.value);
+      if (accountIdsData) setInstagramAccountIds(accountIdsData.value);
     } catch (err: any) {
       console.error('Error fetching settings:', err);
     } finally {
@@ -41,21 +49,22 @@ export default function InstagramSettingsPage() {
     setMessage(null);
 
     try {
-      if (!systemUserId.trim() || !systemUserToken.trim()) {
-        throw new Error('Both System User ID and Token are required');
+      if (!systemUserToken.trim() || !instagramAccountIds.trim()) {
+        throw new Error('Access Token and Instagram Account IDs are required');
       }
 
-      const { error: userIdError } = await supabase
-        .from('system_settings')
-        .upsert({
-          key: 'meta_system_user_id',
-          value: systemUserId.trim(),
-          description: 'Meta System User ID for Instagram API'
-        }, {
-          onConflict: 'key'
-        });
-
-      if (userIdError) throw userIdError;
+      if (systemUserId.trim()) {
+        const { error: userIdError } = await supabase
+          .from('system_settings')
+          .upsert({
+            key: 'meta_system_user_id',
+            value: systemUserId.trim(),
+            description: 'Meta System User ID for Instagram API'
+          }, {
+            onConflict: 'key'
+          });
+        if (userIdError) throw userIdError;
+      }
 
       const { error: tokenError } = await supabase
         .from('system_settings')
@@ -69,7 +78,19 @@ export default function InstagramSettingsPage() {
 
       if (tokenError) throw tokenError;
 
-      setMessage({ type: 'success', text: 'System User credentials saved successfully! You can now use Quick Sync to fetch Instagram accounts.' });
+      const { error: accountIdsError } = await supabase
+        .from('system_settings')
+        .upsert({
+          key: 'instagram_account_ids',
+          value: instagramAccountIds.trim(),
+          description: 'Comma-separated Instagram Business Account IDs'
+        }, {
+          onConflict: 'key'
+        });
+
+      if (accountIdsError) throw accountIdsError;
+
+      setMessage({ type: 'success', text: 'Settings saved successfully! You can now use Quick Sync to fetch Instagram accounts.' });
     } catch (err: any) {
       console.error('Error saving settings:', err);
       setMessage({ type: 'error', text: err.message });
@@ -83,22 +104,36 @@ export default function InstagramSettingsPage() {
     setMessage(null);
 
     try {
-      if (!systemUserId.trim() || !systemUserToken.trim()) {
-        throw new Error('Both System User ID and Token are required');
+      if (!systemUserToken.trim() || !instagramAccountIds.trim()) {
+        throw new Error('Access Token and Instagram Account IDs are required');
       }
 
-      const testUrl = `https://graph.facebook.com/v21.0/${systemUserId.trim()}/accounts?fields=id,name&access_token=${systemUserToken.trim()}`;
-      const response = await fetch(testUrl);
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'Failed to connect to Facebook API');
+      const accountIds = instagramAccountIds.split(',').map(id => id.trim()).filter(id => id);
+      if (accountIds.length === 0) {
+        throw new Error('Please enter at least one Instagram Account ID');
       }
 
-      const data = await response.json();
+      let successCount = 0;
+      const accountNames: string[] = [];
+
+      for (const accountId of accountIds) {
+        const testUrl = `https://graph.facebook.com/v21.0/${accountId}?fields=id,username,name&access_token=${systemUserToken.trim()}`;
+        const response = await fetch(testUrl);
+
+        if (response.ok) {
+          const data = await response.json();
+          successCount++;
+          accountNames.push(`@${data.username}`);
+        }
+      }
+
+      if (successCount === 0) {
+        throw new Error('Could not access any Instagram accounts. Check your token permissions and account IDs.');
+      }
+
       setMessage({
         type: 'success',
-        text: `Connection successful! Found ${data.data?.length || 0} Facebook page(s). Remember to save the credentials.`
+        text: `Connection successful! Found ${successCount} Instagram account(s): ${accountNames.join(', ')}. Remember to save the settings.`
       });
     } catch (err: any) {
       console.error('Error testing connection:', err);
@@ -147,17 +182,18 @@ export default function InstagramSettingsPage() {
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Settings size={20} />
-            System User Configuration
+            Instagram API Configuration
           </h2>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <h3 className="font-semibold text-blue-900 mb-2">How to get these credentials:</h3>
             <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
               <li>Go to <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer" className="underline">Facebook Business Manager → System Users</a></li>
-              <li>Create or select a System User</li>
-              <li>Assign your Facebook Pages to the System User</li>
-              <li>Generate a token with permissions: pages_show_list, pages_read_engagement, business_management, instagram_basic, instagram_manage_insights</li>
-              <li>Copy the System User ID and Access Token below</li>
+              <li>Create or select a System User and assign Instagram accounts to it</li>
+              <li>Generate a token with permissions: <strong>instagram_basic, instagram_manage_insights</strong></li>
+              <li>Copy the Access Token below</li>
+              <li>Go to <a href="https://business.facebook.com/settings/instagram-accounts" target="_blank" rel="noopener noreferrer" className="underline">Business Manager → Instagram Accounts</a></li>
+              <li>Copy your Instagram Business Account IDs (numeric IDs shown in the list)</li>
             </ol>
           </div>
         </div>
@@ -165,23 +201,7 @@ export default function InstagramSettingsPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              System User ID
-            </label>
-            <input
-              type="text"
-              value={systemUserId}
-              onChange={(e) => setSystemUserId(e.target.value)}
-              placeholder="e.g., 123456789012345"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Found in Business Manager → System Users (numeric ID)
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              System User Access Token
+              Access Token <span className="text-red-500">*</span>
             </label>
             <textarea
               value={systemUserToken}
@@ -191,14 +211,46 @@ export default function InstagramSettingsPage() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Generate from Business Manager → System Users → Generate New Token
+              System User token with Instagram permissions
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Instagram Business Account IDs <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={instagramAccountIds}
+              onChange={(e) => setInstagramAccountIds(e.target.value)}
+              placeholder="e.g., 17841400008460056, 17841400008460057, 17841400008460058"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Comma-separated Instagram Business Account IDs from Business Manager
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              System User ID <span className="text-gray-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={systemUserId}
+              onChange={(e) => setSystemUserId(e.target.value)}
+              placeholder="e.g., 123456789012345"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              For reference only - not used for API calls
             </p>
           </div>
 
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleTestConnection}
-              disabled={saving || !systemUserId.trim() || !systemUserToken.trim()}
+              disabled={saving || !systemUserToken.trim() || !instagramAccountIds.trim()}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Settings size={18} />
@@ -207,7 +259,7 @@ export default function InstagramSettingsPage() {
 
             <button
               onClick={handleSave}
-              disabled={saving || !systemUserId.trim() || !systemUserToken.trim()}
+              disabled={saving || !systemUserToken.trim() || !instagramAccountIds.trim()}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving ? (
@@ -218,7 +270,7 @@ export default function InstagramSettingsPage() {
               ) : (
                 <>
                   <Save size={18} />
-                  Save Credentials
+                  Save Settings
                 </>
               )}
             </button>

@@ -90,112 +90,52 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    let pages: FacebookPage[] = [];
+    const { data: accountIdsData } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "instagram_account_ids")
+      .maybeSingle();
 
-    if (useSystemUser) {
-      const { data: systemUserId, error: userIdError } = await supabase
-        .from("system_settings")
-        .select("value")
-        .eq("key", "meta_system_user_id")
-        .maybeSingle();
-
-      if (userIdError || !systemUserId) {
-        return new Response(
-          JSON.stringify({ error: "System user ID not configured" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      console.log('Fetching accounts for system user:', systemUserId.value);
-
-      const assetsEndpoint = `https://graph.facebook.com/v21.0/${systemUserId.value}/accounts?fields=id,name,access_token&access_token=${tokenToUse}`;
-      console.log('Assets endpoint:', assetsEndpoint.replace(/access_token=[^&]*/g, 'access_token=REDACTED'));
-
-      const assetsResponse = await fetch(assetsEndpoint);
-
-      if (!assetsResponse.ok) {
-        const error = await assetsResponse.json();
-        console.error('Failed to fetch assigned pages:', error);
-        return new Response(
-          JSON.stringify({
-            error: "Failed to fetch assigned Facebook pages",
-            details: error,
-            helpText: "Make sure your System User has pages assigned in Business Manager"
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const assetsData = await assetsResponse.json();
-      console.log('Assigned pages response:', JSON.stringify(assetsData, null, 2));
-      pages = assetsData.data || [];
-    } else {
-      const pagesEndpoint = `https://graph.facebook.com/v21.0/me/accounts?access_token=${tokenToUse}`;
-      console.log('Fetching pages from:', pagesEndpoint.replace(/access_token=[^&]*/, 'access_token=REDACTED'));
-
-      const pagesResponse = await fetch(pagesEndpoint);
-
-      if (!pagesResponse.ok) {
-        const error = await pagesResponse.json();
-        console.error('Failed to fetch pages:', error);
-        return new Response(
-          JSON.stringify({
-            error: "Failed to fetch Facebook pages",
-            details: error,
-            helpText: "Please ensure you have authorized the required permissions: pages_show_list, pages_read_engagement, business_management"
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const pagesData = await pagesResponse.json();
-      console.log('Pages API response:', JSON.stringify(pagesData, null, 2));
-      pages = pagesData.data || [];
-    }
-    console.log(`Found ${pages.length} Facebook page(s)`);
-
-    if (pages.length === 0) {
+    if (!accountIdsData || !accountIdsData.value) {
       return new Response(
         JSON.stringify({
-          error: "No Facebook pages found",
-          details: "Your Facebook account doesn't have any Pages, or you didn't grant permission to access them.",
-          helpText: "To fix this: 1) Create a Facebook Page if you don't have one, 2) Make sure to grant 'pages_show_list' permission when connecting, 3) Link your Instagram Business account to your Facebook Page"
+          error: "Instagram Account IDs not configured",
+          helpText: "Please configure Instagram Account IDs in Settings"
         }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const accountIds = accountIdsData.value.split(',').map((id: string) => id.trim()).filter((id: string) => id);
+
+    if (accountIds.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error: "No Instagram Account IDs found",
+          helpText: "Please add Instagram Account IDs in Settings"
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Syncing ${accountIds.length} Instagram account(s)`);
+
     const syncedAccounts: InstagramAccount[] = [];
-    const pagesWithoutInstagram: string[] = [];
+    const failedAccounts: string[] = [];
 
-    for (const page of pages) {
+    for (const accountId of accountIds) {
       try {
-        console.log(`Checking page: ${page.name} (${page.id})`);
-        const igAccountResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${tokenToUse}`
-        );
-
-        if (!igAccountResponse.ok) {
-          console.error(`Failed to fetch IG account for page ${page.name}`);
-          continue;
-        }
-
-        const igAccountData = await igAccountResponse.json();
-        const igBusinessAccount = igAccountData.instagram_business_account;
-
-        if (!igBusinessAccount) {
-          console.log(`No Instagram Business account linked to page: ${page.name}`);
-          pagesWithoutInstagram.push(page.name);
-          continue;
-        }
-
-        console.log(`Found Instagram Business account: ${igBusinessAccount.id}`);
-
+        console.log(`Fetching Instagram account: ${accountId}`);
         const igDetailsResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${igBusinessAccount.id}?fields=id,username,name,biography,profile_picture_url,website,followers_count,follows_count,media_count&access_token=${tokenToUse}`
+          `https://graph.facebook.com/v21.0/${accountId}?fields=id,username,name,biography,profile_picture_url,website,followers_count,follows_count,media_count&access_token=${tokenToUse}`
         );
 
-        if (!igDetailsResponse.ok) continue;
+        if (!igDetailsResponse.ok) {
+          const error = await igDetailsResponse.json();
+          console.error(`Failed to fetch account ${accountId}:`, error);
+          failedAccounts.push(accountId);
+          continue;
+        }
 
         const igDetails = await igDetailsResponse.json();
 
@@ -221,16 +161,19 @@ Deno.serve(async (req: Request) => {
 
         if (!error && data) {
           syncedAccounts.push(data);
+        } else if (error) {
+          console.error(`Database error for account ${accountId}:`, error);
+          failedAccounts.push(accountId);
         }
       } catch (error) {
-        console.error(`Error processing page ${page.id}:`, error);
-        continue;
+        console.error(`Error processing account ${accountId}:`, error);
+        failedAccounts.push(accountId);
       }
     }
 
     let message = `Synced ${syncedAccounts.length} Instagram account(s)`;
-    if (pagesWithoutInstagram.length > 0) {
-      message += `. ${pagesWithoutInstagram.length} Facebook page(s) without Instagram Business accounts: ${pagesWithoutInstagram.join(', ')}`;
+    if (failedAccounts.length > 0) {
+      message += `. Failed to sync ${failedAccounts.length} account(s): ${failedAccounts.join(', ')}`;
     }
 
     console.log('Sync complete:', message);
@@ -240,7 +183,7 @@ Deno.serve(async (req: Request) => {
         success: true,
         message,
         accounts: syncedAccounts,
-        pagesWithoutInstagram,
+        failedAccounts,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
