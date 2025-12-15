@@ -106,9 +106,9 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      console.log('Fetching assigned assets for system user:', systemUserId.value);
+      console.log('Fetching accounts for system user:', systemUserId.value);
 
-      const assetsEndpoint = `https://graph.facebook.com/v21.0/${systemUserId.value}/assigned_pages?fields=id,name,access_token&access_token=${tokenToUse}`;
+      const assetsEndpoint = `https://graph.facebook.com/v21.0/${systemUserId.value}/accounts?fields=id,name,access_token&access_token=${tokenToUse}`;
       console.log('Assets endpoint:', assetsEndpoint.replace(/access_token=[^&]*/g, 'access_token=REDACTED'));
 
       const assetsResponse = await fetch(assetsEndpoint);
