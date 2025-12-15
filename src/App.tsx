@@ -6,6 +6,7 @@ import { ClientOnboarding } from './components/ClientOnboarding';
 import { ClientAuthPage } from './components/ClientAuthPage';
 import { PhoneScanPage } from './components/PhoneScanPage';
 import { InstagramCallback } from './components/InstagramCallback';
+import InstagramSettingsPage from './components/InstagramSettingsPage';
 import { TaskDueSummaryModal } from './components/TaskDueSummaryModal';
 import { supabase } from './lib/supabase';
 
@@ -142,6 +143,13 @@ function AppContent() {
 
   if (window.location.pathname === '/instagram-callback') {
     return <InstagramCallback />;
+  }
+
+  if (window.location.pathname === '/instagram-settings') {
+    if (!user) {
+      return <LoginPage />;
+    }
+    return <InstagramSettingsPage />;
   }
 
   if (window.location.pathname === '/onboarding') {

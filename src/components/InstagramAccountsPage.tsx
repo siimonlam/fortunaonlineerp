@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Instagram, RefreshCw, Users, Image, ExternalLink, Calendar } from 'lucide-react';
+import { Instagram, RefreshCw, Users, Image, ExternalLink, Calendar, Settings } from 'lucide-react';
 
 interface InstagramAccount {
   id: string;
@@ -161,6 +161,14 @@ export default function InstagramAccountsPage() {
         </div>
 
         <div className="flex gap-3">
+          <a
+            href="/instagram-settings"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            <Settings size={18} />
+            Settings
+          </a>
+
           <button
             onClick={handleQuickSync}
             disabled={syncing}
