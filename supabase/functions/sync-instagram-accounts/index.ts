@@ -43,6 +43,19 @@ Deno.serve(async (req: Request) => {
     let tokenToUse = accessToken;
     let useSystemUser = false;
 
+    if (accessToken) {
+      await supabase
+        .from("system_settings")
+        .upsert({
+          key: "meta_oauth_user_token",
+          value: accessToken,
+          description: "OAuth user access token for Instagram API"
+        }, {
+          onConflict: "key"
+        });
+      console.log('Saved OAuth user token to system settings');
+    }
+
     if (!tokenToUse) {
       // Try system user token first
       const { data: systemToken } = await supabase

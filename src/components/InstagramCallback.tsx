@@ -31,24 +31,6 @@ export function InstagramCallback() {
         return;
       }
 
-      setStatus('Saving access token...');
-
-      const { error: saveError } = await supabase
-        .from('system_settings')
-        .upsert({
-          key: 'meta_oauth_user_token',
-          value: accessToken,
-          description: 'OAuth user access token for Instagram API'
-        }, {
-          onConflict: 'key'
-        });
-
-      if (saveError) {
-        console.error('Error saving token:', saveError);
-        setStatus('Failed to save token. Please try again.');
-        return;
-      }
-
       setStatus('Syncing Instagram accounts...');
 
       const { data: { session } } = await supabase.auth.getSession();
