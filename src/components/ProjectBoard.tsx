@@ -4900,19 +4900,26 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
       )}
 
       {showAddMarketingProjectButtonModal && (
-        <AddMarketingProjectButtonModal
-          sourceProjectId={marketingButtonSourceProjectId}
-          onClose={() => {
-            console.log('Modal onClose called');
-            setShowAddMarketingProjectButtonModal(false);
-            setMarketingButtonSourceProjectId(undefined);
-          }}
-          onSuccess={() => {
-            console.log('Modal onSuccess called');
-            loadMarketingProjectButtons();
-            setMarketingButtonSourceProjectId(undefined);
-          }}
-        />
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: 'white', padding: '40px', borderRadius: '8px', color: 'black', fontSize: '24px' }}>
+              TEST MODAL IS RENDERING!
+            </div>
+          </div>
+          <AddMarketingProjectButtonModal
+            sourceProjectId={marketingButtonSourceProjectId}
+            onClose={() => {
+              console.log('Modal onClose called');
+              setShowAddMarketingProjectButtonModal(false);
+              setMarketingButtonSourceProjectId(undefined);
+            }}
+            onSuccess={() => {
+              console.log('Modal onSuccess called');
+              loadMarketingProjectButtons();
+              setMarketingButtonSourceProjectId(undefined);
+            }}
+          />
+        </>
       )}
     </div>
   );
