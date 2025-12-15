@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, ChevronDown, Bell, Tag, AlertCircle, FileText, CircleDot, Plus } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, Bell, Tag, AlertCircle, FileText, CircleDot } from 'lucide-react';
 import { ProjectCardFields } from './ProjectCardFields';
 
 interface Staff {
@@ -82,13 +82,6 @@ interface Status {
   project_type_id: string;
 }
 
-interface MarketingProjectButton {
-  id: string;
-  name: string;
-  marketing_project_id: string;
-  display_order: number;
-}
-
 interface ProjectCardProps {
   project: Project;
   isClientSection?: boolean;
@@ -98,13 +91,10 @@ interface ProjectCardProps {
   statusManagers?: any[];
   showSubstatus?: boolean;
   currentUserId?: string;
-  marketingButtons?: MarketingProjectButton[];
   onDragStart: () => void;
   onClick: () => void;
   onCreateProject?: (projectTypeId: string) => void;
   onClientClick?: (client: Client) => void;
-  onAddMarketingButton?: (sourceProjectId: string) => void;
-  onMarketingButtonClick?: (projectId: string) => void;
 }
 
 export function ProjectCard({
@@ -116,13 +106,10 @@ export function ProjectCard({
   statusManagers,
   showSubstatus = false,
   currentUserId,
-  marketingButtons,
   onDragStart,
   onClick,
   onCreateProject,
-  onClientClick,
-  onAddMarketingButton,
-  onMarketingButtonClick
+  onClientClick
 }: ProjectCardProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const completedTasks = project.tasks?.filter((t) => t.completed).length || 0;
@@ -357,39 +344,6 @@ export function ProjectCard({
                 </p>
               )}
             </div>
-          </div>
-        )}
-
-        {isMarketingProject && (onAddMarketingButton || (marketingButtons && marketingButtons.length > 0)) && (
-          <div className="mt-3 pt-3 border-t border-slate-200">
-            {onAddMarketingButton && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddMarketingButton(project.id);
-                }}
-                className="w-full px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-sm flex items-center justify-center gap-2 transition-colors rounded-lg mb-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>New Project</span>
-              </button>
-            )}
-            {marketingButtons && marketingButtons.length > 0 && (
-              <div className="space-y-2">
-                {marketingButtons.map((button) => (
-                  <button
-                    key={button.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMarketingButtonClick?.(button.marketing_project_id);
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors"
-                  >
-                    {button.name}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         )}
 

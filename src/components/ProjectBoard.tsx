@@ -514,7 +514,7 @@ export function ProjectBoard() {
         .from('marketing_project_buttons')
         .select(`
           *,
-          marketing_projects (
+          target_project:marketing_projects!marketing_project_buttons_marketing_project_id_fkey (
             id,
             title,
             company_name,
@@ -522,9 +522,11 @@ export function ProjectBoard() {
             project_name
           )
         `)
+        .is('source_project_id', null)
         .order('display_order');
 
       if (error) throw error;
+      console.log('[loadMarketingProjectButtons] Loaded buttons:', data?.length || 0);
       setMarketingProjectButtons(data || []);
     } catch (error: any) {
       console.error('[loadMarketingProjectButtons] Error:', error.message);
@@ -2072,6 +2074,7 @@ export function ProjectBoard() {
                         <button
                           onClick={() => {
                             console.log('+ New Project button clicked, opening modal');
+                            setMarketingButtonSourceProjectId(undefined);
                             setShowAddMarketingProjectButtonModal(true);
                           }}
                           className="w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2 mt-2"
@@ -3501,22 +3504,12 @@ export function ProjectBoard() {
                     statusManagers={statusManagers}
                     showSubstatus={currentStatus && !currentStatus.is_substatus}
                     currentUserId={user?.id}
-                    marketingButtons={marketingProjectButtons.filter(btn => btn.source_project_id === project.id)}
                     onDragStart={() => handleDragStart(project)}
                     onClick={() => setSelectedProject(project)}
                     onCreateProject={(targetProjectTypeId) => {
                       handleCreateProjectFromClient(project, targetProjectTypeId);
                     }}
                     onClientClick={(client) => setSelectedClient(client)}
-                    onAddMarketingButton={(sourceProjectId) => {
-                      console.log('Opening AddMarketingProjectButtonModal from ProjectCard, sourceProjectId:', sourceProjectId);
-                      setMarketingButtonSourceProjectId(sourceProjectId);
-                      setShowAddMarketingProjectButtonModal(true);
-                    }}
-                    onMarketingButtonClick={(projectId) => {
-                      console.log('Marketing button clicked, opening project:', projectId);
-                      setSelectedMarketingProject(projectId);
-                    }}
                   />
                 ))}
                 {filteredProjects.length === 0 && (
