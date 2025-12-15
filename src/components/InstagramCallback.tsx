@@ -11,7 +11,12 @@ export function InstagramCallback() {
 
   const handleCallback = async () => {
     try {
+      const urlSearch = window.location.search;
       const hash = window.location.hash;
+
+      console.log('[InstagramCallback] URL search:', urlSearch);
+      console.log('[InstagramCallback] Hash:', hash);
+
       if (!hash.includes('access_token=')) {
         setStatus('No access token found. Redirecting...');
         setTimeout(() => {
@@ -22,6 +27,8 @@ export function InstagramCallback() {
 
       const params = new URLSearchParams(hash.substring(1));
       const accessToken = params.get('access_token');
+
+      console.log('[InstagramCallback] Access token found:', accessToken ? 'YES' : 'NO');
 
       if (!accessToken) {
         setStatus('Invalid access token. Redirecting...');
@@ -34,7 +41,10 @@ export function InstagramCallback() {
       setStatus('Syncing Instagram accounts...');
 
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('[InstagramCallback] Session:', session ? 'EXISTS' : 'NONE');
+
       if (!session) {
+        console.log('[InstagramCallback] Saving token to localStorage and redirecting to login');
         localStorage.setItem('instagram_pending_token', accessToken);
         setStatus('Please log in to continue...');
         setTimeout(() => {

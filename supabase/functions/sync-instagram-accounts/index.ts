@@ -116,12 +116,18 @@ Deno.serve(async (req: Request) => {
       const error = await pagesResponse.json();
       console.error('Failed to fetch pages:', error);
       return new Response(
-        JSON.stringify({ error: "Failed to fetch Facebook pages", details: error }),
+        JSON.stringify({
+          error: "Failed to fetch Facebook pages",
+          details: error,
+          helpText: "Please ensure you have authorized the required permissions: pages_show_list, pages_read_engagement, business_management"
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const pagesData = await pagesResponse.json();
+    console.log('Pages API response:', JSON.stringify(pagesData, null, 2));
+
     const pages: FacebookPage[] = pagesData.data || [];
     console.log(`Found ${pages.length} Facebook page(s)`);
 
@@ -129,7 +135,8 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           error: "No Facebook pages found",
-          details: "Make sure your Facebook account has Pages associated with it"
+          details: "Your Facebook account doesn't have any Pages, or you didn't grant permission to access them.",
+          helpText: "To fix this: 1) Create a Facebook Page if you don't have one, 2) Make sure to grant 'pages_show_list' permission when connecting, 3) Link your Instagram Business account to your Facebook Page"
         }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

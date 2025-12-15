@@ -52,19 +52,28 @@ function AppContent() {
 
   useEffect(() => {
     const handlePendingInstagramAuth = async () => {
-      if (!user || loading) return;
+      if (!user || loading) {
+        console.log('[App] Skipping Instagram auth check - user:', !!user, 'loading:', loading);
+        return;
+      }
 
       const urlParams = new URLSearchParams(window.location.search);
       const redirect = urlParams.get('redirect');
       const pendingToken = localStorage.getItem('instagram_pending_token');
 
+      console.log('[App] Checking for pending Instagram auth - redirect:', redirect, 'has token:', !!pendingToken);
+
       if (redirect === 'instagram' && pendingToken) {
-        console.log('[App] Processing pending Instagram authentication');
+        console.log('[App] Processing pending Instagram authentication with token:', pendingToken.substring(0, 20) + '...');
 
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (!session) return;
+          if (!session) {
+            console.error('[App] No session found');
+            return;
+          }
 
+          console.log('[App] Calling sync function...');
           const response = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-instagram-accounts`,
             {
@@ -78,18 +87,22 @@ function AppContent() {
           );
 
           const result = await response.json();
+          console.log('[App] Sync response:', response.status, result);
 
           if (response.ok) {
             console.log('[App] Instagram sync successful:', result);
             localStorage.removeItem('instagram_pending_token');
+            alert(`Success! Synced ${result.accounts?.length || 0} Instagram account(s)`);
             window.history.replaceState({}, document.title, '/#instagram');
             window.location.hash = '#instagram';
           } else {
             console.error('[App] Instagram sync failed:', result);
+            alert(`Failed to sync: ${result.error || 'Unknown error'}`);
             localStorage.removeItem('instagram_pending_token');
           }
         } catch (err) {
           console.error('[App] Error processing pending Instagram auth:', err);
+          alert(`Error: ${err.message}`);
           localStorage.removeItem('instagram_pending_token');
         }
 
