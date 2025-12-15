@@ -2063,7 +2063,10 @@ export function ProjectBoard() {
                     {isMarketingProjectType && status.name === 'Deal won' && (
                       <>
                         <button
-                          onClick={() => setShowAddMarketingProjectButtonModal(true)}
+                          onClick={() => {
+                            console.log('+ New Project button clicked, opening modal');
+                            setShowAddMarketingProjectButtonModal(true);
+                          }}
                           className="w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2 mt-2"
                         >
                           <Plus className="w-4 h-4" />
@@ -2074,6 +2077,7 @@ export function ProjectBoard() {
                           <button
                             key={button.id}
                             onClick={() => {
+                              console.log('Marketing button clicked:', button.name, 'Project ID:', button.marketing_project_id);
                               if (selectedMarketingProjectButton === button.id) {
                                 setSelectedMarketingProjectButton(null);
                                 setSelectedMarketingProject(null);

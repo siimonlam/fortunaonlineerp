@@ -24,6 +24,7 @@ export function AddMarketingProjectButtonModal({ onClose, onSuccess }: AddMarket
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('AddMarketingProjectButtonModal mounted, loading Deal Won projects...');
     loadDealWonProjects();
   }, []);
 
@@ -53,6 +54,7 @@ export function AddMarketingProjectButtonModal({ onClose, onSuccess }: AddMarket
 
       if (projectsError) throw projectsError;
 
+      console.log('Loaded Deal Won projects:', projects?.length || 0, 'projects');
       setDealWonProjects(projects || []);
     } catch (err) {
       console.error('Error loading Deal Won projects:', err);
@@ -97,6 +99,7 @@ export function AddMarketingProjectButtonModal({ onClose, onSuccess }: AddMarket
 
       if (insertError) throw insertError;
 
+      console.log('Marketing project button created successfully:', buttonName);
       onSuccess();
       onClose();
     } catch (err) {
