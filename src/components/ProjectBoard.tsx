@@ -1988,38 +1988,6 @@ export function ProjectBoard() {
                             </button>
                           );
                         })}
-
-                        {isMarketingProjectType && status.name === 'Deal Won' && (
-                          <>
-                            <button
-                              onClick={() => setShowCreateMarketingProjectModal(true)}
-                              className="w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2 mt-2"
-                            >
-                              <Plus className="w-4 h-4" />
-                              <span>New Project</span>
-                            </button>
-
-                            {marketingProjects.map((project) => (
-                              <button
-                                key={project.id}
-                                onClick={() => {
-                                  setSelectedMarketingProject(project.id);
-                                  setFundingProjectTab('projects');
-                                }}
-                                className={`w-full text-left pl-6 pr-4 py-2 rounded-lg text-sm transition-all duration-150 ${
-                                  selectedMarketingProject === project.id
-                                    ? 'bg-green-600 text-white shadow-md font-medium'
-                                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                                }`}
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span className="w-1 h-1 rounded-full bg-current"></span>
-                                  {project.brand_name || project.company_name}
-                                </span>
-                              </button>
-                            ))}
-                          </>
-                        )}
                       </div>
                     ) : (
                       <>
@@ -2052,38 +2020,38 @@ export function ProjectBoard() {
                             </span>
                           </span>
                         </button>
+                      </>
+                    )}
 
-                        {isMarketingProjectType && status.name === 'Deal Won' && (
-                          <>
-                            <button
-                              onClick={() => setShowCreateMarketingProjectModal(true)}
-                              className="w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2 mt-2"
-                            >
-                              <Plus className="w-4 h-4" />
-                              <span>New Project</span>
-                            </button>
+                    {isMarketingProjectType && status.name === 'Deal Won' && (
+                      <>
+                        <button
+                          onClick={() => setShowCreateMarketingProjectModal(true)}
+                          className="w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2 mt-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>New Project</span>
+                        </button>
 
-                            {marketingProjects.map((project) => (
-                              <button
-                                key={project.id}
-                                onClick={() => {
-                                  setSelectedMarketingProject(project.id);
-                                  setFundingProjectTab('projects');
-                                }}
-                                className={`w-full text-left pl-6 pr-4 py-2 rounded-lg text-sm transition-all duration-150 ${
-                                  selectedMarketingProject === project.id
-                                    ? 'bg-green-600 text-white shadow-md font-medium'
-                                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                                }`}
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span className="w-1 h-1 rounded-full bg-current"></span>
-                                  {project.brand_name || project.company_name}
-                                </span>
-                              </button>
-                            ))}
-                          </>
-                        )}
+                        {marketingProjects.map((project) => (
+                          <button
+                            key={project.id}
+                            onClick={() => {
+                              setSelectedMarketingProject(project.id);
+                              setFundingProjectTab('projects');
+                            }}
+                            className={`w-full text-left pl-6 pr-4 py-2 rounded-lg text-sm transition-all duration-150 ${
+                              selectedMarketingProject === project.id
+                                ? 'bg-green-600 text-white shadow-md font-medium'
+                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="w-1 h-1 rounded-full bg-current"></span>
+                              {project.brand_name || project.company_name}
+                            </span>
+                          </button>
+                        ))}
                       </>
                     )}
                   </div>
