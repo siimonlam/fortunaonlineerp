@@ -2022,16 +2022,6 @@ export function ProjectBoard() {
                         </button>
                       </>
                     )}
-
-                    {isMarketingProjectType && status.name === 'Deal won' && (
-                      <button
-                        onClick={() => setShowCreateMarketingProjectModal(true)}
-                        className="w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2 mt-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>New Project</span>
-                      </button>
-                    )}
                   </div>
                 ))}
               </nav>
