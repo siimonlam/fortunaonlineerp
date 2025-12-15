@@ -214,10 +214,6 @@ export function ProjectBoard() {
   const [marketingButtonSourceProjectId, setMarketingButtonSourceProjectId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    console.log('showAddMarketingProjectButtonModal state changed:', showAddMarketingProjectButtonModal);
-  }, [showAddMarketingProjectButtonModal]);
-
-  useEffect(() => {
     console.log('[ProjectBoard] useEffect triggered. User:', user?.email || 'null');
     if (!user) {
       console.log('⏳ Waiting for user authentication before subscribing to realtime');
@@ -1762,13 +1758,8 @@ export function ProjectBoard() {
     }
   }
 
-  console.log('[RENDER] ProjectBoard rendering. showAddMarketingProjectButtonModal:', showAddMarketingProjectButtonModal);
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div style={{ position: 'fixed', top: '50%', right: '20px', zIndex: 99999, background: 'red', color: 'white', padding: '20px', borderRadius: '8px', fontSize: '16px', transform: 'translateY(-50%)' }}>
-        TEST DIV - State: {String(showAddMarketingProjectButtonModal)}
-      </div>
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="px-8">
           <div className="flex justify-between items-center h-16">
@@ -2076,7 +2067,6 @@ export function ProjectBoard() {
                       <>
                         <button
                           onClick={() => {
-                            console.log('+ New Project button clicked, opening modal');
                             setMarketingButtonSourceProjectId(undefined);
                             setShowAddMarketingProjectButtonModal(true);
                           }}
@@ -4207,6 +4197,20 @@ export function ProjectBoard() {
           </div>
         </div>
       )}
+
+      {showAddMarketingProjectButtonModal && (
+        <AddMarketingProjectButtonModal
+          sourceProjectId={marketingButtonSourceProjectId}
+          onClose={() => {
+            setShowAddMarketingProjectButtonModal(false);
+            setMarketingButtonSourceProjectId(undefined);
+          }}
+          onSuccess={() => {
+            loadMarketingProjectButtons();
+            setMarketingButtonSourceProjectId(undefined);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -4900,33 +4904,6 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
           }}
           dealWonStatusId="19d00970-812b-4651-8dc7-4e04f9eaaac0"
         />
-      )}
-
-      <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, background: 'red', color: 'white', padding: '20px', borderRadius: '8px', fontSize: '16px' }}>
-        ALWAYS VISIBLE TEST - State: {String(showAddMarketingProjectButtonModal)}
-      </div>
-
-      {showAddMarketingProjectButtonModal && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: 'white', padding: '40px', borderRadius: '8px', color: 'black', fontSize: '24px' }}>
-              TEST MODAL IS RENDERING!
-            </div>
-          </div>
-          <AddMarketingProjectButtonModal
-            sourceProjectId={marketingButtonSourceProjectId}
-            onClose={() => {
-              console.log('Modal onClose called');
-              setShowAddMarketingProjectButtonModal(false);
-              setMarketingButtonSourceProjectId(undefined);
-            }}
-            onSuccess={() => {
-              console.log('Modal onSuccess called');
-              loadMarketingProjectButtons();
-              setMarketingButtonSourceProjectId(undefined);
-            }}
-          />
-        </>
       )}
     </div>
   );
