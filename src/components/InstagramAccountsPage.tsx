@@ -70,7 +70,7 @@ export default function InstagramAccountsPage() {
       return;
     }
 
-    const scope = 'pages_show_list,pages_read_engagement,instagram_basic,business_management';
+    const scope = 'pages_show_list,pages_read_engagement,business_management';
     const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${metaAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=token`;
 
     window.location.href = authUrl;
