@@ -110,8 +110,13 @@ export function AddMarketingProjectButtonModal({ onClose, onSuccess }: AddMarket
     }
   };
 
+  console.log('AddMarketingProjectButtonModal rendering, dealWonProjects:', dealWonProjects.length);
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={(e) => {
+      console.log('Modal backdrop clicked');
+      if (e.target === e.currentTarget) onClose();
+    }}>
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <h2 className="text-xl font-semibold text-slate-900">Add Marketing Project Button</h2>

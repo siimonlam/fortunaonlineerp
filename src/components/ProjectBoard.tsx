@@ -213,6 +213,10 @@ export function ProjectBoard() {
   const [showAddMarketingProjectButtonModal, setShowAddMarketingProjectButtonModal] = useState(false);
 
   useEffect(() => {
+    console.log('showAddMarketingProjectButtonModal state changed:', showAddMarketingProjectButtonModal);
+  }, [showAddMarketingProjectButtonModal]);
+
+  useEffect(() => {
     console.log('[ProjectBoard] useEffect triggered. User:', user?.email || 'null');
     if (!user) {
       console.log('⏳ Waiting for user authentication before subscribing to realtime');
@@ -4889,10 +4893,21 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
         />
       )}
 
+      {(() => {
+        if (showAddMarketingProjectButtonModal) {
+          console.log('Rendering AddMarketingProjectButtonModal');
+        }
+        return null;
+      })()}
+
       {showAddMarketingProjectButtonModal && (
         <AddMarketingProjectButtonModal
-          onClose={() => setShowAddMarketingProjectButtonModal(false)}
+          onClose={() => {
+            console.log('Modal onClose called');
+            setShowAddMarketingProjectButtonModal(false);
+          }}
           onSuccess={() => {
+            console.log('Modal onSuccess called');
             loadMarketingProjectButtons();
           }}
         />
