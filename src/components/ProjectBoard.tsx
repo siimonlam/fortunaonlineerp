@@ -2026,15 +2026,7 @@ export function ProjectBoard() {
                     {isMarketingProjectType && status.name === 'Deal won' && (
                       <>
                         <button
-                          onClick={() => {
-                            console.log('✨ New Project button clicked!');
-                            const marketingType = projectTypes.find(pt => pt.name === 'Marketing');
-                            const dealWonStatus = statuses.find(s => s.name === 'Deal won' && s.project_type_id === marketingType?.id);
-                            console.log('Marketing Type:', marketingType);
-                            console.log('Deal Won Status:', dealWonStatus);
-                            console.log('Setting modal to true...');
-                            setShowCreateMarketingProjectModal(true);
-                          }}
+                          onClick={() => setShowCreateMarketingProjectModal(true)}
                           className="w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2 mt-2"
                         >
                           <Plus className="w-4 h-4" />
@@ -4842,29 +4834,17 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
         />
       )}
 
-      {(() => {
-        const marketingType = projectTypes.find(pt => pt.name === 'Marketing');
-        const dealWonStatus = statuses.find(s => s.name === 'Deal won' && s.project_type_id === marketingType?.id);
-
-        console.log('🎯 Modal Render Check:', {
-          showCreateMarketingProjectModal,
-          marketingType,
-          dealWonStatus,
-          willRender: showCreateMarketingProjectModal && !!dealWonStatus
-        });
-
-        return showCreateMarketingProjectModal && dealWonStatus && (
-          <CreateMarketingProjectModal
-            isOpen={showCreateMarketingProjectModal}
-            onClose={() => setShowCreateMarketingProjectModal(false)}
-            onSuccess={() => {
-              loadProjectsViewData();
-              loadMarketingProjects();
-            }}
-            dealWonStatusId={dealWonStatus.id}
-          />
-        );
-      })()}
+      {showCreateMarketingProjectModal && (
+        <CreateMarketingProjectModal
+          isOpen={showCreateMarketingProjectModal}
+          onClose={() => setShowCreateMarketingProjectModal(false)}
+          onSuccess={() => {
+            loadProjectsViewData();
+            loadMarketingProjects();
+          }}
+          dealWonStatusId="19d00970-812b-4651-8dc7-4e04f9eaaac0"
+        />
+      )}
     </div>
   );
 }
