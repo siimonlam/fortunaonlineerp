@@ -87,7 +87,7 @@ export default function InstagramSettingsPage() {
         throw new Error('Both System User ID and Token are required');
       }
 
-      const testUrl = `https://graph.facebook.com/v21.0/${systemUserId.trim()}/accounts?access_token=${systemUserToken.trim()}`;
+      const testUrl = `https://graph.facebook.com/v21.0/${systemUserId.trim()}/assigned_pages?fields=id,name&access_token=${systemUserToken.trim()}`;
       const response = await fetch(testUrl);
 
       if (!response.ok) {

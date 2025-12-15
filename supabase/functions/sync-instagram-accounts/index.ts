@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    let pagesEndpoint = `https://graph.facebook.com/v21.0/me/accounts?access_token=${tokenToUse}`;
+    let pages: FacebookPage[] = [];
 
     if (useSystemUser) {
       const { data: systemUserId, error: userIdError } = await supabase
@@ -106,29 +106,52 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      pagesEndpoint = `https://graph.facebook.com/v21.0/${systemUserId.value}/accounts?access_token=${tokenToUse}`;
+      console.log('Fetching assigned assets for system user:', systemUserId.value);
+
+      const assetsEndpoint = `https://graph.facebook.com/v21.0/${systemUserId.value}/assigned_pages?fields=id,name,access_token&access_token=${tokenToUse}`;
+      console.log('Assets endpoint:', assetsEndpoint.replace(/access_token=[^&]*/g, 'access_token=REDACTED'));
+
+      const assetsResponse = await fetch(assetsEndpoint);
+
+      if (!assetsResponse.ok) {
+        const error = await assetsResponse.json();
+        console.error('Failed to fetch assigned pages:', error);
+        return new Response(
+          JSON.stringify({
+            error: "Failed to fetch assigned Facebook pages",
+            details: error,
+            helpText: "Make sure your System User has pages assigned in Business Manager"
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const assetsData = await assetsResponse.json();
+      console.log('Assigned pages response:', JSON.stringify(assetsData, null, 2));
+      pages = assetsData.data || [];
+    } else {
+      const pagesEndpoint = `https://graph.facebook.com/v21.0/me/accounts?access_token=${tokenToUse}`;
+      console.log('Fetching pages from:', pagesEndpoint.replace(/access_token=[^&]*/, 'access_token=REDACTED'));
+
+      const pagesResponse = await fetch(pagesEndpoint);
+
+      if (!pagesResponse.ok) {
+        const error = await pagesResponse.json();
+        console.error('Failed to fetch pages:', error);
+        return new Response(
+          JSON.stringify({
+            error: "Failed to fetch Facebook pages",
+            details: error,
+            helpText: "Please ensure you have authorized the required permissions: pages_show_list, pages_read_engagement, business_management"
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const pagesData = await pagesResponse.json();
+      console.log('Pages API response:', JSON.stringify(pagesData, null, 2));
+      pages = pagesData.data || [];
     }
-
-    console.log('Fetching pages from:', pagesEndpoint.replace(/access_token=[^&]*/, 'access_token=REDACTED'));
-    const pagesResponse = await fetch(pagesEndpoint);
-
-    if (!pagesResponse.ok) {
-      const error = await pagesResponse.json();
-      console.error('Failed to fetch pages:', error);
-      return new Response(
-        JSON.stringify({
-          error: "Failed to fetch Facebook pages",
-          details: error,
-          helpText: "Please ensure you have authorized the required permissions: pages_show_list, pages_read_engagement, business_management"
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const pagesData = await pagesResponse.json();
-    console.log('Pages API response:', JSON.stringify(pagesData, null, 2));
-
-    const pages: FacebookPage[] = pagesData.data || [];
     console.log(`Found ${pages.length} Facebook page(s)`);
 
     if (pages.length === 0) {
