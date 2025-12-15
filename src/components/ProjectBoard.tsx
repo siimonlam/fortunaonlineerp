@@ -211,6 +211,7 @@ export function ProjectBoard() {
   const [marketingProjectButtons, setMarketingProjectButtons] = useState<any[]>([]);
   const [selectedMarketingProjectButton, setSelectedMarketingProjectButton] = useState<string | null>(null);
   const [showAddMarketingProjectButtonModal, setShowAddMarketingProjectButtonModal] = useState(false);
+  const [marketingButtonSourceProjectId, setMarketingButtonSourceProjectId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     console.log('showAddMarketingProjectButtonModal state changed:', showAddMarketingProjectButtonModal);
@@ -3500,12 +3501,22 @@ export function ProjectBoard() {
                     statusManagers={statusManagers}
                     showSubstatus={currentStatus && !currentStatus.is_substatus}
                     currentUserId={user?.id}
+                    marketingButtons={marketingProjectButtons.filter(btn => btn.source_project_id === project.id)}
                     onDragStart={() => handleDragStart(project)}
                     onClick={() => setSelectedProject(project)}
                     onCreateProject={(targetProjectTypeId) => {
                       handleCreateProjectFromClient(project, targetProjectTypeId);
                     }}
                     onClientClick={(client) => setSelectedClient(client)}
+                    onAddMarketingButton={(sourceProjectId) => {
+                      console.log('Opening AddMarketingProjectButtonModal from ProjectCard, sourceProjectId:', sourceProjectId);
+                      setMarketingButtonSourceProjectId(sourceProjectId);
+                      setShowAddMarketingProjectButtonModal(true);
+                    }}
+                    onMarketingButtonClick={(projectId) => {
+                      console.log('Marketing button clicked, opening project:', projectId);
+                      setSelectedMarketingProject(projectId);
+                    }}
                   />
                 ))}
                 {filteredProjects.length === 0 && (
@@ -4903,13 +4914,16 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
 
       {showAddMarketingProjectButtonModal && (
         <AddMarketingProjectButtonModal
+          sourceProjectId={marketingButtonSourceProjectId}
           onClose={() => {
             console.log('Modal onClose called');
             setShowAddMarketingProjectButtonModal(false);
+            setMarketingButtonSourceProjectId(undefined);
           }}
           onSuccess={() => {
             console.log('Modal onSuccess called');
             loadMarketingProjectButtons();
+            setMarketingButtonSourceProjectId(undefined);
           }}
         />
       )}

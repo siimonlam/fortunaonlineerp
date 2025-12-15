@@ -11,12 +11,13 @@ interface MarketingProject {
 }
 
 interface AddMarketingProjectButtonModalProps {
+  sourceProjectId?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function AddMarketingProjectButtonModal({ onClose, onSuccess }: AddMarketingProjectButtonModalProps) {
-  console.log('🚀 AddMarketingProjectButtonModal COMPONENT RENDERING');
+export function AddMarketingProjectButtonModal({ sourceProjectId, onClose, onSuccess }: AddMarketingProjectButtonModalProps) {
+  console.log('🚀 AddMarketingProjectButtonModal COMPONENT RENDERING', 'sourceProjectId:', sourceProjectId);
   const [buttonName, setButtonName] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [dealWonProjects, setDealWonProjects] = useState<MarketingProject[]>([]);
@@ -94,6 +95,7 @@ export function AddMarketingProjectButtonModal({ onClose, onSuccess }: AddMarket
         .insert({
           name: buttonName.trim(),
           marketing_project_id: selectedProjectId,
+          source_project_id: sourceProjectId || null,
           display_order: newOrder,
           created_by: user.id
         });
