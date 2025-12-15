@@ -21,6 +21,7 @@ import { TaskNotificationModal } from './TaskNotificationModal';
 import InstagramAccountsPage from './InstagramAccountsPage';
 import { CreateMarketingProjectModal } from './CreateMarketingProjectModal';
 import MarketingProjectDetail from './MarketingProjectDetail';
+import { AddMarketingProjectButtonModal } from './AddMarketingProjectButtonModal';
 
 interface Status {
   id: string;
@@ -207,6 +208,9 @@ export function ProjectBoard() {
   const [showTaskNotification, setShowTaskNotification] = useState(false);
   const [filterMyTasks, setFilterMyTasks] = useState(false);
   const [showBulkProjectMenu, setShowBulkProjectMenu] = useState(false);
+  const [marketingProjectButtons, setMarketingProjectButtons] = useState<any[]>([]);
+  const [selectedMarketingProjectButton, setSelectedMarketingProjectButton] = useState<string | null>(null);
+  const [showAddMarketingProjectButtonModal, setShowAddMarketingProjectButtonModal] = useState(false);
 
   useEffect(() => {
     console.log('[ProjectBoard] useEffect triggered. User:', user?.email || 'null');
@@ -275,6 +279,15 @@ export function ProjectBoard() {
           console.log('========================================');
           reloadCurrentView();
           loadMarketingProjects();
+          loadMarketingProjectButtons();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'marketing_project_buttons' },
+        (payload) => {
+          console.log('✅ Marketing project buttons changed:', payload.eventType);
+          loadMarketingProjectButtons();
         }
       )
       .on(
@@ -433,6 +446,7 @@ export function ProjectBoard() {
       const projectType = projectTypes.find(pt => pt.id === selectedProjectType);
       if (projectType?.name === 'Marketing') {
         loadMarketingProjects();
+        loadMarketingProjectButtons();
       }
     }
   }, [selectedProjectType]);
@@ -486,6 +500,28 @@ export function ProjectBoard() {
       setMarketingProjects(data || []);
     } catch (error: any) {
       console.error('[loadMarketingProjects] Error:', error.message);
+    }
+  }
+
+  async function loadMarketingProjectButtons() {
+    try {
+      const { data, error } = await supabase
+        .from('marketing_project_buttons')
+        .select(`
+          *,
+          marketing_projects (
+            id,
+            name,
+            client_company_name,
+            brand_name
+          )
+        `)
+        .order('display_order');
+
+      if (error) throw error;
+      setMarketingProjectButtons(data || []);
+    } catch (error: any) {
+      console.error('[loadMarketingProjectButtons] Error:', error.message);
     }
   }
 
@@ -2023,14 +2059,38 @@ export function ProjectBoard() {
                       </>
                     )}
 
-                    {isMarketingProjectType && (status.name === 'Proposal' || status.name === 'Deal won') && (
-                      <button
-                        onClick={() => setShowCreateMarketingProjectModal(true)}
-                        className="w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2 mt-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>New Project</span>
-                      </button>
+                    {isMarketingProjectType && status.name === 'Deal won' && (
+                      <>
+                        <button
+                          onClick={() => setShowAddMarketingProjectButtonModal(true)}
+                          className="w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2 mt-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>New Project</span>
+                        </button>
+
+                        {marketingProjectButtons.map((button) => (
+                          <button
+                            key={button.id}
+                            onClick={() => {
+                              if (selectedMarketingProjectButton === button.id) {
+                                setSelectedMarketingProjectButton(null);
+                                setSelectedMarketingProject(null);
+                              } else {
+                                setSelectedMarketingProjectButton(button.id);
+                                setSelectedMarketingProject(button.marketing_project_id);
+                              }
+                            }}
+                            className={`w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 flex items-center gap-2 mt-2 ${
+                              selectedMarketingProjectButton === button.id
+                                ? 'bg-blue-600 text-white'
+                                : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
+                            }`}
+                          >
+                            <span>{button.name}</span>
+                          </button>
+                        ))}
+                      </>
                     )}
                   </div>
                 ))}
@@ -4821,6 +4881,15 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
             loadMarketingProjects();
           }}
           dealWonStatusId="19d00970-812b-4651-8dc7-4e04f9eaaac0"
+        />
+      )}
+
+      {showAddMarketingProjectButtonModal && (
+        <AddMarketingProjectButtonModal
+          onClose={() => setShowAddMarketingProjectButtonModal(false)}
+          onSuccess={() => {
+            loadMarketingProjectButtons();
+          }}
         />
       )}
     </div>
