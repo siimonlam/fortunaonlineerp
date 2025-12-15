@@ -7,6 +7,8 @@ import { ClientAuthPage } from './components/ClientAuthPage';
 import { PhoneScanPage } from './components/PhoneScanPage';
 import { InstagramCallback } from './components/InstagramCallback';
 import InstagramSettingsPage from './components/InstagramSettingsPage';
+import InstagramAccountsPage from './components/InstagramAccountsPage';
+import InstagramPostsPage from './components/InstagramPostsPage';
 import { TaskDueSummaryModal } from './components/TaskDueSummaryModal';
 import { supabase } from './lib/supabase';
 
@@ -150,6 +152,20 @@ function AppContent() {
       return <LoginPage />;
     }
     return <InstagramSettingsPage />;
+  }
+
+  if (window.location.pathname === '/instagram-accounts') {
+    if (!user) {
+      return <LoginPage />;
+    }
+    return <InstagramAccountsPage />;
+  }
+
+  if (window.location.pathname === '/instagram-posts') {
+    if (!user) {
+      return <LoginPage />;
+    }
+    return <InstagramPostsPage />;
   }
 
   if (window.location.pathname === '/onboarding') {

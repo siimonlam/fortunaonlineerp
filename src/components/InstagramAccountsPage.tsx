@@ -324,6 +324,15 @@ export default function InstagramAccountsPage() {
                   <Calendar size={12} />
                   <span>Last synced: {formatDate(account.last_updated)}</span>
                 </div>
+
+                <div className="mt-4">
+                  <a
+                    href={`/instagram-posts?accountId=${account.account_id}`}
+                    className="block w-full text-center px-4 py-2 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
+                  >
+                    View Posts
+                  </a>
+                </div>
               </div>
             </div>
           ))}
