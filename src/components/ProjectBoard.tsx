@@ -19,6 +19,8 @@ import { MeetingsPage } from './MeetingsPage';
 import { BusinessCardScanner } from './BusinessCardScanner';
 import { TaskNotificationModal } from './TaskNotificationModal';
 import InstagramAccountsPage from './InstagramAccountsPage';
+import { CreateMarketingProjectModal } from './CreateMarketingProjectModal';
+import MarketingProjectDetail from './MarketingProjectDetail';
 
 interface Status {
   id: string;
@@ -150,6 +152,9 @@ export function ProjectBoard() {
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders'>('clients');
+  const [showCreateMarketingProjectModal, setShowCreateMarketingProjectModal] = useState(false);
+  const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
+  const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
   const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings'>('projects');
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
   const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
@@ -269,6 +274,7 @@ export function ProjectBoard() {
           console.log('Current User:', user?.email);
           console.log('========================================');
           reloadCurrentView();
+          loadMarketingProjects();
         }
       )
       .on(
@@ -423,6 +429,11 @@ export function ProjectBoard() {
       console.log('Project type changed, reloading projects for:', selectedProjectType);
       loadProjectsViewData();
       loadMyTasks();
+
+      const projectType = projectTypes.find(pt => pt.id === selectedProjectType);
+      if (projectType?.name === 'Marketing') {
+        loadMarketingProjects();
+      }
     }
   }, [selectedProjectType]);
 
@@ -454,6 +465,27 @@ export function ProjectBoard() {
       console.error('Error loading labels:', error);
     } else if (data) {
       setAllLabels(data);
+    }
+  }
+
+  async function loadMarketingProjects() {
+    try {
+      const marketingType = projectTypes.find(pt => pt.name === 'Marketing');
+      if (!marketingType) return;
+
+      const dealWonStatus = statuses.find(s => s.name === 'Deal Won' && s.project_type_id === marketingType.id);
+      if (!dealWonStatus) return;
+
+      const { data, error} = await supabase
+        .from('marketing_projects')
+        .select('id, project_reference, brand_name, company_name, status_id')
+        .eq('status_id', dealWonStatus.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMarketingProjects(data || []);
+    } catch (error: any) {
+      console.error('[loadMarketingProjects] Error:', error.message);
     }
   }
 
@@ -1956,6 +1988,38 @@ export function ProjectBoard() {
                             </button>
                           );
                         })}
+
+                        {isMarketingProjectType && status.name === 'Deal Won' && expandedStatuses.has(status.id) && (
+                          <div className="mt-2 space-y-1">
+                            <button
+                              onClick={() => setShowCreateMarketingProjectModal(true)}
+                              className="w-full text-left pl-6 pr-4 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all duration-150 flex items-center gap-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>New Project</span>
+                            </button>
+
+                            {marketingProjects.map((project) => (
+                              <button
+                                key={project.id}
+                                onClick={() => {
+                                  setSelectedMarketingProject(project.id);
+                                  setFundingProjectTab('projects');
+                                }}
+                                className={`w-full text-left pl-8 pr-4 py-2 rounded-lg text-sm transition-all duration-150 ${
+                                  selectedMarketingProject === project.id
+                                    ? 'bg-green-600 text-white shadow-md font-medium'
+                                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                                }`}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <span className="w-1 h-1 rounded-full bg-current"></span>
+                                  {project.brand_name || project.company_name}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <button
@@ -2689,7 +2753,12 @@ export function ProjectBoard() {
               )}
             </div>
 
-            {isInstagramSection ? (
+            {selectedMarketingProject ? (
+              <MarketingProjectDetail
+                projectId={selectedMarketingProject}
+                onBack={() => setSelectedMarketingProject(null)}
+              />
+            ) : isInstagramSection ? (
               <InstagramAccountsPage />
             ) : isComSecSection ? (
               <ComSecPage
@@ -4762,6 +4831,23 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
           onClose={() => setShowTaskNotification(false)}
         />
       )}
+
+      {showCreateMarketingProjectModal && (() => {
+        const marketingType = projectTypes.find(pt => pt.name === 'Marketing');
+        const dealWonStatus = statuses.find(s => s.name === 'Deal Won' && s.project_type_id === marketingType?.id);
+
+        return dealWonStatus ? (
+          <CreateMarketingProjectModal
+            isOpen={showCreateMarketingProjectModal}
+            onClose={() => setShowCreateMarketingProjectModal(false)}
+            onSuccess={() => {
+              loadProjectsViewData();
+              loadMarketingProjects();
+            }}
+            dealWonStatusId={dealWonStatus.id}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
