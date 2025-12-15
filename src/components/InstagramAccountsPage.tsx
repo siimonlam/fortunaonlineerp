@@ -126,11 +126,39 @@ export default function InstagramAccountsPage() {
       const accessToken = params.get('access_token');
 
       if (accessToken) {
+        console.log('OAuth callback received with access token');
         window.history.replaceState({}, document.title, window.location.pathname);
-        handleSyncAccounts(accessToken);
+
+        // Save the token first
+        saveAccessToken(accessToken).then(() => {
+          handleSyncAccounts(accessToken);
+        });
       }
     }
   }, []);
+
+  const saveAccessToken = async (token: string) => {
+    try {
+      // Save to system_settings for future syncs
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          key: 'meta_oauth_user_token',
+          value: token,
+          description: 'OAuth user access token for Instagram API'
+        }, {
+          onConflict: 'key'
+        });
+
+      if (error) {
+        console.error('Error saving access token:', error);
+      } else {
+        console.log('Access token saved successfully');
+      }
+    } catch (err) {
+      console.error('Error saving access token:', err);
+    }
+  };
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) {

@@ -44,21 +44,37 @@ Deno.serve(async (req: Request) => {
     let useSystemUser = false;
 
     if (!tokenToUse) {
-      const { data: systemToken, error: tokenError } = await supabase
+      // Try system user token first
+      const { data: systemToken } = await supabase
         .from("system_settings")
         .select("value")
         .eq("key", "meta_system_user_token")
         .maybeSingle();
 
-      if (tokenError || !systemToken) {
-        return new Response(
-          JSON.stringify({ error: "No access token provided and no system token configured" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      if (systemToken) {
+        tokenToUse = systemToken.value;
+        useSystemUser = true;
+      } else {
+        // Fallback to OAuth user token
+        const { data: oauthToken } = await supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "meta_oauth_user_token")
+          .maybeSingle();
 
-      tokenToUse = systemToken.value;
-      useSystemUser = true;
+        if (oauthToken) {
+          tokenToUse = oauthToken.value;
+          useSystemUser = false;
+        } else {
+          return new Response(
+            JSON.stringify({
+              error: "No access token available",
+              details: "Please connect your Instagram account via OAuth or configure a system token"
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
     }
 
     let pagesEndpoint = `https://graph.facebook.com/v21.0/me/accounts?access_token=${tokenToUse}`;
@@ -80,10 +96,12 @@ Deno.serve(async (req: Request) => {
       pagesEndpoint = `https://graph.facebook.com/v21.0/${systemUserId.value}/accounts?access_token=${tokenToUse}`;
     }
 
+    console.log('Fetching pages from:', pagesEndpoint.replace(/access_token=[^&]*/, 'access_token=REDACTED'));
     const pagesResponse = await fetch(pagesEndpoint);
 
     if (!pagesResponse.ok) {
       const error = await pagesResponse.json();
+      console.error('Failed to fetch pages:', error);
       return new Response(
         JSON.stringify({ error: "Failed to fetch Facebook pages", details: error }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -92,28 +110,43 @@ Deno.serve(async (req: Request) => {
 
     const pagesData = await pagesResponse.json();
     const pages: FacebookPage[] = pagesData.data || [];
+    console.log(`Found ${pages.length} Facebook page(s)`);
 
     if (pages.length === 0) {
       return new Response(
-        JSON.stringify({ error: "No Facebook pages found" }),
+        JSON.stringify({
+          error: "No Facebook pages found",
+          details: "Make sure your Facebook account has Pages associated with it"
+        }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const syncedAccounts: InstagramAccount[] = [];
+    const pagesWithoutInstagram: string[] = [];
 
     for (const page of pages) {
       try {
+        console.log(`Checking page: ${page.name} (${page.id})`);
         const igAccountResponse = await fetch(
           `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${tokenToUse}`
         );
 
-        if (!igAccountResponse.ok) continue;
+        if (!igAccountResponse.ok) {
+          console.error(`Failed to fetch IG account for page ${page.name}`);
+          continue;
+        }
 
         const igAccountData = await igAccountResponse.json();
         const igBusinessAccount = igAccountData.instagram_business_account;
 
-        if (!igBusinessAccount) continue;
+        if (!igBusinessAccount) {
+          console.log(`No Instagram Business account linked to page: ${page.name}`);
+          pagesWithoutInstagram.push(page.name);
+          continue;
+        }
+
+        console.log(`Found Instagram Business account: ${igBusinessAccount.id}`);
 
         const igDetailsResponse = await fetch(
           `https://graph.facebook.com/v21.0/${igBusinessAccount.id}?fields=id,username,name,biography,profile_picture_url,website,followers_count,follows_count,media_count&access_token=${tokenToUse}`
@@ -152,11 +185,19 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    let message = `Synced ${syncedAccounts.length} Instagram account(s)`;
+    if (pagesWithoutInstagram.length > 0) {
+      message += `. ${pagesWithoutInstagram.length} Facebook page(s) without Instagram Business accounts: ${pagesWithoutInstagram.join(', ')}`;
+    }
+
+    console.log('Sync complete:', message);
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Synced ${syncedAccounts.length} Instagram account(s)`,
+        message,
         accounts: syncedAccounts,
+        pagesWithoutInstagram,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
