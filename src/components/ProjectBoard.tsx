@@ -1766,6 +1766,9 @@ export function ProjectBoard() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      <div style={{ position: 'fixed', top: '50%', right: '20px', zIndex: 99999, background: 'red', color: 'white', padding: '20px', borderRadius: '8px', fontSize: '16px', transform: 'translateY(-50%)' }}>
+        TEST DIV - State: {String(showAddMarketingProjectButtonModal)}
+      </div>
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="px-8">
           <div className="flex justify-between items-center h-16">
