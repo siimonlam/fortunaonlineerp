@@ -4895,28 +4895,18 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
         />
       )}
 
-      {(() => {
-        if (showAddMarketingProjectButtonModal) {
-          console.log('Rendering AddMarketingProjectButtonModal');
-        }
-        return null;
-      })()}
-
-      {showAddMarketingProjectButtonModal && (() => {
-        console.log('[MODAL RENDER] About to render AddMarketingProjectButtonModal');
-        return (
-          <AddMarketingProjectButtonModal
-            onClose={() => {
-              console.log('Modal onClose called');
-              setShowAddMarketingProjectButtonModal(false);
-            }}
-            onSuccess={() => {
-              console.log('Modal onSuccess called');
-              loadMarketingProjectButtons();
-            }}
-          />
-        );
-      })()}
+      {showAddMarketingProjectButtonModal && (
+        <AddMarketingProjectButtonModal
+          onClose={() => {
+            console.log('Modal onClose called');
+            setShowAddMarketingProjectButtonModal(false);
+          }}
+          onSuccess={() => {
+            console.log('Modal onSuccess called');
+            loadMarketingProjectButtons();
+          }}
+        />
+      )}
     </div>
   );
 }
