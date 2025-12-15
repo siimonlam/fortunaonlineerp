@@ -511,9 +511,10 @@ export function ProjectBoard() {
           *,
           marketing_projects (
             id,
-            name,
-            client_company_name,
-            brand_name
+            title,
+            company_name,
+            brand_name,
+            project_name
           )
         `)
         .order('display_order');

@@ -4,9 +4,10 @@ import { supabase } from '../lib/supabase';
 
 interface MarketingProject {
   id: string;
-  name: string;
-  client_company_name: string;
+  title: string;
+  company_name: string;
   brand_name: string;
+  project_name: string;
 }
 
 interface AddMarketingProjectButtonModalProps {
@@ -46,9 +47,9 @@ export function AddMarketingProjectButtonModal({ onClose, onSuccess }: AddMarket
 
       const { data: projects, error: projectsError } = await supabase
         .from('marketing_projects')
-        .select('id, name, client_company_name, brand_name')
+        .select('id, title, company_name, brand_name, project_name')
         .eq('status_id', statusData.id)
-        .order('name');
+        .order('created_at', { ascending: false });
 
       if (projectsError) throw projectsError;
 
@@ -145,7 +146,7 @@ export function AddMarketingProjectButtonModal({ onClose, onSuccess }: AddMarket
                   <option value="">Choose a project...</option>
                   {dealWonProjects.map((project) => (
                     <option key={project.id} value={project.id}>
-                      {project.name || project.client_company_name || project.brand_name || 'Untitled Project'}
+                      {project.brand_name || project.company_name || project.project_name || project.title || 'Untitled Project'}
                     </option>
                   ))}
                 </select>
