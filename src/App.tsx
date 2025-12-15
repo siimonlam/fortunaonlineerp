@@ -50,6 +50,56 @@ function AppContent() {
     }
   }, [user, loading]);
 
+  useEffect(() => {
+    const handlePendingInstagramAuth = async () => {
+      if (!user || loading) return;
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirect = urlParams.get('redirect');
+      const pendingToken = localStorage.getItem('instagram_pending_token');
+
+      if (redirect === 'instagram' && pendingToken) {
+        console.log('[App] Processing pending Instagram authentication');
+
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return;
+
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-instagram-accounts`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ accessToken: pendingToken }),
+            }
+          );
+
+          const result = await response.json();
+
+          if (response.ok) {
+            console.log('[App] Instagram sync successful:', result);
+            localStorage.removeItem('instagram_pending_token');
+            window.history.replaceState({}, document.title, '/#instagram');
+            window.location.hash = '#instagram';
+          } else {
+            console.error('[App] Instagram sync failed:', result);
+            localStorage.removeItem('instagram_pending_token');
+          }
+        } catch (err) {
+          console.error('[App] Error processing pending Instagram auth:', err);
+          localStorage.removeItem('instagram_pending_token');
+        }
+
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+
+    handlePendingInstagramAuth();
+  }, [user, loading]);
+
   const checkClientAccess = async () => {
     if (!user) {
       setCheckingClientAuth(false);
