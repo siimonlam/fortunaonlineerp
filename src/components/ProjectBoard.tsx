@@ -4895,6 +4895,12 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
         />
       )}
 
+      {(() => {
+        console.log('[MODAL CHECK] showAddMarketingProjectButtonModal:', showAddMarketingProjectButtonModal, 'Type:', typeof showAddMarketingProjectButtonModal);
+        console.log('[MODAL CHECK] AddMarketingProjectButtonModal component:', AddMarketingProjectButtonModal);
+        return null;
+      })()}
+
       {showAddMarketingProjectButtonModal && (
         <AddMarketingProjectButtonModal
           onClose={() => {
