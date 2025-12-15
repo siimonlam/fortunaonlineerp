@@ -1759,6 +1759,8 @@ export function ProjectBoard() {
     }
   }
 
+  console.log('[RENDER] ProjectBoard rendering. showAddMarketingProjectButtonModal:', showAddMarketingProjectButtonModal);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
