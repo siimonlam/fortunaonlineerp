@@ -473,7 +473,7 @@ export function ProjectBoard() {
       const marketingType = projectTypes.find(pt => pt.name === 'Marketing');
       if (!marketingType) return;
 
-      const dealWonStatus = statuses.find(s => s.name === 'Deal Won' && s.project_type_id === marketingType.id);
+      const dealWonStatus = statuses.find(s => s.name === 'Deal won' && s.project_type_id === marketingType.id);
       if (!dealWonStatus) return;
 
       const { data, error} = await supabase
@@ -2023,7 +2023,7 @@ export function ProjectBoard() {
                       </>
                     )}
 
-                    {isMarketingProjectType && status.name === 'Deal Won' && (
+                    {isMarketingProjectType && status.name === 'Deal won' && (
                       <>
                         <button
                           onClick={() => setShowCreateMarketingProjectModal(true)}
@@ -4836,7 +4836,7 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
 
       {showCreateMarketingProjectModal && (() => {
         const marketingType = projectTypes.find(pt => pt.name === 'Marketing');
-        const dealWonStatus = statuses.find(s => s.name === 'Deal Won' && s.project_type_id === marketingType?.id);
+        const dealWonStatus = statuses.find(s => s.name === 'Deal won' && s.project_type_id === marketingType?.id);
 
         return dealWonStatus ? (
           <CreateMarketingProjectModal
