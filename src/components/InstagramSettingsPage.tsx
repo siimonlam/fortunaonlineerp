@@ -115,6 +115,7 @@ export default function InstagramSettingsPage() {
 
       let successCount = 0;
       const accountNames: string[] = [];
+      const errors: string[] = [];
 
       for (const accountId of accountIds) {
         const testUrl = `https://graph.facebook.com/v21.0/${accountId}?fields=id,username,name&access_token=${systemUserToken.trim()}`;
@@ -124,16 +125,25 @@ export default function InstagramSettingsPage() {
           const data = await response.json();
           successCount++;
           accountNames.push(`@${data.username}`);
+        } else {
+          const error = await response.json();
+          errors.push(`${accountId}: ${error.error?.message || 'Unknown error'}`);
         }
       }
 
       if (successCount === 0) {
-        throw new Error('Could not access any Instagram accounts. Check your token permissions and account IDs.');
+        throw new Error(`Could not access any Instagram accounts. Errors: ${errors.join('; ')}`);
       }
 
+      let message = `Connection successful! Found ${successCount} Instagram account(s): ${accountNames.join(', ')}.`;
+      if (errors.length > 0) {
+        message += ` Failed: ${errors.join('; ')}`;
+      }
+      message += ' Remember to save the settings.';
+
       setMessage({
-        type: 'success',
-        text: `Connection successful! Found ${successCount} Instagram account(s): ${accountNames.join(', ')}. Remember to save the settings.`
+        type: successCount > 0 ? 'success' : 'error',
+        text: message
       });
     } catch (err: any) {
       console.error('Error testing connection:', err);

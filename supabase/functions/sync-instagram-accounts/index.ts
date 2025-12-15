@@ -132,8 +132,8 @@ Deno.serve(async (req: Request) => {
 
         if (!igDetailsResponse.ok) {
           const error = await igDetailsResponse.json();
-          console.error(`Failed to fetch account ${accountId}:`, error);
-          failedAccounts.push(accountId);
+          console.error(`Failed to fetch account ${accountId}:`, JSON.stringify(error, null, 2));
+          failedAccounts.push(`${accountId} (${error.error?.message || 'Unknown error'})`);
           continue;
         }
 
