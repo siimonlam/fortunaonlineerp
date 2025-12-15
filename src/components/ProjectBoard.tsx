@@ -2040,16 +2040,13 @@ export function ProjectBoard() {
                               setSelectedMarketingProject(project.id);
                               setFundingProjectTab('projects');
                             }}
-                            className={`w-full text-left pl-6 pr-4 py-2 rounded-lg text-sm transition-all duration-150 ${
+                            className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
                               selectedMarketingProject === project.id
-                                ? 'bg-green-600 text-white shadow-md font-medium'
-                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
                             }`}
                           >
-                            <span className="flex items-center gap-2">
-                              <span className="w-1 h-1 rounded-full bg-current"></span>
-                              {project.brand_name || project.company_name}
-                            </span>
+                            {project.brand_name || project.company_name}
                           </button>
                         ))}
                       </>
