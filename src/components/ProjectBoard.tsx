@@ -92,6 +92,31 @@ interface Client {
   projects?: Project[];
 }
 
+interface ChannelPartner {
+  id: string;
+  name: string;
+  company_name_chinese: string | null;
+  brand_name: string | null;
+  client_number: string;
+  reference_number: string;
+  contact_person: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  notes: string | null;
+  sales_source: string | null;
+  industry: string | null;
+  abbreviation: string | null;
+  created_by: string;
+  sales_person_id: string | null;
+  commission_rate?: number | null;
+  created_at: string;
+  partner_project_count?: number;
+  creator?: Staff;
+  sales_person?: Staff;
+  projects?: Project[];
+}
+
 interface Task {
   id: string;
   project_id: string;
@@ -4734,14 +4759,14 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
                 value={formData.salesSource}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFormData({ ...formData, salesSource: value, salesSourceDetail: '' });
-
                   const selectedPartner = channelPartners.find(cp => cp.reference_number === value);
-                  if (selectedPartner) {
-                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: selectedPartner.id, salesSourceDetail: '' }));
-                  } else {
-                    setFormData(prev => ({ ...prev, salesSource: value, channelPartnerId: '', salesSourceDetail: '' }));
-                  }
+
+                  setFormData(prev => ({
+                    ...prev,
+                    salesSource: value,
+                    salesSourceDetail: '',
+                    channelPartnerId: selectedPartner ? selectedPartner.id : ''
+                  }));
                 }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
