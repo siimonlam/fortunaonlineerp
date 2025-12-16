@@ -422,8 +422,8 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white">
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-white flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Create {projectTypeName}</h2>
             <p className="text-sm text-slate-500 mt-1">
@@ -435,7 +435,8 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {projectTypeName === 'Marketing' ? (
             <>
               <div className="grid grid-cols-2 gap-4">
@@ -1217,7 +1218,8 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
             />
           </div>
 
-          <div className="flex gap-3 pt-4 border-t border-slate-200">
+          </div>
+          <div className="flex gap-3 p-6 pt-4 border-t border-slate-200 bg-white flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
