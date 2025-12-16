@@ -4916,18 +4916,6 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
           onClose={() => setShowTaskNotification(false)}
         />
       )}
-
-      {showCreateMarketingProjectModal && (
-        <CreateMarketingProjectModal
-          isOpen={showCreateMarketingProjectModal}
-          onClose={() => setShowCreateMarketingProjectModal(false)}
-          onSuccess={() => {
-            loadProjectsViewData();
-            loadMarketingProjects();
-          }}
-          dealWonStatusId="19d00970-812b-4651-8dc7-4e04f9eaaac0"
-        />
-      )}
     </div>
   );
 }
