@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
+import MarketingInstagramSection from './MarketingInstagramSection';
 
 interface MarketingProject {
   id: string;
@@ -31,6 +32,11 @@ interface MarketingProject {
   email: string;
   address: string;
   project_name: string;
+  client_id: string;
+  parent_client_id: string | null;
+  clients?: {
+    client_number: string;
+  };
 }
 
 interface MarketingProjectDetailProps {
@@ -68,7 +74,7 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
     try {
       const { data, error } = await supabase
         .from('marketing_projects')
-        .select('*')
+        .select('*, clients:client_id(client_number)')
         .eq('id', projectId)
         .maybeSingle();
 
@@ -176,6 +182,9 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
             </div>
           </div>
         );
+
+      case 'instagram-post':
+        return <MarketingInstagramSection clientNumber={project?.parent_client_id || project?.clients?.client_number || null} />;
 
       default:
         return (
