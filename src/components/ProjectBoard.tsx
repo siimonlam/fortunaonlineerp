@@ -4210,6 +4210,7 @@ function ClientCard({ client, projectTypes, statuses, onClick, onCreateProject, 
 
   const fundingProjects = client.projects?.filter(p => p.project_type_id === fundingProjectType?.id) || [];
   const comSecProjects = client.projects?.filter(p => p.project_type_id === comSecProjectType?.id) || [];
+  const marketingProjects = client.projects?.filter(p => p.project_type_id === marketingProjectType?.id) || [];
 
   const hasAnyButton = !isChannelPartner && projectTypes.length > 0;
 
@@ -4337,7 +4338,7 @@ function ClientCard({ client, projectTypes, statuses, onClick, onCreateProject, 
       {client.notes && (
         <p className="text-sm text-slate-500 mt-3 line-clamp-3">{client.notes}</p>
       )}
-      {(fundingProjects.length > 0 || comSecProjects.length > 0) && (
+      {(fundingProjects.length > 0 || comSecProjects.length > 0 || marketingProjects.length > 0) && (
         <div className="mt-3 pt-3 border-t border-slate-200">
           {fundingProjects.length > 0 && (
             <div className="mb-2">
@@ -4357,6 +4358,28 @@ function ClientCard({ client, projectTypes, statuses, onClick, onCreateProject, 
                 ))}
                 {fundingProjects.length > 3 && (
                   <p className="text-xs text-slate-500">+ {fundingProjects.length - 3} more</p>
+                )}
+              </div>
+            </div>
+          )}
+          {marketingProjects.length > 0 && (
+            <div className="mb-2">
+              <p className="text-xs font-semibold text-slate-600 mb-1">Marketing Projects ({marketingProjects.length}):</p>
+              <div className="space-y-1">
+                {marketingProjects.slice(0, 3).map((project: any) => (
+                  <button
+                    key={project.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onProjectClick?.(project);
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate block text-left w-full"
+                  >
+                    • {project.project_reference || project.brand_name || project.title}
+                  </button>
+                ))}
+                {marketingProjects.length > 3 && (
+                  <p className="text-xs text-slate-500">+ {marketingProjects.length - 3} more</p>
                 )}
               </div>
             </div>
