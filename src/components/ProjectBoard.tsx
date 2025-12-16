@@ -214,18 +214,11 @@ export function ProjectBoard() {
   const [marketingButtonSourceProjectId, setMarketingButtonSourceProjectId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    console.log('[ProjectBoard] useEffect triggered. User:', user?.email || 'null');
     if (!user) {
-      console.log('⏳ Waiting for user authentication before subscribing to realtime');
       return;
     }
 
-    console.log('🔄 Setting up realtime subscription for user:', user.email);
-    console.log('[ProjectBoard] Loading essential data first...');
-
-    // Load essential data, then load view-specific data
     loadEssentialData().then((essentialData) => {
-      console.log('[ProjectBoard] Essential data loaded, loading view data...');
       if (selectedView === 'projects') {
         loadProjectsViewData(essentialData.projectTypes, essentialData.selectedType);
       } else if (selectedView === 'clients') {
@@ -247,23 +240,12 @@ export function ProjectBoard() {
         },
       })
       .on('broadcast', { event: 'project-update' }, (payload) => {
-        console.log('✅ ========== PROJECT UPDATE BROADCAST ==========');
-        console.log('Broadcast payload:', payload);
-        console.log('Current User:', user?.email);
-        console.log('========================================');
         reloadCurrentView();
       })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'projects' },
         (payload) => {
-          console.log('✅ ========== PROJECT CHANGE DETECTED ==========');
-          console.log('Event Type:', payload.eventType);
-          console.log('Project ID:', payload.new?.id);
-          console.log('Old Data:', payload.old);
-          console.log('New Data:', payload.new);
-          console.log('Current User:', user?.email);
-          console.log('========================================');
           reloadCurrentView();
         }
       )
@@ -271,13 +253,6 @@ export function ProjectBoard() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'marketing_projects' },
         (payload) => {
-          console.log('✅ ========== MARKETING PROJECT CHANGE DETECTED ==========');
-          console.log('Event Type:', payload.eventType);
-          console.log('Project ID:', payload.new?.id);
-          console.log('Old Data:', payload.old);
-          console.log('New Data:', payload.new);
-          console.log('Current User:', user?.email);
-          console.log('========================================');
           reloadCurrentView();
           loadMarketingProjects();
           loadMarketingProjectButtons();
@@ -287,7 +262,6 @@ export function ProjectBoard() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'marketing_project_buttons' },
         (payload) => {
-          console.log('✅ Marketing project buttons changed:', payload.eventType);
           loadMarketingProjectButtons();
         }
       )
@@ -416,8 +390,6 @@ export function ProjectBoard() {
       return;
     }
 
-    console.log('View changed to:', selectedView);
-
     // Load data based on the selected view
     if (selectedView === 'projects') {
       loadProjectsViewData();
@@ -440,7 +412,6 @@ export function ProjectBoard() {
 
     // Only reload if we're in projects view
     if (selectedView === 'projects' && selectedProjectType) {
-      console.log('Project type changed, reloading projects for:', selectedProjectType);
       loadProjectsViewData();
       loadMyTasks();
 
@@ -1695,12 +1666,16 @@ export function ProjectBoard() {
   function handleProjectTypeChange(typeId: string) {
     setSelectedProjectType(typeId);
     setSelectedView('projects');
+    setSelectedMarketingProject(null);
+    setSelectedMarketingProjectButton(null);
     const firstStatus = statuses.find(s => s.project_type_id === typeId);
     if (firstStatus) setSelectedStatus(firstStatus.id);
   }
 
   function handleViewChange(view: 'projects' | 'clients') {
     setSelectedView(view);
+    setSelectedMarketingProject(null);
+    setSelectedMarketingProjectButton(null);
   }
 
   function handleCreateProjectFromClient(client: Client, targetProjectTypeId: string, targetStatusId?: string) {
@@ -2141,7 +2116,7 @@ export function ProjectBoard() {
           <div className="p-8">
             <div className="flex justify-between items-center mb-6">
               <div className="flex-1">
-                {!isAdminSection && !isComSecSection && !isInstagramSection && (
+                {!selectedMarketingProject && !isAdminSection && !isComSecSection && !isInstagramSection && (
                   <>
                     <h2 className="text-2xl font-bold text-slate-900">
                       {isClientSection ? 'Clients' : (
@@ -2199,7 +2174,7 @@ export function ProjectBoard() {
                 )}
               </div>
 
-              {!isClientSection && !isAdminSection && !isComSecSection && !isInstagramSection && (isFundingProjectType || isMarketingProjectType) && fundingProjectTab === 'projects' && (
+              {!selectedMarketingProject && !isClientSection && !isAdminSection && !isComSecSection && !isInstagramSection && (isFundingProjectType || isMarketingProjectType) && fundingProjectTab === 'projects' && (
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
