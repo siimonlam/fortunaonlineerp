@@ -221,16 +221,16 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   return (
     <div className="flex h-full">
       <div className="w-64 bg-gray-50 border-r border-gray-200 overflow-y-auto">
-        <div className="p-4">
+        <div className="pt-2 px-4 pb-4">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-2"
           >
             <ArrowLeft size={16} />
             Back to Marketing
           </button>
 
-          <div className="mb-4">
+          <div className="mb-3">
             <h3 className="font-bold text-gray-900">{project.brand_name}</h3>
             <p className="text-xs text-gray-600">{project.project_reference}</p>
           </div>
@@ -278,8 +278,8 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          <div className="mb-6">
+        <div className="pt-4 px-6 pb-6">
+          <div className="mb-4">
             <h2 className="text-2xl font-bold text-gray-900">
               {navigationGroups.flatMap(g => g.items).find(i => i.id === activeSection)?.label}
             </h2>
