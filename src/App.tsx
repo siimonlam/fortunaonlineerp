@@ -9,7 +9,7 @@ import { InstagramCallback } from './components/InstagramCallback';
 import InstagramSettingsPage from './components/InstagramSettingsPage';
 import InstagramAccountsPage from './components/InstagramAccountsPage';
 import InstagramPostsPage from './components/InstagramPostsPage';
-import { TaskDueSummaryModal } from './components/TaskDueSummaryModal';
+import { TaskNotificationModal } from './components/TaskNotificationModal';
 import { supabase } from './lib/supabase';
 
 function AppContent() {
@@ -42,14 +42,10 @@ function AppContent() {
 
   useEffect(() => {
     if (user && !loading && window.location.pathname !== '/onboarding' && window.location.pathname !== '/phone-scan') {
-      const taskSummaryShown = sessionStorage.getItem('taskSummaryShown');
-      if (!taskSummaryShown) {
-        const timer = setTimeout(() => {
-          setShowTaskSummary(true);
-          sessionStorage.setItem('taskSummaryShown', 'true');
-        }, 500);
-        return () => clearTimeout(timer);
-      }
+      const timer = setTimeout(() => {
+        setShowTaskSummary(true);
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [user, loading]);
 
@@ -210,8 +206,7 @@ function AppContent() {
     <>
       {user ? <ProjectBoard /> : <LoginPage />}
       {showTaskSummary && user && (
-        <TaskDueSummaryModal
-          userId={user.id}
+        <TaskNotificationModal
           onClose={() => setShowTaskSummary(false)}
         />
       )}
