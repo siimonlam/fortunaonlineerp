@@ -1767,7 +1767,10 @@ export function ProjectBoard() {
               title="Go to Home"
             >
               <img src="/512x512.jpg" alt="Logo" className="w-10 h-10 rounded-lg" />
-              <h1 className="text-xl font-bold text-slate-900">Project Manager</h1>
+              <div className="flex flex-col items-start">
+                <h1 className="text-xl font-bold text-slate-900">Project Manager</h1>
+                <span className="text-xs text-slate-500">v1.0.0</span>
+              </div>
             </button>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-sm text-slate-600">

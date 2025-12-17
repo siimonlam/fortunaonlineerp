@@ -24,9 +24,8 @@ interface FacebookPost {
   message: string;
   type: string;
   full_picture: string;
-  link: string;
-  permalink: string;
-  reactions: number;
+  permalink_url: string;
+  likes_count: number;
   comments_count: number;
   shares_count: number;
   page_id: string;
@@ -334,14 +333,15 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to sync posts');
+        console.error('Facebook posts sync error response:', errorData);
+        throw new Error(errorData.details || errorData.error || 'Failed to sync posts');
       }
 
       const result = await response.json();
       setSuccessMessage(`${result.message}`);
     } catch (err: any) {
       console.error('Sync posts error:', err);
-      setError(err.message);
+      setError(`Failed to fetch posts: ${err.message}`);
     }
   };
 
@@ -545,7 +545,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
                       )}
                       <div className="absolute top-2 right-2">
                         <a
-                          href={post.permalink}
+                          href={post.permalink_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-50"
@@ -562,7 +562,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
                       <div className="flex items-center gap-4 text-xs text-gray-600 mb-2">
                         <div className="flex items-center gap-1">
                           <Heart className="w-4 h-4" />
-                          <span>{post.reactions.toLocaleString()}</span>
+                          <span>{post.likes_count.toLocaleString()}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <MessageCircle className="w-4 h-4" />
@@ -639,7 +639,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
                           </p>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
-                          {post.reactions.toLocaleString()}
+                          {post.likes_count.toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
                           {post.comments_count.toLocaleString()}
@@ -652,7 +652,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <a
-                            href={post.permalink}
+                            href={post.permalink_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-700"

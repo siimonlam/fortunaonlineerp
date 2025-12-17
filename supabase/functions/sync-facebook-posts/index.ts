@@ -30,7 +30,10 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { pageId, limit = 25 } = await req.json();
+    const requestBody = await req.json();
+    console.log('Request body:', requestBody);
+
+    const { pageId, limit = 25 } = requestBody;
 
     if (!pageId) {
       return new Response(
