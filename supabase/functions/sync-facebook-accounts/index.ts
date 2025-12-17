@@ -124,6 +124,31 @@ Deno.serve(async (req: Request) => {
 
         const pageDetails = await pageResponse.json();
 
+        // Check if this account is linked to a marketing project via junction table
+        const { data: junctionData } = await supabase
+          .from("marketing_facebook_accounts")
+          .select("marketing_reference")
+          .eq("page_id", pageDetails.id)
+          .maybeSingle();
+
+        let inheritedClientNumber = clientNumber;
+        let inheritedMarketingReference = null;
+
+        if (junctionData?.marketing_reference) {
+          // Get client_number from marketing_projects
+          const { data: projectData } = await supabase
+            .from("marketing_projects")
+            .select("client_number, project_reference")
+            .eq("project_reference", junctionData.marketing_reference)
+            .maybeSingle();
+
+          if (projectData) {
+            inheritedClientNumber = projectData.client_number;
+            inheritedMarketingReference = projectData.project_reference;
+            console.log(`Page ${pageDetails.id} inherits client_number: ${inheritedClientNumber}, marketing_reference: ${inheritedMarketingReference}`);
+          }
+        }
+
         const timestamp = new Date().toISOString();
         const { data, error } = await supabase
           .from("facebook_accounts")
@@ -136,7 +161,8 @@ Deno.serve(async (req: Request) => {
             fan_count: pageDetails.fan_count || 0,
             category: pageDetails.category || "",
             verification_status: pageDetails.verification_status || "",
-            client_number: clientNumber || null,
+            client_number: inheritedClientNumber || null,
+            marketing_reference: inheritedMarketingReference || null,
             updated_at: timestamp,
             last_updated: timestamp,
           }, {

@@ -139,6 +139,31 @@ Deno.serve(async (req: Request) => {
 
         const igDetails = await igDetailsResponse.json();
 
+        // Check if this account is linked to a marketing project via junction table
+        const { data: junctionData } = await supabase
+          .from("marketing_instagram_accounts")
+          .select("marketing_reference")
+          .eq("account_id", igDetails.id)
+          .maybeSingle();
+
+        let inheritedClientNumber = clientNumber;
+        let inheritedMarketingReference = null;
+
+        if (junctionData?.marketing_reference) {
+          // Get client_number from marketing_projects
+          const { data: projectData } = await supabase
+            .from("marketing_projects")
+            .select("client_number, project_reference")
+            .eq("project_reference", junctionData.marketing_reference)
+            .maybeSingle();
+
+          if (projectData) {
+            inheritedClientNumber = projectData.client_number;
+            inheritedMarketingReference = projectData.project_reference;
+            console.log(`Account ${igDetails.id} inherits client_number: ${inheritedClientNumber}, marketing_reference: ${inheritedMarketingReference}`);
+          }
+        }
+
         const { data, error } = await supabase
           .from("instagram_accounts")
           .upsert({
@@ -151,7 +176,8 @@ Deno.serve(async (req: Request) => {
             followers_count: igDetails.followers_count || 0,
             follows_count: igDetails.follows_count || 0,
             media_count: igDetails.media_count || 0,
-            client_number: clientNumber || null,
+            client_number: inheritedClientNumber || null,
+            marketing_reference: inheritedMarketingReference || null,
             last_updated: new Date().toISOString(),
           }, {
             onConflict: "account_id",
