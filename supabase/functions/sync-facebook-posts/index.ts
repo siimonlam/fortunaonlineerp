@@ -40,23 +40,26 @@ Deno.serve(async (req: Request) => {
     }
 
     // Look up marketing project info from junction table
-    const { data: linkedProject } = await supabase
+    const { data: junctionData } = await supabase
       .from("marketing_facebook_accounts")
-      .select(`
-        marketing_reference,
-        marketing_projects!inner(
-          client_number
-        )
-      `)
+      .select("marketing_reference")
       .eq("page_id", pageId)
       .maybeSingle();
 
     let marketingReference = null;
     let clientNumber = null;
 
-    if (linkedProject) {
-      marketingReference = linkedProject.marketing_reference;
-      clientNumber = linkedProject.marketing_projects?.client_number || null;
+    if (junctionData?.marketing_reference) {
+      marketingReference = junctionData.marketing_reference;
+
+      // Get client_number from marketing_projects
+      const { data: projectData } = await supabase
+        .from("marketing_projects")
+        .select("client_number")
+        .eq("project_reference", marketingReference)
+        .maybeSingle();
+
+      clientNumber = projectData?.client_number || null;
       console.log(`Page ${pageId} is linked to marketing project ${marketingReference} (client: ${clientNumber})`);
     } else {
       console.log(`Page ${pageId} is not linked to any marketing project`);
