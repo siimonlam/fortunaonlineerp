@@ -15,7 +15,7 @@ interface FacebookPost {
   full_picture?: string;
   permalink_url?: string;
   created_time: string;
-  likes?: { summary: { total_count: number } };
+  reactions?: { summary: { total_count: number } };
   comments?: { summary: { total_count: number } };
   shares?: { count: number };
 }
@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
     console.log(`Fetching posts for page ${pageId}`);
 
     const postsResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${pageId}/posts?fields=id,message,type,status_type,full_picture,permalink_url,created_time,likes.summary(true),comments.summary(true),shares&limit=${limit}&access_token=${accessToken}`
+      `https://graph.facebook.com/v21.0/${pageId}/feed?fields=id,message,type,status_type,full_picture,permalink_url,created_time,reactions.summary(total_count),comments.summary(total_count),shares&limit=${limit}&access_token=${accessToken}`
     );
 
     if (!postsResponse.ok) {
@@ -154,7 +154,7 @@ Deno.serve(async (req: Request) => {
           status_type: post.status_type || "",
           full_picture: post.full_picture || "",
           permalink_url: post.permalink_url || "",
-          likes_count: post.likes?.summary?.total_count || 0,
+          likes_count: post.reactions?.summary?.total_count || 0,
           comments_count: post.comments?.summary?.total_count || 0,
           shares_count: post.shares?.count || 0,
           account_id: pageId,
@@ -204,7 +204,7 @@ Deno.serve(async (req: Request) => {
             reach: 0,
             engagement: 0,
             engaged_users: 0,
-            reactions: post.likes?.summary?.total_count || 0,
+            reactions: post.reactions?.summary?.total_count || 0,
             comments: post.comments?.summary?.total_count || 0,
             shares: post.shares?.count || 0,
             video_views: 0,
