@@ -84,22 +84,33 @@ Deno.serve(async (req: Request) => {
 
     for (const post of posts) {
       try {
+        const { data: existingPost } = await supabase
+          .from("instagram_posts")
+          .select("media_id, marketing_reference, client_number")
+          .eq("media_id", post.id)
+          .maybeSingle();
+
+        const postDataToUpsert: any = {
+          media_id: post.id,
+          date: post.timestamp,
+          caption: post.caption || "",
+          media_type: post.media_type,
+          media_url: post.media_url || "",
+          permalink: post.permalink || "",
+          thumbnail_url: post.thumbnail_url || "",
+          likes_count: post.like_count || 0,
+          comments_count: post.comments_count || 0,
+          account_id: accountId,
+        };
+
+        if (!existingPost || !existingPost.marketing_reference) {
+          postDataToUpsert.client_number = clientNumber || null;
+          postDataToUpsert.marketing_reference = marketingReference || null;
+        }
+
         const { data: postData, error: postError } = await supabase
           .from("instagram_posts")
-          .upsert({
-            media_id: post.id,
-            date: post.timestamp,
-            caption: post.caption || "",
-            media_type: post.media_type,
-            media_url: post.media_url || "",
-            permalink: post.permalink || "",
-            thumbnail_url: post.thumbnail_url || "",
-            likes_count: post.like_count || 0,
-            comments_count: post.comments_count || 0,
-            account_id: accountId,
-            client_number: clientNumber || null,
-            marketing_reference: marketingReference || null,
-          }, {
+          .upsert(postDataToUpsert, {
             onConflict: "media_id",
           })
           .select()
@@ -121,11 +132,15 @@ Deno.serve(async (req: Request) => {
           const insightsData = await insightsResponse.json();
           const insights = insightsData.data || [];
 
+          const { data: existingMetrics } = await supabase
+            .from("instagram_post_metrics")
+            .select("media_id, marketing_reference, client_number")
+            .eq("media_id", post.id)
+            .maybeSingle();
+
           const metricsData: any = {
             media_id: post.id,
             account_id: accountId,
-            client_number: clientNumber || null,
-            marketing_reference: marketingReference || null,
             date: new Date().toISOString(),
             impressions: 0,
             reach: 0,
@@ -134,6 +149,11 @@ Deno.serve(async (req: Request) => {
             video_views: 0,
             shares: 0,
           };
+
+          if (!existingMetrics || !existingMetrics.marketing_reference) {
+            metricsData.client_number = clientNumber || null;
+            metricsData.marketing_reference = marketingReference || null;
+          }
 
           insights.forEach((metric: any) => {
             const value = metric.values?.[0]?.value || 0;
