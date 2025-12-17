@@ -191,8 +191,16 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
 
       if (selectedAccount) {
         query = query.eq('account_id', selectedAccount);
-      } else if (clientNumber) {
-        query = query.eq('client_number', clientNumber);
+      } else {
+        // When no specific account is selected, filter by all accounts linked to this project
+        const accountIds = accounts.map(acc => acc.account_id);
+        if (accountIds.length > 0) {
+          query = query.in('account_id', accountIds);
+        } else {
+          // No accounts linked, return empty
+          setPosts([]);
+          return;
+        }
       }
 
       const { data, error } = await query;
@@ -214,8 +222,16 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
 
       if (selectedAccount) {
         query = query.eq('account_id', selectedAccount);
-      } else if (clientNumber) {
-        query = query.eq('client_number', clientNumber);
+      } else {
+        // When no specific account is selected, filter by all accounts linked to this project
+        const accountIds = accounts.map(acc => acc.account_id);
+        if (accountIds.length > 0) {
+          query = query.in('account_id', accountIds);
+        } else {
+          // No accounts linked, return empty
+          setMetrics({});
+          return;
+        }
       }
 
       const { data, error } = await query;
