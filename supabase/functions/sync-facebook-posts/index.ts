@@ -30,13 +30,36 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { pageId, clientNumber, marketingReference, limit = 25 } = await req.json();
+    const { pageId, limit = 25 } = await req.json();
 
     if (!pageId) {
       return new Response(
         JSON.stringify({ error: "Page ID is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Look up marketing project info from junction table
+    const { data: linkedProject } = await supabase
+      .from("marketing_facebook_accounts")
+      .select(`
+        marketing_reference,
+        marketing_projects!inner(
+          client_number
+        )
+      `)
+      .eq("page_id", pageId)
+      .maybeSingle();
+
+    let marketingReference = null;
+    let clientNumber = null;
+
+    if (linkedProject) {
+      marketingReference = linkedProject.marketing_reference;
+      clientNumber = linkedProject.marketing_projects?.client_number || null;
+      console.log(`Page ${pageId} is linked to marketing project ${marketingReference} (client: ${clientNumber})`);
+    } else {
+      console.log(`Page ${pageId} is not linked to any marketing project`);
     }
 
     const { data: systemToken } = await supabase
@@ -106,9 +129,10 @@ Deno.serve(async (req: Request) => {
           account_id: pageId,
         };
 
+        // Only set marketing_reference and client_number if they're not already set
         if (!existingPost || !existingPost.marketing_reference) {
-          postDataToUpsert.client_number = clientNumber || null;
-          postDataToUpsert.marketing_reference = marketingReference || null;
+          postDataToUpsert.client_number = clientNumber;
+          postDataToUpsert.marketing_reference = marketingReference;
         }
 
         const { data: postData, error: postError } = await supabase
@@ -128,7 +152,7 @@ Deno.serve(async (req: Request) => {
         console.log(`Fetching insights for post ${post.id}`);
 
         const insightsResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${post.id}/insights?metric=post_impressions,post_engaged_users,post_clicks,post_clicks_by_type,post_reactions_by_type_total,post_negative_feedback&access_token=${accessToken}`
+          `https://graph.facebook.com/v21.0/${post.id}/insights?metric=post_impressions,post_impressions_unique,post_engaged_users,post_clicks,post_clicks_by_type,post_reactions_by_type_total,post_negative_feedback,post_video_views&access_token=${accessToken}`
         );
 
         if (insightsResponse.ok) {
@@ -163,9 +187,10 @@ Deno.serve(async (req: Request) => {
             reaction_angry: {},
           };
 
+          // Only set marketing_reference and client_number if they're not already set
           if (!existingMetrics || !existingMetrics.marketing_reference) {
-            metricsData.client_number = clientNumber || null;
-            metricsData.marketing_reference = marketingReference || null;
+            metricsData.client_number = clientNumber;
+            metricsData.marketing_reference = marketingReference;
           }
 
           insights.forEach((metric: any) => {
@@ -173,6 +198,9 @@ Deno.serve(async (req: Request) => {
             switch (metric.name) {
               case 'post_impressions':
                 metricsData.impressions = value;
+                break;
+              case 'post_impressions_unique':
+                metricsData.reach = value;
                 break;
               case 'post_engaged_users':
                 metricsData.engaged_users = value;
@@ -198,6 +226,9 @@ Deno.serve(async (req: Request) => {
                 break;
               case 'post_negative_feedback':
                 metricsData.negative_feedback = value;
+                break;
+              case 'post_video_views':
+                metricsData.video_views = value;
                 break;
             }
           });
