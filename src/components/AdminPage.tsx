@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign, Instagram } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign, Instagram, Facebook } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
@@ -7,8 +7,9 @@ import { AutomationPage } from './AutomationPage';
 import { ProjectTypeAuthorizationPage } from './ProjectTypeAuthorizationPage';
 import { FinanceAuthorizationPage } from './FinanceAuthorizationPage';
 import InstagramAccountsPage from './InstagramAccountsPage';
+import FacebookAccountsPage from './FacebookAccountsPage';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram' | 'facebook';
 
 interface User {
   id: string;
@@ -144,6 +145,7 @@ export function AdminPage() {
     { id: 'labels', label: 'Labels', icon: Tag },
     { id: 'automation', label: 'Automation', icon: Zap },
     { id: 'instagram', label: 'Instagram', icon: Instagram },
+    { id: 'facebook', label: 'Facebook', icon: Facebook },
   ];
 
   return (
@@ -419,6 +421,16 @@ export function AdminPage() {
                 <p className="text-slate-600">Manage Instagram accounts and settings</p>
               </div>
               <InstagramAccountsPage />
+            </div>
+          )}
+
+          {currentView === 'facebook' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Facebook</h2>
+                <p className="text-slate-600">Manage Facebook pages and settings</p>
+              </div>
+              <FacebookAccountsPage />
             </div>
           )}
         </div>

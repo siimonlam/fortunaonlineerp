@@ -1,0 +1,216 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+};
+
+interface FacebookPost {
+  id: string;
+  message?: string;
+  type?: string;
+  full_picture?: string;
+  permalink_url?: string;
+  created_time: string;
+  likes?: { summary: { total_count: number } };
+  comments?: { summary: { total_count: number } };
+  shares?: { count: number };
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { pageId, clientNumber, marketingReference, limit = 25 } = await req.json();
+
+    if (!pageId) {
+      return new Response(
+        JSON.stringify({ error: "Page ID is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: systemToken } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "meta_system_user_token")
+      .maybeSingle();
+
+    if (!systemToken) {
+      return new Response(
+        JSON.stringify({
+          error: "No access token available",
+          details: "Please configure a system token in Settings"
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const accessToken = systemToken.value;
+
+    console.log(`Fetching posts for page ${pageId}`);
+
+    const postsResponse = await fetch(
+      `https://graph.facebook.com/v21.0/${pageId}/posts?fields=id,message,type,full_picture,permalink_url,created_time,likes.summary(true),comments.summary(true),shares&limit=${limit}&access_token=${accessToken}`
+    );
+
+    if (!postsResponse.ok) {
+      const error = await postsResponse.json();
+      console.error(`Failed to fetch posts:`, JSON.stringify(error, null, 2));
+      return new Response(
+        JSON.stringify({
+          error: "Failed to fetch posts",
+          details: error.error?.message || "Unknown error"
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const postsData = await postsResponse.json();
+    const posts: FacebookPost[] = postsData.data || [];
+
+    console.log(`Found ${posts.length} posts`);
+
+    const syncedPosts: any[] = [];
+    const failedPosts: string[] = [];
+
+    for (const post of posts) {
+      try {
+        const { data: existingPost } = await supabase
+          .from("facebook_posts")
+          .select("post_id, marketing_reference, client_number")
+          .eq("post_id", post.id)
+          .maybeSingle();
+
+        const postDataToUpsert: any = {
+          post_id: post.id,
+          page_id: pageId,
+          date: post.created_time,
+          message: post.message || "",
+          type: post.type || "",
+          full_picture: post.full_picture || "",
+          permalink_url: post.permalink_url || "",
+          likes_count: post.likes?.summary?.total_count || 0,
+          comments_count: post.comments?.summary?.total_count || 0,
+          shares_count: post.shares?.count || 0,
+          account_id: pageId,
+        };
+
+        if (!existingPost || !existingPost.marketing_reference) {
+          postDataToUpsert.client_number = clientNumber || null;
+          postDataToUpsert.marketing_reference = marketingReference || null;
+        }
+
+        const { data: postData, error: postError } = await supabase
+          .from("facebook_posts")
+          .upsert(postDataToUpsert, {
+            onConflict: "post_id",
+          })
+          .select()
+          .single();
+
+        if (postError) {
+          console.error(`Failed to save post ${post.id}:`, postError);
+          failedPosts.push(post.id);
+          continue;
+        }
+
+        console.log(`Fetching insights for post ${post.id}`);
+
+        const insightsResponse = await fetch(
+          `https://graph.facebook.com/v21.0/${post.id}/insights?metric=post_impressions,post_engaged_users&access_token=${accessToken}`
+        );
+
+        if (insightsResponse.ok) {
+          const insightsData = await insightsResponse.json();
+          const insights = insightsData.data || [];
+
+          const { data: existingMetrics } = await supabase
+            .from("facebook_post_metrics")
+            .select("post_id, marketing_reference, client_number")
+            .eq("post_id", post.id)
+            .maybeSingle();
+
+          const metricsData: any = {
+            post_id: post.id,
+            account_id: pageId,
+            date: new Date().toISOString(),
+            impressions: 0,
+            reach: 0,
+            engagement: 0,
+            reactions: post.likes?.summary?.total_count || 0,
+            comments: post.comments?.summary?.total_count || 0,
+            shares: post.shares?.count || 0,
+            video_views: 0,
+          };
+
+          if (!existingMetrics || !existingMetrics.marketing_reference) {
+            metricsData.client_number = clientNumber || null;
+            metricsData.marketing_reference = marketingReference || null;
+          }
+
+          insights.forEach((metric: any) => {
+            const value = metric.values?.[0]?.value || 0;
+            switch (metric.name) {
+              case 'post_impressions':
+                metricsData.impressions = value;
+                break;
+              case 'post_engaged_users':
+                metricsData.engagement = value;
+                break;
+            }
+          });
+
+          const { error: metricsError } = await supabase
+            .from("facebook_post_metrics")
+            .upsert(metricsData, {
+              onConflict: "post_id,date",
+            });
+
+          if (metricsError) {
+            console.error(`Failed to save metrics for post ${post.id}:`, metricsError);
+          }
+        } else {
+          console.log(`Could not fetch insights for post ${post.id} (may not be available yet)`);
+        }
+
+        syncedPosts.push(postData);
+      } catch (error) {
+        console.error(`Error processing post ${post.id}:`, error);
+        failedPosts.push(post.id);
+      }
+    }
+
+    let message = `Synced ${syncedPosts.length} post(s) with metrics`;
+    if (failedPosts.length > 0) {
+      message += `. Failed to sync ${failedPosts.length} post(s)`;
+    }
+
+    console.log('Sync complete:', message);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message,
+        posts: syncedPosts,
+        failedPosts,
+        total: posts.length,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error syncing Facebook posts:", error);
+    return new Response(
+      JSON.stringify({ error: error.message || "Internal server error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

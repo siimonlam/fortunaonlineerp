@@ -18,6 +18,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import MarketingInstagramSection from './MarketingInstagramSection';
+import MarketingFacebookSection from './MarketingFacebookSection';
 
 interface MarketingProject {
   id: string;
@@ -185,6 +186,9 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
       case 'instagram-post':
         return <MarketingInstagramSection projectId={projectId} clientNumber={project?.parent_client_id || null} />;
+
+      case 'facebook-post':
+        return <MarketingFacebookSection projectId={projectId} clientNumber={project?.parent_client_id || null} />;
 
       default:
         return (
