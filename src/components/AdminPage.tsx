@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign, Instagram } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
 import { AutomationPage } from './AutomationPage';
 import { ProjectTypeAuthorizationPage } from './ProjectTypeAuthorizationPage';
 import { FinanceAuthorizationPage } from './FinanceAuthorizationPage';
+import InstagramSettingsPage from './InstagramSettingsPage';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram';
 
 interface User {
   id: string;
@@ -223,6 +224,17 @@ export function AdminPage() {
             <Zap className="w-4 h-4" />
             Automation
           </button>
+          <button
+            onClick={() => setCurrentView('instagram')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
+              currentView === 'instagram'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Instagram className="w-4 h-4" />
+            Instagram Settings
+          </button>
         </div>
 
         {currentView === 'permissions' && (
@@ -408,6 +420,8 @@ export function AdminPage() {
         {currentView === 'labels' && <LabelManagement />}
 
         {currentView === 'automation' && <AutomationPage />}
+
+        {currentView === 'instagram' && <InstagramSettingsPage />}
       </div>
     </div>
   );
