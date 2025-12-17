@@ -351,9 +351,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
         .from('marketing_facebook_accounts')
         .insert({
           marketing_reference: marketingReference,
-          page_id: pageId,
-          client_number: clientNumber,
-          created_by: user?.id
+          page_id: pageId
         });
 
       if (junctionError) throw junctionError;
