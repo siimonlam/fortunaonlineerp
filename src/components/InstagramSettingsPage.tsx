@@ -8,6 +8,7 @@ export default function InstagramSettingsPage() {
   const [instagramAccountIds, setInstagramAccountIds] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
@@ -96,6 +97,64 @@ export default function InstagramSettingsPage() {
       setMessage({ type: 'error', text: err.message });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDiscoverAccounts = async () => {
+    setSyncing(true);
+    setMessage(null);
+
+    try {
+      if (!systemUserToken.trim()) {
+        throw new Error('Access Token is required');
+      }
+
+      const pagesUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,instagram_business_account&access_token=${systemUserToken.trim()}`;
+      const pagesResponse = await fetch(pagesUrl);
+
+      if (!pagesResponse.ok) {
+        const error = await pagesResponse.json();
+        throw new Error(`Failed to fetch Facebook Pages: ${error.error?.message || 'Unknown error'}`);
+      }
+
+      const pagesData = await pagesResponse.json();
+      const pages = pagesData.data || [];
+
+      const discoveredAccountIds: string[] = [];
+      const accountDetails: string[] = [];
+
+      for (const page of pages) {
+        if (page.instagram_business_account?.id) {
+          const igId = page.instagram_business_account.id;
+          discoveredAccountIds.push(igId);
+
+          const igUrl = `https://graph.facebook.com/v21.0/${igId}?fields=username&access_token=${systemUserToken.trim()}`;
+          const igResponse = await fetch(igUrl);
+
+          if (igResponse.ok) {
+            const igData = await igResponse.json();
+            accountDetails.push(`@${igData.username} (Page: ${page.name})`);
+          } else {
+            accountDetails.push(`${igId} (Page: ${page.name})`);
+          }
+        }
+      }
+
+      if (discoveredAccountIds.length === 0) {
+        throw new Error('No Instagram Business Accounts found linked to your Facebook Pages');
+      }
+
+      setInstagramAccountIds(discoveredAccountIds.join(', '));
+
+      setMessage({
+        type: 'success',
+        text: `Discovered ${discoveredAccountIds.length} Instagram account(s): ${accountDetails.join(', ')}. Click "Save Settings" to store them.`
+      });
+    } catch (err: any) {
+      console.error('Error discovering accounts:', err);
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -196,15 +255,27 @@ export default function InstagramSettingsPage() {
           </h2>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-blue-900 mb-2">How to get these credentials:</h3>
-            <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
-              <li>Go to <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer" className="underline">Facebook Business Manager → System Users</a></li>
-              <li>Create or select a System User and assign Instagram accounts to it</li>
-              <li>Generate a token with permissions: <strong>instagram_basic, instagram_manage_insights</strong></li>
-              <li>Copy the Access Token below</li>
-              <li>Go to <a href="https://business.facebook.com/settings/instagram-accounts" target="_blank" rel="noopener noreferrer" className="underline">Business Manager → Instagram Accounts</a></li>
-              <li>Copy your Instagram Business Account IDs (numeric IDs shown in the list)</li>
-            </ol>
+            <h3 className="font-semibold text-blue-900 mb-2">Two ways to set up:</h3>
+
+            <div className="mb-3">
+              <h4 className="font-semibold text-blue-800 mb-1">Option 1: Auto-Discover (Recommended)</h4>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 ml-2">
+                <li>Go to <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer" className="underline">Facebook Business Manager → System Users</a></li>
+                <li>Create or select a System User and assign Instagram accounts to it</li>
+                <li>Generate a token with permissions: <strong>instagram_basic, instagram_manage_insights, pages_show_list</strong></li>
+                <li>Paste the Access Token below</li>
+                <li>Click "Auto-Discover Accounts" and they'll be found automatically</li>
+              </ol>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-blue-800 mb-1">Option 2: Manual Entry</h4>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 ml-2">
+                <li>Follow steps 1-4 above</li>
+                <li>Go to <a href="https://business.facebook.com/settings/instagram-accounts" target="_blank" rel="noopener noreferrer" className="underline">Business Manager → Instagram Accounts</a></li>
+                <li>Manually copy Instagram Business Account IDs and paste them below</li>
+              </ol>
+            </div>
           </div>
         </div>
 
@@ -226,9 +297,28 @@ export default function InstagramSettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Instagram Business Account IDs <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Instagram Business Account IDs <span className="text-red-500">*</span>
+              </label>
+              <button
+                onClick={handleDiscoverAccounts}
+                disabled={syncing || !systemUserToken.trim()}
+                className="flex items-center gap-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {syncing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                    Discovering...
+                  </>
+                ) : (
+                  <>
+                    <Instagram size={16} />
+                    Auto-Discover Accounts
+                  </>
+                )}
+              </button>
+            </div>
             <input
               type="text"
               value={instagramAccountIds}
@@ -237,7 +327,7 @@ export default function InstagramSettingsPage() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Comma-separated Instagram Business Account IDs from Business Manager
+              Click "Auto-Discover" to find all accounts, or manually paste comma-separated IDs
             </p>
           </div>
 
@@ -291,11 +381,11 @@ export default function InstagramSettingsPage() {
       <div className="mt-6 bg-gray-50 rounded-lg border border-gray-200 p-4">
         <h3 className="font-semibold text-gray-900 mb-2">Next Steps:</h3>
         <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
-          <li>Enter your System User credentials above</li>
-          <li>Click "Test Connection" to verify they work</li>
-          <li>Click "Save Credentials" to store them</li>
+          <li>Paste your Access Token above</li>
+          <li>Click "Auto-Discover Accounts" to find all Instagram accounts automatically</li>
+          <li>Click "Save Settings" to store the configuration</li>
           <li>Go to Instagram Accounts page and click "Quick Sync"</li>
-          <li>Your Instagram Business accounts will sync automatically</li>
+          <li>On any Marketing Project detail page, you can select which Instagram account to link</li>
         </ol>
       </div>
     </div>

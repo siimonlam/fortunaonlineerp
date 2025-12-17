@@ -157,13 +157,26 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
 
   const fetchAllAccounts = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: allAccountsData, error: accountsError } = await supabase
         .from('instagram_accounts')
         .select('*')
         .order('username', { ascending: true });
 
-      if (error) throw error;
-      setAllAccounts(data || []);
+      if (accountsError) throw accountsError;
+
+      const { data: usedAccounts, error: junctionError } = await supabase
+        .from('marketing_project_instagram_accounts')
+        .select('account_id');
+
+      if (junctionError) throw junctionError;
+
+      const usedAccountIds = new Set(usedAccounts?.map(j => j.account_id) || []);
+
+      const availableAccounts = allAccountsData?.filter(
+        acc => !usedAccountIds.has(acc.account_id) || accounts.find(a => a.account_id === acc.account_id)
+      ) || [];
+
+      setAllAccounts(availableAccounts);
     } catch (err: any) {
       console.error('Error fetching all accounts:', err);
     }
@@ -659,9 +672,7 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {allAccounts
-                    .filter(acc => !accounts.find(a => a.account_id === acc.account_id))
-                    .map((account) => (
+                  {allAccounts.map((account) => (
                       <div
                         key={account.id}
                         className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer"
@@ -691,9 +702,10 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
                         </div>
                       </div>
                     ))}
-                  {allAccounts.filter(acc => !accounts.find(a => a.account_id === acc.account_id)).length === 0 && (
+                  {allAccounts.length === 0 && (
                     <div className="text-center py-8">
-                      <p className="text-gray-600">All available accounts have been added to this project.</p>
+                      <p className="text-gray-600">All Instagram accounts are already assigned to other projects.</p>
+                      <p className="text-sm text-gray-500 mt-2">Remove an account from another project to add it here.</p>
                     </div>
                   )}
                 </div>
