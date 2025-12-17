@@ -6,11 +6,9 @@ import { LabelManagement } from './LabelManagement';
 import { AutomationPage } from './AutomationPage';
 import { ProjectTypeAuthorizationPage } from './ProjectTypeAuthorizationPage';
 import { FinanceAuthorizationPage } from './FinanceAuthorizationPage';
-import InstagramSettingsPage from './InstagramSettingsPage';
 import InstagramAccountsPage from './InstagramAccountsPage';
-import InstagramPostsPage from './InstagramPostsPage';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram-settings' | 'instagram-accounts' | 'instagram-posts';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram';
 
 interface User {
   id: string;
@@ -137,319 +135,293 @@ export function AdminPage() {
     setLoading(false);
   }
 
+  const menuItems = [
+    { id: 'permissions', label: 'Client Permissions', icon: Users },
+    { id: 'funding-auth', label: 'Funding Authorization', icon: Lock },
+    { id: 'comsec-auth', label: 'Com Sec Authorization', icon: Lock },
+    { id: 'marketing-auth', label: 'Marketing Authorization', icon: Lock },
+    { id: 'finance-auth', label: 'Finance Authorization', icon: DollarSign },
+    { id: 'labels', label: 'Labels', icon: Tag },
+    { id: 'automation', label: 'Automation', icon: Zap },
+    { id: 'instagram', label: 'Instagram', icon: Instagram },
+  ];
+
   return (
-    <div>
-      <div className="px-6 py-8">
-        <div className="mb-8">
+    <div className="flex h-full">
+      <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
+        <div className="p-6 border-b border-slate-200">
           <div className="flex items-center gap-3 mb-2">
             <Shield className="w-8 h-8 text-red-600" />
-            <h1 className="text-3xl font-bold text-slate-900">Admin Panel</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
           </div>
-          <p className="text-slate-600">Manage user roles and permissions</p>
+          <p className="text-sm text-slate-600">System settings</p>
         </div>
 
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setCurrentView('permissions')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'permissions'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Client Permissions
-          </button>
-          <button
-            onClick={() => setCurrentView('funding-auth')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'funding-auth'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Lock className="w-4 h-4" />
-            Funding Project Authorization
-          </button>
-          <button
-            onClick={() => setCurrentView('comsec-auth')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'comsec-auth'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Lock className="w-4 h-4" />
-            Com Sec Authorization
-          </button>
-          <button
-            onClick={() => setCurrentView('marketing-auth')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'marketing-auth'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Lock className="w-4 h-4" />
-            Marketing Authorization
-          </button>
-          <button
-            onClick={() => setCurrentView('finance-auth')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'finance-auth'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <DollarSign className="w-4 h-4" />
-            Finance Authorization
-          </button>
-          <button
-            onClick={() => setCurrentView('labels')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'labels'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Tag className="w-4 h-4" />
-            Labels
-          </button>
-          <button
-            onClick={() => setCurrentView('automation')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'automation'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Zap className="w-4 h-4" />
-            Automation
-          </button>
-          <button
-            onClick={() => setCurrentView('instagram-settings')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'instagram-settings'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Instagram className="w-4 h-4" />
-            Instagram Settings
-          </button>
-          <button
-            onClick={() => setCurrentView('instagram-accounts')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'instagram-accounts'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Instagram className="w-4 h-4" />
-            Instagram Accounts
-          </button>
-          <button
-            onClick={() => setCurrentView('instagram-posts')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'instagram-posts'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Instagram className="w-4 h-4" />
-            Instagram Posts
-          </button>
-        </div>
+        <nav className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-1">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setCurrentView(item.id as AdminView)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                    currentView === item.id
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-sm">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
 
-        {currentView === 'permissions' && (
-          <div className="space-y-8">
-            {/* User Roles Section */}
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <Users className="w-5 h-5 text-slate-600" />
-                <h2 className="text-xl font-semibold text-slate-900">User Roles</h2>
+      <div className="flex-1 overflow-y-auto bg-slate-50">
+        <div className="p-8">
+          {currentView === 'permissions' && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Client Permissions</h2>
+                <p className="text-slate-600">Manage user roles and global permissions</p>
               </div>
 
-              <div className="space-y-3">
-                {users.map(user => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                    <div>
-                      <div className="font-medium text-slate-900">{user.email}</div>
-                      <div className="text-sm text-slate-500">User ID: {user.id.slice(0, 8)}...</div>
+              <div className="bg-white rounded-lg border border-slate-200 p-6">
+                <div className="flex items-center gap-2 mb-6">
+                  <Users className="w-5 h-5 text-slate-600" />
+                  <h3 className="text-xl font-semibold text-slate-900">User Roles</h3>
+                </div>
+
+                <div className="space-y-3">
+                  {users.map(user => (
+                    <div key={user.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                      <div>
+                        <div className="font-medium text-slate-900">{user.email}</div>
+                        <div className="text-sm text-slate-500">User ID: {user.id.slice(0, 8)}...</div>
+                      </div>
+                      <select
+                        value={user.role}
+                        onChange={(e) => updateUserRole(user.id, e.target.value)}
+                        disabled={loading}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      >
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                      </select>
                     </div>
-                    <select
-                      value={user.role}
-                      onChange={(e) => updateUserRole(user.id, e.target.value)}
-                      disabled={loading}
-                      className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Grant Client Access Section */}
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Eye className="w-5 h-5 text-slate-600" />
-                <h2 className="text-xl font-semibold text-slate-900">Grant Client Access</h2>
-              </div>
-              <p className="text-sm text-slate-600 mb-6">
-                Some users don't have view and edit all client access, but creators and sales persons automatically have view and edit access to their clients. No user can delete clients.
-              </p>
+              <div className="bg-white rounded-lg border border-slate-200 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Eye className="w-5 h-5 text-slate-600" />
+                  <h3 className="text-xl font-semibold text-slate-900">Grant Client Access</h3>
+                </div>
+                <p className="text-sm text-slate-600 mb-6">
+                  Some users don't have view and edit all client access, but creators and sales persons automatically have view and edit access to their clients. No user can delete clients.
+                </p>
 
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        User
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        View All Clients
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Edit All Clients
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {userPermissions.map(perm => (
-                      <tr key={perm.user_id} className="hover:bg-slate-50">
-                        <td className="px-4 py-4">
-                          <div className="font-medium text-slate-900">{perm.email}</div>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <button
-                            onClick={() => togglePermission(perm.user_id, 'client_view_all', perm.client_view_all)}
-                            disabled={loading}
-                            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                              perm.client_view_all
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                            }`}
-                          >
-                            <Check className={`w-5 h-5 ${perm.client_view_all ? '' : 'opacity-30'}`} />
-                          </button>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <button
-                            onClick={() => togglePermission(perm.user_id, 'client_edit_all', perm.client_edit_all)}
-                            disabled={loading}
-                            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                              perm.client_edit_all
-                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                            }`}
-                          >
-                            <Edit className={`w-5 h-5 ${perm.client_edit_all ? '' : 'opacity-30'}`} />
-                          </button>
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          User
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          View All Clients
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Edit All Clients
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {userPermissions.map(perm => (
+                        <tr key={perm.user_id} className="hover:bg-slate-50">
+                          <td className="px-4 py-4">
+                            <div className="font-medium text-slate-900">{perm.email}</div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <button
+                              onClick={() => togglePermission(perm.user_id, 'client_view_all', perm.client_view_all)}
+                              disabled={loading}
+                              className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                                perm.client_view_all
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                              }`}
+                            >
+                              <Check className={`w-5 h-5 ${perm.client_view_all ? '' : 'opacity-30'}`} />
+                            </button>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <button
+                              onClick={() => togglePermission(perm.user_id, 'client_edit_all', perm.client_edit_all)}
+                              disabled={loading}
+                              className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                                perm.client_edit_all
+                                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                              }`}
+                            >
+                              <Edit className={`w-5 h-5 ${perm.client_edit_all ? '' : 'opacity-30'}`} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
 
-            {/* Grant Channel Partner Access Section */}
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-slate-600" />
-                <h2 className="text-xl font-semibold text-slate-900">Grant Channel Partner Access</h2>
-              </div>
-              <p className="text-sm text-slate-600 mb-6">
-                Some users don't have view and edit all channel partner access, but creators and sales persons automatically have view and edit access to their channel partners. No user can delete channel partners.
-              </p>
+              <div className="bg-white rounded-lg border border-slate-200 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Users className="w-5 h-5 text-slate-600" />
+                  <h3 className="text-xl font-semibold text-slate-900">Grant Channel Partner Access</h3>
+                </div>
+                <p className="text-sm text-slate-600 mb-6">
+                  Some users don't have view and edit all channel partner access, but creators and sales persons automatically have view and edit access to their channel partners. No user can delete channel partners.
+                </p>
 
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        User
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        View All Channel Partners
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Edit All Channel Partners
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {userPermissions.map(perm => (
-                      <tr key={perm.user_id} className="hover:bg-slate-50">
-                        <td className="px-4 py-4">
-                          <div className="font-medium text-slate-900">{perm.email}</div>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <button
-                            onClick={() => togglePermission(perm.user_id, 'channel_partner_view_all', perm.channel_partner_view_all)}
-                            disabled={loading}
-                            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                              perm.channel_partner_view_all
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                            }`}
-                          >
-                            <Check className={`w-5 h-5 ${perm.channel_partner_view_all ? '' : 'opacity-30'}`} />
-                          </button>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <button
-                            onClick={() => togglePermission(perm.user_id, 'channel_partner_edit_all', perm.channel_partner_edit_all)}
-                            disabled={loading}
-                            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                              perm.channel_partner_edit_all
-                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                            }`}
-                          >
-                            <Edit className={`w-5 h-5 ${perm.channel_partner_edit_all ? '' : 'opacity-30'}`} />
-                          </button>
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          User
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          View All Channel Partners
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Edit All Channel Partners
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {userPermissions.map(perm => (
+                        <tr key={perm.user_id} className="hover:bg-slate-50">
+                          <td className="px-4 py-4">
+                            <div className="font-medium text-slate-900">{perm.email}</div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <button
+                              onClick={() => togglePermission(perm.user_id, 'channel_partner_view_all', perm.channel_partner_view_all)}
+                              disabled={loading}
+                              className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                                perm.channel_partner_view_all
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                              }`}
+                            >
+                              <Check className={`w-5 h-5 ${perm.channel_partner_view_all ? '' : 'opacity-30'}`} />
+                            </button>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <button
+                              onClick={() => togglePermission(perm.user_id, 'channel_partner_edit_all', perm.channel_partner_edit_all)}
+                              disabled={loading}
+                              className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                                perm.channel_partner_edit_all
+                                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                              }`}
+                            >
+                              <Edit className={`w-5 h-5 ${perm.channel_partner_edit_all ? '' : 'opacity-30'}`} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {currentView === 'funding-auth' && <AuthorizationPage />}
+          {currentView === 'funding-auth' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Funding Project Authorization</h2>
+                <p className="text-slate-600">Control access to funding projects</p>
+              </div>
+              <AuthorizationPage />
+            </div>
+          )}
 
-        {currentView === 'comsec-auth' && (
-          <ProjectTypeAuthorizationPage
-            projectTypeName="Com Sec"
-            title="Com Sec User Access Control"
-            description="Grant or revoke access to the Com Sec module for users"
-          />
-        )}
+          {currentView === 'comsec-auth' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Com Sec Authorization</h2>
+                <p className="text-slate-600">Control access to Com Sec module</p>
+              </div>
+              <ProjectTypeAuthorizationPage
+                projectTypeName="Com Sec"
+                title="Com Sec User Access Control"
+                description="Grant or revoke access to the Com Sec module for users"
+              />
+            </div>
+          )}
 
-        {currentView === 'marketing-auth' && (
-          <ProjectTypeAuthorizationPage
-            projectTypeName="Marketing"
-            title="Marketing User Access Control"
-            description="Grant or revoke access to the Marketing module for users"
-          />
-        )}
+          {currentView === 'marketing-auth' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Marketing Authorization</h2>
+                <p className="text-slate-600">Control access to Marketing module</p>
+              </div>
+              <ProjectTypeAuthorizationPage
+                projectTypeName="Marketing"
+                title="Marketing User Access Control"
+                description="Grant or revoke access to the Marketing module for users"
+              />
+            </div>
+          )}
 
-        {currentView === 'finance-auth' && <FinanceAuthorizationPage />}
+          {currentView === 'finance-auth' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Finance Authorization</h2>
+                <p className="text-slate-600">Control access to finance features</p>
+              </div>
+              <FinanceAuthorizationPage />
+            </div>
+          )}
 
-        {currentView === 'labels' && <LabelManagement />}
+          {currentView === 'labels' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Labels</h2>
+                <p className="text-slate-600">Manage project labels and tags</p>
+              </div>
+              <LabelManagement />
+            </div>
+          )}
 
-        {currentView === 'automation' && <AutomationPage />}
+          {currentView === 'automation' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Automation</h2>
+                <p className="text-slate-600">Configure automation rules and triggers</p>
+              </div>
+              <AutomationPage />
+            </div>
+          )}
 
-        {currentView === 'instagram-settings' && <InstagramSettingsPage />}
-
-        {currentView === 'instagram-accounts' && <InstagramAccountsPage />}
-
-        {currentView === 'instagram-posts' && <InstagramPostsPage />}
+          {currentView === 'instagram' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Instagram</h2>
+                <p className="text-slate-600">Manage Instagram accounts and settings</p>
+              </div>
+              <InstagramAccountsPage />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
