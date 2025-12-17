@@ -50,7 +50,7 @@ interface MarketingInstagramSectionProps {
   clientNumber: string | null;
 }
 
-export default function MarketingInstagramSection({ projectId, clientNumber }: MarketingInstagramSectionProps) {
+export default function MarketingInstagramSection({ projectId, clientNumber: initialClientNumber }: MarketingInstagramSectionProps) {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [allAccounts, setAllAccounts] = useState<InstagramAccount[]>([]);
@@ -63,12 +63,38 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
+  const [clientNumber, setClientNumber] = useState<string | null>(initialClientNumber);
+  const [marketingReference, setMarketingReference] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAccounts();
-    fetchAllAccounts();
-    fetchPosts();
-    fetchMetrics();
+    fetchProjectInfo();
+  }, [projectId]);
+
+  const fetchProjectInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('marketing_projects')
+        .select('project_reference, client_number')
+        .eq('id', projectId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        setMarketingReference(data.project_reference);
+        setClientNumber(data.client_number);
+      }
+    } catch (err: any) {
+      console.error('Error fetching project info:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (marketingReference) {
+      fetchAccounts();
+      fetchAllAccounts();
+      fetchPosts();
+      fetchMetrics();
+    }
 
     const junctionSubscription = supabase
       .channel('marketing_project_instagram_junction')
@@ -109,7 +135,7 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
       postsSubscription.unsubscribe();
       metricsSubscription.unsubscribe();
     };
-  }, [projectId]);
+  }, [projectId, marketingReference]);
 
   useEffect(() => {
     if (selectedAccount) {
@@ -191,16 +217,13 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
 
       if (selectedAccount) {
         query = query.eq('account_id', selectedAccount);
+      } else if (marketingReference) {
+        // Filter by marketing_reference (MP0xxx) for this marketing project
+        query = query.eq('marketing_reference', marketingReference);
       } else {
-        // When no specific account is selected, filter by all accounts linked to this project
-        const accountIds = accounts.map(acc => acc.account_id);
-        if (accountIds.length > 0) {
-          query = query.in('account_id', accountIds);
-        } else {
-          // No accounts linked, return empty
-          setPosts([]);
-          return;
-        }
+        // No marketing reference yet, return empty
+        setPosts([]);
+        return;
       }
 
       const { data, error } = await query;
@@ -222,16 +245,13 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
 
       if (selectedAccount) {
         query = query.eq('account_id', selectedAccount);
+      } else if (marketingReference) {
+        // Filter by marketing_reference (MP0xxx) for this marketing project
+        query = query.eq('marketing_reference', marketingReference);
       } else {
-        // When no specific account is selected, filter by all accounts linked to this project
-        const accountIds = accounts.map(acc => acc.account_id);
-        if (accountIds.length > 0) {
-          query = query.in('account_id', accountIds);
-        } else {
-          // No accounts linked, return empty
-          setMetrics({});
-          return;
-        }
+        // No marketing reference yet, return empty
+        setMetrics({});
+        return;
       }
 
       const { data, error } = await query;
@@ -309,6 +329,7 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
           body: JSON.stringify({
             accountId,
             clientNumber,
+            marketingReference,
             limit: 50
           }),
         }

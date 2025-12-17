@@ -29,7 +29,7 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { accountId, clientNumber, limit = 25 } = await req.json();
+    const { accountId, clientNumber, marketingReference, limit = 25 } = await req.json();
 
     if (!accountId) {
       return new Response(
@@ -98,6 +98,7 @@ Deno.serve(async (req: Request) => {
             comments_count: post.comments_count || 0,
             account_id: accountId,
             client_number: clientNumber || null,
+            marketing_reference: marketingReference || null,
           }, {
             onConflict: "media_id",
           })
@@ -124,6 +125,7 @@ Deno.serve(async (req: Request) => {
             media_id: post.id,
             account_id: accountId,
             client_number: clientNumber || null,
+            marketing_reference: marketingReference || null,
             date: new Date().toISOString(),
             impressions: 0,
             reach: 0,
