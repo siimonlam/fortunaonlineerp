@@ -11,6 +11,14 @@ interface Task {
   completed: boolean;
   project_id?: string;
   marketing_project_id?: string;
+  project?: {
+    title: string;
+    company_name: string;
+  };
+  marketing_project?: {
+    title: string;
+    company_name: string;
+  };
 }
 
 interface TaskNotificationModalProps {
@@ -35,13 +43,19 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
       const [regularTasksRes, marketingTasksRes] = await Promise.all([
         supabase
           .from('tasks')
-          .select('*')
+          .select(`
+            *,
+            project:projects(title, company_name)
+          `)
           .eq('assigned_to', user.id)
           .eq('completed', false)
           .not('deadline', 'is', null),
         supabase
           .from('marketing_tasks')
-          .select('*')
+          .select(`
+            *,
+            marketing_project:marketing_projects(title, company_name)
+          `)
           .eq('assigned_to', user.id)
           .eq('completed', false)
           .not('deadline', 'is', null),
@@ -221,6 +235,16 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                           {task.description && (
                             <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                           )}
+                          {task.project && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              Project: {task.project.company_name} - {task.project.title}
+                            </p>
+                          )}
+                          {task.marketing_project && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              Marketing: {task.marketing_project.company_name} - {task.marketing_project.title}
+                            </p>
+                          )}
                           <div className="flex items-center gap-2 mt-2">
                             <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-1 rounded">
                               {daysOverdue} {daysOverdue === 1 ? 'day' : 'days'} overdue
@@ -254,6 +278,16 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                         {task.description && (
                           <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                         )}
+                        {task.project && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Project: {task.project.company_name} - {task.project.title}
+                          </p>
+                        )}
+                        {task.marketing_project && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Marketing: {task.marketing_project.company_name} - {task.marketing_project.title}
+                          </p>
+                        )}
                         <span className="inline-block text-xs font-medium text-amber-600 bg-amber-100 px-2 py-1 rounded mt-2">
                           Due today
                         </span>
@@ -283,6 +317,16 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                           <h4 className="font-semibold text-slate-800">{task.title}</h4>
                           {task.description && (
                             <p className="text-sm text-slate-600 mt-1">{task.description}</p>
+                          )}
+                          {task.project && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              Project: {task.project.company_name} - {task.project.title}
+                            </p>
+                          )}
+                          {task.marketing_project && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              Marketing: {task.marketing_project.company_name} - {task.marketing_project.title}
+                            </p>
                           )}
                           <span className="inline-block text-xs text-slate-600 mt-2">
                             Due: {new Date(task.deadline!).toLocaleDateString()}
