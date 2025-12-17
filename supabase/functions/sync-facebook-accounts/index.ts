@@ -124,6 +124,7 @@ Deno.serve(async (req: Request) => {
 
         const pageDetails = await pageResponse.json();
 
+        const timestamp = new Date().toISOString();
         const { data, error } = await supabase
           .from("facebook_accounts")
           .upsert({
@@ -136,7 +137,8 @@ Deno.serve(async (req: Request) => {
             category: pageDetails.category || "",
             verification_status: pageDetails.verification_status || "",
             client_number: clientNumber || null,
-            updated_at: new Date().toISOString(),
+            updated_at: timestamp,
+            last_updated: timestamp,
           }, {
             onConflict: "page_id",
           })
