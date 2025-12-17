@@ -184,7 +184,7 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
         );
 
       case 'instagram-post':
-        return <MarketingInstagramSection projectId={projectId} clientNumber={project?.parent_client_id || project?.clients?.client_number || null} />;
+        return <MarketingInstagramSection projectId={projectId} clientNumber={project?.parent_client_id || null} />;
 
       default:
         return (
