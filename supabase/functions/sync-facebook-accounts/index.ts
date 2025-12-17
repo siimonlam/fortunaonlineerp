@@ -13,6 +13,9 @@ interface FacebookPage {
   username?: string;
   access_token?: string;
   followers_count?: number;
+  fan_count?: number;
+  category?: string;
+  verification_status?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -109,7 +112,7 @@ Deno.serve(async (req: Request) => {
       try {
         console.log(`Fetching Facebook page: ${pageId}`);
         const pageResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${pageId}?fields=id,name,username,access_token,followers_count&access_token=${tokenToUse}`
+          `https://graph.facebook.com/v21.0/${pageId}?fields=id,name,username,access_token,followers_count,fan_count,category,verification_status&access_token=${tokenToUse}`
         );
 
         if (!pageResponse.ok) {
@@ -129,6 +132,9 @@ Deno.serve(async (req: Request) => {
             username: pageDetails.username || "",
             access_token: pageDetails.access_token || "",
             followers_count: pageDetails.followers_count || 0,
+            fan_count: pageDetails.fan_count || 0,
+            category: pageDetails.category || "",
+            verification_status: pageDetails.verification_status || "",
             client_number: clientNumber || null,
             updated_at: new Date().toISOString(),
           }, {

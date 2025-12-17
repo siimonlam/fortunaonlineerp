@@ -11,6 +11,7 @@ interface FacebookPost {
   id: string;
   message?: string;
   type?: string;
+  status_type?: string;
   full_picture?: string;
   permalink_url?: string;
   created_time: string;
@@ -59,7 +60,7 @@ Deno.serve(async (req: Request) => {
     console.log(`Fetching posts for page ${pageId}`);
 
     const postsResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${pageId}/posts?fields=id,message,type,full_picture,permalink_url,created_time,likes.summary(true),comments.summary(true),shares&limit=${limit}&access_token=${accessToken}`
+      `https://graph.facebook.com/v21.0/${pageId}/posts?fields=id,message,type,status_type,full_picture,permalink_url,created_time,likes.summary(true),comments.summary(true),shares&limit=${limit}&access_token=${accessToken}`
     );
 
     if (!postsResponse.ok) {
@@ -96,6 +97,7 @@ Deno.serve(async (req: Request) => {
           date: post.created_time,
           message: post.message || "",
           type: post.type || "",
+          status_type: post.status_type || "",
           full_picture: post.full_picture || "",
           permalink_url: post.permalink_url || "",
           likes_count: post.likes?.summary?.total_count || 0,
@@ -126,7 +128,7 @@ Deno.serve(async (req: Request) => {
         console.log(`Fetching insights for post ${post.id}`);
 
         const insightsResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${post.id}/insights?metric=post_impressions,post_engaged_users&access_token=${accessToken}`
+          `https://graph.facebook.com/v21.0/${post.id}/insights?metric=post_impressions,post_engaged_users,post_clicks,post_clicks_by_type,post_reactions_by_type_total,post_negative_feedback&access_token=${accessToken}`
         );
 
         if (insightsResponse.ok) {
@@ -146,10 +148,19 @@ Deno.serve(async (req: Request) => {
             impressions: 0,
             reach: 0,
             engagement: 0,
+            engaged_users: 0,
             reactions: post.likes?.summary?.total_count || 0,
             comments: post.comments?.summary?.total_count || 0,
             shares: post.shares?.count || 0,
             video_views: 0,
+            link_clicks: 0,
+            photo_clicks: 0,
+            negative_feedback: 0,
+            reaction_love: {},
+            reaction_haha: {},
+            reaction_wow: {},
+            reaction_sad: {},
+            reaction_angry: {},
           };
 
           if (!existingMetrics || !existingMetrics.marketing_reference) {
@@ -164,7 +175,29 @@ Deno.serve(async (req: Request) => {
                 metricsData.impressions = value;
                 break;
               case 'post_engaged_users':
+                metricsData.engaged_users = value;
                 metricsData.engagement = value;
+                break;
+              case 'post_clicks':
+                metricsData.link_clicks = value;
+                break;
+              case 'post_clicks_by_type':
+                if (typeof value === 'object' && value !== null) {
+                  metricsData.link_clicks = value.link_clicks || value['link clicks'] || 0;
+                  metricsData.photo_clicks = value.photo_view || value['photo view'] || 0;
+                }
+                break;
+              case 'post_reactions_by_type_total':
+                if (typeof value === 'object' && value !== null) {
+                  metricsData.reaction_love = { count: value.love || 0 };
+                  metricsData.reaction_haha = { count: value.haha || 0 };
+                  metricsData.reaction_wow = { count: value.wow || 0 };
+                  metricsData.reaction_sad = { count: value.sad || 0 };
+                  metricsData.reaction_angry = { count: value.angry || 0 };
+                }
+                break;
+              case 'post_negative_feedback':
+                metricsData.negative_feedback = value;
                 break;
             }
           });
