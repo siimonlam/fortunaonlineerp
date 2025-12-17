@@ -65,23 +65,48 @@ Deno.serve(async (req: Request) => {
       console.log(`Page ${pageId} is not linked to any marketing project`);
     }
 
-    const { data: systemToken } = await supabase
-      .from("system_settings")
-      .select("value")
-      .eq("key", "meta_system_user_token")
+    // Try to get page-specific access token first
+    const { data: pageData } = await supabase
+      .from("facebook_accounts")
+      .select("access_token")
+      .eq("page_id", pageId)
       .maybeSingle();
 
-    if (!systemToken) {
-      return new Response(
-        JSON.stringify({
-          error: "No access token available",
-          details: "Please configure a system token in Settings"
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let accessToken = pageData?.access_token || null;
+
+    if (!accessToken) {
+      // Try system user token
+      const { data: systemToken } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "meta_system_user_token")
+        .maybeSingle();
+
+      if (systemToken) {
+        accessToken = systemToken.value;
+      } else {
+        // Fallback to OAuth user token
+        const { data: oauthToken } = await supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "meta_oauth_user_token")
+          .maybeSingle();
+
+        if (oauthToken) {
+          accessToken = oauthToken.value;
+        } else {
+          return new Response(
+            JSON.stringify({
+              error: "No access token available",
+              details: "Please connect your Facebook account via OAuth or configure a system token in Settings"
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
     }
 
-    const accessToken = systemToken.value;
+    console.log(`Using ${pageData?.access_token ? 'page-specific' : 'global'} access token`);
 
     console.log(`Fetching posts for page ${pageId}`);
 
