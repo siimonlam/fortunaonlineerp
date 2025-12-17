@@ -313,7 +313,7 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
 
   const handleAddAccount = async (accountId: string) => {
     try {
-      const { error } = await supabase
+      const { error: junctionError } = await supabase
         .from('marketing_project_instagram_accounts')
         .insert({
           marketing_project_id: projectId,
@@ -321,7 +321,7 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
           created_by: user?.id
         });
 
-      if (error) throw error;
+      if (junctionError) throw junctionError;
 
       setSuccessMessage('Account added successfully');
       setShowAddAccountModal(false);
@@ -338,13 +338,13 @@ export default function MarketingInstagramSection({ projectId, clientNumber }: M
     }
 
     try {
-      const { error } = await supabase
+      const { error: deleteError } = await supabase
         .from('marketing_project_instagram_accounts')
         .delete()
         .eq('marketing_project_id', projectId)
         .eq('account_id', accountId);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
 
       setSuccessMessage('Account removed successfully');
 
