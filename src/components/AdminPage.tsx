@@ -7,8 +7,10 @@ import { AutomationPage } from './AutomationPage';
 import { ProjectTypeAuthorizationPage } from './ProjectTypeAuthorizationPage';
 import { FinanceAuthorizationPage } from './FinanceAuthorizationPage';
 import InstagramSettingsPage from './InstagramSettingsPage';
+import InstagramAccountsPage from './InstagramAccountsPage';
+import InstagramPostsPage from './InstagramPostsPage';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram-settings' | 'instagram-accounts' | 'instagram-posts';
 
 interface User {
   id: string;
@@ -225,15 +227,37 @@ export function AdminPage() {
             Automation
           </button>
           <button
-            onClick={() => setCurrentView('instagram')}
+            onClick={() => setCurrentView('instagram-settings')}
             className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
-              currentView === 'instagram'
+              currentView === 'instagram-settings'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             <Instagram className="w-4 h-4" />
             Instagram Settings
+          </button>
+          <button
+            onClick={() => setCurrentView('instagram-accounts')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
+              currentView === 'instagram-accounts'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Instagram className="w-4 h-4" />
+            Instagram Accounts
+          </button>
+          <button
+            onClick={() => setCurrentView('instagram-posts')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${
+              currentView === 'instagram-posts'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Instagram className="w-4 h-4" />
+            Instagram Posts
           </button>
         </div>
 
@@ -421,7 +445,11 @@ export function AdminPage() {
 
         {currentView === 'automation' && <AutomationPage />}
 
-        {currentView === 'instagram' && <InstagramSettingsPage />}
+        {currentView === 'instagram-settings' && <InstagramSettingsPage />}
+
+        {currentView === 'instagram-accounts' && <InstagramAccountsPage />}
+
+        {currentView === 'instagram-posts' && <InstagramPostsPage />}
       </div>
     </div>
   );
