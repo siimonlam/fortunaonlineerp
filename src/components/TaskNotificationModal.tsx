@@ -21,6 +21,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCleanupReminder, setShowCleanupReminder] = useState(false);
 
   useEffect(() => {
     loadUserTasks();
@@ -101,10 +102,52 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
 
   const hasAnyTasks = tasks.length > 0;
 
+  const handleOkClick = () => {
+    if (pastDueTasks.length > 0 || dueTodayTasks.length > 0) {
+      setShowCleanupReminder(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleCleanupReminderClose = () => {
+    setShowCleanupReminder(false);
+    onClose();
+  };
+
+  if (showCleanupReminder) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 mb-4">
+              <AlertCircle className="h-6 w-6 text-amber-600" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
+              Don't Forget Your Tasks!
+            </h3>
+            <p className="text-sm text-slate-600 mb-6">
+              You have {pastDueTasks.length > 0 && `${pastDueTasks.length} past due task${pastDueTasks.length !== 1 ? 's' : ''}`}
+              {pastDueTasks.length > 0 && dueTodayTasks.length > 0 && ' and '}
+              {dueTodayTasks.length > 0 && `${dueTodayTasks.length} task${dueTodayTasks.length !== 1 ? 's' : ''} due today`}.
+              Please take time to review and complete or reschedule your pending tasks.
+            </p>
+            <button
+              onClick={handleCleanupReminderClose}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              I'll take care of it
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50">
           <div>
             <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
               <Calendar className="w-6 h-6 text-blue-600" />
@@ -121,6 +164,31 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
             <X className="w-6 h-6" />
           </button>
         </div>
+
+        {hasAnyTasks && (
+          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className={`text-3xl font-bold ${pastDueTasks.length > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                  {pastDueTasks.length}
+                </div>
+                <div className="text-xs text-slate-600 font-medium mt-1">Past Due</div>
+              </div>
+              <div className="text-center">
+                <div className={`text-3xl font-bold ${dueTodayTasks.length > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                  {dueTodayTasks.length}
+                </div>
+                <div className="text-xs text-slate-600 font-medium mt-1">Due Today</div>
+              </div>
+              <div className="text-center">
+                <div className={`text-3xl font-bold ${upcomingTasks.length > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
+                  {upcomingTasks.length}
+                </div>
+                <div className="text-xs text-slate-600 font-medium mt-1">Upcoming</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-6">
           {!hasAnyTasks ? (
@@ -235,7 +303,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
 
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
           <button
-            onClick={onClose}
+            onClick={handleOkClick}
             className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             Got it, let's get started!
