@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
     console.log(`Fetching posts for page ${pageId}`);
 
     const postsResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${pageId}/feed?fields=id,message,type,status_type,full_picture,permalink_url,created_time,reactions.summary(total_count),comments.summary(total_count),shares&limit=${limit}&access_token=${accessToken}`
+      `https://graph.facebook.com/v21.0/${pageId}/feed?fields=id,message,type,status_type,full_picture,permalink_url,created_time,reactions.summary(total_count),comments.summary(total_count)&limit=${limit}&access_token=${accessToken}`
     );
 
     if (!postsResponse.ok) {
@@ -145,6 +145,20 @@ Deno.serve(async (req: Request) => {
           .eq("post_id", post.id)
           .maybeSingle();
 
+        // Fetch shares separately as it's not available in feed endpoint
+        let sharesCount = 0;
+        try {
+          const sharesResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${post.id}?fields=shares&access_token=${accessToken}`
+          );
+          if (sharesResponse.ok) {
+            const sharesData = await sharesResponse.json();
+            sharesCount = sharesData.shares?.count || 0;
+          }
+        } catch (e) {
+          console.log(`Could not fetch shares for post ${post.id}`);
+        }
+
         const postDataToUpsert: any = {
           post_id: post.id,
           page_id: pageId,
@@ -156,7 +170,7 @@ Deno.serve(async (req: Request) => {
           permalink_url: post.permalink_url || "",
           likes_count: post.reactions?.summary?.total_count || 0,
           comments_count: post.comments?.summary?.total_count || 0,
-          shares_count: post.shares?.count || 0,
+          shares_count: sharesCount,
           account_id: pageId,
         };
 
@@ -206,7 +220,7 @@ Deno.serve(async (req: Request) => {
             engaged_users: 0,
             reactions: post.reactions?.summary?.total_count || 0,
             comments: post.comments?.summary?.total_count || 0,
-            shares: post.shares?.count || 0,
+            shares: sharesCount,
             video_views: 0,
             link_clicks: 0,
             photo_clicks: 0,
