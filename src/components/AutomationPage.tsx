@@ -557,6 +557,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                         <option value="project_start_date">Project Start Date</option>
                         <option value="submission_date">Submission Date</option>
                         <option value="approval_date">Approval Date</option>
+                        <option value="deposit_paid_date">Deposit Paid Date</option>
                         <option value="next_hkpc_due_date">Next HKPC Due Date</option>
                       </select>
                     </div>
@@ -596,6 +597,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                         <option value="project_end_date">Project End Date</option>
                         <option value="submission_date">Submission Date</option>
                         <option value="approval_date">Approval Date</option>
+                        <option value="deposit_paid_date">Deposit Paid Date</option>
                       </select>
                     </div>
                   </div>
