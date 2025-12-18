@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Facebook, RefreshCw, Users, Image, ExternalLink, Calendar, Heart, MessageCircle, Eye, TrendingUp, Share2, Grid, List, Plus, X, Trash2 } from 'lucide-react';
+import { Facebook, RefreshCw, Users, Image, ExternalLink, Calendar, Heart, MessageCircle, Eye, TrendingUp, Share2, Grid, List, Plus, X, Trash2, BarChart3 } from 'lucide-react';
 
 interface FacebookAccount {
   id: string;
@@ -400,6 +400,60 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
     );
   }
 
+  const calculateInsights = () => {
+    const totalPosts = posts.length;
+    let totalReactions = 0;
+    let totalComments = 0;
+    let totalShares = 0;
+    let totalEngagement = 0;
+
+    posts.forEach(post => {
+      totalReactions += post.likes_count || 0;
+      totalComments += post.comments_count || 0;
+      totalShares += post.shares_count || 0;
+
+      const postMetrics = metrics[post.post_id];
+      if (postMetrics) {
+        totalEngagement += postMetrics.engagement || 0;
+      }
+    });
+
+    const avgEngagementPerPost = totalPosts > 0
+      ? (totalEngagement / totalPosts).toFixed(0)
+      : '0';
+
+    return {
+      totalPosts,
+      totalReactions,
+      totalComments,
+      totalShares,
+      totalEngagement,
+      avgEngagementPerPost
+    };
+  };
+
+  const handleSyncAllInsights = async () => {
+    if (accounts.length === 0) return;
+
+    setSyncing(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      for (const account of accounts) {
+        await handleSyncPosts(account.page_id);
+      }
+      setSuccessMessage('All insights synced successfully');
+    } catch (err: any) {
+      console.error('Sync all error:', err);
+      setError(err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const insights = calculateInsights();
+
   return (
     <div className="space-y-6">
       {error && (
@@ -411,6 +465,76 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
       {successMessage && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-800">{successMessage}</p>
+        </div>
+      )}
+
+      {accounts.length > 0 && posts.length > 0 && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-blue-600" />
+              Facebook Insights
+            </h3>
+            <button
+              onClick={handleSyncAllInsights}
+              disabled={syncing}
+              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync Insights'}
+            </button>
+          </div>
+
+          <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-blue-600 mb-2">
+                <Image className="w-5 h-5" />
+                <span className="text-sm font-medium">Total Posts</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{insights.totalPosts}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-pink-600 mb-2">
+                <Heart className="w-5 h-5" />
+                <span className="text-sm font-medium">Total Reactions</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{insights.totalReactions.toLocaleString()}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-purple-600 mb-2">
+                <MessageCircle className="w-5 h-5" />
+                <span className="text-sm font-medium">Total Comments</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{insights.totalComments.toLocaleString()}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-green-600 mb-2">
+                <Share2 className="w-5 h-5" />
+                <span className="text-sm font-medium">Total Shares</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{insights.totalShares.toLocaleString()}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-orange-600 mb-2">
+                <TrendingUp className="w-5 h-5" />
+                <span className="text-sm font-medium">Total Engagement</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{insights.totalEngagement.toLocaleString()}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-cyan-600 mb-2">
+                <TrendingUp className="w-5 h-5" />
+                <span className="text-sm font-medium">Avg Engagement</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{insights.avgEngagementPerPost}</p>
+              <p className="text-xs text-gray-600 mt-1">per post</p>
+            </div>
+          </div>
         </div>
       )}
 
