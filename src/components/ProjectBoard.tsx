@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns, Scan } from 'lucide-react';
+import { APP_VERSION } from '../version';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
@@ -1769,7 +1770,7 @@ export function ProjectBoard() {
               <img src="/512x512.jpg" alt="Logo" className="w-10 h-10 rounded-lg" />
               <div className="flex flex-col items-start">
                 <h1 className="text-xl font-bold text-slate-900">Project Manager</h1>
-                <span className="text-xs text-slate-500">v1.0.0</span>
+                <span className="text-xs text-slate-500">{APP_VERSION}</span>
               </div>
             </button>
             <div className="flex items-center gap-4">
