@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
     console.log(`Fetching posts for page ${pageId}`);
 
     const postsResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${pageId}/feed?fields=id,message,type,status_type,full_picture,permalink_url,created_time,reactions.summary(total_count),comments.summary(total_count)&limit=${limit}&access_token=${accessToken}`
+      `https://graph.facebook.com/v21.0/${pageId}/feed?fields=id,message,type,status_type,full_picture,permalink_url,created_time&limit=${limit}&access_token=${accessToken}`
     );
 
     if (!postsResponse.ok) {
@@ -145,18 +145,23 @@ Deno.serve(async (req: Request) => {
           .eq("post_id", post.id)
           .maybeSingle();
 
-        // Fetch shares separately as it's not available in feed endpoint
+        // Fetch aggregated metrics separately (reactions, comments, shares)
+        let reactionsCount = 0;
+        let commentsCount = 0;
         let sharesCount = 0;
+        
         try {
-          const sharesResponse = await fetch(
-            `https://graph.facebook.com/v21.0/${post.id}?fields=shares&access_token=${accessToken}`
+          const metricsResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${post.id}?fields=reactions.summary(true),comments.summary(true),shares&access_token=${accessToken}`
           );
-          if (sharesResponse.ok) {
-            const sharesData = await sharesResponse.json();
-            sharesCount = sharesData.shares?.count || 0;
+          if (metricsResponse.ok) {
+            const metricsData = await metricsResponse.json();
+            reactionsCount = metricsData.reactions?.summary?.total_count || 0;
+            commentsCount = metricsData.comments?.summary?.total_count || 0;
+            sharesCount = metricsData.shares?.count || 0;
           }
         } catch (e) {
-          console.log(`Could not fetch shares for post ${post.id}`);
+          console.log(`Could not fetch engagement metrics for post ${post.id}`);
         }
 
         const postDataToUpsert: any = {
@@ -168,8 +173,8 @@ Deno.serve(async (req: Request) => {
           status_type: post.status_type || "",
           full_picture: post.full_picture || "",
           permalink_url: post.permalink_url || "",
-          likes_count: post.reactions?.summary?.total_count || 0,
-          comments_count: post.comments?.summary?.total_count || 0,
+          likes_count: reactionsCount,
+          comments_count: commentsCount,
           shares_count: sharesCount,
           account_id: pageId,
         };
@@ -218,8 +223,8 @@ Deno.serve(async (req: Request) => {
             reach: 0,
             engagement: 0,
             engaged_users: 0,
-            reactions: post.reactions?.summary?.total_count || 0,
-            comments: post.comments?.summary?.total_count || 0,
+            reactions: reactionsCount,
+            comments: commentsCount,
             shares: sharesCount,
             video_views: 0,
             link_clicks: 0,
