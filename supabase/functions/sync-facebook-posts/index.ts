@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
     console.log(`Fetching posts for page ${pageId}`);
 
     const postsResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${pageId}/feed?fields=id,message,type,status_type,full_picture,permalink_url,created_time&limit=${limit}&access_token=${accessToken}`
+      `https://graph.facebook.com/v21.0/${pageId}/feed?fields=id,message,created_time&limit=${limit}&access_token=${accessToken}`
     );
 
     if (!postsResponse.ok) {
@@ -145,23 +145,31 @@ Deno.serve(async (req: Request) => {
           .eq("post_id", post.id)
           .maybeSingle();
 
-        // Fetch aggregated metrics separately (reactions, comments, shares)
+        // Fetch post details and aggregated metrics separately (all deprecated fields)
         let reactionsCount = 0;
         let commentsCount = 0;
         let sharesCount = 0;
-        
+        let fullPicture = '';
+        let postType = '';
+        let statusType = '';
+        let permalinkUrl = '';
+
         try {
-          const metricsResponse = await fetch(
-            `https://graph.facebook.com/v21.0/${post.id}?fields=reactions.summary(true),comments.summary(true),shares&access_token=${accessToken}`
+          const detailsResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${post.id}?fields=type,status_type,full_picture,permalink_url,reactions.summary(true),comments.summary(true),shares&access_token=${accessToken}`
           );
-          if (metricsResponse.ok) {
-            const metricsData = await metricsResponse.json();
-            reactionsCount = metricsData.reactions?.summary?.total_count || 0;
-            commentsCount = metricsData.comments?.summary?.total_count || 0;
-            sharesCount = metricsData.shares?.count || 0;
+          if (detailsResponse.ok) {
+            const detailsData = await detailsResponse.json();
+            reactionsCount = detailsData.reactions?.summary?.total_count || 0;
+            commentsCount = detailsData.comments?.summary?.total_count || 0;
+            sharesCount = detailsData.shares?.count || 0;
+            fullPicture = detailsData.full_picture || '';
+            postType = detailsData.type || '';
+            statusType = detailsData.status_type || '';
+            permalinkUrl = detailsData.permalink_url || '';
           }
         } catch (e) {
-          console.log(`Could not fetch engagement metrics for post ${post.id}`);
+          console.log(`Could not fetch details for post ${post.id}`);
         }
 
         const postDataToUpsert: any = {
@@ -169,10 +177,10 @@ Deno.serve(async (req: Request) => {
           page_id: pageId,
           date: post.created_time,
           message: post.message || "",
-          type: post.type || "",
-          status_type: post.status_type || "",
-          full_picture: post.full_picture || "",
-          permalink_url: post.permalink_url || "",
+          type: postType,
+          status_type: statusType,
+          full_picture: fullPicture,
+          permalink_url: permalinkUrl,
           likes_count: reactionsCount,
           comments_count: commentsCount,
           shares_count: sharesCount,
