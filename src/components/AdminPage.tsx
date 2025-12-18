@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign, Instagram, Facebook } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign, Instagram, Facebook, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
@@ -8,8 +8,9 @@ import { ProjectTypeAuthorizationPage } from './ProjectTypeAuthorizationPage';
 import { FinanceAuthorizationPage } from './FinanceAuthorizationPage';
 import InstagramAccountsPage from './InstagramAccountsPage';
 import FacebookAccountsPage from './FacebookAccountsPage';
+import MetaAdsSettingsPage from './MetaAdsSettingsPage';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram' | 'facebook';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram' | 'facebook' | 'meta-ads';
 
 interface User {
   id: string;
@@ -146,6 +147,7 @@ export function AdminPage() {
     { id: 'automation', label: 'Automation', icon: Zap },
     { id: 'instagram', label: 'Instagram', icon: Instagram },
     { id: 'facebook', label: 'Facebook', icon: Facebook },
+    { id: 'meta-ads', label: 'Meta Ads', icon: BarChart3 },
   ];
 
   return (
@@ -431,6 +433,16 @@ export function AdminPage() {
                 <p className="text-slate-600">Manage Facebook pages and settings</p>
               </div>
               <FacebookAccountsPage />
+            </div>
+          )}
+
+          {currentView === 'meta-ads' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Meta Ads</h2>
+                <p className="text-slate-600">Configure Meta Ads API and sync ad accounts</p>
+              </div>
+              <MetaAdsSettingsPage />
             </div>
           )}
         </div>

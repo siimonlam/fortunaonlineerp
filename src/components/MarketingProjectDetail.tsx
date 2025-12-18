@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import MarketingInstagramSection from './MarketingInstagramSection';
 import MarketingFacebookSection from './MarketingFacebookSection';
+import MarketingMetaAdSection from './MarketingMetaAdSection';
 
 interface MarketingProject {
   id: string;
@@ -189,6 +190,9 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
       case 'facebook-post':
         return <MarketingFacebookSection projectId={projectId} clientNumber={project?.parent_client_id || null} />;
+
+      case 'meta-ad':
+        return <MarketingMetaAdSection projectId={projectId} clientNumber={project?.parent_client_id || null} />;
 
       default:
         return (
