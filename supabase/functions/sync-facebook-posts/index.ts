@@ -145,7 +145,7 @@ Deno.serve(async (req: Request) => {
           .eq("post_id", post.id)
           .maybeSingle();
 
-        // Fetch post details and aggregated metrics separately (all deprecated fields)
+        // Fetch post details using attachments field (non-deprecated approach)
         let reactionsCount = 0;
         let commentsCount = 0;
         let sharesCount = 0;
@@ -156,17 +156,30 @@ Deno.serve(async (req: Request) => {
 
         try {
           const detailsResponse = await fetch(
-            `https://graph.facebook.com/v21.0/${post.id}?fields=type,status_type,full_picture,permalink_url,reactions.summary(true),comments.summary(true),shares&access_token=${accessToken}`
+            `https://graph.facebook.com/v21.0/${post.id}?fields=attachments,permalink_url,reactions.summary(true),comments.summary(true),shares&access_token=${accessToken}`
           );
           if (detailsResponse.ok) {
             const detailsData = await detailsResponse.json();
             reactionsCount = detailsData.reactions?.summary?.total_count || 0;
             commentsCount = detailsData.comments?.summary?.total_count || 0;
             sharesCount = detailsData.shares?.count || 0;
-            fullPicture = detailsData.full_picture || '';
-            postType = detailsData.type || '';
-            statusType = detailsData.status_type || '';
             permalinkUrl = detailsData.permalink_url || '';
+
+            // Extract type and media from attachments
+            if (detailsData.attachments?.data?.[0]) {
+              const attachment = detailsData.attachments.data[0];
+              postType = attachment.type || '';
+
+              // Get the best quality image
+              if (attachment.media?.image?.src) {
+                fullPicture = attachment.media.image.src;
+              } else if (attachment.media_type === 'photo' && attachment.media?.source) {
+                fullPicture = attachment.media.source;
+              }
+
+              // status_type is not available in attachments, leave empty
+              statusType = '';
+            }
           }
         } catch (e) {
           console.log(`Could not fetch details for post ${post.id}`);
