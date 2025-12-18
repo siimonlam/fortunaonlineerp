@@ -123,18 +123,11 @@ Deno.serve(async (req: Request) => {
             const startDate = new Date(projectStartDate);
             const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-            const intervalsPassed = Math.floor(daysSinceStart / intervalDays);
-
-            if (intervalsPassed >= 1) {
+            if (daysSinceStart % intervalDays === 0 && daysSinceStart >= intervalDays) {
               shouldExecute = true;
 
-              const nextIntervalCount = intervalsPassed + 1;
               let nextExecution = new Date(startDate);
-              nextExecution.setDate(nextExecution.getDate() + (nextIntervalCount * intervalDays));
-
-              while (nextExecution <= now) {
-                nextExecution.setDate(nextExecution.getDate() + intervalDays);
-              }
+              nextExecution.setDate(nextExecution.getDate() + (daysSinceStart + intervalDays));
 
               await supabase
                 .from('periodic_automation_executions')
@@ -148,16 +141,9 @@ Deno.serve(async (req: Request) => {
           } else if (new Date(existingExecution.next_execution_at) <= now) {
             shouldExecute = true;
 
-            const startDate = new Date(projectStartDate);
-            const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-
-            const nextIntervalCount = Math.floor(daysSinceStart / intervalDays) + 1;
-            let nextExecution = new Date(startDate);
-            nextExecution.setDate(nextExecution.getDate() + (nextIntervalCount * intervalDays));
-
-            while (nextExecution <= now) {
-              nextExecution.setDate(nextExecution.getDate() + intervalDays);
-            }
+            const currentNextExecution = new Date(existingExecution.next_execution_at);
+            const nextExecution = new Date(currentNextExecution);
+            nextExecution.setDate(nextExecution.getDate() + intervalDays);
 
             await supabase
               .from('periodic_automation_executions')
