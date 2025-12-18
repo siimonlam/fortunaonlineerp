@@ -282,7 +282,33 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           });
       }
 
-      alert(`Successfully synced ${campaigns.length} campaign(s)`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-meta-ads-insights`;
+
+      const insightsResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accountId: accountId,
+          dateRange: {
+            since: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            until: new Date().toISOString().split('T')[0]
+          }
+        })
+      });
+
+      if (!insightsResponse.ok) {
+        const errorData = await insightsResponse.json();
+        console.error('Failed to sync insights:', errorData);
+        alert(`Synced ${campaigns.length} campaign(s), but failed to sync insights: ${errorData.error || 'Unknown error'}`);
+      } else {
+        const insightsData = await insightsResponse.json();
+        alert(`Successfully synced ${campaigns.length} campaign(s) and ${insightsData.synced} insights records`);
+      }
+
       await loadData();
     } catch (err: any) {
       console.error('Error syncing campaigns:', err);

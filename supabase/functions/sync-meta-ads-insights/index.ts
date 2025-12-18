@@ -1,0 +1,208 @@
+import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+};
+
+interface SyncRequest {
+  accountId: string;
+  campaignIds?: string[];
+  dateRange?: {
+    since: string;
+    until: string;
+  };
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }
+
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const { accountId, campaignIds, dateRange }: SyncRequest = await req.json();
+
+    if (!accountId) {
+      throw new Error('Account ID is required');
+    }
+
+    const { data: tokenData } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'meta_ads_access_token')
+      .maybeSingle();
+
+    if (!tokenData?.value) {
+      throw new Error('Meta Ads access token not configured');
+    }
+
+    const accessToken = tokenData.value;
+    const formattedAccountId = accountId.startsWith('act_') ? accountId : `act_${accountId}`;
+
+    const since = dateRange?.since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const until = dateRange?.until || new Date().toISOString().split('T')[0];
+
+    let campaigns: any[] = [];
+
+    if (campaignIds && campaignIds.length > 0) {
+      const { data } = await supabase
+        .from('meta_campaigns')
+        .select('*')
+        .eq('account_id', accountId)
+        .in('campaign_id', campaignIds);
+
+      campaigns = data || [];
+    } else {
+      const { data } = await supabase
+        .from('meta_campaigns')
+        .select('*')
+        .eq('account_id', accountId);
+
+      campaigns = data || [];
+    }
+
+    if (campaigns.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'No campaigns found to sync insights for',
+          synced: 0
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    let totalSynced = 0;
+
+    for (const campaign of campaigns) {
+      const adsUrl = `https://graph.facebook.com/v21.0/${campaign.campaign_id}/ads?fields=id,name,adset_id&access_token=${accessToken}`;
+      const adsResponse = await fetch(adsUrl);
+
+      if (!adsResponse.ok) {
+        console.error(`Failed to fetch ads for campaign ${campaign.campaign_id}`);
+        continue;
+      }
+
+      const adsData = await adsResponse.json();
+      const ads = adsData.data || [];
+
+      for (const ad of ads) {
+        await supabase
+          .from('meta_ads')
+          .upsert({
+            ad_id: ad.id,
+            adset_id: ad.adset_id,
+            campaign_id: campaign.campaign_id,
+            account_id: accountId,
+            name: ad.name,
+            client_number: campaign.client_number,
+            marketing_reference: campaign.marketing_reference,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'ad_id'
+          });
+
+        const insightsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,reach,frequency,clicks,unique_clicks,ctr,unique_ctr,inline_link_clicks,inline_link_click_ctr,spend,cpc,cpm,cpp,video_views,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,conversions,conversion_values,cost_per_conversion,actions,social_spend,website_ctr,outbound_clicks,quality_ranking,engagement_rate_ranking,conversion_rate_ranking&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
+
+        const insightsResponse = await fetch(insightsUrl);
+
+        if (!insightsResponse.ok) {
+          console.error(`Failed to fetch insights for ad ${ad.id}`);
+          continue;
+        }
+
+        const insightsData = await insightsResponse.json();
+        const insights = insightsData.data || [];
+
+        for (const insight of insights) {
+          const videoP25 = insight.video_p25_watched_actions?.[0]?.value || 0;
+          const videoP50 = insight.video_p50_watched_actions?.[0]?.value || 0;
+          const videoP75 = insight.video_p75_watched_actions?.[0]?.value || 0;
+          const videoP100 = insight.video_p100_watched_actions?.[0]?.value || 0;
+          const videoAvgTime = insight.video_avg_time_watched_actions?.[0]?.value || 0;
+
+          await supabase
+            .from('meta_ad_insights')
+            .upsert({
+              ad_id: ad.id,
+              adset_id: ad.adset_id,
+              campaign_id: campaign.campaign_id,
+              account_id: accountId,
+              date: insight.date_start,
+              impressions: parseInt(insight.impressions || '0'),
+              reach: parseInt(insight.reach || '0'),
+              frequency: parseFloat(insight.frequency || '0'),
+              clicks: parseInt(insight.clicks || '0'),
+              unique_clicks: parseInt(insight.unique_clicks || '0'),
+              ctr: parseFloat(insight.ctr || '0'),
+              unique_ctr: parseFloat(insight.unique_ctr || '0'),
+              inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
+              inline_link_click_ctr: parseFloat(insight.inline_link_click_ctr || '0'),
+              spend: parseFloat(insight.spend || '0'),
+              cpc: parseFloat(insight.cpc || '0'),
+              cpm: parseFloat(insight.cpm || '0'),
+              cpp: parseFloat(insight.cpp || '0'),
+              video_views: parseInt(insight.video_views || '0'),
+              video_avg_time_watched_actions: parseFloat(videoAvgTime),
+              video_p25_watched_actions: parseInt(videoP25),
+              video_p50_watched_actions: parseInt(videoP50),
+              video_p75_watched_actions: parseInt(videoP75),
+              video_p100_watched_actions: parseInt(videoP100),
+              conversions: parseInt(insight.conversions || '0'),
+              conversion_values: parseFloat(insight.conversion_values || '0'),
+              cost_per_conversion: parseFloat(insight.cost_per_conversion || '0'),
+              actions: insight.actions ? JSON.stringify(insight.actions) : null,
+              social_spend: parseFloat(insight.social_spend || '0'),
+              website_ctr: parseFloat(insight.website_ctr || '0'),
+              outbound_clicks: parseInt(insight.outbound_clicks || '0'),
+              quality_ranking: insight.quality_ranking || null,
+              engagement_rate_ranking: insight.engagement_rate_ranking || null,
+              conversion_rate_ranking: insight.conversion_rate_ranking || null,
+              client_number: campaign.client_number,
+              marketing_reference: campaign.marketing_reference,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'ad_id,date'
+            });
+
+          totalSynced++;
+        }
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Successfully synced ${totalSynced} insights records`,
+        synced: totalSynced,
+        campaigns: campaigns.length
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error: any) {
+    console.error('Error syncing Meta Ads insights:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message || 'Unknown error occurred'
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+});
