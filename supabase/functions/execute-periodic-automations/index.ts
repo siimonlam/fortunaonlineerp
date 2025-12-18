@@ -62,24 +62,32 @@ Deno.serve(async (req: Request) => {
 
         const intervalDays = rule.trigger_config?.frequency || rule.trigger_config?.interval_days || 1;
 
-        const { data: targetStatus } = await supabase
+        const { data: matchingStatuses } = await supabase
           .from('statuses')
-          .select('id, name')
+          .select('id, name, is_substatus, parent_status_id')
           .eq('name', rule.main_status)
-          .eq('project_type_id', rule.project_type_id)
-          .maybeSingle();
+          .eq('project_type_id', rule.project_type_id);
 
-        if (!targetStatus) {
+        if (!matchingStatuses || matchingStatuses.length === 0) {
           console.log(`Status ${rule.main_status} not found for rule ${rule.name}`);
           return;
         }
 
-        const { data: substatuses } = await supabase
-          .from('statuses')
-          .select('id')
-          .eq('parent_status_id', targetStatus.id);
+        const statusIds = [];
+        for (const status of matchingStatuses) {
+          statusIds.push(status.id);
 
-        const statusIds = [targetStatus.id, ...(substatuses?.map(s => s.id) || [])];
+          const { data: substatuses } = await supabase
+            .from('statuses')
+            .select('id')
+            .eq('parent_status_id', status.id);
+
+          if (substatuses && substatuses.length > 0) {
+            statusIds.push(...substatuses.map(s => s.id));
+          }
+        }
+
+        console.log(`Status IDs for ${rule.main_status}: ${statusIds.join(', ')}`);
 
         const dateField = rule.trigger_config?.date_field || 'project_start_date';
 
@@ -120,12 +128,10 @@ Deno.serve(async (req: Request) => {
             if (intervalsPassed >= 1) {
               shouldExecute = true;
 
-              // Calculate next execution date that is in the future
               const nextIntervalCount = intervalsPassed + 1;
               let nextExecution = new Date(startDate);
               nextExecution.setDate(nextExecution.getDate() + (nextIntervalCount * intervalDays));
 
-              // If calculated next execution is still in the past, keep adding intervals
               while (nextExecution <= now) {
                 nextExecution.setDate(nextExecution.getDate() + intervalDays);
               }
@@ -145,13 +151,10 @@ Deno.serve(async (req: Request) => {
             const startDate = new Date(projectStartDate);
             const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-            // Calculate next execution date that is in the future
-            // Skip all missed intervals and go to the next future date
             const nextIntervalCount = Math.floor(daysSinceStart / intervalDays) + 1;
             let nextExecution = new Date(startDate);
             nextExecution.setDate(nextExecution.getDate() + (nextIntervalCount * intervalDays));
 
-            // If calculated next execution is still in the past (edge case), keep adding intervals
             while (nextExecution <= now) {
               nextExecution.setDate(nextExecution.getDate() + intervalDays);
             }
