@@ -62,10 +62,14 @@ async function copyFolderStructure(
   const listData = await listResponse.json();
   const folders = listData.files || [];
 
+  console.log(`Found ${folders.length} folders in ${sourceFolderId}:`, folders.map(f => f.name));
+
   for (const folder of folders) {
-    const newFolderId = await createGoogleDriveFolder(folder.name, targetParentId, accessToken);
-    folderMap.set(folder.name, newFolderId);
-    await copyFolderStructure(folder.id, newFolderId, accessToken, folderMap);
+    if (folder.mimeType === 'application/vnd.google-apps.folder') {
+      const newFolderId = await createGoogleDriveFolder(folder.name, targetParentId, accessToken);
+      folderMap.set(folder.name, newFolderId);
+      await copyFolderStructure(folder.id, newFolderId, accessToken, folderMap);
+    }
   }
 
   return folderMap;
@@ -190,6 +194,35 @@ Deno.serve(async (req: Request) => {
 
     console.log('Copying folder structure from template...');
     await copyFolderStructure(TEMPLATE_FOLDER_ID, rootFolderId, accessToken, folderMap);
+
+    console.log('Checking for unwanted files in root folder...');
+    const filesInRoot = await fetch(
+      `${GOOGLE_DRIVE_API}/files?q='${rootFolderId}'+in+parents+and+mimeType!='application/vnd.google-apps.folder'&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (filesInRoot.ok) {
+      const filesData = await filesInRoot.json();
+      const files = filesData.files || [];
+
+      if (files.length > 0) {
+        console.log(`Found ${files.length} unwanted files, deleting...`, files.map(f => f.name));
+
+        for (const file of files) {
+          await fetch(`${GOOGLE_DRIVE_API}/files/${file.id}?supportsAllDrives=true`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+          });
+        }
+        console.log('Unwanted files deleted');
+      }
+    }
 
     console.log(`Folder structure created successfully`);
 
