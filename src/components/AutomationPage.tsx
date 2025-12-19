@@ -8,7 +8,7 @@ interface AutomationRule {
   project_type_id: string;
   main_status: string;
   substatus_filter?: string;
-  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date' | 'deposit_paid' | 'application_number_set' | 'approval_date_set' | 'label_added';
+  trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date' | 'days_before_date' | 'deposit_paid' | 'application_number_set' | 'approval_date_set' | 'label_added';
   trigger_config: any;
   condition_type?: 'no_condition' | 'sales_source' | 'sales_person';
   condition_config?: any;
@@ -54,6 +54,7 @@ const TRIGGER_TYPES = [
   { value: 'deposit_paid', label: 'Deposit status is paid' },
   { value: 'periodic', label: 'Periodically Action' },
   { value: 'days_after_date', label: 'X days after a date field' },
+  { value: 'days_before_date', label: 'X days before a date field' },
   { value: 'application_number_set', label: 'Application number is set' },
   { value: 'approval_date_set', label: 'Approval Date is set' },
   { value: 'label_added', label: 'A label is added' }
@@ -602,6 +603,46 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">After date field</label>
+                      <select
+                        value={formData.trigger_config.date_field || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          trigger_config: { ...formData.trigger_config, date_field: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select date field...</option>
+                        <option value="created_at">Project Create Date</option>
+                        <option value="start_date">Start Date</option>
+                        <option value="project_start_date">Project Start Date</option>
+                        <option value="project_end_date">Project End Date</option>
+                        <option value="submission_date">Submission Date</option>
+                        <option value="approval_date">Approval Date</option>
+                        <option value="deposit_paid_date">Deposit Paid Date</option>
+                        <option value="hi_po_date">Hi-Po Date</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {formData.trigger_type === 'days_before_date' && (
+                  <div className="space-y-3 ml-4 p-3 bg-slate-50 rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Number of days</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g., 7"
+                        value={formData.trigger_config.days_offset || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          trigger_config: { ...formData.trigger_config, days_offset: parseInt(e.target.value) || 0 }
+                        })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Before date field</label>
                       <select
                         value={formData.trigger_config.date_field || ''}
                         onChange={(e) => setFormData({
