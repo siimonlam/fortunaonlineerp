@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3';
-const TEMPLATE_FOLDER_ID = '17EK9t8ACTyghhklCf84TZ9Y5CyYdJHbk';
+const TEMPLATE_FOLDER_ID = '1hjj5ucOWhb1R9vxxJUmMvxMLJOYtEHf5';
 
 const BUD_FOLDER_STRUCTURE = [
   'Agreement',
@@ -417,7 +417,7 @@ Deno.serve(async (req: Request) => {
       console.log('Token refreshed successfully');
     }
 
-    const parent_folder_id = '1UGe0xaW7Z-PIFhK9CHLayI78k59HjQ-n';
+    const parent_folder_id = '0AK4J5-rAVAsnUk9PVA';
 
     const rootFolderName = project_reference
       ? `${project_reference} - ${project_name || 'Unnamed Project'}`

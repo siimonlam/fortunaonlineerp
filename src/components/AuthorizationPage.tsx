@@ -535,7 +535,7 @@ export function AuthorizationPage({ onBack }: AuthorizationPageProps) {
             Google Drive Integration
           </h2>
           <p className="text-sm text-slate-500 mb-4">
-            Folder creation uses this Google account. Share template folder (17EK9t8ACTyghhklCf84TZ9Y5CyYdJHbk) with this account.
+            Folder creation uses this Google account. Share template folder (1hjj5ucOWhb1R9vxxJUmMvxMLJOYtEHf5) with this account.
           </p>
           {loadingGoogleInfo ? (
             <div className="text-sm text-slate-500">Loading...</div>
