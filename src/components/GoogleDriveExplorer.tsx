@@ -213,25 +213,38 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
       // First, try to get folder info from database if we have projectId
       if (projectId) {
         setDebugInfo(`Looking up project folder in database for project: ${projectId}`);
-        const folderInfo = await getProjectFolders(projectId);
 
-        if (folderInfo && folderInfo.parent_folder_id) {
-          setDebugInfo(`Found folder ID in database: ${folderInfo.parent_folder_id}`);
+        // Try to get folder ID from projects table first
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('google_drive_folder_id')
+          .eq('id', projectId)
+          .maybeSingle();
+
+        let folderId = projectData?.google_drive_folder_id;
+
+        // If not found in projects table, try project_folders table
+        if (!folderId) {
+          const folderInfo = await getProjectFolders(projectId);
+          folderId = folderInfo?.parent_folder_id;
+        }
+
+        if (folderId) {
+          setDebugInfo(`Found folder ID in database: ${folderId}`);
 
           // Get folder name from Google Drive
           try {
             const folderResponse = await window.gapi.client.drive.files.get({
-              fileId: folderInfo.parent_folder_id,
-              fields: 'id, name'
+              fileId: folderId,
+              fields: 'id, name',
+              supportsAllDrives: true
             });
 
             if (folderResponse.result) {
               setDebugInfo(`Successfully navigated to: ${folderResponse.result.name}`);
               setCurrentFolderId(folderResponse.result.id);
-              setBreadcrumbs([
-                { id: budFolderId, name: budFolderName },
-                { id: folderResponse.result.id, name: folderResponse.result.name }
-              ]);
+              setRootFolderId(folderResponse.result.id);
+              setBreadcrumbs([{ id: folderResponse.result.id, name: folderResponse.result.name }]);
               return;
             }
           } catch (err: any) {
@@ -250,17 +263,17 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
         const response = await window.gapi.client.drive.files.list({
           q: searchQuery,
           fields: 'files(id, name)',
-          pageSize: 10
+          pageSize: 10,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true
         });
 
         if (response.result.files && response.result.files.length > 0) {
           const projectFolder = response.result.files[0];
           setDebugInfo(`Found and navigated to: ${projectFolder.name}`);
           setCurrentFolderId(projectFolder.id);
-          setBreadcrumbs([
-            { id: budFolderId, name: budFolderName },
-            { id: projectFolder.id, name: projectFolder.name }
-          ]);
+          setRootFolderId(projectFolder.id);
+          setBreadcrumbs([{ id: projectFolder.id, name: projectFolder.name }]);
         } else {
           setDebugInfo(`Project folder not found. Searched in parent: ${budFolderId}`);
         }
