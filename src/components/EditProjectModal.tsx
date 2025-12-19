@@ -802,7 +802,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
       let result;
       if (isMarketingProject) {
-        result = await createMarketingProjectFolders(project.id, projectName);
+        result = await createMarketingProjectFolders(
+          project.id,
+          project.project_reference || '',
+          project.brand_name,
+          project.company_name
+        );
       } else {
         result = await createBudProjectFolders(
           project.id,

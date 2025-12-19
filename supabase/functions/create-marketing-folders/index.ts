@@ -47,7 +47,7 @@ async function copyFolderStructure(
   folderMap: Map<string, string> = new Map()
 ): Promise<Map<string, string>> {
   const listResponse = await fetch(
-    `${GOOGLE_DRIVE_API}/files?q='${sourceFolderId}'+in+parents&fields=files(id,name,mimeType)&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    `${GOOGLE_DRIVE_API}/files?q='${sourceFolderId}'+in+parents+and+mimeType='application/vnd.google-apps.folder'&fields=files(id,name,mimeType)&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -60,14 +60,12 @@ async function copyFolderStructure(
   }
 
   const listData = await listResponse.json();
-  const files = listData.files || [];
+  const folders = listData.files || [];
 
-  for (const file of files) {
-    if (file.mimeType === 'application/vnd.google-apps.folder') {
-      const newFolderId = await createGoogleDriveFolder(file.name, targetParentId, accessToken);
-      folderMap.set(file.name, newFolderId);
-      await copyFolderStructure(file.id, newFolderId, accessToken, folderMap);
-    }
+  for (const folder of folders) {
+    const newFolderId = await createGoogleDriveFolder(folder.name, targetParentId, accessToken);
+    folderMap.set(folder.name, newFolderId);
+    await copyFolderStructure(folder.id, newFolderId, accessToken, folderMap);
   }
 
   return folderMap;
@@ -112,17 +110,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { projectId, companyName } = await req.json();
+    const { projectId, marketingReference, brandName, companyName } = await req.json();
 
-    if (!projectId || !companyName) {
+    if (!projectId || !marketingReference) {
       return new Response(
-        JSON.stringify({ error: 'Project ID and company name are required' }),
+        JSON.stringify({ error: 'Project ID and marketing reference are required' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
+
+    const folderName = `${marketingReference}_${brandName || companyName || 'Unnamed'}`;
+    console.log(`Creating folder: ${folderName}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -166,13 +167,13 @@ Deno.serve(async (req: Request) => {
       console.log('Token refreshed successfully');
     }
 
-    console.log(`Creating folder structure for: ${companyName}`);
+    console.log(`Creating folder structure for: ${folderName}`);
 
-    const rootFolderId = await createGoogleDriveFolder(companyName, PARENT_FOLDER_ID, accessToken);
+    const rootFolderId = await createGoogleDriveFolder(folderName, PARENT_FOLDER_ID, accessToken);
     console.log(`Root folder created: ${rootFolderId}`);
 
     const folderMap = new Map<string, string>();
-    folderMap.set(companyName, rootFolderId);
+    folderMap.set(folderName, rootFolderId);
 
     console.log('Copying folder structure from template...');
     await copyFolderStructure(TEMPLATE_FOLDER_ID, rootFolderId, accessToken, folderMap);

@@ -113,8 +113,12 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
     setFolderError(null);
 
     try {
-      const companyName = project.company_name || project.brand_name || project.title;
-      const result = await createMarketingProjectFolders(project.id, companyName);
+      const result = await createMarketingProjectFolders(
+        project.id,
+        project.project_reference,
+        project.brand_name,
+        project.company_name
+      );
 
       await supabase
         .from('marketing_projects')

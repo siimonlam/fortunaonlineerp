@@ -55,7 +55,9 @@ export async function createBudProjectFolders(
 
 export async function createMarketingProjectFolders(
   projectId: string,
-  companyName: string
+  marketingReference: string,
+  brandName?: string,
+  companyName?: string
 ): Promise<{ success: boolean; root_folder_id: string; folder_map: Record<string, string> }> {
   const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-marketing-folders`;
 
@@ -68,6 +70,8 @@ export async function createMarketingProjectFolders(
       },
       body: JSON.stringify({
         projectId,
+        marketingReference,
+        brandName,
         companyName,
       }),
     });
