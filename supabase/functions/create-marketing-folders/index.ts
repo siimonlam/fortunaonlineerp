@@ -40,6 +40,28 @@ async function createGoogleDriveFolder(
   return data.id;
 }
 
+async function copyFile(
+  fileId: string,
+  targetParentId: string,
+  accessToken: string
+): Promise<void> {
+  const copyResponse = await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}/copy?supportsAllDrives=true`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      parents: [targetParentId],
+    }),
+  });
+
+  if (!copyResponse.ok) {
+    const error = await copyResponse.text();
+    throw new Error(`Failed to copy file: ${error}`);
+  }
+}
+
 async function copyFolderStructure(
   sourceFolderId: string,
   targetParentId: string,
@@ -73,6 +95,35 @@ async function copyFolderStructure(
   }
 
   return folderMap;
+}
+
+async function copyTemplateFiles(
+  sourceFolderId: string,
+  targetFolderId: string,
+  accessToken: string
+): Promise<void> {
+  const listResponse = await fetch(
+    `${GOOGLE_DRIVE_API}/files?q='${sourceFolderId}'+in+parents+and+mimeType!='application/vnd.google-apps.folder'&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!listResponse.ok) {
+    throw new Error('Failed to list template files');
+  }
+
+  const listData = await listResponse.json();
+  const files = listData.files || [];
+
+  console.log(`Found ${files.length} template files to copy:`, files.map(f => f.name));
+
+  for (const file of files) {
+    console.log(`Copying file: ${file.name}`);
+    await copyFile(file.id, targetFolderId, accessToken);
+  }
 }
 
 async function refreshGoogleToken(refreshToken: string): Promise<string> {
@@ -195,36 +246,10 @@ Deno.serve(async (req: Request) => {
     console.log('Copying folder structure from template...');
     await copyFolderStructure(TEMPLATE_FOLDER_ID, rootFolderId, accessToken, folderMap);
 
-    console.log('Checking for unwanted files in root folder...');
-    const filesInRoot = await fetch(
-      `${GOOGLE_DRIVE_API}/files?q='${rootFolderId}'+in+parents+and+mimeType!='application/vnd.google-apps.folder'&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      }
-    );
+    console.log('Copying template files...');
+    await copyTemplateFiles(TEMPLATE_FOLDER_ID, rootFolderId, accessToken);
 
-    if (filesInRoot.ok) {
-      const filesData = await filesInRoot.json();
-      const files = filesData.files || [];
-
-      if (files.length > 0) {
-        console.log(`Found ${files.length} unwanted files, deleting...`, files.map(f => f.name));
-
-        for (const file of files) {
-          await fetch(`${GOOGLE_DRIVE_API}/files/${file.id}?supportsAllDrives=true`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-            },
-          });
-        }
-        console.log('Unwanted files deleted');
-      }
-    }
-
-    console.log(`Folder structure created successfully`);
+    console.log(`Folder structure and files created successfully`);
 
     return new Response(
       JSON.stringify({
