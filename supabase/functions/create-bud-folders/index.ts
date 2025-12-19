@@ -100,7 +100,7 @@ async function createGoogleDriveFolder(
     ...(parentId && { parents: [parentId] }),
   };
 
-  const response = await fetch(`${GOOGLE_DRIVE_API}/files`, {
+  const response = await fetch(`${GOOGLE_DRIVE_API}/files?supportsAllDrives=true`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -119,7 +119,7 @@ async function createGoogleDriveFolder(
 
   try {
     await fetch(
-      `${GOOGLE_DRIVE_API}/files/${folderId}/permissions`,
+      `${GOOGLE_DRIVE_API}/files/${folderId}/permissions?supportsAllDrives=true`,
       {
         method: 'POST',
         headers: {
@@ -146,7 +146,7 @@ async function copyFileToFolder(
   destinationFolderId: string,
   accessToken: string
 ): Promise<string> {
-  const response = await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}/copy`, {
+  const response = await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}/copy?supportsAllDrives=true`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -172,7 +172,7 @@ async function listFilesInFolder(
   accessToken: string
 ): Promise<Array<{ id: string; name: string; mimeType: string }>> {
   const response = await fetch(
-    `${GOOGLE_DRIVE_API}/files?q='${folderId}'+in+parents&fields=files(id,name,mimeType)`,
+    `${GOOGLE_DRIVE_API}/files?q='${folderId}'+in+parents&fields=files(id,name,mimeType)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
