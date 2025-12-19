@@ -7,6 +7,7 @@ interface AutomationRule {
   name: string;
   project_type_id: string;
   main_status: string;
+  substatus_filter?: string;
   trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date' | 'deposit_paid' | 'application_number_set' | 'approval_date_set' | 'label_added';
   trigger_config: any;
   condition_type?: 'no_condition' | 'sales_source' | 'sales_person';
@@ -91,6 +92,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
     name: '',
     project_type_id: projectTypeId || '',
     main_status: '',
+    substatus_filter: 'All',
     trigger_type: 'hkpc_date_set' as AutomationRule['trigger_type'],
     trigger_config: {},
     condition_type: 'no_condition' as AutomationRule['condition_type'],
@@ -110,25 +112,27 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
   }, []);
 
   async function loadData() {
-    let rulesQuery = supabase.from('automation_rules').select('*').order('created_at', { ascending: false });
-
-    if (projectTypeId) {
-      rulesQuery = rulesQuery.eq('project_type_id', projectTypeId);
-    }
-
     const fundingProjectType = await supabase
       .from('project_types')
       .select('id')
       .eq('name', 'Funding Project')
       .maybeSingle();
 
+    const fundingTypeId = fundingProjectType.data?.id || projectTypeId;
+
+    let rulesQuery = supabase.from('automation_rules').select('*').order('created_at', { ascending: false });
+
+    if (fundingTypeId) {
+      rulesQuery = rulesQuery.eq('project_type_id', fundingTypeId);
+    }
+
     const [rulesRes, typesRes, labelsRes, staffRes, statusesRes] = await Promise.all([
       rulesQuery,
       supabase.from('project_types').select('id, name'),
       supabase.from('labels').select('*').order('order_index'),
       supabase.from('staff').select('id, email, full_name'),
-      fundingProjectType.data
-        ? supabase.from('statuses').select('id, name, project_type_id, is_substatus, order_index, parent_status_id').eq('project_type_id', fundingProjectType.data.id)
+      fundingTypeId
+        ? supabase.from('statuses').select('id, name, project_type_id, is_substatus, order_index, parent_status_id').eq('project_type_id', fundingTypeId)
         : supabase.from('statuses').select('id, name, project_type_id, is_substatus, order_index, parent_status_id')
     ]);
 
@@ -137,6 +141,10 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
     if (labelsRes.data) setLabels(labelsRes.data);
     if (staffRes.data) setStaff(staffRes.data);
     if (statusesRes.data) setStatuses(statusesRes.data);
+
+    if (fundingTypeId && !formData.project_type_id) {
+      setFormData(prev => ({ ...prev, project_type_id: fundingTypeId }));
+    }
   }
 
   async function toggleRuleActive(ruleId: string, isActive: boolean) {
@@ -179,6 +187,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
       name: formData.name,
       project_type_id: formData.project_type_id || null,
       main_status: formData.main_status,
+      substatus_filter: formData.substatus_filter || 'All',
       trigger_type: formData.trigger_type,
       trigger_config: formData.trigger_config,
       condition_type: formData.condition_type || 'no_condition',
@@ -202,6 +211,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
         name: '',
         project_type_id: projectTypeId || '',
         main_status: '',
+        substatus_filter: 'All',
         trigger_type: 'hkpc_date_set',
         trigger_config: {},
         condition_type: 'no_condition',
@@ -226,6 +236,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
       name: rule.name,
       project_type_id: rule.project_type_id || '',
       main_status: rule.main_status,
+      substatus_filter: rule.substatus_filter || 'All',
       trigger_type: rule.trigger_type,
       trigger_config: rule.trigger_config || {},
       condition_type: rule.condition_type || 'no_condition',
@@ -295,8 +306,8 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">{projectTypeName} Automation</h2>
-          <p className="text-slate-600 text-sm mt-1">Configure automated actions for {projectTypeName.toLowerCase()} projects</p>
+          <h2 className="text-2xl font-bold text-slate-900">Funding Automation</h2>
+          <p className="text-slate-600 text-sm mt-1">Configure automated actions for funding projects</p>
         </div>
         <button
           onClick={() => setShowNewRuleForm(true)}
@@ -408,27 +419,11 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                 />
               </div>
 
-              {!projectTypeId && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Project Type *</label>
-                  <select
-                    value={formData.project_type_id}
-                    onChange={(e) => setFormData({ ...formData, project_type_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select project type...</option>
-                    {projectTypes.map(type => (
-                      <option key={type.id} value={type.id}>{type.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Status *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Main Status *</label>
                 <select
                   value={formData.main_status}
-                  onChange={(e) => setFormData({ ...formData, main_status: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, main_status: e.target.value, substatus_filter: 'All' })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select status...</option>
@@ -437,6 +432,30 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                   ))}
                 </select>
               </div>
+
+              {formData.main_status && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Substatus Filter</label>
+                  <select
+                    value={formData.substatus_filter}
+                    onChange={(e) => setFormData({ ...formData, substatus_filter: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="All">All (Main status and all substatuses)</option>
+                    {statuses
+                      .filter(s => !s.is_substatus && s.name === formData.main_status)
+                      .map(mainStatus => {
+                        const substatuses = statuses.filter(s => s.parent_status_id === mainStatus.id);
+                        return substatuses.map(substatus => (
+                          <option key={substatus.id} value={substatus.id}>{substatus.name}</option>
+                        ));
+                      })}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Select 'All' to apply to all substatuses, or choose a specific substatus to improve performance
+                  </p>
+                </div>
+              )}
 
               <div className="border-t border-slate-200 pt-4">
                 <h4 className="text-sm font-semibold text-slate-900 mb-3">Trigger</h4>

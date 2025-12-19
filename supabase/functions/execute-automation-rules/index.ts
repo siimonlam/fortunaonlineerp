@@ -110,6 +110,14 @@ Deno.serve(async (req: Request) => {
       try {
         console.log('Executing rule:', rule.name, 'Action:', rule.action_type);
 
+        if (rule.substatus_filter && rule.substatus_filter !== 'All') {
+          if (status_id !== rule.substatus_filter) {
+            console.log(`Skipping rule - substatus filter mismatch: "${status_id}" !== "${rule.substatus_filter}"`);
+            results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'substatus_filter_mismatch' });
+            continue;
+          }
+        }
+
         if (trigger_type === 'task_completed' && rule.trigger_config?.task_name) {
           if (trigger_data?.task_name !== rule.trigger_config.task_name) {
             console.log(`Skipping rule - task name mismatch: "${trigger_data?.task_name}" !== "${rule.trigger_config.task_name}"`);

@@ -62,32 +62,38 @@ Deno.serve(async (req: Request) => {
 
         const intervalDays = rule.trigger_config?.frequency || rule.trigger_config?.interval_days || 1;
 
-        const { data: matchingStatuses } = await supabase
-          .from('statuses')
-          .select('id, name, is_substatus, parent_status_id')
-          .eq('name', rule.main_status)
-          .eq('project_type_id', rule.project_type_id);
-
-        if (!matchingStatuses || matchingStatuses.length === 0) {
-          console.log(`Status ${rule.main_status} not found for rule ${rule.name}`);
-          return;
-        }
-
         const statusIds = [];
-        for (const status of matchingStatuses) {
-          statusIds.push(status.id);
 
-          const { data: substatuses } = await supabase
+        if (rule.substatus_filter && rule.substatus_filter !== 'All') {
+          statusIds.push(rule.substatus_filter);
+          console.log(`Using specific substatus filter: ${rule.substatus_filter}`);
+        } else {
+          const { data: matchingStatuses } = await supabase
             .from('statuses')
-            .select('id')
-            .eq('parent_status_id', status.id);
+            .select('id, name, is_substatus, parent_status_id')
+            .eq('name', rule.main_status)
+            .eq('project_type_id', rule.project_type_id);
 
-          if (substatuses && substatuses.length > 0) {
-            statusIds.push(...substatuses.map(s => s.id));
+          if (!matchingStatuses || matchingStatuses.length === 0) {
+            console.log(`Status ${rule.main_status} not found for rule ${rule.name}`);
+            return;
           }
-        }
 
-        console.log(`Status IDs for ${rule.main_status}: ${statusIds.join(', ')}`);
+          for (const status of matchingStatuses) {
+            statusIds.push(status.id);
+
+            const { data: substatuses } = await supabase
+              .from('statuses')
+              .select('id')
+              .eq('parent_status_id', status.id);
+
+            if (substatuses && substatuses.length > 0) {
+              statusIds.push(...substatuses.map(s => s.id));
+            }
+          }
+
+          console.log(`Status IDs for ${rule.main_status}: ${statusIds.join(', ')}`);
+        }
 
         const dateField = rule.trigger_config?.date_field || 'project_start_date';
 
