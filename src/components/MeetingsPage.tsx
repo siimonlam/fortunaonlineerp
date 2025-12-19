@@ -169,16 +169,56 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
       description: task.description,
       assigned_to: task.assigned_to,
       deadline: task.deadline ? new Date(task.deadline).toISOString() : null,
-      completed: false
+      completed: task.completed || false
     }));
 
     await supabase.from('tasks').insert(tasks);
   };
 
   const updateTasks = async (meetingId: string) => {
+    const tasksToUpdate = formData.tasks.filter(task => task.title.trim());
 
-    await supabase.from('tasks').delete().eq('meeting_id', meetingId);
-    await createTasks(meetingId);
+    const existingTaskIds = tasksToUpdate.filter(t => t.id).map(t => t.id);
+
+    if (existingTaskIds.length > 0) {
+      await supabase
+        .from('tasks')
+        .delete()
+        .eq('meeting_id', meetingId)
+        .not('id', 'in', `(${existingTaskIds.join(',')})`);
+    } else {
+      await supabase
+        .from('tasks')
+        .delete()
+        .eq('meeting_id', meetingId);
+    }
+
+    for (const task of tasksToUpdate) {
+      if (task.id) {
+        await supabase
+          .from('tasks')
+          .update({
+            title: task.title,
+            description: task.description,
+            assigned_to: task.assigned_to,
+            deadline: task.deadline ? new Date(task.deadline).toISOString() : null,
+            completed: task.completed || false
+          })
+          .eq('id', task.id);
+      } else {
+        await supabase
+          .from('tasks')
+          .insert({
+            meeting_id: meetingId,
+            project_id: selectedProjectId || null,
+            title: task.title,
+            description: task.description,
+            assigned_to: task.assigned_to,
+            deadline: task.deadline ? new Date(task.deadline).toISOString() : null,
+            completed: task.completed || false
+          });
+      }
+    }
   };
 
   const deleteMeeting = async (meetingId: string) => {
