@@ -10,7 +10,7 @@ interface CreateInvoiceModalProps {
   onSuccess: () => void;
 }
 
-const INVOICE_FOLDER_ID = '1-D6RXiVc7bi3qYT__fLxRqh7MDJ1_Hyz';
+const INVOICE_FOLDER_ID = '14Mt7aRwzdh7W-lvhnQgy3WtwLM0uk77K';
 
 export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoiceModalProps) {
   const [loading, setLoading] = useState(false);

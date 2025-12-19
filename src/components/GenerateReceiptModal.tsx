@@ -17,7 +17,7 @@ interface GenerateReceiptModalProps {
   onSuccess: () => void;
 }
 
-const RECEIPT_FOLDER_ID = '1C6MJfBIuiABtBPNUXLlav6AGbHn7WhAw';
+const RECEIPT_FOLDER_ID = '1D1cmj4HUFSvOinerVV8gOcCgFw3ctsqt';
 
 export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateReceiptModalProps) {
   const [loading, setLoading] = useState(false);
