@@ -110,9 +110,22 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { projectId, marketingReference, brandName, companyName } = await req.json();
+    const requestBody = await req.json();
+    console.log('Received request body:', requestBody);
+
+    const { projectId, marketingReference, brandName, companyName } = requestBody;
+
+    console.log('Extracted values:', {
+      projectId,
+      marketingReference,
+      brandName,
+      companyName,
+      hasProjectId: !!projectId,
+      hasMarketingReference: !!marketingReference
+    });
 
     if (!projectId || !marketingReference) {
+      console.error('Missing required fields:', { projectId, marketingReference });
       return new Response(
         JSON.stringify({ error: 'Project ID and marketing reference are required' }),
         {

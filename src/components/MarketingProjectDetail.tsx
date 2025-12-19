@@ -27,7 +27,7 @@ import { createMarketingProjectFolders } from '../utils/googleDriveUtils';
 
 interface MarketingProject {
   id: string;
-  project_reference: string;
+  project_reference?: string;
   brand_name: string;
   company_name: string;
   company_name_chinese: string;
@@ -108,6 +108,18 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
   const handleCreateFolders = async () => {
     if (!project) return;
+
+    if (!project.project_reference) {
+      setFolderError('Project reference (MP0000 format) is missing. Please ensure the project was created correctly.');
+      return;
+    }
+
+    console.log('Creating folders with:', {
+      projectId: project.id,
+      marketingReference: project.project_reference,
+      brandName: project.brand_name,
+      companyName: project.company_name
+    });
 
     setCreatingFolders(true);
     setFolderError(null);
