@@ -179,7 +179,7 @@ Deno.serve(async (req: Request) => {
                   } else {
                     const { data: projectData } = await supabase
                       .from('projects')
-                      .select('project_end_date, next_hkpc_due_date, start_date, project_start_date, submission_date, approval_date')
+                      .select('project_end_date, next_hkpc_due_date, start_date, project_start_date, submission_date, approval_date, hi_po_date, deposit_paid_date')
                       .eq('id', project.id)
                       .maybeSingle();
 
