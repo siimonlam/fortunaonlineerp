@@ -8,8 +8,8 @@ const corsHeaders = {
 };
 
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3';
-const PARENT_FOLDER_ID = '1x4YWlwk-VCufzdnpt7SO3u_-03WdbmWp';
-const TEMPLATE_FOLDER_ID = '1IHAmnsXhnosqm19c2wUtVrptpHQnkZJD';
+const PARENT_FOLDER_ID = '0AKtw1OOFlpHcUk9PVA';
+const TEMPLATE_FOLDER_ID = '1ra4uNP1zPWnX2ZsY6TQ24Vz8j98rPrTO';
 
 async function createGoogleDriveFolder(
   name: string,

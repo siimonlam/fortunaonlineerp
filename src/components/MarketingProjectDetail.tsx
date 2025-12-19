@@ -15,11 +15,15 @@ import {
   Calendar,
   Folder,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  FolderPlus,
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 import MarketingInstagramSection from './MarketingInstagramSection';
 import MarketingFacebookSection from './MarketingFacebookSection';
 import MarketingMetaAdSection from './MarketingMetaAdSection';
+import { createMarketingProjectFolders } from '../utils/googleDriveUtils';
 
 interface MarketingProject {
   id: string;
@@ -36,6 +40,7 @@ interface MarketingProject {
   project_name: string;
   client_id: string;
   parent_client_id: string | null;
+  google_drive_folder_id?: string | null;
   clients?: {
     client_number: string;
   };
@@ -67,6 +72,8 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<MarketingSection>('summary');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['summary', 'reports', 'project-management']));
+  const [creatingFolders, setCreatingFolders] = useState(false);
+  const [folderError, setFolderError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProject();
@@ -97,6 +104,34 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       newExpanded.add(group);
     }
     setExpandedGroups(newExpanded);
+  };
+
+  const handleCreateFolders = async () => {
+    if (!project) return;
+
+    setCreatingFolders(true);
+    setFolderError(null);
+
+    try {
+      const companyName = project.company_name || project.brand_name || project.title;
+      const result = await createMarketingProjectFolders(project.id, companyName);
+
+      await supabase
+        .from('marketing_projects')
+        .update({
+          google_drive_folder_id: result.root_folder_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', project.id);
+
+      setProject(prev => prev ? { ...prev, google_drive_folder_id: result.root_folder_id } : null);
+      alert('Successfully created folder structure for marketing project!');
+    } catch (error: any) {
+      console.error('Error creating folders:', error);
+      setFolderError(error.message || 'Failed to create folders');
+    } finally {
+      setCreatingFolders(false);
+    }
   };
 
   const navigationGroups = [
@@ -193,6 +228,66 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
       case 'meta-ad':
         return <MarketingMetaAdSection projectId={projectId} clientNumber={project?.parent_client_id || null} />;
+
+      case 'files':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">Google Drive Files</h3>
+
+            {project?.google_drive_folder_id ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <Folder className="text-green-600" size={24} />
+                  <div className="flex-1">
+                    <p className="font-medium text-green-900">Folder Created</p>
+                    <p className="text-sm text-green-700">Project files are stored in Google Drive</p>
+                  </div>
+                  <a
+                    href={`https://drive.google.com/drive/folders/${project.google_drive_folder_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <ExternalLink size={16} />
+                    Open Folder
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-gray-600 mb-4">
+                    No Google Drive folder has been created for this project yet. Click the button below to create a folder structure.
+                  </p>
+                  <button
+                    onClick={handleCreateFolders}
+                    disabled={creatingFolders}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {creatingFolders ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Creating Folders...
+                      </>
+                    ) : (
+                      <>
+                        <FolderPlus size={16} />
+                        Create Folder Structure
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {folderError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-900 font-medium mb-1">Error Creating Folders</p>
+                    <p className="text-red-700 text-sm">{folderError}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
 
       default:
         return (
