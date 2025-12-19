@@ -295,7 +295,9 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
         q: `'${folderId}' in parents and trashed=false`,
         fields: 'files(id, name, mimeType, modifiedTime, size, webViewLink, iconLink, parents)',
         orderBy: 'folder,name',
-        pageSize: 1000
+        pageSize: 1000,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
       });
 
       setFiles(response.result.files || []);
@@ -361,7 +363,7 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
       form.append('file', file);
 
       const token = window.gapi.auth.getToken().access_token;
-      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
@@ -385,7 +387,10 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
     if (!confirm(`Are you sure you want to delete ${fileName}?`)) return;
 
     try {
-      await window.gapi.client.drive.files.delete({ fileId });
+      await window.gapi.client.drive.files.delete({
+        fileId,
+        supportsAllDrives: true
+      });
       await loadFiles(currentFolderId);
       alert('File deleted successfully!');
     } catch (err: any) {
@@ -404,7 +409,8 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
         fileId: fileId,
         resource: {
           name: newName
-        }
+        },
+        supportsAllDrives: true
       });
 
       await loadFiles(currentFolderId);
@@ -418,7 +424,7 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
   async function handleDownloadFile(fileId: string, fileName: string, mimeType: string) {
     try {
       const token = window.gapi.auth.getToken().access_token;
-      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -451,7 +457,9 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
         q: `mimeType='application/vnd.google-apps.folder' and trashed=false`,
         fields: 'files(id, name, mimeType, parents)',
         orderBy: 'name',
-        pageSize: 1000
+        pageSize: 1000,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
       });
 
       const allFolders = response.result.files || [];
@@ -494,7 +502,8 @@ export function GoogleDriveExplorer({ onClose, projectReference, projectId, proj
         fileId: fileId,
         addParents: targetFolderId,
         removeParents: previousParent,
-        fields: 'id, parents'
+        fields: 'id, parents',
+        supportsAllDrives: true
       });
 
       await loadFiles(currentFolderId);
