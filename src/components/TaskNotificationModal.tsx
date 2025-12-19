@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { X, AlertCircle, CheckCircle2, Calendar } from 'lucide-react';
+import { X, AlertCircle, CheckCircle2, Calendar, Trophy, Medal, Award } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -11,6 +11,7 @@ interface Task {
   completed: boolean;
   project_id?: string;
   marketing_project_id?: string;
+  assigned_to: string;
   project?: {
     title: string;
     company_name: string;
@@ -21,6 +22,13 @@ interface Task {
   };
 }
 
+interface UserTaskStats {
+  userId: string;
+  fullName: string;
+  pastDueCount: number;
+  upcomingCount: number;
+}
+
 interface TaskNotificationModalProps {
   onClose: () => void;
 }
@@ -28,50 +36,124 @@ interface TaskNotificationModalProps {
 export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [teamStats, setTeamStats] = useState<UserTaskStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCleanupReminder, setShowCleanupReminder] = useState(false);
 
   useEffect(() => {
-    loadUserTasks();
+    loadData();
   }, [user]);
 
-  async function loadUserTasks() {
+  async function loadData() {
     if (!user) return;
 
     setLoading(true);
     try {
-      const [regularTasksRes, marketingTasksRes] = await Promise.all([
-        supabase
-          .from('tasks')
-          .select(`
-            *,
-            project:projects(title, company_name)
-          `)
-          .eq('assigned_to', user.id)
-          .eq('completed', false)
-          .not('deadline', 'is', null),
-        supabase
-          .from('marketing_tasks')
-          .select(`
-            *,
-            marketing_project:marketing_projects(title, company_name)
-          `)
-          .eq('assigned_to', user.id)
-          .eq('completed', false)
-          .not('deadline', 'is', null),
-      ]);
-
-      const allTasks = [
-        ...(regularTasksRes.data || []),
-        ...(marketingTasksRes.data || []),
-      ];
-
-      setTasks(allTasks);
+      await Promise.all([loadUserTasks(), loadTeamStats()]);
     } catch (error) {
-      console.error('Error loading tasks:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadUserTasks() {
+    if (!user) return;
+
+    const [regularTasksRes, marketingTasksRes] = await Promise.all([
+      supabase
+        .from('tasks')
+        .select(`
+          *,
+          project:projects(title, company_name)
+        `)
+        .eq('assigned_to', user.id)
+        .eq('completed', false)
+        .not('deadline', 'is', null),
+      supabase
+        .from('marketing_tasks')
+        .select(`
+          *,
+          marketing_project:marketing_projects(title, company_name)
+        `)
+        .eq('assigned_to', user.id)
+        .eq('completed', false)
+        .not('deadline', 'is', null),
+    ]);
+
+    const allTasks = [
+      ...(regularTasksRes.data || []),
+      ...(marketingTasksRes.data || []),
+    ];
+
+    setTasks(allTasks);
+  }
+
+  async function loadTeamStats() {
+    const [staffRes, regularTasksRes, marketingTasksRes] = await Promise.all([
+      supabase
+        .from('staff')
+        .select('id, full_name')
+        .order('full_name'),
+      supabase
+        .from('tasks')
+        .select('id, assigned_to, deadline, completed')
+        .eq('completed', false)
+        .not('deadline', 'is', null)
+        .not('assigned_to', 'is', null),
+      supabase
+        .from('marketing_tasks')
+        .select('id, assigned_to, deadline, completed')
+        .eq('completed', false)
+        .not('deadline', 'is', null)
+        .not('assigned_to', 'is', null),
+    ]);
+
+    const staff = staffRes.data || [];
+    const allTasks = [
+      ...(regularTasksRes.data || []),
+      ...(marketingTasksRes.data || []),
+    ];
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const stats: UserTaskStats[] = staff.map(staffMember => {
+      const userTasks = allTasks.filter(t => t.assigned_to === staffMember.id);
+
+      const pastDue = userTasks.filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline < now;
+      }).length;
+
+      const upcoming = userTasks.filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline >= tomorrow;
+      }).length;
+
+      return {
+        userId: staffMember.id,
+        fullName: staffMember.full_name,
+        pastDueCount: pastDue,
+        upcomingCount: upcoming,
+      };
+    });
+
+    const sortedStats = stats
+      .filter(s => s.pastDueCount > 0 || s.upcomingCount > 0)
+      .sort((a, b) => {
+        if (b.pastDueCount !== a.pastDueCount) {
+          return b.pastDueCount - a.pastDueCount;
+        }
+        return b.upcomingCount - a.upcomingCount;
+      });
+
+    setTeamStats(sortedStats);
   }
 
   const now = new Date();
@@ -129,6 +211,19 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
     onClose();
   };
 
+  const getRankIcon = (index: number) => {
+    switch (index) {
+      case 0:
+        return <Trophy className="w-6 h-6 text-yellow-500" />;
+      case 1:
+        return <Medal className="w-6 h-6 text-slate-400" />;
+      case 2:
+        return <Award className="w-6 h-6 text-amber-700" />;
+      default:
+        return <div className="w-6 h-6 flex items-center justify-center text-sm font-bold text-slate-500">{index + 1}</div>;
+    }
+  };
+
   if (showCleanupReminder) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -160,7 +255,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50">
           <div>
             <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -204,7 +299,8 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-hidden flex">
+          <div className="flex-1 overflow-y-auto p-6 border-r border-slate-200">
           {!hasAnyTasks ? (
             <div className="text-center py-12">
               <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -343,6 +439,73 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
               )}
             </div>
           )}
+          </div>
+
+          <div className="w-80 overflow-y-auto bg-gradient-to-b from-slate-50 to-white p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
+                <Trophy className="w-5 h-5 text-amber-500" />
+                Team Leaderboard
+              </h3>
+              <p className="text-xs text-slate-500">Ranked by past due tasks</p>
+            </div>
+
+            {teamStats.length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                <p className="text-sm text-slate-600">Everyone is on track!</p>
+                <p className="text-xs text-slate-500 mt-1">No overdue tasks</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {teamStats.map((stat, index) => {
+                  const isCurrentUser = stat.userId === user?.id;
+                  return (
+                    <div
+                      key={stat.userId}
+                      className={`rounded-lg p-3 transition-all ${
+                        isCurrentUser
+                          ? 'bg-blue-100 border-2 border-blue-300 shadow-md'
+                          : 'bg-white border border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 pt-0.5">
+                          {getRankIcon(index)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className={`font-semibold text-sm truncate ${
+                            isCurrentUser ? 'text-blue-900' : 'text-slate-900'
+                          }`}>
+                            {stat.fullName}
+                            {isCurrentUser && (
+                              <span className="ml-2 text-xs font-normal text-blue-600">(You)</span>
+                            )}
+                          </h4>
+                          <div className="flex items-center gap-3 mt-2">
+                            <div className="flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                              <span className="text-xs font-bold text-red-600">
+                                {stat.pastDueCount}
+                              </span>
+                              <span className="text-xs text-slate-500">past due</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                              <span className="text-xs font-bold text-blue-600">
+                                {stat.upcomingCount}
+                              </span>
+                              <span className="text-xs text-slate-500">upcoming</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
