@@ -22,7 +22,7 @@ async function createGoogleDriveFolder(
     ...(parentId && { parents: [parentId] }),
   };
 
-  const response = await fetch(`${GOOGLE_DRIVE_API}/files`, {
+  const response = await fetch(`${GOOGLE_DRIVE_API}/files?supportsAllDrives=true`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -47,7 +47,7 @@ async function copyFolderStructure(
   folderMap: Map<string, string> = new Map()
 ): Promise<Map<string, string>> {
   const listResponse = await fetch(
-    `${GOOGLE_DRIVE_API}/files?q='${sourceFolderId}'+in+parents&fields=files(id,name,mimeType)&pageSize=1000`,
+    `${GOOGLE_DRIVE_API}/files?q='${sourceFolderId}'+in+parents&fields=files(id,name,mimeType)&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
