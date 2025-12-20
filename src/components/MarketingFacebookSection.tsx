@@ -302,7 +302,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
         .order('date', { ascending: false });
 
       if (selectedAccount) {
-        query = query.eq('page_id', selectedAccount);
+        query = query.eq('account_id', selectedAccount);
       } else if (marketingReference) {
         // Filter by marketing_reference (MP0xxx) for this marketing project
         query = query.eq('marketing_reference', marketingReference);
