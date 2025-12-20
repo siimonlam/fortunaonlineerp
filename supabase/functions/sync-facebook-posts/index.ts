@@ -334,9 +334,9 @@ Deno.serve(async (req: Request) => {
       const since = Math.floor(yesterday.getTime() / 1000);
       const until = Math.floor(today.getTime() / 1000);
 
-      // Fetch page insights (using only valid metrics)
+      // Fetch page insights (using only core valid metrics for v21.0)
       const pageInsightsResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans,page_fan_adds,page_fan_removes,page_impressions,page_impressions_unique,page_impressions_organic,page_impressions_paid,page_post_engagements,page_engaged_users&period=day&since=${since}&until=${until}&access_token=${accessToken}`
+        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans,page_impressions,page_impressions_unique,page_engaged_users,page_post_engagements&period=day&since=${since}&until=${until}&access_token=${accessToken}`
       );
 
       if (pageInsightsResponse.ok) {
@@ -454,15 +454,60 @@ Deno.serve(async (req: Request) => {
           })
           .eq("page_id", pageId);
 
+        // Try to fetch fan growth metrics separately (may not be available for all pages)
+        try {
+          const fanGrowthResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fan_adds,page_fan_removes&period=day&since=${since}&until=${until}&access_token=${accessToken}`
+          );
+          if (fanGrowthResponse.ok) {
+            const fanGrowthData = await fanGrowthResponse.json();
+            const fanMetrics = fanGrowthData.data || [];
+            fanMetrics.forEach((metric: any) => {
+              const value = metric.values?.[0]?.value || 0;
+              if (metric.name === 'page_fan_adds') {
+                pageMetrics.page_fan_adds = value;
+              } else if (metric.name === 'page_fan_removes') {
+                pageMetrics.page_fan_removes = value;
+              }
+            });
+            pageMetrics.net_growth = pageMetrics.page_fan_adds - pageMetrics.page_fan_removes;
+            console.log(`Fetched fan growth metrics: adds=${pageMetrics.page_fan_adds}, removes=${pageMetrics.page_fan_removes}`);
+          }
+        } catch (e) {
+          console.log(`Fan growth metrics not available for this page`);
+        }
+
+        // Try to fetch impression breakdown separately (may not be available)
+        try {
+          const impressionBreakdownResponse = await fetch(
+            `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_impressions_organic,page_impressions_paid&period=day&since=${since}&until=${until}&access_token=${accessToken}`
+          );
+          if (impressionBreakdownResponse.ok) {
+            const impressionData = await impressionBreakdownResponse.json();
+            const impressionMetrics = impressionData.data || [];
+            impressionMetrics.forEach((metric: any) => {
+              const value = metric.values?.[0]?.value || 0;
+              if (metric.name === 'page_impressions_organic') {
+                pageMetrics.page_impressions_organic = value;
+              } else if (metric.name === 'page_impressions_paid') {
+                pageMetrics.page_impressions_paid = value;
+              }
+            });
+            console.log(`Fetched impression breakdown: organic=${pageMetrics.page_impressions_organic}, paid=${pageMetrics.page_impressions_paid}`);
+          }
+        } catch (e) {
+          console.log(`Impression breakdown not available for this page`);
+        }
+
         console.log(`Updated facebook_accounts totals for ${pageId}`);
       } else {
         const errorData = await pageInsightsResponse.json();
         console.error(`Failed to fetch page insights from Facebook API:`, JSON.stringify(errorData, null, 2));
       }
 
-      // Fetch demographics (using only valid metrics)
+      // Fetch demographics (using only core valid metrics for v21.0)
       const demographicsResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans_gender_age,page_fans_country,page_fans_city&period=lifetime&access_token=${accessToken}`
+        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans_gender_age,page_fans_country&period=lifetime&access_token=${accessToken}`
       );
 
       if (demographicsResponse.ok) {
