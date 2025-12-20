@@ -343,6 +343,8 @@ Deno.serve(async (req: Request) => {
         const insightsData = await pageInsightsResponse.json();
         const metrics = insightsData.data || [];
 
+        console.log(`Page insights API returned ${metrics.length} metrics`);
+
         const pageMetrics: any = {
           page_id: pageId,
           account_id: pageId,
@@ -415,11 +417,15 @@ Deno.serve(async (req: Request) => {
           ? ((pageMetrics.page_engaged_users / pageMetrics.page_impressions_unique) * 100).toFixed(2)
           : 0;
 
-        await supabase
+        const { data: insertedInsights, error: insightsError } = await supabase
           .from("facebook_page_insights")
           .upsert(pageMetrics, { onConflict: "page_id,date" });
 
-        console.log(`Saved page insights for ${pageId}`);
+        if (insightsError) {
+          console.error(`Failed to save page insights:`, insightsError);
+        } else {
+          console.log(`Saved page insights for ${pageId}`, pageMetrics);
+        }
 
         // Update facebook_accounts with latest totals
         const last7Days = new Date(today);
@@ -447,6 +453,9 @@ Deno.serve(async (req: Request) => {
           .eq("page_id", pageId);
 
         console.log(`Updated facebook_accounts totals for ${pageId}`);
+      } else {
+        const errorData = await pageInsightsResponse.json();
+        console.error(`Failed to fetch page insights from Facebook API:`, JSON.stringify(errorData, null, 2));
       }
 
       // Fetch demographics
@@ -457,6 +466,8 @@ Deno.serve(async (req: Request) => {
       if (demographicsResponse.ok) {
         const demoData = await demographicsResponse.json();
         const metrics = demoData.data || [];
+
+        console.log(`Demographics API returned ${metrics.length} metrics`);
 
         const demographics: any = {
           page_id: pageId,
@@ -490,14 +501,22 @@ Deno.serve(async (req: Request) => {
           }
         });
 
-        await supabase
+        const { error: demoError } = await supabase
           .from("facebook_page_demographics")
           .upsert(demographics, { onConflict: "page_id,date" });
 
-        console.log(`Saved demographics for ${pageId}`);
+        if (demoError) {
+          console.error(`Failed to save demographics:`, demoError);
+        } else {
+          console.log(`Saved demographics for ${pageId}`);
+        }
+      } else {
+        const demoErrorData = await demographicsResponse.json();
+        console.error(`Failed to fetch demographics from Facebook API:`, JSON.stringify(demoErrorData, null, 2));
       }
     } catch (error) {
       console.error(`Failed to fetch page insights:`, error);
+      console.error(`Error details:`, error instanceof Error ? error.message : String(error));
       // Don't fail the entire sync if page insights fail
     }
 
