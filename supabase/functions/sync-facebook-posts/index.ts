@@ -327,6 +327,29 @@ Deno.serve(async (req: Request) => {
     // Fetch page-level insights
     console.log(`Fetching page insights for ${pageId}`);
     try {
+      // First, try to get basic page info (follower count, etc.)
+      const pageInfoResponse = await fetch(
+        `https://graph.facebook.com/v21.0/${pageId}?fields=id,name,fan_count,followers_count,engagement&access_token=${accessToken}`
+      );
+
+      let pageFans = 0;
+      if (pageInfoResponse.ok) {
+        const pageInfo = await pageInfoResponse.json();
+        pageFans = pageInfo.fan_count || pageInfo.followers_count || 0;
+        console.log(`Page basic info - Fans: ${pageFans}`);
+
+        // Update facebook_accounts with fan count
+        await supabase
+          .from("facebook_accounts")
+          .update({
+            total_page_likes: pageFans,
+            last_updated: new Date().toISOString(),
+          })
+          .eq("page_id", pageId);
+      } else {
+        console.log(`Could not fetch basic page info`);
+      }
+
       const today = new Date();
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
@@ -334,9 +357,9 @@ Deno.serve(async (req: Request) => {
       const since = Math.floor(yesterday.getTime() / 1000);
       const until = Math.floor(today.getTime() / 1000);
 
-      // Fetch page insights (using only core valid metrics for v21.0)
+      // Try to fetch page insights (may not be available for all page types)
       const pageInsightsResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans,page_impressions,page_impressions_unique,page_engaged_users,page_post_engagements&period=day&since=${since}&until=${until}&access_token=${accessToken}`
+        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_impressions,page_impressions_unique&period=day&since=${since}&until=${until}&access_token=${accessToken}`
       );
 
       if (pageInsightsResponse.ok) {
@@ -351,7 +374,7 @@ Deno.serve(async (req: Request) => {
           client_number: clientNumber,
           marketing_reference: marketingReference,
           date: yesterday.toISOString().split('T')[0],
-          page_fans: 0,
+          page_fans: pageFans,
           page_fan_adds: 0,
           page_fan_removes: 0,
           net_growth: 0,
@@ -369,197 +392,86 @@ Deno.serve(async (req: Request) => {
 
         metrics.forEach((metric: any) => {
           const value = metric.values?.[0]?.value || 0;
-          switch (metric.name) {
-            case 'page_fans':
-              pageMetrics.page_fans = value;
-              break;
-            case 'page_fan_adds':
-            case 'page_fan_adds_unique':
-              pageMetrics.page_fan_adds = value;
-              break;
-            case 'page_fan_removes':
-            case 'page_fan_removes_unique':
-              pageMetrics.page_fan_removes = value;
-              break;
-            case 'page_impressions':
-              pageMetrics.page_impressions = value;
-              break;
-            case 'page_impressions_unique':
-              pageMetrics.page_impressions_unique = value;
-              break;
-            case 'page_impressions_organic':
-              pageMetrics.page_impressions_organic = value;
-              break;
-            case 'page_impressions_paid':
-              pageMetrics.page_impressions_paid = value;
-              break;
-            case 'page_post_engagements':
-              pageMetrics.page_post_engagements = value;
-              break;
-            case 'page_engaged_users':
-              pageMetrics.page_engaged_users = value;
-              break;
-            case 'page_posts_impressions':
-              pageMetrics.page_posts_impressions = value;
-              break;
-            case 'page_posts_impressions_unique':
-              pageMetrics.page_posts_impressions_unique = value;
-              break;
-            case 'page_video_views':
-              pageMetrics.page_video_views = value;
-              break;
-            case 'page_video_views_unique':
-              pageMetrics.page_video_views_unique = value;
-              break;
+          if (metric.name === 'page_impressions') {
+            pageMetrics.page_impressions = value;
+          } else if (metric.name === 'page_impressions_unique') {
+            pageMetrics.page_impressions_unique = value;
           }
         });
 
-        pageMetrics.net_growth = pageMetrics.page_fan_adds - pageMetrics.page_fan_removes;
-        pageMetrics.engagement_rate = pageMetrics.page_impressions_unique > 0
-          ? ((pageMetrics.page_engaged_users / pageMetrics.page_impressions_unique) * 100).toFixed(2)
-          : 0;
-
-        const { data: insertedInsights, error: insightsError } = await supabase
+        const { error: insightsError } = await supabase
           .from("facebook_page_insights")
           .upsert(pageMetrics, { onConflict: "page_id,date" });
 
         if (insightsError) {
           console.error(`Failed to save page insights:`, insightsError);
         } else {
-          console.log(`Saved page insights for ${pageId}`, pageMetrics);
+          console.log(`Saved page insights for ${pageId} - impressions: ${pageMetrics.page_impressions}, reach: ${pageMetrics.page_impressions_unique}`);
         }
 
-        // Update facebook_accounts with latest totals
-        const last7Days = new Date(today);
-        last7Days.setDate(last7Days.getDate() - 7);
-
-        const { data: last7DaysData } = await supabase
-          .from("facebook_page_insights")
-          .select("page_fan_adds, page_fan_removes")
-          .eq("page_id", pageId)
-          .gte("date", last7Days.toISOString().split('T')[0])
-          .order("date", { ascending: false });
-
-        const netGrowth7d = (last7DaysData || []).reduce((sum, day) =>
-          sum + (day.page_fan_adds || 0) - (day.page_fan_removes || 0), 0
-        );
-
-        await supabase
-          .from("facebook_accounts")
-          .update({
-            total_page_likes: pageMetrics.page_fans,
-            engagement_rate: pageMetrics.engagement_rate,
-            net_growth_7d: netGrowth7d,
-            last_updated: new Date().toISOString(),
-          })
-          .eq("page_id", pageId);
-
-        // Try to fetch fan growth metrics separately (may not be available for all pages)
-        try {
-          const fanGrowthResponse = await fetch(
-            `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fan_adds,page_fan_removes&period=day&since=${since}&until=${until}&access_token=${accessToken}`
-          );
-          if (fanGrowthResponse.ok) {
-            const fanGrowthData = await fanGrowthResponse.json();
-            const fanMetrics = fanGrowthData.data || [];
-            fanMetrics.forEach((metric: any) => {
-              const value = metric.values?.[0]?.value || 0;
-              if (metric.name === 'page_fan_adds') {
-                pageMetrics.page_fan_adds = value;
-              } else if (metric.name === 'page_fan_removes') {
-                pageMetrics.page_fan_removes = value;
-              }
-            });
-            pageMetrics.net_growth = pageMetrics.page_fan_adds - pageMetrics.page_fan_removes;
-            console.log(`Fetched fan growth metrics: adds=${pageMetrics.page_fan_adds}, removes=${pageMetrics.page_fan_removes}`);
-          }
-        } catch (e) {
-          console.log(`Fan growth metrics not available for this page`);
+        // Update engagement rate if we have reach data
+        if (pageMetrics.page_impressions_unique > 0) {
+          const engagementRate = ((pageMetrics.page_engaged_users / pageMetrics.page_impressions_unique) * 100).toFixed(2);
+          await supabase
+            .from("facebook_accounts")
+            .update({
+              engagement_rate: engagementRate,
+            })
+            .eq("page_id", pageId);
         }
 
-        // Try to fetch impression breakdown separately (may not be available)
-        try {
-          const impressionBreakdownResponse = await fetch(
-            `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_impressions_organic,page_impressions_paid&period=day&since=${since}&until=${until}&access_token=${accessToken}`
-          );
-          if (impressionBreakdownResponse.ok) {
-            const impressionData = await impressionBreakdownResponse.json();
-            const impressionMetrics = impressionData.data || [];
-            impressionMetrics.forEach((metric: any) => {
-              const value = metric.values?.[0]?.value || 0;
-              if (metric.name === 'page_impressions_organic') {
-                pageMetrics.page_impressions_organic = value;
-              } else if (metric.name === 'page_impressions_paid') {
-                pageMetrics.page_impressions_paid = value;
-              }
-            });
-            console.log(`Fetched impression breakdown: organic=${pageMetrics.page_impressions_organic}, paid=${pageMetrics.page_impressions_paid}`);
-          }
-        } catch (e) {
-          console.log(`Impression breakdown not available for this page`);
-        }
-
-        console.log(`Updated facebook_accounts totals for ${pageId}`);
+        console.log(`Updated facebook_accounts for ${pageId}`);
       } else {
         const errorData = await pageInsightsResponse.json();
-        console.error(`Failed to fetch page insights from Facebook API:`, JSON.stringify(errorData, null, 2));
+        console.log(`Page insights not available (this is normal for some page types):`, errorData.error?.message);
       }
 
-      // Fetch demographics (using only core valid metrics for v21.0)
-      const demographicsResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans_gender_age,page_fans_country&period=lifetime&access_token=${accessToken}`
-      );
+      // Try to fetch demographics (optional - may not be available for all page types)
+      try {
+        const demographicsResponse = await fetch(
+          `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans_gender_age&period=lifetime&access_token=${accessToken}`
+        );
 
-      if (demographicsResponse.ok) {
-        const demoData = await demographicsResponse.json();
-        const metrics = demoData.data || [];
+        if (demographicsResponse.ok) {
+          const demoData = await demographicsResponse.json();
+          const metrics = demoData.data || [];
 
-        console.log(`Demographics API returned ${metrics.length} metrics`);
+          console.log(`Demographics API returned ${metrics.length} metrics`);
 
-        const demographics: any = {
-          page_id: pageId,
-          account_id: pageId,
-          client_number: clientNumber,
-          marketing_reference: marketingReference,
-          date: yesterday.toISOString().split('T')[0],
-          age_gender_breakdown: {},
-          country_breakdown: {},
-          city_breakdown: {},
-          device_breakdown: {},
-        };
+          const demographics: any = {
+            page_id: pageId,
+            account_id: pageId,
+            client_number: clientNumber,
+            marketing_reference: marketingReference,
+            date: yesterday.toISOString().split('T')[0],
+            age_gender_breakdown: {},
+            country_breakdown: {},
+            city_breakdown: {},
+            device_breakdown: {},
+          };
 
-        metrics.forEach((metric: any) => {
-          const value = metric.values?.[0]?.value || {};
-          switch (metric.name) {
-            case 'page_fans_gender_age':
+          metrics.forEach((metric: any) => {
+            const value = metric.values?.[0]?.value || {};
+            if (metric.name === 'page_fans_gender_age') {
               demographics.age_gender_breakdown = value;
-              break;
-            case 'page_fans_country':
-              demographics.country_breakdown = value;
-              break;
-            case 'page_fans_city':
-              demographics.city_breakdown = value;
-              break;
-            case 'page_views_logged_in_unique':
-              if (typeof value === 'object') {
-                demographics.device_breakdown = value;
-              }
-              break;
+            }
+          });
+
+          const { error: demoError } = await supabase
+            .from("facebook_page_demographics")
+            .upsert(demographics, { onConflict: "page_id,date" });
+
+          if (demoError) {
+            console.error(`Failed to save demographics:`, demoError);
+          } else {
+            console.log(`Saved demographics for ${pageId}`);
           }
-        });
-
-        const { error: demoError } = await supabase
-          .from("facebook_page_demographics")
-          .upsert(demographics, { onConflict: "page_id,date" });
-
-        if (demoError) {
-          console.error(`Failed to save demographics:`, demoError);
         } else {
-          console.log(`Saved demographics for ${pageId}`);
+          const demoErrorData = await demographicsResponse.json();
+          console.log(`Demographics not available (this is normal for some page types):`, demoErrorData.error?.message);
         }
-      } else {
-        const demoErrorData = await demographicsResponse.json();
-        console.error(`Failed to fetch demographics from Facebook API:`, JSON.stringify(demoErrorData, null, 2));
+      } catch (e) {
+        console.log(`Demographics API not accessible for this page`);
       }
     } catch (error) {
       console.error(`Failed to fetch page insights:`, error);
