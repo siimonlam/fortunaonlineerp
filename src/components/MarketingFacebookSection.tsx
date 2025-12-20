@@ -15,6 +15,38 @@ interface FacebookAccount {
   client_number: string | null;
   last_updated: string;
   created_at: string;
+  total_page_likes: number;
+  total_reach_28d: number;
+  total_engagement_28d: number;
+  engagement_rate: number;
+  net_growth_7d: number;
+}
+
+interface PageInsights {
+  id: string;
+  page_id: string;
+  date: string;
+  page_fans: number;
+  page_fan_adds: number;
+  page_fan_removes: number;
+  net_growth: number;
+  page_impressions: number;
+  page_impressions_unique: number;
+  page_impressions_organic: number;
+  page_impressions_paid: number;
+  page_post_engagements: number;
+  page_engaged_users: number;
+  engagement_rate: number;
+}
+
+interface Demographics {
+  id: string;
+  page_id: string;
+  date: string;
+  age_gender_breakdown: Record<string, number>;
+  country_breakdown: Record<string, number>;
+  city_breakdown: Record<string, number>;
+  device_breakdown: Record<string, number>;
 }
 
 interface FacebookPost {
@@ -52,6 +84,8 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
   const [allAccounts, setAllAccounts] = useState<FacebookAccount[]>([]);
   const [posts, setPosts] = useState<FacebookPost[]>([]);
   const [metrics, setMetrics] = useState<Record<string, PostMetrics>>({});
+  const [pageInsights, setPageInsights] = useState<PageInsights[]>([]);
+  const [demographics, setDemographics] = useState<Demographics | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +124,8 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
       fetchAllAccounts();
       fetchPosts();
       fetchMetrics();
+      fetchPageInsights();
+      fetchDemographics();
     }
 
     const junctionSubscription = supabase
@@ -126,10 +162,34 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
       })
       .subscribe();
 
+    const pageInsightsSubscription = supabase
+      .channel('facebook_page_insights')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'facebook_page_insights'
+      }, () => {
+        fetchPageInsights();
+      })
+      .subscribe();
+
+    const demographicsSubscription = supabase
+      .channel('facebook_demographics')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'facebook_page_demographics'
+      }, () => {
+        fetchDemographics();
+      })
+      .subscribe();
+
     return () => {
       junctionSubscription.unsubscribe();
       postsSubscription.unsubscribe();
       metricsSubscription.unsubscribe();
+      pageInsightsSubscription.unsubscribe();
+      demographicsSubscription.unsubscribe();
     };
   }, [projectId, marketingReference]);
 
@@ -137,6 +197,8 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
     if (selectedAccount) {
       fetchPosts();
       fetchMetrics();
+      fetchPageInsights();
+      fetchDemographics();
     }
   }, [selectedAccount]);
 
@@ -264,6 +326,54 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
       setMetrics(metricsMap);
     } catch (err: any) {
       console.error('Error fetching metrics:', err);
+    }
+  };
+
+  const fetchPageInsights = async () => {
+    try {
+      let query = supabase
+        .from('facebook_page_insights')
+        .select('*')
+        .order('date', { ascending: false })
+        .limit(30);
+
+      if (selectedAccount) {
+        query = query.eq('page_id', selectedAccount);
+      } else if (marketingReference) {
+        query = query.eq('marketing_reference', marketingReference);
+      } else {
+        setPageInsights([]);
+        return;
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setPageInsights(data || []);
+    } catch (err: any) {
+      console.error('Error fetching page insights:', err);
+    }
+  };
+
+  const fetchDemographics = async () => {
+    try {
+      if (!selectedAccount) {
+        setDemographics(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('facebook_page_demographics')
+        .select('*')
+        .eq('page_id', selectedAccount)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      setDemographics(data);
+    } catch (err: any) {
+      console.error('Error fetching demographics:', err);
     }
   };
 
@@ -467,6 +577,205 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
           <p className="text-sm text-green-800">{successMessage}</p>
         </div>
       )}
+
+      {selectedAccount && pageInsights.length > 0 && (() => {
+        const latestInsights = pageInsights[0];
+        const selectedAcc = accounts.find(a => a.page_id === selectedAccount);
+
+        const last7DaysInsights = pageInsights.slice(0, 7);
+        const totalReach7d = last7DaysInsights.reduce((sum, day) => sum + (day.page_impressions_unique || 0), 0);
+        const totalEngagement7d = last7DaysInsights.reduce((sum, day) => sum + (day.page_post_engagements || 0), 0);
+        const organicReach = latestInsights.page_impressions_organic || 0;
+        const paidReach = latestInsights.page_impressions_paid || 0;
+
+        const topPosts = [...posts]
+          .filter(p => p.page_id === selectedAccount)
+          .sort((a, b) => {
+            const aMetrics = metrics[a.post_id];
+            const bMetrics = metrics[b.post_id];
+            const aEngagement = (aMetrics?.engagement || 0) + (a.likes_count || 0) + (a.comments_count || 0) + (a.shares_count || 0);
+            const bEngagement = (bMetrics?.engagement || 0) + (b.likes_count || 0) + (b.comments_count || 0) + (b.shares_count || 0);
+            return bEngagement - aEngagement;
+          })
+          .slice(0, 5);
+
+        return (
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-blue-600" />
+                Page Insights - {selectedAcc?.name}
+              </h3>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-blue-600 mb-2">
+                    <Users className="w-5 h-5" />
+                    <span className="text-sm font-medium">Total Page Likes</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{latestInsights.page_fans.toLocaleString()}</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-green-600 mb-2">
+                    <TrendingUp className="w-5 h-5" />
+                    <span className="text-sm font-medium">Net Growth (7d)</span>
+                  </div>
+                  <p className={`text-2xl font-bold ${selectedAcc?.net_growth_7d && selectedAcc.net_growth_7d >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {selectedAcc?.net_growth_7d >= 0 ? '+' : ''}{selectedAcc?.net_growth_7d || 0}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-purple-600 mb-2">
+                    <Eye className="w-5 h-5" />
+                    <span className="text-sm font-medium">Total Reach (7d)</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{totalReach7d.toLocaleString()}</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-orange-600 mb-2">
+                    <TrendingUp className="w-5 h-5" />
+                    <span className="text-sm font-medium">Engagement Rate</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{latestInsights.engagement_rate}%</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-cyan-600 mb-2">
+                    <Heart className="w-5 h-5" />
+                    <span className="text-sm font-medium">Total Engagement (7d)</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{totalEngagement7d.toLocaleString()}</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                    <Eye className="w-5 h-5" />
+                    <span className="text-sm font-medium">Organic Reach</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{organicReach.toLocaleString()}</p>
+                  <p className="text-xs text-gray-600 mt-1">Yesterday</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-pink-600 mb-2">
+                    <Eye className="w-5 h-5" />
+                    <span className="text-sm font-medium">Paid Reach</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{paidReach.toLocaleString()}</p>
+                  <p className="text-xs text-gray-600 mt-1">Yesterday</p>
+                </div>
+              </div>
+
+              {demographics && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Users className="w-4 h-4 text-gray-600" />
+                      Age & Gender
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {Object.entries(demographics.age_gender_breakdown || {})
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
+                        .slice(0, 5)
+                        .map(([key, value]) => (
+                          <div key={key} className="flex justify-between items-center">
+                            <span className="text-gray-700">{key}</span>
+                            <span className="font-semibold text-gray-900">{(value as number).toLocaleString()}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-gray-600" />
+                      Top Locations
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {Object.entries(demographics.country_breakdown || {})
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
+                        .slice(0, 5)
+                        .map(([key, value]) => (
+                          <div key={key} className="flex justify-between items-center">
+                            <span className="text-gray-700">{key}</span>
+                            <span className="font-semibold text-gray-900">{(value as number).toLocaleString()}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-gray-600" />
+                      Device Breakdown
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {Object.entries(demographics.device_breakdown || {})
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
+                        .map(([key, value]) => (
+                          <div key={key} className="flex justify-between items-center">
+                            <span className="text-gray-700 capitalize">{key}</span>
+                            <span className="font-semibold text-gray-900">{(value as number).toLocaleString()}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {topPosts.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-gray-600" />
+                    Top Performing Posts
+                  </h4>
+                  <div className="space-y-3">
+                    {topPosts.map((post, index) => {
+                      const postMetrics = metrics[post.post_id];
+                      const totalEngagement = (postMetrics?.engagement || 0) + (post.likes_count || 0) + (post.comments_count || 0) + (post.shares_count || 0);
+                      return (
+                        <div key={post.id} className="flex items-center gap-3 bg-white rounded-lg p-3">
+                          <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-bold text-blue-600">#{index + 1}</span>
+                          </div>
+                          {post.full_picture && (
+                            <img src={post.full_picture} alt="" className="w-12 h-12 object-cover rounded" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-700 line-clamp-1">{post.message || 'No message'}</p>
+                            <div className="flex items-center gap-3 text-xs text-gray-600 mt-1">
+                              <span>{post.likes_count} likes</span>
+                              <span>{post.comments_count} comments</span>
+                              <span>{post.shares_count} shares</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-gray-900">{totalEngagement.toLocaleString()}</p>
+                            <p className="text-xs text-gray-600">engagement</p>
+                          </div>
+                          <a
+                            href={post.permalink_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 hover:bg-gray-100 rounded-full"
+                          >
+                            <ExternalLink className="w-4 h-4 text-gray-600" />
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {accounts.length > 0 && posts.length > 0 && (
         <div className="bg-white rounded-lg shadow">
