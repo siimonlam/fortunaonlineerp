@@ -334,9 +334,9 @@ Deno.serve(async (req: Request) => {
       const since = Math.floor(yesterday.getTime() / 1000);
       const until = Math.floor(today.getTime() / 1000);
 
-      // Fetch page insights
+      // Fetch page insights (using only valid metrics)
       const pageInsightsResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans,page_fan_adds_unique,page_fan_removes_unique,page_impressions,page_impressions_unique,page_impressions_organic,page_impressions_paid,page_post_engagements,page_engaged_users,page_posts_impressions,page_posts_impressions_unique,page_video_views,page_video_views_unique&period=day&since=${since}&until=${until}&access_token=${accessToken}`
+        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans,page_fan_adds,page_fan_removes,page_impressions,page_impressions_unique,page_impressions_organic,page_impressions_paid,page_post_engagements,page_engaged_users&period=day&since=${since}&until=${until}&access_token=${accessToken}`
       );
 
       if (pageInsightsResponse.ok) {
@@ -373,9 +373,11 @@ Deno.serve(async (req: Request) => {
             case 'page_fans':
               pageMetrics.page_fans = value;
               break;
+            case 'page_fan_adds':
             case 'page_fan_adds_unique':
               pageMetrics.page_fan_adds = value;
               break;
+            case 'page_fan_removes':
             case 'page_fan_removes_unique':
               pageMetrics.page_fan_removes = value;
               break;
@@ -458,9 +460,9 @@ Deno.serve(async (req: Request) => {
         console.error(`Failed to fetch page insights from Facebook API:`, JSON.stringify(errorData, null, 2));
       }
 
-      // Fetch demographics
+      // Fetch demographics (using only valid metrics)
       const demographicsResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans_gender_age,page_fans_country,page_fans_city,page_views_logged_in_unique&period=lifetime&access_token=${accessToken}`
+        `https://graph.facebook.com/v21.0/${pageId}/insights?metric=page_fans_gender_age,page_fans_country,page_fans_city&period=lifetime&access_token=${accessToken}`
       );
 
       if (demographicsResponse.ok) {
