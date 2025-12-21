@@ -10,6 +10,10 @@ export default function FacebookSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [tokenInfo, setTokenInfo] = useState<any>(null);
+  const [checkingToken, setCheckingToken] = useState(false);
+  const [appId, setAppId] = useState('');
+  const [appSecret, setAppSecret] = useState('');
 
   useEffect(() => {
     fetchSettings();
@@ -146,6 +150,81 @@ export default function FacebookSettingsPage() {
     }
   };
 
+  const handleCheckToken = async () => {
+    setCheckingToken(true);
+    setMessage(null);
+    setTokenInfo(null);
+
+    try {
+      if (!systemUserToken.trim()) {
+        throw new Error('Access Token is required');
+      }
+
+      const debugUrl = `https://graph.facebook.com/v21.0/debug_token?input_token=${systemUserToken.trim()}&access_token=${systemUserToken.trim()}`;
+      const response = await fetch(debugUrl);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Failed to check token: ${error.error?.message || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+      setTokenInfo(data.data);
+
+      if (!data.data.is_valid) {
+        setMessage({ type: 'error', text: 'Token is invalid or expired. Please get a new token.' });
+      } else {
+        const expiresAt = data.data.expires_at ? new Date(data.data.expires_at * 1000).toLocaleString() : 'Never';
+        const tokenType = data.data.expires_at === 0 ? 'Long-lived (System User)' : 'Short-lived';
+
+        setMessage({
+          type: data.data.expires_at === 0 ? 'success' : 'error',
+          text: `Token Type: ${tokenType} | Valid: ${data.data.is_valid ? 'Yes' : 'No'} | Expires: ${expiresAt}`
+        });
+      }
+    } catch (err: any) {
+      console.error('Error checking token:', err);
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setCheckingToken(false);
+    }
+  };
+
+  const handleExchangeToken = async () => {
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      if (!systemUserToken.trim() || !appId.trim() || !appSecret.trim()) {
+        throw new Error('Access Token, App ID, and App Secret are required to exchange token');
+      }
+
+      const exchangeUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId.trim()}&client_secret=${appSecret.trim()}&fb_exchange_token=${systemUserToken.trim()}`;
+
+      const response = await fetch(exchangeUrl);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Failed to exchange token: ${error.error?.message || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+      setSystemUserToken(data.access_token);
+
+      setMessage({
+        type: 'success',
+        text: `Token exchanged successfully! This long-lived token is valid for ~60 days. Click "Save Settings" to store it.`
+      });
+
+      setTokenInfo(null);
+    } catch (err: any) {
+      console.error('Error exchanging token:', err);
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleTestConnection = async () => {
     setSaving(true);
     setMessage(null);
@@ -269,9 +348,28 @@ export default function FacebookSettingsPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Access Token <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Access Token <span className="text-red-500">*</span>
+              </label>
+              <button
+                onClick={handleCheckToken}
+                disabled={checkingToken || !systemUserToken.trim()}
+                className="flex items-center gap-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {checkingToken ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle size={16} />
+                    Check Token
+                  </>
+                )}
+              </button>
+            </div>
             <textarea
               value={systemUserToken}
               onChange={(e) => setSystemUserToken(e.target.value)}
@@ -283,6 +381,61 @@ export default function FacebookSettingsPage() {
               System User token with Facebook Pages permissions
             </p>
           </div>
+
+          {tokenInfo && tokenInfo.expires_at > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h4 className="font-semibold text-yellow-900 mb-2">Short-lived Token Detected!</h4>
+              <p className="text-sm text-yellow-800 mb-3">
+                Your token expires soon. Exchange it for a long-lived token (60 days) by providing your App ID and App Secret below.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-yellow-900 mb-1">
+                    App ID
+                  </label>
+                  <input
+                    type="text"
+                    value={appId}
+                    onChange={(e) => setAppId(e.target.value)}
+                    placeholder="e.g., 1234567890"
+                    className="w-full px-3 py-2 border border-yellow-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-yellow-900 mb-1">
+                    App Secret
+                  </label>
+                  <input
+                    type="password"
+                    value={appSecret}
+                    onChange={(e) => setAppSecret(e.target.value)}
+                    placeholder="e.g., abcdef1234567890"
+                    className="w-full px-3 py-2 border border-yellow-300 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleExchangeToken}
+                disabled={saving || !appId.trim() || !appSecret.trim()}
+                className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Exchanging...
+                  </>
+                ) : (
+                  'Exchange for Long-lived Token'
+                )}
+              </button>
+
+              <p className="text-xs text-yellow-700 mt-2">
+                Find your App ID and Secret at <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="underline">developers.facebook.com/apps</a>
+              </p>
+            </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-2">
