@@ -105,15 +105,11 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Fetching insights for page ${pageId} from ${sinceDate} to ${untilDate}`);
 
-    // Start with the most basic metrics that are guaranteed to work
-    // Reference: https://developers.facebook.com/docs/graph-api/reference/v24.0/insights
+    // Use absolute minimal metrics for v24.0
+    // Many older metrics have been deprecated - using only core metrics
     const dailyMetrics = [
       'page_impressions',           // Total Impressions
       'page_impressions_unique',    // Reach (unique users)
-      'page_impressions_organic',   // Organic Impressions
-      'page_impressions_paid',      // Paid Impressions
-      'page_fan_adds',              // New page likes
-      'page_fan_removes',           // Page unlikes
     ];
 
     const lifetimeMetrics = [
@@ -189,28 +185,9 @@ Deno.serve(async (req: Request) => {
             case 'page_impressions_unique':
               metricsMap[date].page_impressions_unique = value.value || 0;
               break;
-            case 'page_impressions_organic':
-              metricsMap[date].page_impressions_organic = value.value || 0;
-              break;
-            case 'page_impressions_paid':
-              metricsMap[date].page_impressions_paid = value.value || 0;
-              break;
-            case 'page_fan_adds':
-              metricsMap[date].page_fan_adds = value.value || 0;
-              break;
-            case 'page_fan_removes':
-              metricsMap[date].page_fan_removes = value.value || 0;
-              break;
           }
         }
       }
-    }
-
-    // Calculate net growth for each date
-    for (const date in metricsMap) {
-      const adds = metricsMap[date].page_fan_adds || 0;
-      const removes = metricsMap[date].page_fan_removes || 0;
-      metricsMap[date].net_growth = adds - removes;
     }
 
     // Store daily insights
@@ -276,31 +253,16 @@ Deno.serve(async (req: Request) => {
     }
 
     // Update the facebook_accounts table with aggregated totals
-    // Calculate 7-day net growth and 28-day reach/engagement
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const twentyEightDaysAgo = new Date();
     twentyEightDaysAgo.setDate(twentyEightDaysAgo.getDate() - 28);
 
-    // Fetch aggregated data
-    const { data: last7Days } = await supabase
-      .from('facebook_page_insights')
-      .select('net_growth')
-      .eq('page_id', pageId)
-      .gte('date', sevenDaysAgo.toISOString().split('T')[0])
-      .order('date', { ascending: false });
-
+    // Fetch aggregated data for last 28 days
     const { data: last28Days } = await supabase
       .from('facebook_page_insights')
       .select('page_impressions_unique, page_impressions')
       .eq('page_id', pageId)
       .gte('date', twentyEightDaysAgo.toISOString().split('T')[0])
       .order('date', { ascending: false });
-
-    let netGrowth7d = 0;
-    if (last7Days) {
-      netGrowth7d = last7Days.reduce((sum, record) => sum + (record.net_growth || 0), 0);
-    }
 
     let totalReach28d = 0;
     let totalImpressions28d = 0;
@@ -313,7 +275,6 @@ Deno.serve(async (req: Request) => {
     await supabase
       .from('facebook_accounts')
       .update({
-        net_growth_7d: netGrowth7d,
         total_reach_28d: totalReach28d,
         updated_at: timestamp,
       })
@@ -326,7 +287,6 @@ Deno.serve(async (req: Request) => {
         insightsStored: insightsRecords.length,
         demographicsStored,
         summary: {
-          netGrowth7d,
           totalReach28d,
           totalImpressions28d,
         },
