@@ -12,6 +12,8 @@ export default function FacebookSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [tokenInfo, setTokenInfo] = useState<any>(null);
   const [checkingToken, setCheckingToken] = useState(false);
+  const [testingPermissions, setTestingPermissions] = useState(false);
+  const [permissionTestResults, setPermissionTestResults] = useState<any>(null);
   const [appId, setAppId] = useState('');
   const [appSecret, setAppSecret] = useState('');
 
@@ -190,6 +192,51 @@ export default function FacebookSettingsPage() {
     }
   };
 
+  const handleTestTokenPermissions = async () => {
+    setTestingPermissions(true);
+    setMessage(null);
+    setPermissionTestResults(null);
+
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/test-facebook-token`;
+      const headers = {
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      };
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({})
+      });
+
+      const data = await response.json();
+      setPermissionTestResults(data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to test token permissions');
+      }
+
+      const failedTests = data.tests?.filter((t: any) => t.status.includes('❌')) || [];
+      if (failedTests.length > 0) {
+        setMessage({
+          type: 'error',
+          text: `Token test completed with ${failedTests.length} failed test(s). Check details below.`
+        });
+      } else {
+        setMessage({
+          type: 'success',
+          text: 'All token permission tests passed successfully!'
+        });
+      }
+    } catch (err: any) {
+      console.error('Error testing token permissions:', err);
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setTestingPermissions(false);
+    }
+  };
+
   const handleExchangeToken = async () => {
     setSaving(true);
     setMessage(null);
@@ -352,23 +399,42 @@ export default function FacebookSettingsPage() {
               <label className="block text-sm font-medium text-gray-700">
                 Access Token <span className="text-red-500">*</span>
               </label>
-              <button
-                onClick={handleCheckToken}
-                disabled={checkingToken || !systemUserToken.trim()}
-                className="flex items-center gap-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {checkingToken ? (
-                  <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle size={16} />
-                    Check Token
-                  </>
-                )}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCheckToken}
+                  disabled={checkingToken || !systemUserToken.trim()}
+                  className="flex items-center gap-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {checkingToken ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={16} />
+                      Check Token
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleTestTokenPermissions}
+                  disabled={testingPermissions}
+                  className="flex items-center gap-2 px-3 py-1 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {testingPermissions ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <Settings size={16} />
+                      Test Permissions
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
             <textarea
               value={systemUserToken}
@@ -434,6 +500,28 @@ export default function FacebookSettingsPage() {
               <p className="text-xs text-yellow-700 mt-2">
                 Find your App ID and Secret at <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="underline">developers.facebook.com/apps</a>
               </p>
+            </div>
+          )}
+
+          {permissionTestResults && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-900 mb-3">Token Permission Test Results</h4>
+              <div className="space-y-2">
+                <p className="text-sm text-blue-800">
+                  <strong>Page:</strong> {permissionTestResults.pageName} ({permissionTestResults.pageId})
+                </p>
+                {permissionTestResults.tests?.map((test: any, index: number) => (
+                  <div key={index} className="bg-white rounded-lg p-3 border border-blue-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-sm">{test.test}</span>
+                      <span className="text-sm">{test.status}</span>
+                    </div>
+                    <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto max-h-32">
+                      {JSON.stringify(test.response, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
