@@ -105,19 +105,56 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Fetching insights for page ${pageId} from ${sinceDate} to ${untilDate}`);
 
-    // Use absolute minimal metrics for v24.0
-    // Many older metrics have been deprecated - using only core metrics
+    // === STEP 1: Fetch Page Fields (followers_count, fan_count) ===
+    // These are direct page fields, not metrics
+    const pageFieldsUrl = `https://graph.facebook.com/v24.0/${pageId}?fields=followers_count,fan_count&access_token=${accessToken}`;
+    console.log(`Fetching page fields: ${pageFieldsUrl.replace(accessToken, 'REDACTED')}`);
+
+    const pageFieldsResponse = await fetch(pageFieldsUrl);
+    if (!pageFieldsResponse.ok) {
+      const error = await pageFieldsResponse.json();
+      console.error('❌ API ERROR - Page Fields:', JSON.stringify(error, null, 2));
+
+      // Check for common errors
+      if (error.error?.code === 190) {
+        return new Response(
+          JSON.stringify({
+            error: '❌ ACCESS TOKEN INVALID OR EXPIRED',
+            details: 'The Meta access token is not working. Please reconnect your Facebook account.',
+            errorCode: error.error?.code,
+            errorType: error.error?.type,
+            fbError: error
+          }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          error: '❌ Failed to fetch page fields',
+          details: error.error?.message || 'Unknown error',
+          errorCode: error.error?.code,
+          fbError: error
+        }),
+        { status: pageFieldsResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const pageFields = await pageFieldsResponse.json();
+    console.log(`✅ Fetched page fields:`, pageFields);
+
+    // === STEP 2: Fetch Daily Metrics ===
+    // Using v24.0 valid daily metrics
     const dailyMetrics = [
-      'page_impressions',           // Total Impressions
-      'page_impressions_unique',    // Reach (unique users)
+      'page_impressions',                  // Total Impressions (day, week, days_28)
+      'page_impressions_unique',           // Total Reach (day, week, days_28)
+      'page_daily_follows_unique',         // New Followers (day)
+      'page_daily_unfollows_unique',       // Unfollows (day)
+      'page_impressions_organic_v2',       // Organic Reach (day, days_28)
+      'page_impressions_paid',             // Paid Reach (day, days_28)
+      'page_post_engagements',             // Engagement (day, days_28)
     ];
 
-    const lifetimeMetrics = [
-      'page_fans_gender_age',              // Demographics Age/Gender
-      'page_fans_country',                 // Demographics Country
-    ];
-
-    // Fetch daily metrics
     const metricsParam = dailyMetrics.join(',');
     const insightsUrl = `https://graph.facebook.com/v24.0/${pageId}/insights?metric=${metricsParam}&period=day&since=${sinceDate}&until=${untilDate}&access_token=${accessToken}`;
 
@@ -127,11 +164,33 @@ Deno.serve(async (req: Request) => {
 
     if (!insightsResponse.ok) {
       const error = await insightsResponse.json();
-      console.error('Insights API error:', JSON.stringify(error, null, 2));
+      console.error('❌ API ERROR - Daily Metrics:', JSON.stringify(error, null, 2));
+
+      // Check for common errors
+      if (error.error?.code === 190) {
+        return new Response(
+          JSON.stringify({
+            error: '❌ ACCESS TOKEN INVALID OR EXPIRED',
+            details: 'The Meta access token is not working. Please reconnect your Facebook account.',
+            errorCode: error.error?.code,
+            errorType: error.error?.type,
+            fbError: error
+          }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if specific metrics are invalid
+      if (error.error?.code === 100 && error.error?.error_subcode === 2108006) {
+        console.error('⚠️ One or more metrics are invalid for this page. Error:', error.error?.message);
+      }
+
       return new Response(
         JSON.stringify({
-          error: 'Failed to fetch insights',
+          error: '❌ Failed to fetch daily metrics',
           details: error.error?.message || 'Unknown error',
+          errorCode: error.error?.code,
+          errorSubcode: error.error?.error_subcode,
           fbError: error
         }),
         { status: insightsResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -139,23 +198,32 @@ Deno.serve(async (req: Request) => {
     }
 
     const insightsData = await insightsResponse.json();
-    console.log(`Fetched ${insightsData.data?.length || 0} daily metrics`);
+    console.log(`✅ Fetched ${insightsData.data?.length || 0} daily metrics`);
 
-    // Fetch lifetime metrics (demographics)
-    const lifetimeMetricsParam = lifetimeMetrics.join(',');
-    const lifetimeUrl = `https://graph.facebook.com/v24.0/${pageId}/insights?metric=${lifetimeMetricsParam}&period=lifetime&access_token=${accessToken}`;
+    // === STEP 3: Fetch Demographics (days_28 period) ===
+    const demographicMetrics = [
+      'page_impressions_by_age_gender_unique',  // Demographics (Age/Sex) - days_28
+      'page_impressions_by_country_unique',     // Demographics (Country) - days_28
+    ];
 
-    console.log(`Fetching lifetime metrics: ${lifetimeUrl.replace(accessToken, 'REDACTED')}`);
+    const demographicMetricsParam = demographicMetrics.join(',');
+    const demographicUrl = `https://graph.facebook.com/v24.0/${pageId}/insights?metric=${demographicMetricsParam}&period=days_28&access_token=${accessToken}`;
 
-    const lifetimeResponse = await fetch(lifetimeUrl);
+    console.log(`Fetching demographic metrics: ${demographicUrl.replace(accessToken, 'REDACTED')}`);
+
+    const demographicResponse = await fetch(demographicUrl);
     let demographicData: any = null;
 
-    if (lifetimeResponse.ok) {
-      demographicData = await lifetimeResponse.json();
-      console.log(`Fetched ${demographicData.data?.length || 0} lifetime metrics`);
+    if (demographicResponse.ok) {
+      demographicData = await demographicResponse.json();
+      console.log(`✅ Fetched ${demographicData.data?.length || 0} demographic metrics`);
     } else {
-      const error = await lifetimeResponse.json();
-      console.error('Lifetime metrics error:', JSON.stringify(error, null, 2));
+      const error = await demographicResponse.json();
+      console.error('⚠️ Demographic metrics error:', JSON.stringify(error, null, 2));
+
+      if (error.error?.code === 190) {
+        console.error('❌ ACCESS TOKEN INVALID OR EXPIRED for demographics');
+      }
     }
 
     // Process and store insights data
@@ -174,19 +242,51 @@ Deno.serve(async (req: Request) => {
               client_number: clientNumber,
               marketing_reference: marketingReference,
               date: date,
+              // Initialize with page field values (same for all dates in this fetch)
+              page_fans: pageFields.fan_count || 0,  // Total Likes
             };
           }
 
-          // Map the metric values
+          // Map the metric values - using v24.0 metric names
           switch (metric.name) {
             case 'page_impressions':
-              metricsMap[date].page_impressions = value.value || 0;
+              metricsMap[date].page_impressions = value.value || 0;  // Total Impressions
               break;
             case 'page_impressions_unique':
-              metricsMap[date].page_impressions_unique = value.value || 0;
+              metricsMap[date].page_impressions_unique = value.value || 0;  // Total Reach
+              break;
+            case 'page_daily_follows_unique':
+              metricsMap[date].page_fan_adds = value.value || 0;  // New Followers
+              break;
+            case 'page_daily_unfollows_unique':
+              metricsMap[date].page_fan_removes = value.value || 0;  // Unfollows
+              break;
+            case 'page_impressions_organic_v2':
+              metricsMap[date].page_impressions_organic = value.value || 0;  // Organic Reach
+              break;
+            case 'page_impressions_paid':
+              metricsMap[date].page_impressions_paid = value.value || 0;  // Paid Reach
+              break;
+            case 'page_post_engagements':
+              metricsMap[date].page_post_engagements = value.value || 0;  // Engagement
               break;
           }
         }
+      }
+    }
+
+    // Calculate derived fields for each date
+    for (const date in metricsMap) {
+      const record = metricsMap[date];
+
+      // Calculate net growth (new followers - unfollows)
+      record.net_growth = (record.page_fan_adds || 0) - (record.page_fan_removes || 0);
+
+      // Calculate engagement rate (engaged users / reach * 100)
+      if (record.page_impressions_unique > 0) {
+        record.engagement_rate = ((record.page_post_engagements || 0) / record.page_impressions_unique * 100).toFixed(2);
+      } else {
+        record.engagement_rate = 0;
       }
     }
 
@@ -227,11 +327,14 @@ Deno.serve(async (req: Request) => {
       };
 
       for (const metric of demographicData.data) {
-        if (metric.name === 'page_fans_gender_age' && metric.values?.[0]?.value) {
+        // Using v24.0 demographic metric names
+        if (metric.name === 'page_impressions_by_age_gender_unique' && metric.values?.[0]?.value) {
           demoRecord.age_gender_breakdown = metric.values[0].value;
+          console.log('✅ Stored age/gender demographics');
         }
-        if (metric.name === 'page_fans_country' && metric.values?.[0]?.value) {
+        if (metric.name === 'page_impressions_by_country_unique' && metric.values?.[0]?.value) {
           demoRecord.country_breakdown = metric.values[0].value;
+          console.log('✅ Stored country demographics');
         }
       }
 
@@ -246,57 +349,108 @@ Deno.serve(async (req: Request) => {
 
       if (!error) {
         demographicsStored = true;
-        console.log(`Stored demographics for ${demoDate}`);
+        console.log(`✅ Stored demographics for ${demoDate}`);
       } else {
-        console.error('Error storing demographics:', error);
+        console.error('❌ Error storing demographics:', error);
       }
     }
 
     // Update the facebook_accounts table with aggregated totals
     const twentyEightDaysAgo = new Date();
     twentyEightDaysAgo.setDate(twentyEightDaysAgo.getDate() - 28);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     // Fetch aggregated data for last 28 days
     const { data: last28Days } = await supabase
       .from('facebook_page_insights')
-      .select('page_impressions_unique, page_impressions')
+      .select('page_impressions_unique, page_impressions, page_post_engagements')
       .eq('page_id', pageId)
       .gte('date', twentyEightDaysAgo.toISOString().split('T')[0])
       .order('date', { ascending: false });
 
+    // Fetch aggregated data for last 7 days (for net growth)
+    const { data: last7Days } = await supabase
+      .from('facebook_page_insights')
+      .select('net_growth')
+      .eq('page_id', pageId)
+      .gte('date', sevenDaysAgo.toISOString().split('T')[0])
+      .order('date', { ascending: false });
+
     let totalReach28d = 0;
     let totalImpressions28d = 0;
+    let totalEngagement28d = 0;
     if (last28Days) {
       totalReach28d = last28Days.reduce((sum, record) => sum + (record.page_impressions_unique || 0), 0);
       totalImpressions28d = last28Days.reduce((sum, record) => sum + (record.page_impressions || 0), 0);
+      totalEngagement28d = last28Days.reduce((sum, record) => sum + (record.page_post_engagements || 0), 0);
     }
 
-    // Update facebook_accounts with aggregated data
+    let netGrowth7d = 0;
+    if (last7Days) {
+      netGrowth7d = last7Days.reduce((sum, record) => sum + (record.net_growth || 0), 0);
+    }
+
+    // Calculate engagement rate
+    const engagementRate = totalReach28d > 0 ? (totalEngagement28d / totalReach28d * 100).toFixed(2) : 0;
+
+    // Update facebook_accounts with aggregated data and page fields
     await supabase
       .from('facebook_accounts')
       .update({
+        total_page_likes: pageFields.fan_count || 0,  // Total Likes from page field
         total_reach_28d: totalReach28d,
+        total_engagement_28d: totalEngagement28d,
+        engagement_rate: engagementRate,
+        net_growth_7d: netGrowth7d,
         updated_at: timestamp,
       })
       .eq('page_id', pageId);
 
+    console.log(`✅ Updated facebook_accounts with aggregated data`);
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Fetched insights for page ${pageId}`,
+        message: `✅ Successfully fetched insights for page ${pageId}`,
         insightsStored: insightsRecords.length,
         demographicsStored,
+        pageFields: {
+          followers_count: pageFields.followers_count || 0,
+          fan_count: pageFields.fan_count || 0,
+        },
         summary: {
           totalReach28d,
           totalImpressions28d,
+          totalEngagement28d,
+          engagementRate,
+          netGrowth7d,
         },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error syncing Facebook page insights:", error);
+    console.error("❌ CRITICAL ERROR syncing Facebook page insights:", error);
+
+    // Check if this is a network error or auth error
+    let errorMessage = error.message || "Internal server error";
+    let errorDetails = "An unexpected error occurred while fetching insights";
+
+    if (errorMessage.includes('fetch') || errorMessage.includes('network')) {
+      errorDetails = "Network error - Unable to connect to Facebook API. Please check your internet connection.";
+    } else if (errorMessage.includes('token') || errorMessage.includes('auth')) {
+      errorDetails = "Authentication error - The access token may be invalid or expired.";
+    }
+
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
+      JSON.stringify({
+        error: `❌ ${errorMessage}`,
+        details: errorDetails,
+        debug: {
+          message: error.message,
+          stack: error.stack,
+        }
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
