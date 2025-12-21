@@ -40,59 +40,38 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get access token from system settings or from the page
+    // Get access token - MUST use system token for insights (page tokens don't have permissions)
     let accessToken: string | null = null;
 
-    // First try to get from Facebook-specific settings
-    const { data: facebookToken } = await supabase
+    // Priority: meta_system_user_token (most reliable for insights)
+    const { data: systemToken } = await supabase
       .from("system_settings")
       .select("value")
-      .eq("key", "facebook_access_token")
+      .eq("key", "meta_system_user_token")
       .maybeSingle();
 
-    if (facebookToken?.value) {
-      accessToken = facebookToken.value;
+    if (systemToken?.value) {
+      accessToken = systemToken.value;
+      console.log("Using meta_system_user_token");
     } else {
-      // Fallback to meta tokens for backwards compatibility
-      const { data: systemToken } = await supabase
+      // Fallback to facebook_access_token
+      const { data: facebookToken } = await supabase
         .from("system_settings")
         .select("value")
-        .eq("key", "meta_system_user_token")
+        .eq("key", "facebook_access_token")
         .maybeSingle();
 
-      if (systemToken?.value) {
-        accessToken = systemToken.value;
-      } else {
-        const { data: oauthToken } = await supabase
-          .from("system_settings")
-          .select("value")
-          .eq("key", "meta_oauth_user_token")
-          .maybeSingle();
-
-        if (oauthToken?.value) {
-          accessToken = oauthToken.value;
-        }
-      }
-    }
-
-    if (!accessToken) {
-      // Try to get from the page's stored access_token
-      const { data: pageData } = await supabase
-        .from("facebook_accounts")
-        .select("access_token, client_number, marketing_reference")
-        .eq("page_id", pageId)
-        .maybeSingle();
-
-      if (pageData?.access_token) {
-        accessToken = pageData.access_token;
+      if (facebookToken?.value) {
+        accessToken = facebookToken.value;
+        console.log("Using facebook_access_token");
       }
     }
 
     if (!accessToken) {
       return new Response(
         JSON.stringify({
-          error: "No access token available",
-          details: "Please sync Facebook accounts first or configure access tokens"
+          error: "No system access token available",
+          details: "Please configure meta_system_user_token in settings. Page tokens don't have insights permissions."
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
