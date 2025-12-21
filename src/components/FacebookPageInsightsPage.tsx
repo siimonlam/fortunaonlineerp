@@ -150,8 +150,20 @@ export default function FacebookPageInsightsPage() {
         }
       );
 
-      const result = await response.json();
       console.log('[FB Insights] Response status:', response.status);
+      console.log('[FB Insights] Response content-type:', response.headers.get('content-type'));
+
+      const contentType = response.headers.get('content-type');
+      let result;
+
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('[FB Insights] Non-JSON response:', text);
+        throw new Error(`Expected JSON response but got: ${text.substring(0, 200)}`);
+      }
+
       console.log('[FB Insights] Response data:', result);
 
       if (!response.ok) {
