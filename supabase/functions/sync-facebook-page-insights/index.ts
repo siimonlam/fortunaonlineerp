@@ -105,18 +105,15 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Fetching insights for page ${pageId} from ${sinceDate} to ${untilDate}`);
 
-    // Use only core, stable metrics that are definitely available
+    // Start with the most basic metrics that are guaranteed to work
+    // Reference: https://developers.facebook.com/docs/graph-api/reference/v24.0/insights
     const dailyMetrics = [
-      'page_impressions',                  // Total Impressions
-      'page_impressions_unique',           // Reach (day)
-      'page_impressions_organic',          // Organic Reach
-      'page_impressions_paid',             // Paid Reach
-      'page_engaged_users',                // Engaged Users
-      'page_post_engagements',             // Total Engagement
-      'page_fan_adds',                     // New Followers
-      'page_fan_removes',                  // Unfollows
-      'page_video_views',                  // Video Views
-      'page_posts_impressions',            // Post Impressions
+      'page_impressions',           // Total Impressions
+      'page_impressions_unique',    // Reach (unique users)
+      'page_impressions_organic',   // Organic Impressions
+      'page_impressions_paid',      // Paid Impressions
+      'page_fan_adds',              // New page likes
+      'page_fan_removes',           // Page unlikes
     ];
 
     const lifetimeMetrics = [
@@ -198,38 +195,22 @@ Deno.serve(async (req: Request) => {
             case 'page_impressions_paid':
               metricsMap[date].page_impressions_paid = value.value || 0;
               break;
-            case 'page_engaged_users':
-              metricsMap[date].page_engaged_users = value.value || 0;
-              break;
-            case 'page_post_engagements':
-              metricsMap[date].page_post_engagements = value.value || 0;
-              break;
             case 'page_fan_adds':
               metricsMap[date].page_fan_adds = value.value || 0;
               break;
             case 'page_fan_removes':
               metricsMap[date].page_fan_removes = value.value || 0;
               break;
-            case 'page_video_views':
-              metricsMap[date].page_video_views = value.value || 0;
-              break;
-            case 'page_posts_impressions':
-              metricsMap[date].page_posts_impressions = value.value || 0;
-              break;
           }
         }
       }
     }
 
-    // Calculate net growth and engagement rate for each date
+    // Calculate net growth for each date
     for (const date in metricsMap) {
       const adds = metricsMap[date].page_fan_adds || 0;
       const removes = metricsMap[date].page_fan_removes || 0;
       metricsMap[date].net_growth = adds - removes;
-
-      const engaged = metricsMap[date].page_engaged_users || 0;
-      const reach = metricsMap[date].page_impressions_unique || 0;
-      metricsMap[date].engagement_rate = reach > 0 ? ((engaged / reach) * 100).toFixed(2) : 0;
     }
 
     // Store daily insights
@@ -311,7 +292,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: last28Days } = await supabase
       .from('facebook_page_insights')
-      .select('page_impressions_unique, page_post_engagements, page_engaged_users')
+      .select('page_impressions_unique, page_impressions')
       .eq('page_id', pageId)
       .gte('date', twentyEightDaysAgo.toISOString().split('T')[0])
       .order('date', { ascending: false });
@@ -322,15 +303,11 @@ Deno.serve(async (req: Request) => {
     }
 
     let totalReach28d = 0;
-    let totalEngagement28d = 0;
-    let totalEngagedUsers28d = 0;
+    let totalImpressions28d = 0;
     if (last28Days) {
       totalReach28d = last28Days.reduce((sum, record) => sum + (record.page_impressions_unique || 0), 0);
-      totalEngagement28d = last28Days.reduce((sum, record) => sum + (record.page_post_engagements || 0), 0);
-      totalEngagedUsers28d = last28Days.reduce((sum, record) => sum + (record.page_engaged_users || 0), 0);
+      totalImpressions28d = last28Days.reduce((sum, record) => sum + (record.page_impressions || 0), 0);
     }
-
-    const engagementRate = totalReach28d > 0 ? ((totalEngagedUsers28d / totalReach28d) * 100).toFixed(2) : 0;
 
     // Update facebook_accounts with aggregated data
     await supabase
@@ -338,8 +315,6 @@ Deno.serve(async (req: Request) => {
       .update({
         net_growth_7d: netGrowth7d,
         total_reach_28d: totalReach28d,
-        total_engagement_28d: totalEngagement28d,
-        engagement_rate: engagementRate,
         updated_at: timestamp,
       })
       .eq('page_id', pageId);
@@ -353,8 +328,7 @@ Deno.serve(async (req: Request) => {
         summary: {
           netGrowth7d,
           totalReach28d,
-          totalEngagement28d,
-          engagementRate,
+          totalImpressions28d,
         },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
