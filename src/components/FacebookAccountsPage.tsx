@@ -30,6 +30,7 @@ export default function FacebookAccountsPage() {
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [syncingSettings, setSyncingSettings] = useState(false);
+  const [checkingToken, setCheckingToken] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
@@ -120,6 +121,67 @@ export default function FacebookAccountsPage() {
       setSettingsMessage({ type: 'error', text: err.message });
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const handleCheckToken = async () => {
+    setCheckingToken(true);
+    setSettingsMessage(null);
+
+    try {
+      if (!accessToken.trim()) {
+        throw new Error('Access Token is required');
+      }
+
+      const debugUrl = `https://graph.facebook.com/v21.0/debug_token?input_token=${accessToken.trim()}&access_token=${accessToken.trim()}`;
+      const response = await fetch(debugUrl);
+
+      if (!response.ok) {
+        const meUrl = `https://graph.facebook.com/v21.0/me?access_token=${accessToken.trim()}`;
+        const meResponse = await fetch(meUrl);
+
+        if (!meResponse.ok) {
+          const error = await meResponse.json();
+          throw new Error(`Invalid token: ${error.error?.message || 'Token verification failed'}`);
+        }
+
+        const meData = await meResponse.json();
+        setSettingsMessage({
+          type: 'success',
+          text: `Token is valid! Connected as: ${meData.name || meData.id}`
+        });
+        return;
+      }
+
+      const data = await response.json();
+      const tokenData = data.data;
+
+      if (!tokenData.is_valid) {
+        throw new Error('Token is invalid or expired');
+      }
+
+      const expiresAt = tokenData.expires_at;
+      const expiryInfo = expiresAt === 0
+        ? 'never expires (long-lived token)'
+        : `expires on ${new Date(expiresAt * 1000).toLocaleDateString()}`;
+
+      const scopes = tokenData.scopes || [];
+      const requiredScopes = ['pages_read_engagement', 'pages_show_list'];
+      const missingScopes = requiredScopes.filter(scope => !scopes.includes(scope));
+
+      let message = `Token is valid and ${expiryInfo}.`;
+      if (missingScopes.length > 0) {
+        message += ` Warning: Missing recommended permissions: ${missingScopes.join(', ')}`;
+        setSettingsMessage({ type: 'error', text: message });
+      } else {
+        message += ` Has required permissions: ${requiredScopes.join(', ')}`;
+        setSettingsMessage({ type: 'success', text: message });
+      }
+    } catch (err: any) {
+      console.error('Error checking token:', err);
+      setSettingsMessage({ type: 'error', text: err.message });
+    } finally {
+      setCheckingToken(false);
     }
   };
 
@@ -598,9 +660,28 @@ export default function FacebookAccountsPage() {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Access Token <span className="text-red-500">*</span>
-                      </label>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Access Token <span className="text-red-500">*</span>
+                        </label>
+                        <button
+                          onClick={handleCheckToken}
+                          disabled={checkingToken || !accessToken.trim()}
+                          className="flex items-center gap-2 px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {checkingToken ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              Checking...
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle size={16} />
+                              Check Token
+                            </>
+                          )}
+                        </button>
+                      </div>
                       <textarea
                         value={accessToken}
                         onChange={(e) => setAccessToken(e.target.value)}
