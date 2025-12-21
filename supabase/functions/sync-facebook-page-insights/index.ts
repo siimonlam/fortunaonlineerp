@@ -155,50 +155,59 @@ Deno.serve(async (req: Request) => {
       'page_post_engagements',             // Engagement (day, days_28)
     ];
 
-    const metricsParam = dailyMetrics.join(',');
-    const insightsUrl = `https://graph.facebook.com/v24.0/${pageId}/insights?metric=${metricsParam}&period=day&since=${sinceDate}&until=${untilDate}&access_token=${accessToken}`;
+    // Fetch metrics individually to identify and skip invalid ones
+    const insightsData: { data: InsightData[] } = { data: [] };
+    const invalidMetrics: string[] = [];
 
-    console.log(`Fetching daily insights: ${insightsUrl.replace(accessToken, 'REDACTED')}`);
+    for (const metric of dailyMetrics) {
+      const metricUrl = `https://graph.facebook.com/v24.0/${pageId}/insights?metric=${metric}&period=day&since=${sinceDate}&until=${untilDate}&access_token=${accessToken}`;
 
-    const insightsResponse = await fetch(insightsUrl);
+      try {
+        const metricResponse = await fetch(metricUrl);
 
-    if (!insightsResponse.ok) {
-      const error = await insightsResponse.json();
-      console.error('❌ API ERROR - Daily Metrics:', JSON.stringify(error, null, 2));
+        if (!metricResponse.ok) {
+          const error = await metricResponse.json();
 
-      // Check for common errors
-      if (error.error?.code === 190) {
-        return new Response(
-          JSON.stringify({
-            error: '❌ ACCESS TOKEN INVALID OR EXPIRED',
-            details: 'The Meta access token is not working. Please reconnect your Facebook account.',
-            errorCode: error.error?.code,
-            errorType: error.error?.type,
-            fbError: error
-          }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+          // Check for auth errors - these should fail the entire request
+          if (error.error?.code === 190) {
+            return new Response(
+              JSON.stringify({
+                error: '❌ ACCESS TOKEN INVALID OR EXPIRED',
+                details: 'The Meta access token is not working. Please reconnect your Facebook account.',
+                errorCode: error.error?.code,
+                errorType: error.error?.type,
+                fbError: error
+              }),
+              { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          // For invalid metric errors, log and skip
+          if (error.error?.code === 100) {
+            console.warn(`⚠️ Metric '${metric}' is invalid for this page - skipping. Error: ${error.error?.message}`);
+            invalidMetrics.push(metric);
+            continue;
+          }
+
+          // Other errors
+          console.error(`❌ Error fetching metric '${metric}':`, error);
+          continue;
+        }
+
+        const metricData = await metricResponse.json();
+        if (metricData.data && metricData.data.length > 0) {
+          insightsData.data.push(...metricData.data);
+          console.log(`✅ Fetched metric: ${metric}`);
+        }
+      } catch (err) {
+        console.error(`❌ Exception fetching metric '${metric}':`, err);
       }
-
-      // Check if specific metrics are invalid
-      if (error.error?.code === 100 && error.error?.error_subcode === 2108006) {
-        console.error('⚠️ One or more metrics are invalid for this page. Error:', error.error?.message);
-      }
-
-      return new Response(
-        JSON.stringify({
-          error: '❌ Failed to fetch daily metrics',
-          details: error.error?.message || 'Unknown error',
-          errorCode: error.error?.code,
-          errorSubcode: error.error?.error_subcode,
-          fbError: error
-        }),
-        { status: insightsResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
-    const insightsData = await insightsResponse.json();
-    console.log(`✅ Fetched ${insightsData.data?.length || 0} daily metrics`);
+    console.log(`✅ Successfully fetched ${insightsData.data.length} metrics (${dailyMetrics.length - invalidMetrics.length}/${dailyMetrics.length} valid)`);
+    if (invalidMetrics.length > 0) {
+      console.log(`⚠️ Invalid metrics skipped: ${invalidMetrics.join(', ')}`);
+    }
 
     // === STEP 3: Fetch Demographics (days_28 period) ===
     const demographicMetrics = [
@@ -415,6 +424,7 @@ Deno.serve(async (req: Request) => {
         message: `✅ Successfully fetched insights for page ${pageId}`,
         insightsStored: insightsRecords.length,
         demographicsStored,
+        invalidMetrics: invalidMetrics.length > 0 ? invalidMetrics : undefined,
         pageFields: {
           followers_count: pageFields.followers_count || 0,
           fan_count: pageFields.fan_count || 0,
