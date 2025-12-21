@@ -40,8 +40,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get access token - MUST use system token for insights (page tokens don't have permissions)
-    let accessToken: string | null = null;
+    // Get System User Token
+    let systemUserToken: string | null = null;
 
     // Priority: meta_system_user_token (most reliable for insights)
     const { data: systemToken } = await supabase
@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (systemToken?.value) {
-      accessToken = systemToken.value;
+      systemUserToken = systemToken.value;
       console.log("Using meta_system_user_token");
     } else {
       // Fallback to facebook_access_token
@@ -62,20 +62,59 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (facebookToken?.value) {
-        accessToken = facebookToken.value;
+        systemUserToken = facebookToken.value;
         console.log("Using facebook_access_token");
       }
     }
 
-    if (!accessToken) {
+    if (!systemUserToken) {
       return new Response(
         JSON.stringify({
           error: "No system access token available",
-          details: "Please configure meta_system_user_token in settings. Page tokens don't have insights permissions."
+          details: "Please configure meta_system_user_token in settings."
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // === CRITICAL STEP: Exchange System User Token for Page Access Token ===
+    // Demographics and sensitive insights require a PAGE token, not a System User token
+    console.log(`🔄 Exchanging System User Token for Page Access Token for page ${pageId}`);
+
+    const accountsUrl = `https://graph.facebook.com/v21.0/me/accounts?access_token=${systemUserToken}`;
+    const accountsResponse = await fetch(accountsUrl);
+
+    if (!accountsResponse.ok) {
+      const error = await accountsResponse.json();
+      return new Response(
+        JSON.stringify({
+          error: '❌ Failed to exchange token',
+          details: 'Could not get Page Access Token from System User Token',
+          fbError: error
+        }),
+        { status: accountsResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const accountsData = await accountsResponse.json();
+    const pageAccount = accountsData.data?.find((page: any) => page.id === pageId);
+
+    if (!pageAccount || !pageAccount.access_token) {
+      return new Response(
+        JSON.stringify({
+          error: '❌ Page not found or no access',
+          details: `Could not find page ${pageId} in the System User's accessible pages. Make sure the System User has access to this page.`,
+          availablePages: accountsData.data?.map((p: any) => ({ id: p.id, name: p.name })) || []
+        }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const pageAccessToken = pageAccount.access_token;
+    console.log(`✅ Successfully exchanged for Page Access Token for page: ${pageAccount.name}`);
+
+    // Use the Page Access Token for all subsequent API calls
+    const accessToken = pageAccessToken;
 
     // Get client_number and marketing_reference for this page
     const { data: pageData } = await supabase
