@@ -131,6 +131,9 @@ export default function FacebookPageInsightsPage() {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
 
+      console.log('[FB Insights] Syncing insights for page:', selectedAccount.page_id);
+      console.log('[FB Insights] Date range:', thirtyDaysAgo.toISOString().split('T')[0], 'to', yesterday.toISOString().split('T')[0]);
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-facebook-page-insights`,
         {
@@ -148,20 +151,27 @@ export default function FacebookPageInsightsPage() {
       );
 
       const result = await response.json();
+      console.log('[FB Insights] Response status:', response.status);
+      console.log('[FB Insights] Response data:', result);
 
       if (!response.ok) {
-        throw new Error(result.error || result.details || 'Failed to sync insights');
+        console.error('[FB Insights] Error response:', result);
+        throw new Error(result.error || result.details || JSON.stringify(result) || 'Failed to sync insights');
       }
 
-      setSuccessMessage(result.message || 'Insights synced successfully!');
+      const summary = result.summary || {};
+      setSuccessMessage(
+        `Insights synced successfully! Stored ${result.insightsStored || 0} daily records. ` +
+        `Net Growth (7d): ${summary.netGrowth7d || 0}, Reach (28d): ${summary.totalReach28d || 0}`
+      );
 
       // Refresh the data
       await fetchAccounts();
       await fetchInsights(selectedAccount.page_id);
       await fetchDemographics(selectedAccount.page_id);
     } catch (err: any) {
-      console.error('Error syncing insights:', err);
-      setError(err.message);
+      console.error('[FB Insights] Error syncing insights:', err);
+      setError(err.message || 'Unknown error occurred. Check browser console for details.');
     } finally {
       setSyncing(false);
     }
