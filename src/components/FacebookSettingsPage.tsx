@@ -403,7 +403,7 @@ export default function FacebookSettingsPage() {
                 <button
                   onClick={handleCheckToken}
                   disabled={checkingToken || !systemUserToken.trim()}
-                  className="flex items-center gap-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {checkingToken ? (
                     <>
@@ -419,8 +419,8 @@ export default function FacebookSettingsPage() {
                 </button>
                 <button
                   onClick={handleTestTokenPermissions}
-                  disabled={testingPermissions}
-                  className="flex items-center gap-2 px-3 py-1 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  disabled={testingPermissions || !systemUserToken.trim()}
+                  className="flex items-center gap-2 px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {testingPermissions ? (
                     <>
