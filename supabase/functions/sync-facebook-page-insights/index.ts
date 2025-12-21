@@ -105,25 +105,23 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Fetching insights for page ${pageId} from ${sinceDate} to ${untilDate}`);
 
-    // Metrics to fetch with CORRECT endpoints per the user's specification
+    // Use only core, stable metrics that are definitely available
     const dailyMetrics = [
-      'page_impressions_unique',           // Reach (day)
-      'page_daily_follows_unique',         // New Followers (day) ✅
-      'page_daily_unfollows_unique',       // Unfollows (day) ✅
-      'page_post_engagements',             // Total Engagement (day)
-      'page_impressions_organic_v2',       // Organic Reach (day) ✅
-      'page_impressions_paid',             // Paid Reach (day) ✅
       'page_impressions',                  // Total Impressions
+      'page_impressions_unique',           // Reach (day)
+      'page_impressions_organic',          // Organic Reach
+      'page_impressions_paid',             // Paid Reach
       'page_engaged_users',                // Engaged Users
-      'page_posts_impressions',            // Post Impressions
-      'page_posts_impressions_unique',     // Post Reach
+      'page_post_engagements',             // Total Engagement
+      'page_fan_adds',                     // New Followers
+      'page_fan_removes',                  // Unfollows
       'page_video_views',                  // Video Views
-      'page_video_views_unique',           // Unique Video Views
+      'page_posts_impressions',            // Post Impressions
     ];
 
     const lifetimeMetrics = [
-      'page_follows_gender_age',           // Demographics Age/Gender ✅
-      'page_follows_country',              // Demographics Country ✅
+      'page_fans_gender_age',              // Demographics Age/Gender
+      'page_fans_country',                 // Demographics Country
     ];
 
     // Fetch daily metrics
@@ -188,41 +186,35 @@ Deno.serve(async (req: Request) => {
 
           // Map the metric values
           switch (metric.name) {
+            case 'page_impressions':
+              metricsMap[date].page_impressions = value.value || 0;
+              break;
             case 'page_impressions_unique':
               metricsMap[date].page_impressions_unique = value.value || 0;
               break;
-            case 'page_daily_follows_unique':
-              metricsMap[date].page_fan_adds = value.value || 0;
-              break;
-            case 'page_daily_unfollows_unique':
-              metricsMap[date].page_fan_removes = value.value || 0;
-              break;
-            case 'page_post_engagements':
-              metricsMap[date].page_post_engagements = value.value || 0;
-              break;
-            case 'page_impressions_organic_v2':
+            case 'page_impressions_organic':
               metricsMap[date].page_impressions_organic = value.value || 0;
               break;
             case 'page_impressions_paid':
               metricsMap[date].page_impressions_paid = value.value || 0;
               break;
-            case 'page_impressions':
-              metricsMap[date].page_impressions = value.value || 0;
-              break;
             case 'page_engaged_users':
               metricsMap[date].page_engaged_users = value.value || 0;
               break;
-            case 'page_posts_impressions':
-              metricsMap[date].page_posts_impressions = value.value || 0;
+            case 'page_post_engagements':
+              metricsMap[date].page_post_engagements = value.value || 0;
               break;
-            case 'page_posts_impressions_unique':
-              metricsMap[date].page_posts_impressions_unique = value.value || 0;
+            case 'page_fan_adds':
+              metricsMap[date].page_fan_adds = value.value || 0;
+              break;
+            case 'page_fan_removes':
+              metricsMap[date].page_fan_removes = value.value || 0;
               break;
             case 'page_video_views':
               metricsMap[date].page_video_views = value.value || 0;
               break;
-            case 'page_video_views_unique':
-              metricsMap[date].page_video_views_unique = value.value || 0;
+            case 'page_posts_impressions':
+              metricsMap[date].page_posts_impressions = value.value || 0;
               break;
           }
         }
@@ -277,10 +269,10 @@ Deno.serve(async (req: Request) => {
       };
 
       for (const metric of demographicData.data) {
-        if (metric.name === 'page_follows_gender_age' && metric.values?.[0]?.value) {
+        if (metric.name === 'page_fans_gender_age' && metric.values?.[0]?.value) {
           demoRecord.age_gender_breakdown = metric.values[0].value;
         }
-        if (metric.name === 'page_follows_country' && metric.values?.[0]?.value) {
+        if (metric.name === 'page_fans_country' && metric.values?.[0]?.value) {
           demoRecord.country_breakdown = metric.values[0].value;
         }
       }
