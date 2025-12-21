@@ -43,24 +43,35 @@ Deno.serve(async (req: Request) => {
     // Get access token from system settings or from the page
     let accessToken: string | null = null;
 
-    // First try to get from system settings
-    const { data: systemToken } = await supabase
+    // First try to get from Facebook-specific settings
+    const { data: facebookToken } = await supabase
       .from("system_settings")
       .select("value")
-      .eq("key", "meta_system_user_token")
+      .eq("key", "facebook_access_token")
       .maybeSingle();
 
-    if (systemToken?.value) {
-      accessToken = systemToken.value;
+    if (facebookToken?.value) {
+      accessToken = facebookToken.value;
     } else {
-      const { data: oauthToken } = await supabase
+      // Fallback to meta tokens for backwards compatibility
+      const { data: systemToken } = await supabase
         .from("system_settings")
         .select("value")
-        .eq("key", "meta_oauth_user_token")
+        .eq("key", "meta_system_user_token")
         .maybeSingle();
 
-      if (oauthToken?.value) {
-        accessToken = oauthToken.value;
+      if (systemToken?.value) {
+        accessToken = systemToken.value;
+      } else {
+        const { data: oauthToken } = await supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "meta_oauth_user_token")
+          .maybeSingle();
+
+        if (oauthToken?.value) {
+          accessToken = oauthToken.value;
+        }
       }
     }
 
