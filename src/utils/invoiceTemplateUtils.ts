@@ -199,6 +199,10 @@ export async function generateInvoiceFromTemplate(
     console.warn('Could not set NeedAppearances flag:', error);
   }
 
+  // Flatten the form to make all fields non-editable
+  form.flatten();
+  console.log('Form fields flattened (converted to non-editable content)');
+
   const pdfBytes = await pdfDoc.save();
   console.log('PDF generated successfully, size:', pdfBytes.length, 'bytes');
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });

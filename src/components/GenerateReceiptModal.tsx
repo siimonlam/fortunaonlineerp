@@ -222,6 +222,9 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
       console.warn('Could not set NeedAppearances flag:', error);
     }
 
+    // Flatten the form to make all fields non-editable
+    form.flatten();
+
     const pdfBytes = await pdfDoc.save();
     return new Blob([pdfBytes], { type: 'application/pdf' });
   }
