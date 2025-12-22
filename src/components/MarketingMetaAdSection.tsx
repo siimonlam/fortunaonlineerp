@@ -401,6 +401,59 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
+  const handleTestApiConnection = async (accountId: string) => {
+    setSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/test-meta-ads-token`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accountId })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API test failed:', errorData);
+        alert(`API test failed: ${errorData.error || 'Unknown error'}`);
+        return;
+      }
+
+      const testResults = await response.json();
+      console.log('API Test Results:', testResults);
+
+      let summary = `Meta Ads API Test Results for ${testResults.accountId}\n\n`;
+      testResults.tests.forEach((test: any) => {
+        summary += `${test.status} ${test.test}\n`;
+        if (test.count !== undefined) {
+          summary += `   Found: ${test.count} items\n`;
+        }
+        if (test.error) {
+          summary += `   Error: ${test.error}\n`;
+        }
+        if (test.reason) {
+          summary += `   Reason: ${test.reason}\n`;
+        }
+        if (test.response?.error) {
+          summary += `   API Error: ${test.response.error.message}\n`;
+        }
+        summary += '\n';
+      });
+
+      summary += '\nFull details have been logged to the console.';
+      alert(summary);
+    } catch (err: any) {
+      console.error('Error testing API:', err);
+      alert('Error testing API: ' + err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleSyncCampaigns = async (accountId: string) => {
     setSyncing(true);
     try {
@@ -564,6 +617,14 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                   >
                     <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
                     Sync Campaigns
+                  </button>
+                  <button
+                    onClick={() => handleTestApiConnection(link.account_id)}
+                    disabled={syncing}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                  >
+                    <BarChart3 size={14} />
+                    Test API
                   </button>
                   <button
                     onClick={() => handleRemoveAccount(link.id)}
