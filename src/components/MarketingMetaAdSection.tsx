@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { BarChart3, Plus, RefreshCw, Trash2, ExternalLink, TrendingUp, DollarSign, Eye, MousePointer } from 'lucide-react';
+import { BarChart3, Plus, RefreshCw, Trash2, ExternalLink, TrendingUp, DollarSign, Eye, MousePointer, Filter, ChevronDown } from 'lucide-react';
 
 interface MarketingMetaAdSectionProps {
   projectId: string;
@@ -30,18 +30,54 @@ interface CampaignMetrics {
   total_impressions: number;
   total_clicks: number;
   total_conversions: number;
+  total_results: number;
   avg_ctr: number;
   avg_cpc: number;
+}
+
+interface DemographicBreakdown {
+  age: string;
+  gender: string;
+  country: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  results: number;
+}
+
+interface AdSetMetrics {
+  adset_id: string;
+  name: string;
+  status: string;
+  total_spend: number;
+  total_impressions: number;
+  total_clicks: number;
+  total_results: number;
+}
+
+interface AdCreativeMetrics {
+  ad_id: string;
+  name: string;
+  status: string;
+  total_spend: number;
+  total_impressions: number;
+  total_clicks: number;
+  total_results: number;
 }
 
 export default function MarketingMetaAdSection({ projectId, clientNumber }: MarketingMetaAdSectionProps) {
   const [availableAccounts, setAvailableAccounts] = useState<MetaAdAccount[]>([]);
   const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[]>([]);
   const [campaigns, setCampaigns] = useState<CampaignMetrics[]>([]);
+  const [demographics, setDemographics] = useState<DemographicBreakdown[]>([]);
+  const [adSets, setAdSets] = useState<AdSetMetrics[]>([]);
+  const [ads, setAds] = useState<AdCreativeMetrics[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [reportView, setReportView] = useState<'campaigns' | 'demographics' | 'adsets' | 'ads'>('campaigns');
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -87,7 +123,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       const metricsPromises = campaignsData.map(async (campaign) => {
         const { data: insights } = await supabase
           .from('meta_ad_insights')
-          .select('spend, impressions, clicks, conversions, ctr, cpc')
+          .select('spend, impressions, clicks, conversions, results, ctr, cpc')
           .eq('campaign_id', campaign.campaign_id);
 
         if (!insights || insights.length === 0) {
@@ -97,6 +133,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             total_impressions: 0,
             total_clicks: 0,
             total_conversions: 0,
+            total_results: 0,
             avg_ctr: 0,
             avg_cpc: 0
           };
@@ -107,9 +144,10 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           impressions: acc.impressions + (Number(insight.impressions) || 0),
           clicks: acc.clicks + (Number(insight.clicks) || 0),
           conversions: acc.conversions + (Number(insight.conversions) || 0),
+          results: acc.results + (Number(insight.results) || 0),
           ctr: acc.ctr + (Number(insight.ctr) || 0),
           cpc: acc.cpc + (Number(insight.cpc) || 0)
-        }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, ctr: 0, cpc: 0 });
+        }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, results: 0, ctr: 0, cpc: 0 });
 
         return {
           ...campaign,
@@ -117,6 +155,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           total_impressions: totals.impressions,
           total_clicks: totals.clicks,
           total_conversions: totals.conversions,
+          total_results: totals.results,
           avg_ctr: insights.length > 0 ? totals.ctr / insights.length : 0,
           avg_cpc: insights.length > 0 ? totals.cpc / insights.length : 0
         };
@@ -124,8 +163,135 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
       const metrics = await Promise.all(metricsPromises);
       setCampaigns(metrics);
+
+      if (metrics.length > 0) {
+        const allCampaignIds = metrics.map(c => c.campaign_id);
+        loadDemographics(allCampaignIds);
+        loadAdSets(allCampaignIds);
+        loadAds(allCampaignIds);
+      }
     } catch (err: any) {
       console.error('Error loading campaign metrics:', err);
+    }
+  };
+
+  const loadDemographics = async (campaignIds: string[]) => {
+    try {
+      const { data: adIds } = await supabase
+        .from('meta_ads')
+        .select('ad_id')
+        .in('campaign_id', campaignIds);
+
+      if (!adIds || adIds.length === 0) return;
+
+      const adIdList = adIds.map(a => a.ad_id);
+
+      const { data: demographics } = await supabase
+        .from('meta_ad_insights_demographics')
+        .select('age, gender, country, impressions, clicks, spend, results')
+        .in('ad_id', adIdList);
+
+      if (!demographics) return;
+
+      const aggregated = demographics.reduce((acc: any, demo: any) => {
+        const key = `${demo.age || 'unknown'}_${demo.gender || 'unknown'}_${demo.country || 'unknown'}`;
+        if (!acc[key]) {
+          acc[key] = {
+            age: demo.age || 'Unknown',
+            gender: demo.gender || 'Unknown',
+            country: demo.country || 'Unknown',
+            impressions: 0,
+            clicks: 0,
+            spend: 0,
+            results: 0
+          };
+        }
+        acc[key].impressions += Number(demo.impressions) || 0;
+        acc[key].clicks += Number(demo.clicks) || 0;
+        acc[key].spend += Number(demo.spend) || 0;
+        acc[key].results += Number(demo.results) || 0;
+        return acc;
+      }, {});
+
+      setDemographics(Object.values(aggregated));
+    } catch (err: any) {
+      console.error('Error loading demographics:', err);
+    }
+  };
+
+  const loadAdSets = async (campaignIds: string[]) => {
+    try {
+      const { data: adSetsData } = await supabase
+        .from('meta_adsets')
+        .select('adset_id, name, status, campaign_id')
+        .in('campaign_id', campaignIds);
+
+      if (!adSetsData) return;
+
+      const metricsPromises = adSetsData.map(async (adset) => {
+        const { data: insights } = await supabase
+          .from('meta_ad_insights')
+          .select('spend, impressions, clicks, results')
+          .eq('adset_id', adset.adset_id);
+
+        const totals = (insights || []).reduce((acc, insight) => ({
+          spend: acc.spend + (Number(insight.spend) || 0),
+          impressions: acc.impressions + (Number(insight.impressions) || 0),
+          clicks: acc.clicks + (Number(insight.clicks) || 0),
+          results: acc.results + (Number(insight.results) || 0)
+        }), { spend: 0, impressions: 0, clicks: 0, results: 0 });
+
+        return {
+          ...adset,
+          total_spend: totals.spend,
+          total_impressions: totals.impressions,
+          total_clicks: totals.clicks,
+          total_results: totals.results
+        };
+      });
+
+      const metrics = await Promise.all(metricsPromises);
+      setAdSets(metrics);
+    } catch (err: any) {
+      console.error('Error loading ad sets:', err);
+    }
+  };
+
+  const loadAds = async (campaignIds: string[]) => {
+    try {
+      const { data: adsData } = await supabase
+        .from('meta_ads')
+        .select('ad_id, name, status, campaign_id')
+        .in('campaign_id', campaignIds);
+
+      if (!adsData) return;
+
+      const metricsPromises = adsData.map(async (ad) => {
+        const { data: insights } = await supabase
+          .from('meta_ad_insights')
+          .select('spend, impressions, clicks, results')
+          .eq('ad_id', ad.ad_id);
+
+        const totals = (insights || []).reduce((acc, insight) => ({
+          spend: acc.spend + (Number(insight.spend) || 0),
+          impressions: acc.impressions + (Number(insight.impressions) || 0),
+          clicks: acc.clicks + (Number(insight.clicks) || 0),
+          results: acc.results + (Number(insight.results) || 0)
+        }), { spend: 0, impressions: 0, clicks: 0, results: 0 });
+
+        return {
+          ...ad,
+          total_spend: totals.spend,
+          total_impressions: totals.impressions,
+          total_clicks: totals.clicks,
+          total_results: totals.results
+        };
+      });
+
+      const metrics = await Promise.all(metricsPromises);
+      setAds(metrics);
+    } catch (err: any) {
+      console.error('Error loading ads:', err);
     }
   };
 
@@ -408,50 +574,217 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                     No campaigns found. Click "Sync Campaigns" to fetch data.
                   </p>
                 ) : (
-                  <div className="space-y-3">
-                    {campaigns.filter(c => c.account_id === link.account_id).map((campaign) => (
-                      <div key={campaign.campaign_id} className="border border-gray-200 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <h5 className="font-medium text-gray-900">{campaign.name}</h5>
-                            <p className="text-xs text-gray-600">
-                              {campaign.objective} • {campaign.status}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-4 gap-3 mt-3">
-                          <div className="text-center">
-                            <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
-                              <DollarSign size={14} />
-                              <span className="text-xs font-medium">Spend</span>
+                  <>
+                    <div className="flex gap-2 mb-4 border-b border-gray-200">
+                      <button
+                        onClick={() => setReportView('campaigns')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors ${
+                          reportView === 'campaigns'
+                            ? 'text-blue-600 border-b-2 border-blue-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Campaigns
+                      </button>
+                      <button
+                        onClick={() => setReportView('demographics')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors ${
+                          reportView === 'demographics'
+                            ? 'text-blue-600 border-b-2 border-blue-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Demographics
+                      </button>
+                      <button
+                        onClick={() => setReportView('adsets')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors ${
+                          reportView === 'adsets'
+                            ? 'text-blue-600 border-b-2 border-blue-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Ad Sets
+                      </button>
+                      <button
+                        onClick={() => setReportView('ads')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors ${
+                          reportView === 'ads'
+                            ? 'text-blue-600 border-b-2 border-blue-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Ads
+                      </button>
+                    </div>
+
+                    {reportView === 'campaigns' && (
+                      <div className="space-y-3">
+                        {campaigns.filter(c => c.account_id === link.account_id).map((campaign) => (
+                          <div key={campaign.campaign_id} className="border border-gray-200 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <h5 className="font-medium text-gray-900">{campaign.name}</h5>
+                                <p className="text-xs text-gray-600">
+                                  {campaign.objective} • {campaign.status}
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-sm font-semibold">${campaign.total_spend.toFixed(2)}</p>
-                          </div>
-                          <div className="text-center">
-                            <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
-                              <Eye size={14} />
-                              <span className="text-xs font-medium">Impressions</span>
+                            <div className="grid grid-cols-5 gap-3 mt-3">
+                              <div className="text-center">
+                                <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
+                                  <DollarSign size={14} />
+                                  <span className="text-xs font-medium">Spend</span>
+                                </div>
+                                <p className="text-sm font-semibold">${campaign.total_spend.toFixed(2)}</p>
+                              </div>
+                              <div className="text-center">
+                                <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
+                                  <Eye size={14} />
+                                  <span className="text-xs font-medium">Impressions</span>
+                                </div>
+                                <p className="text-sm font-semibold">{campaign.total_impressions.toLocaleString()}</p>
+                              </div>
+                              <div className="text-center">
+                                <div className="flex items-center justify-center gap-1 text-purple-600 mb-1">
+                                  <MousePointer size={14} />
+                                  <span className="text-xs font-medium">Clicks</span>
+                                </div>
+                                <p className="text-sm font-semibold">{campaign.total_clicks.toLocaleString()}</p>
+                              </div>
+                              <div className="text-center">
+                                <div className="flex items-center justify-center gap-1 text-orange-600 mb-1">
+                                  <TrendingUp size={14} />
+                                  <span className="text-xs font-medium">Results</span>
+                                </div>
+                                <p className="text-sm font-semibold">{campaign.total_results.toLocaleString()}</p>
+                              </div>
+                              <div className="text-center">
+                                <div className="flex items-center justify-center gap-1 text-pink-600 mb-1">
+                                  <TrendingUp size={14} />
+                                  <span className="text-xs font-medium">CTR</span>
+                                </div>
+                                <p className="text-sm font-semibold">{campaign.avg_ctr.toFixed(2)}%</p>
+                              </div>
                             </div>
-                            <p className="text-sm font-semibold">{campaign.total_impressions.toLocaleString()}</p>
                           </div>
-                          <div className="text-center">
-                            <div className="flex items-center justify-center gap-1 text-purple-600 mb-1">
-                              <MousePointer size={14} />
-                              <span className="text-xs font-medium">Clicks</span>
-                            </div>
-                            <p className="text-sm font-semibold">{campaign.total_clicks.toLocaleString()}</p>
-                          </div>
-                          <div className="text-center">
-                            <div className="flex items-center justify-center gap-1 text-orange-600 mb-1">
-                              <TrendingUp size={14} />
-                              <span className="text-xs font-medium">CTR</span>
-                            </div>
-                            <p className="text-sm font-semibold">{campaign.avg_ctr.toFixed(2)}%</p>
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+
+                    {reportView === 'demographics' && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-medium text-gray-700">Age</th>
+                              <th className="px-4 py-2 text-left font-medium text-gray-700">Gender</th>
+                              <th className="px-4 py-2 text-left font-medium text-gray-700">Country</th>
+                              <th className="px-4 py-2 text-right font-medium text-gray-700">Spend</th>
+                              <th className="px-4 py-2 text-right font-medium text-gray-700">Impressions</th>
+                              <th className="px-4 py-2 text-right font-medium text-gray-700">Clicks</th>
+                              <th className="px-4 py-2 text-right font-medium text-gray-700">Results</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {demographics.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                                  No demographic data available. Sync campaigns to fetch demographic insights.
+                                </td>
+                              </tr>
+                            ) : (
+                              demographics.map((demo, idx) => (
+                                <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                                  <td className="px-4 py-2">{demo.age}</td>
+                                  <td className="px-4 py-2 capitalize">{demo.gender}</td>
+                                  <td className="px-4 py-2">{demo.country}</td>
+                                  <td className="px-4 py-2 text-right font-medium">${demo.spend.toFixed(2)}</td>
+                                  <td className="px-4 py-2 text-right">{demo.impressions.toLocaleString()}</td>
+                                  <td className="px-4 py-2 text-right">{demo.clicks.toLocaleString()}</td>
+                                  <td className="px-4 py-2 text-right">{demo.results.toLocaleString()}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {reportView === 'adsets' && (
+                      <div className="space-y-2">
+                        {adSets.filter(as => campaigns.find(c => c.campaign_id === as.campaign_id && c.account_id === link.account_id)).length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">
+                            No ad sets found.
+                          </p>
+                        ) : (
+                          adSets
+                            .filter(as => campaigns.find(c => c.campaign_id === as.campaign_id && c.account_id === link.account_id))
+                            .map((adset) => (
+                              <div key={adset.adset_id} className="border border-gray-200 rounded-lg p-3">
+                                <h5 className="font-medium text-gray-900 mb-2">{adset.name}</h5>
+                                <p className="text-xs text-gray-600 mb-2">{adset.status}</p>
+                                <div className="grid grid-cols-4 gap-3">
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600 mb-1">Spend</p>
+                                    <p className="text-sm font-semibold">${adset.total_spend.toFixed(2)}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600 mb-1">Impressions</p>
+                                    <p className="text-sm font-semibold">{adset.total_impressions.toLocaleString()}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600 mb-1">Clicks</p>
+                                    <p className="text-sm font-semibold">{adset.total_clicks.toLocaleString()}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600 mb-1">Results</p>
+                                    <p className="text-sm font-semibold">{adset.total_results.toLocaleString()}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    )}
+
+                    {reportView === 'ads' && (
+                      <div className="space-y-2">
+                        {ads.filter(ad => campaigns.find(c => c.campaign_id === ad.campaign_id && c.account_id === link.account_id)).length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">
+                            No ads found.
+                          </p>
+                        ) : (
+                          ads
+                            .filter(ad => campaigns.find(c => c.campaign_id === ad.campaign_id && c.account_id === link.account_id))
+                            .map((ad) => (
+                              <div key={ad.ad_id} className="border border-gray-200 rounded-lg p-3">
+                                <h5 className="font-medium text-gray-900 mb-2">{ad.name}</h5>
+                                <p className="text-xs text-gray-600 mb-2">{ad.status}</p>
+                                <div className="grid grid-cols-4 gap-3">
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600 mb-1">Spend</p>
+                                    <p className="text-sm font-semibold">${ad.total_spend.toFixed(2)}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600 mb-1">Impressions</p>
+                                    <p className="text-sm font-semibold">{ad.total_impressions.toLocaleString()}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600 mb-1">Clicks</p>
+                                    <p className="text-sm font-semibold">{ad.total_clicks.toLocaleString()}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600 mb-1">Results</p>
+                                    <p className="text-sm font-semibold">{ad.total_results.toLocaleString()}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

@@ -132,6 +132,23 @@ Deno.serve(async (req: Request) => {
           const videoP100 = insight.video_p100_watched_actions?.[0]?.value || 0;
           const videoAvgTime = insight.video_avg_time_watched_actions?.[0]?.value || 0;
 
+          let results = 0;
+          let resultType = null;
+          if (insight.actions && Array.isArray(insight.actions)) {
+            const resultAction = insight.actions.find((a: any) =>
+              a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
+              a.action_type === 'onsite_conversion.post_save' ||
+              a.action_type === 'lead' ||
+              a.action_type === 'omni_purchase'
+            );
+            if (resultAction) {
+              results = parseInt(resultAction.value || '0');
+              resultType = resultAction.action_type;
+            }
+          }
+
+          console.log(`Ad ${ad.id} on ${insight.date_start}: spend=${insight.spend}, impressions=${insight.impressions}, clicks=${insight.clicks}, results=${results}`);
+
           await supabase
             .from('meta_ad_insights')
             .upsert({
@@ -169,6 +186,8 @@ Deno.serve(async (req: Request) => {
               quality_ranking: insight.quality_ranking || null,
               engagement_rate_ranking: insight.engagement_rate_ranking || null,
               conversion_rate_ranking: insight.conversion_rate_ranking || null,
+              results,
+              result_type: resultType,
               client_number: campaign.client_number,
               marketing_reference: campaign.marketing_reference,
               updated_at: new Date().toISOString()
@@ -177,6 +196,50 @@ Deno.serve(async (req: Request) => {
             });
 
           totalSynced++;
+        }
+
+        const demographicsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,clicks,spend,actions&breakdowns=age,gender,country&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
+
+        const demographicsResponse = await fetch(demographicsUrl);
+
+        if (demographicsResponse.ok) {
+          const demographicsData = await demographicsResponse.json();
+          const demographics = demographicsData.data || [];
+
+          for (const demo of demographics) {
+            let demoResults = 0;
+            if (demo.actions && Array.isArray(demo.actions)) {
+              const resultAction = demo.actions.find((a: any) =>
+                a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
+                a.action_type === 'onsite_conversion.post_save' ||
+                a.action_type === 'lead' ||
+                a.action_type === 'omni_purchase'
+              );
+              if (resultAction) {
+                demoResults = parseInt(resultAction.value || '0');
+              }
+            }
+
+            await supabase
+              .from('meta_ad_insights_demographics')
+              .upsert({
+                ad_id: ad.id,
+                date: demo.date_start,
+                age: demo.age || null,
+                gender: demo.gender || null,
+                country: demo.country || null,
+                impressions: parseInt(demo.impressions || '0'),
+                clicks: parseInt(demo.clicks || '0'),
+                spend: parseFloat(demo.spend || '0'),
+                conversions: 0,
+                results: demoResults,
+                client_number: campaign.client_number,
+                marketing_reference: campaign.marketing_reference,
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'ad_id,date,age,gender,country'
+              });
+          }
         }
       }
     }
