@@ -15,6 +15,34 @@ interface SyncRequest {
   };
 }
 
+// Helper to add delay between API calls to respect rate limits
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper to make rate-limited API calls with retry logic
+async function fetchWithRateLimit(url: string, retries = 3): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    const response = await fetch(url);
+
+    // Check rate limit headers
+    const rateLimitRemaining = response.headers.get('x-app-usage') || response.headers.get('x-ad-account-usage');
+
+    if (response.status === 429 || (response.status === 400 && rateLimitRemaining)) {
+      // Rate limited - wait and retry
+      const waitTime = Math.min(1000 * Math.pow(2, i), 30000); // Exponential backoff, max 30 seconds
+      console.log(`Rate limited, waiting ${waitTime}ms before retry ${i + 1}/${retries}`);
+      await delay(waitTime);
+      continue;
+    }
+
+    // Add small delay between all requests to avoid hitting limits
+    await delay(200);
+    return response;
+  }
+
+  // Final attempt
+  return await fetch(url);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -88,9 +116,16 @@ Deno.serve(async (req: Request) => {
     let totalCampaignsProcessed = 0;
     const errors: string[] = [];
 
-    for (const campaign of campaigns) {
+    console.log(`\n========================================`);
+    console.log(`Starting sync for ${campaigns.length} campaigns`);
+    console.log(`Date range: ${since} to ${until}`);
+    console.log(`========================================\n`);
+
+    for (let i = 0; i < campaigns.length; i++) {
+      const campaign = campaigns[i];
+      console.log(`\n[${i + 1}/${campaigns.length}] Processing campaign: ${campaign.name} (${campaign.campaign_id})`);
       const adsUrl = `https://graph.facebook.com/v21.0/${campaign.campaign_id}/ads?fields=id,name,adset_id&access_token=${accessToken}`;
-      const adsResponse = await fetch(adsUrl);
+      const adsResponse = await fetchWithRateLimit(adsUrl);
 
       if (!adsResponse.ok) {
         const errorData = await adsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
@@ -123,9 +158,10 @@ Deno.serve(async (req: Request) => {
             onConflict: 'ad_id'
           });
 
+        console.log(`  Fetching insights for ad: ${ad.name} (${ad.id})`);
         const insightsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,reach,frequency,clicks,unique_clicks,ctr,unique_ctr,inline_link_clicks,inline_link_click_ctr,spend,cpc,cpm,cpp,video_views,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,conversions,conversion_values,cost_per_conversion,actions,social_spend,website_ctr,outbound_clicks,quality_ranking,engagement_rate_ranking,conversion_rate_ranking&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
 
-        const insightsResponse = await fetch(insightsUrl);
+        const insightsResponse = await fetchWithRateLimit(insightsUrl);
 
         if (!insightsResponse.ok) {
           const errorData = await insightsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
@@ -213,9 +249,10 @@ Deno.serve(async (req: Request) => {
           totalSynced++;
         }
 
+        console.log(`  Fetching demographics for ad: ${ad.name}`);
         const demographicsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,clicks,spend,actions&breakdowns=age,gender,country&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
 
-        const demographicsResponse = await fetch(demographicsUrl);
+        const demographicsResponse = await fetchWithRateLimit(demographicsUrl);
 
         if (demographicsResponse.ok) {
           const demographicsData = await demographicsResponse.json();
@@ -258,6 +295,14 @@ Deno.serve(async (req: Request) => {
         }
       }
     }
+
+    console.log(`\n========================================`);
+    console.log(`SYNC COMPLETE`);
+    console.log(`Campaigns processed: ${totalCampaignsProcessed}/${campaigns.length}`);
+    console.log(`Total ads found: ${totalAds}`);
+    console.log(`Total insight records synced: ${totalSynced}`);
+    console.log(`Errors encountered: ${errors.length}`);
+    console.log(`========================================\n`);
 
     return new Response(
       JSON.stringify({
