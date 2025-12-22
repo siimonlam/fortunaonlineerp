@@ -472,7 +472,14 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         alert(`Synced ${campaigns.length} campaign(s), but failed to sync insights: ${errorData.error || 'Unknown error'}`);
       } else {
         const insightsData = await insightsResponse.json();
-        alert(`Successfully synced ${campaigns.length} campaign(s) and ${insightsData.synced} insights records`);
+        console.log('Sync results:', insightsData);
+
+        if (insightsData.errors && insightsData.errors.length > 0) {
+          const errorList = insightsData.errors.join('\n');
+          alert(`Synced ${campaigns.length} campaign(s):\n- ${insightsData.totalAds} ads found\n- ${insightsData.synced} insights records synced\n\nErrors encountered:\n${errorList}${insightsData.hasMoreErrors ? '\n... and more errors (check console)' : ''}`);
+        } else {
+          alert(`Successfully synced:\n- ${campaigns.length} campaign(s)\n- ${insightsData.totalAds} ads\n- ${insightsData.synced} insights records`);
+        }
       }
 
       await loadData();

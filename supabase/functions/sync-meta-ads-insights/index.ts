@@ -84,18 +84,28 @@ Deno.serve(async (req: Request) => {
     }
 
     let totalSynced = 0;
+    let totalAds = 0;
+    let totalCampaignsProcessed = 0;
+    const errors: string[] = [];
 
     for (const campaign of campaigns) {
       const adsUrl = `https://graph.facebook.com/v21.0/${campaign.campaign_id}/ads?fields=id,name,adset_id&access_token=${accessToken}`;
       const adsResponse = await fetch(adsUrl);
 
       if (!adsResponse.ok) {
-        console.error(`Failed to fetch ads for campaign ${campaign.campaign_id}`);
+        const errorData = await adsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
+        const errorMsg = `Campaign ${campaign.name} (${campaign.campaign_id}): ${errorData.error?.message || 'Failed to fetch ads'}`;
+        console.error(errorMsg);
+        errors.push(errorMsg);
         continue;
       }
 
       const adsData = await adsResponse.json();
       const ads = adsData.data || [];
+
+      console.log(`Campaign "${campaign.name}" has ${ads.length} ads`);
+      totalCampaignsProcessed++;
+      totalAds += ads.length;
 
       for (const ad of ads) {
         await supabase
@@ -118,12 +128,17 @@ Deno.serve(async (req: Request) => {
         const insightsResponse = await fetch(insightsUrl);
 
         if (!insightsResponse.ok) {
-          console.error(`Failed to fetch insights for ad ${ad.id}`);
+          const errorData = await insightsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
+          const errorMsg = `Ad ${ad.name} (${ad.id}): ${errorData.error?.message || 'Failed to fetch insights'}`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
           continue;
         }
 
         const insightsData = await insightsResponse.json();
         const insights = insightsData.data || [];
+
+        console.log(`Ad "${ad.name}" has ${insights.length} insight records`);
 
         for (const insight of insights) {
           const videoP25 = insight.video_p25_watched_actions?.[0]?.value || 0;
@@ -246,10 +261,15 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({
-        success: true,
-        message: `Successfully synced ${totalSynced} insights records`,
+        success: errors.length === 0,
+        message: errors.length === 0
+          ? `Successfully synced ${totalSynced} insights records from ${totalAds} ads across ${totalCampaignsProcessed} campaigns`
+          : `Synced ${totalSynced} insights records with ${errors.length} errors`,
         synced: totalSynced,
-        campaigns: campaigns.length
+        campaigns: totalCampaignsProcessed,
+        totalAds,
+        errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
+        hasMoreErrors: errors.length > 10
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
