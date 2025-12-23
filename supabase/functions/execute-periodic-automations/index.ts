@@ -123,20 +123,23 @@ Deno.serve(async (req: Request) => {
             .eq('project_id', project.id)
             .maybeSingle();
 
-          let shouldExecute = false;
-
           const startDate = new Date(projectStartDate);
           const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-          // Calculate which cycle we're in (e.g., cycle 1 = day 30, cycle 2 = day 60, etc.)
+          // Calculate which cycle we're in
+          // For action frequency = 20: cycle 0 = days 0-19, cycle 1 = days 20-39, cycle 2 = days 40-59, etc.
+          // Actions should execute at the START of each cycle: day 20, 40, 60, 80, etc.
           const currentCycle = Math.floor(daysSinceStart / intervalDays);
 
+          let shouldExecute = false;
+
           if (!existingExecution) {
-            // First time checking this project - execute if we've passed at least one interval
+            // First time checking this project - execute if we've passed at least one interval (cycle >= 1)
             if (currentCycle >= 1) {
               shouldExecute = true;
 
-              // Calculate the next execution date based on current cycle
+              // Schedule next execution for the NEXT cycle: start_date + ((currentCycle + 1) * intervalDays)
+              // If we're on day 25 (cycle 1), next execution is day 40 (start of cycle 2)
               const nextExecution = new Date(startDate);
               nextExecution.setDate(nextExecution.getDate() + ((currentCycle + 1) * intervalDays));
 
@@ -149,16 +152,17 @@ Deno.serve(async (req: Request) => {
                   next_execution_at: nextExecution.toISOString()
                 });
 
-              console.log(`First execution for ${project.title}: days since start = ${daysSinceStart}, cycle = ${currentCycle}, next at day ${(currentCycle + 1) * intervalDays}`);
+              console.log(`First execution for ${project.title}: days since start = ${daysSinceStart}, current cycle = ${currentCycle}, next execution scheduled for day ${(currentCycle + 1) * intervalDays}`);
             }
           } else {
             // Check if it's time for the next execution
             const nextExecutionDate = new Date(existingExecution.next_execution_at);
 
+            // Only execute if next_execution_at has passed
             if (nextExecutionDate <= now) {
               shouldExecute = true;
 
-              // Calculate the next execution based on start date and cycles
+              // Schedule next execution for the NEXT cycle after current
               const nextExecution = new Date(startDate);
               nextExecution.setDate(nextExecution.getDate() + ((currentCycle + 1) * intervalDays));
 
@@ -171,7 +175,7 @@ Deno.serve(async (req: Request) => {
                 })
                 .eq('id', existingExecution.id);
 
-              console.log(`Executing for ${project.title}: days since start = ${daysSinceStart}, cycle = ${currentCycle}, next at day ${(currentCycle + 1) * intervalDays}`);
+              console.log(`Subsequent execution for ${project.title}: days since start = ${daysSinceStart}, current cycle = ${currentCycle}, next execution scheduled for day ${(currentCycle + 1) * intervalDays}`);
             }
           }
 
