@@ -125,15 +125,20 @@ Deno.serve(async (req: Request) => {
 
           let shouldExecute = false;
 
-          if (!existingExecution) {
-            const startDate = new Date(projectStartDate);
-            const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+          const startDate = new Date(projectStartDate);
+          const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-            if (daysSinceStart % intervalDays === 0 && daysSinceStart >= intervalDays) {
+          // Calculate which cycle we're in (e.g., cycle 1 = day 30, cycle 2 = day 60, etc.)
+          const currentCycle = Math.floor(daysSinceStart / intervalDays);
+
+          if (!existingExecution) {
+            // First time checking this project - execute if we've passed at least one interval
+            if (currentCycle >= 1) {
               shouldExecute = true;
 
-              let nextExecution = new Date(startDate);
-              nextExecution.setDate(nextExecution.getDate() + (daysSinceStart + intervalDays));
+              // Calculate the next execution date based on current cycle
+              const nextExecution = new Date(startDate);
+              nextExecution.setDate(nextExecution.getDate() + ((currentCycle + 1) * intervalDays));
 
               await supabase
                 .from('periodic_automation_executions')
@@ -143,22 +148,31 @@ Deno.serve(async (req: Request) => {
                   last_executed_at: now.toISOString(),
                   next_execution_at: nextExecution.toISOString()
                 });
+
+              console.log(`First execution for ${project.title}: days since start = ${daysSinceStart}, cycle = ${currentCycle}, next at day ${(currentCycle + 1) * intervalDays}`);
             }
-          } else if (new Date(existingExecution.next_execution_at) <= now) {
-            shouldExecute = true;
+          } else {
+            // Check if it's time for the next execution
+            const nextExecutionDate = new Date(existingExecution.next_execution_at);
 
-            const currentNextExecution = new Date(existingExecution.next_execution_at);
-            const nextExecution = new Date(currentNextExecution);
-            nextExecution.setDate(nextExecution.getDate() + intervalDays);
+            if (nextExecutionDate <= now) {
+              shouldExecute = true;
 
-            await supabase
-              .from('periodic_automation_executions')
-              .update({
-                last_executed_at: now.toISOString(),
-                next_execution_at: nextExecution.toISOString(),
-                updated_at: now.toISOString()
-              })
-              .eq('id', existingExecution.id);
+              // Calculate the next execution based on start date and cycles
+              const nextExecution = new Date(startDate);
+              nextExecution.setDate(nextExecution.getDate() + ((currentCycle + 1) * intervalDays));
+
+              await supabase
+                .from('periodic_automation_executions')
+                .update({
+                  last_executed_at: now.toISOString(),
+                  next_execution_at: nextExecution.toISOString(),
+                  updated_at: now.toISOString()
+                })
+                .eq('id', existingExecution.id);
+
+              console.log(`Executing for ${project.title}: days since start = ${daysSinceStart}, cycle = ${currentCycle}, next at day ${(currentCycle + 1) * intervalDays}`);
+            }
           }
 
           if (shouldExecute) {
