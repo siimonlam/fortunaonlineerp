@@ -272,10 +272,9 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
     }
 
     if (rule.trigger_type === 'periodic' && rule.trigger_config) {
-      const execFreq = rule.execution_frequency_days || 1;
       const actionFreq = rule.trigger_config.frequency || '?';
       const dateField = rule.trigger_config.date_field || 'project start';
-      return `${triggerLabel} - Runs every ${execFreq} day(s), Action on day ${actionFreq}, ${actionFreq * 2}, ${actionFreq * 3}... from ${dateField}`;
+      return `${triggerLabel} - Checks daily, Action every ${actionFreq} days (day ${actionFreq}, ${actionFreq * 2}, ${actionFreq * 3}...) from ${dateField}`;
     }
 
     return triggerLabel;
@@ -530,27 +529,18 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
 
                 {formData.trigger_type === 'periodic' && (
                   <div className="space-y-3 ml-4 p-3 bg-slate-50 rounded-lg">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Execution Frequency (days)
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Execution Frequency
                       </label>
-                      <p className="text-xs text-slate-500 mb-2">How often this automation runs (1 = daily, 7 = weekly, etc.)</p>
-                      <input
-                        type="number"
-                        min="1"
-                        value={formData.execution_frequency_days || 1}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          execution_frequency_days: parseInt(e.target.value) || 1
-                        })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      <p className="text-sm text-blue-700 font-medium">Daily (Every 1 day)</p>
+                      <p className="text-xs text-slate-600 mt-1">Periodic rules always check projects daily. The Action Frequency below controls when actions execute.</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
                         Action Frequency (N days)
                       </label>
-                      <p className="text-xs text-slate-500 mb-2">How often the action triggers from start date (e.g., day 30, 60, 90...)</p>
+                      <p className="text-xs text-slate-500 mb-2">Actions execute every N days from start date (e.g., N=20: day 20, 40, 60, 80...)</p>
                       <input
                         type="number"
                         min="1"
