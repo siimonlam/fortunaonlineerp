@@ -124,47 +124,61 @@ Deno.serve(async (req: Request) => {
             .maybeSingle();
 
           const startDate = new Date(projectStartDate);
-          const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+          startDate.setHours(0, 0, 0, 0);
 
-          // Calculate which cycle we're in
-          // For action frequency = 20: cycle 0 = days 0-19, cycle 1 = days 20-39, cycle 2 = days 40-59, etc.
-          // Actions should execute at the START of each cycle: day 20, 40, 60, 80, etc.
-          const currentCycle = Math.floor(daysSinceStart / intervalDays);
+          const todayMidnight = new Date(now);
+          todayMidnight.setHours(0, 0, 0, 0);
+
+          const daysSinceStart = Math.floor((todayMidnight.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          // Calculate which execution number we should be on (1st, 2nd, 3rd, etc.)
+          // For 30-day frequency: execution 1 on day 30, execution 2 on day 60, execution 3 on day 90
+          const expectedExecutionNumber = Math.floor(daysSinceStart / intervalDays);
 
           let shouldExecute = false;
 
           if (!existingExecution) {
-            // First time checking this project - execute if we've passed at least one interval (cycle >= 1)
-            if (currentCycle >= 1) {
-              shouldExecute = true;
+            // First time checking this project
+            if (expectedExecutionNumber >= 1) {
+              // Calculate the exact target date for the most recent execution that should have happened
+              const targetExecutionDate = new Date(startDate);
+              targetExecutionDate.setDate(targetExecutionDate.getDate() + (expectedExecutionNumber * intervalDays));
+              targetExecutionDate.setHours(0, 0, 0, 0);
 
-              // Schedule next execution for the NEXT cycle: start_date + ((currentCycle + 1) * intervalDays)
-              // If we're on day 25 (cycle 1), next execution is day 40 (start of cycle 2)
-              const nextExecution = new Date(startDate);
-              nextExecution.setDate(nextExecution.getDate() + ((currentCycle + 1) * intervalDays));
+              // Only execute if today is exactly the target date
+              if (todayMidnight.getTime() === targetExecutionDate.getTime()) {
+                shouldExecute = true;
 
-              await supabase
-                .from('periodic_automation_executions')
-                .insert({
-                  automation_rule_id: rule.id,
-                  project_id: project.id,
-                  last_executed_at: now.toISOString(),
-                  next_execution_at: nextExecution.toISOString()
-                });
+                // Schedule next execution for exactly intervalDays from now
+                const nextExecution = new Date(targetExecutionDate);
+                nextExecution.setDate(nextExecution.getDate() + intervalDays);
 
-              console.log(`First execution for ${project.title}: days since start = ${daysSinceStart}, current cycle = ${currentCycle}, next execution scheduled for day ${(currentCycle + 1) * intervalDays}`);
+                await supabase
+                  .from('periodic_automation_executions')
+                  .insert({
+                    automation_rule_id: rule.id,
+                    project_id: project.id,
+                    last_executed_at: now.toISOString(),
+                    next_execution_at: nextExecution.toISOString()
+                  });
+
+                console.log(`First execution for ${project.title}: today is the exact target date (day ${daysSinceStart}), next execution on day ${daysSinceStart + intervalDays}`);
+              } else {
+                console.log(`Skipping ${project.title}: not on target date. Today is day ${daysSinceStart}, target was day ${expectedExecutionNumber * intervalDays}`);
+              }
             }
           } else {
             // Check if it's time for the next execution
             const nextExecutionDate = new Date(existingExecution.next_execution_at);
+            nextExecutionDate.setHours(0, 0, 0, 0);
 
-            // Only execute if next_execution_at has passed
-            if (nextExecutionDate <= now) {
+            // Only execute if today is exactly the next execution date
+            if (todayMidnight.getTime() === nextExecutionDate.getTime()) {
               shouldExecute = true;
 
-              // Schedule next execution for the NEXT cycle after current
-              const nextExecution = new Date(startDate);
-              nextExecution.setDate(nextExecution.getDate() + ((currentCycle + 1) * intervalDays));
+              // Schedule next execution for exactly intervalDays from the current next_execution_at
+              const nextExecution = new Date(nextExecutionDate);
+              nextExecution.setDate(nextExecution.getDate() + intervalDays);
 
               await supabase
                 .from('periodic_automation_executions')
@@ -175,7 +189,9 @@ Deno.serve(async (req: Request) => {
                 })
                 .eq('id', existingExecution.id);
 
-              console.log(`Subsequent execution for ${project.title}: days since start = ${daysSinceStart}, current cycle = ${currentCycle}, next execution scheduled for day ${(currentCycle + 1) * intervalDays}`);
+              console.log(`Subsequent execution for ${project.title}: today is the exact target date (day ${daysSinceStart}), next execution on day ${daysSinceStart + intervalDays}`);
+            } else if (todayMidnight.getTime() > nextExecutionDate.getTime()) {
+              console.log(`Missed execution for ${project.title}: today is day ${daysSinceStart}, but target was ${Math.floor((nextExecutionDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))}. Waiting for next cycle.`);
             }
           }
 
