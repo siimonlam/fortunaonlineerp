@@ -113,6 +113,7 @@ Deno.serve(async (req: Request) => {
 
     let totalSynced = 0;
     let totalAds = 0;
+    let totalAdSets = 0;
     let totalCampaignsProcessed = 0;
     const errors: string[] = [];
 
@@ -124,173 +125,241 @@ Deno.serve(async (req: Request) => {
     for (let i = 0; i < campaigns.length; i++) {
       const campaign = campaigns[i];
       console.log(`\n[${i + 1}/${campaigns.length}] Processing campaign: ${campaign.name} (${campaign.campaign_id})`);
-      const adsUrl = `https://graph.facebook.com/v21.0/${campaign.campaign_id}/ads?fields=id,name,adset_id&access_token=${accessToken}`;
-      const adsResponse = await fetchWithRateLimit(adsUrl);
 
-      if (!adsResponse.ok) {
-        const errorData = await adsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
-        const errorMsg = `Campaign ${campaign.name} (${campaign.campaign_id}): ${errorData.error?.message || 'Failed to fetch ads'}`;
+      // First, fetch and save all adsets for this campaign
+      const adsetsUrl = `https://graph.facebook.com/v21.0/${campaign.campaign_id}/adsets?fields=id,name,status,daily_budget,lifetime_budget,targeting,billing_event,optimization_goal,bid_amount,created_time,updated_time&access_token=${accessToken}`;
+      const adsetsResponse = await fetchWithRateLimit(adsetsUrl);
+
+      if (!adsetsResponse.ok) {
+        const errorData = await adsetsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
+        const errorMsg = `Campaign ${campaign.name} (${campaign.campaign_id}): ${errorData.error?.message || 'Failed to fetch adsets'}`;
         console.error(errorMsg);
         errors.push(errorMsg);
         continue;
       }
 
-      const adsData = await adsResponse.json();
-      const ads = adsData.data || [];
+      const adsetsData = await adsetsResponse.json();
+      const adsets = adsetsData.data || [];
 
-      console.log(`Campaign "${campaign.name}" has ${ads.length} ads`);
+      console.log(`Campaign "${campaign.name}" has ${adsets.length} ad sets`);
       totalCampaignsProcessed++;
-      totalAds += ads.length;
+      totalAdSets += adsets.length;
 
-      for (const ad of ads) {
+      // Save all adsets
+      for (const adset of adsets) {
         await supabase
-          .from('meta_ads')
+          .from('meta_adsets')
           .upsert({
-            ad_id: ad.id,
-            adset_id: ad.adset_id,
+            adset_id: adset.id,
             campaign_id: campaign.campaign_id,
             account_id: accountId,
-            name: ad.name,
+            name: adset.name,
+            status: adset.status,
+            daily_budget: adset.daily_budget,
+            lifetime_budget: adset.lifetime_budget,
+            targeting: adset.targeting ? JSON.stringify(adset.targeting) : null,
+            billing_event: adset.billing_event,
+            optimization_goal: adset.optimization_goal,
+            bid_amount: adset.bid_amount,
+            created_time: adset.created_time,
+            updated_time: adset.updated_time,
             client_number: campaign.client_number,
             marketing_reference: campaign.marketing_reference,
             updated_at: new Date().toISOString()
           }, {
-            onConflict: 'ad_id'
+            onConflict: 'adset_id'
           });
+      }
 
-        console.log(`  Fetching insights for ad: ${ad.name} (${ad.id})`);
-        const insightsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,reach,frequency,clicks,unique_clicks,ctr,unique_ctr,inline_link_clicks,inline_link_click_ctr,spend,cpc,cpm,cpp,video_views,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,conversions,conversion_values,cost_per_conversion,actions,social_spend,website_ctr,outbound_clicks,quality_ranking,engagement_rate_ranking,conversion_rate_ranking&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
+      // Now fetch ads for each adset
+      for (const adset of adsets) {
+        console.log(`  Fetching ads for adset: ${adset.name} (${adset.id})`);
+        const adsUrl = `https://graph.facebook.com/v21.0/${adset.id}/ads?fields=id,name,status,creative{id}&access_token=${accessToken}`;
+        const adsResponse = await fetchWithRateLimit(adsUrl);
 
-        const insightsResponse = await fetchWithRateLimit(insightsUrl);
-
-        if (!insightsResponse.ok) {
-          const errorData = await insightsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
-          const errorMsg = `Ad ${ad.name} (${ad.id}): ${errorData.error?.message || 'Failed to fetch insights'}`;
+        if (!adsResponse.ok) {
+          const errorData = await adsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
+          const errorMsg = `AdSet ${adset.name} (${adset.id}): ${errorData.error?.message || 'Failed to fetch ads'}`;
           console.error(errorMsg);
           errors.push(errorMsg);
           continue;
         }
 
-        const insightsData = await insightsResponse.json();
-        const insights = insightsData.data || [];
+        const adsData = await adsResponse.json();
+        const ads = adsData.data || [];
 
-        console.log(`Ad "${ad.name}" has ${insights.length} insight records`);
+        console.log(`  AdSet "${adset.name}" has ${ads.length} ads`);
+        totalAds += ads.length;
 
-        for (const insight of insights) {
-          const videoP25 = insight.video_p25_watched_actions?.[0]?.value || 0;
-          const videoP50 = insight.video_p50_watched_actions?.[0]?.value || 0;
-          const videoP75 = insight.video_p75_watched_actions?.[0]?.value || 0;
-          const videoP100 = insight.video_p100_watched_actions?.[0]?.value || 0;
-          const videoAvgTime = insight.video_avg_time_watched_actions?.[0]?.value || 0;
-
-          let results = 0;
-          let resultType = null;
-          if (insight.actions && Array.isArray(insight.actions)) {
-            const resultAction = insight.actions.find((a: any) =>
-              a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
-              a.action_type === 'onsite_conversion.post_save' ||
-              a.action_type === 'lead' ||
-              a.action_type === 'omni_purchase'
-            );
-            if (resultAction) {
-              results = parseInt(resultAction.value || '0');
-              resultType = resultAction.action_type;
-            }
-          }
-
-          console.log(`Ad ${ad.id} on ${insight.date_start}: spend=${insight.spend}, impressions=${insight.impressions}, clicks=${insight.clicks}, results=${results}`);
-
+        for (const ad of ads) {
+          // Save ad with creative info
           await supabase
-            .from('meta_ad_insights')
+            .from('meta_ads')
             .upsert({
               ad_id: ad.id,
-              adset_id: ad.adset_id,
+              adset_id: adset.id,
               campaign_id: campaign.campaign_id,
               account_id: accountId,
-              date: insight.date_start,
-              impressions: parseInt(insight.impressions || '0'),
-              reach: parseInt(insight.reach || '0'),
-              frequency: parseFloat(insight.frequency || '0'),
-              clicks: parseInt(insight.clicks || '0'),
-              unique_clicks: parseInt(insight.unique_clicks || '0'),
-              ctr: parseFloat(insight.ctr || '0'),
-              unique_ctr: parseFloat(insight.unique_ctr || '0'),
-              inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
-              inline_link_click_ctr: parseFloat(insight.inline_link_click_ctr || '0'),
-              spend: parseFloat(insight.spend || '0'),
-              cpc: parseFloat(insight.cpc || '0'),
-              cpm: parseFloat(insight.cpm || '0'),
-              cpp: parseFloat(insight.cpp || '0'),
-              video_views: parseInt(insight.video_views || '0'),
-              video_avg_time_watched_actions: parseFloat(videoAvgTime),
-              video_p25_watched_actions: parseInt(videoP25),
-              video_p50_watched_actions: parseInt(videoP50),
-              video_p75_watched_actions: parseInt(videoP75),
-              video_p100_watched_actions: parseInt(videoP100),
-              conversions: parseInt(insight.conversions || '0'),
-              conversion_values: parseFloat(insight.conversion_values || '0'),
-              cost_per_conversion: parseFloat(insight.cost_per_conversion || '0'),
-              actions: insight.actions ? JSON.stringify(insight.actions) : null,
-              social_spend: parseFloat(insight.social_spend || '0'),
-              website_ctr: parseFloat(insight.website_ctr || '0'),
-              outbound_clicks: parseInt(insight.outbound_clicks || '0'),
-              quality_ranking: insight.quality_ranking || null,
-              engagement_rate_ranking: insight.engagement_rate_ranking || null,
-              conversion_rate_ranking: insight.conversion_rate_ranking || null,
-              results,
-              result_type: resultType,
+              name: ad.name,
+              status: ad.status,
+              creative_id: ad.creative?.id || null,
               client_number: campaign.client_number,
               marketing_reference: campaign.marketing_reference,
               updated_at: new Date().toISOString()
             }, {
-              onConflict: 'ad_id,date'
+              onConflict: 'ad_id'
             });
 
-          totalSynced++;
-        }
+          // Optionally save creative details if available
+          if (ad.creative?.id) {
+            await supabase
+              .from('meta_ad_creatives')
+              .upsert({
+                creative_id: ad.creative.id,
+                ad_id: ad.id,
+                account_id: accountId,
+                client_number: campaign.client_number,
+                marketing_reference: campaign.marketing_reference,
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'creative_id'
+              });
+          }
 
-        console.log(`  Fetching demographics for ad: ${ad.name}`);
-        const demographicsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,clicks,spend,actions&breakdowns=age,gender,country&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
+          console.log(`    Fetching insights for ad: ${ad.name} (${ad.id})`);
+          const insightsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,reach,frequency,clicks,unique_clicks,ctr,unique_ctr,inline_link_clicks,inline_link_click_ctr,spend,cpc,cpm,cpp,video_views,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,conversions,conversion_values,cost_per_conversion,actions,social_spend,website_ctr,outbound_clicks,quality_ranking,engagement_rate_ranking,conversion_rate_ranking&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
 
-        const demographicsResponse = await fetchWithRateLimit(demographicsUrl);
+          const insightsResponse = await fetchWithRateLimit(insightsUrl);
 
-        if (demographicsResponse.ok) {
-          const demographicsData = await demographicsResponse.json();
-          const demographics = demographicsData.data || [];
+          if (!insightsResponse.ok) {
+            const errorData = await insightsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
+            const errorMsg = `Ad ${ad.name} (${ad.id}): ${errorData.error?.message || 'Failed to fetch insights'}`;
+            console.error(errorMsg);
+            errors.push(errorMsg);
+            continue;
+          }
 
-          for (const demo of demographics) {
-            let demoResults = 0;
-            if (demo.actions && Array.isArray(demo.actions)) {
-              const resultAction = demo.actions.find((a: any) =>
+          const insightsData = await insightsResponse.json();
+          const insights = insightsData.data || [];
+
+          console.log(`    Ad "${ad.name}" has ${insights.length} insight records`);
+
+          for (const insight of insights) {
+            const videoP25 = insight.video_p25_watched_actions?.[0]?.value || 0;
+            const videoP50 = insight.video_p50_watched_actions?.[0]?.value || 0;
+            const videoP75 = insight.video_p75_watched_actions?.[0]?.value || 0;
+            const videoP100 = insight.video_p100_watched_actions?.[0]?.value || 0;
+            const videoAvgTime = insight.video_avg_time_watched_actions?.[0]?.value || 0;
+
+            let results = 0;
+            let resultType = null;
+            if (insight.actions && Array.isArray(insight.actions)) {
+              const resultAction = insight.actions.find((a: any) =>
                 a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
                 a.action_type === 'onsite_conversion.post_save' ||
                 a.action_type === 'lead' ||
                 a.action_type === 'omni_purchase'
               );
               if (resultAction) {
-                demoResults = parseInt(resultAction.value || '0');
+                results = parseInt(resultAction.value || '0');
+                resultType = resultAction.action_type;
               }
             }
 
+            console.log(`    Ad ${ad.id} on ${insight.date_start}: spend=${insight.spend}, impressions=${insight.impressions}, clicks=${insight.clicks}, results=${results}`);
+
             await supabase
-              .from('meta_ad_insights_demographics')
+              .from('meta_ad_insights')
               .upsert({
                 ad_id: ad.id,
-                date: demo.date_start,
-                age: demo.age || null,
-                gender: demo.gender || null,
-                country: demo.country || null,
-                impressions: parseInt(demo.impressions || '0'),
-                clicks: parseInt(demo.clicks || '0'),
-                spend: parseFloat(demo.spend || '0'),
-                conversions: 0,
-                results: demoResults,
+                adset_id: adset.id,
+                campaign_id: campaign.campaign_id,
+                account_id: accountId,
+                date: insight.date_start,
+                impressions: parseInt(insight.impressions || '0'),
+                reach: parseInt(insight.reach || '0'),
+                frequency: parseFloat(insight.frequency || '0'),
+                clicks: parseInt(insight.clicks || '0'),
+                unique_clicks: parseInt(insight.unique_clicks || '0'),
+                ctr: parseFloat(insight.ctr || '0'),
+                unique_ctr: parseFloat(insight.unique_ctr || '0'),
+                inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
+                inline_link_click_ctr: parseFloat(insight.inline_link_click_ctr || '0'),
+                spend: parseFloat(insight.spend || '0'),
+                cpc: parseFloat(insight.cpc || '0'),
+                cpm: parseFloat(insight.cpm || '0'),
+                cpp: parseFloat(insight.cpp || '0'),
+                video_views: parseInt(insight.video_views || '0'),
+                video_avg_time_watched_actions: parseFloat(videoAvgTime),
+                video_p25_watched_actions: parseInt(videoP25),
+                video_p50_watched_actions: parseInt(videoP50),
+                video_p75_watched_actions: parseInt(videoP75),
+                video_p100_watched_actions: parseInt(videoP100),
+                conversions: parseInt(insight.conversions || '0'),
+                conversion_values: parseFloat(insight.conversion_values || '0'),
+                cost_per_conversion: parseFloat(insight.cost_per_conversion || '0'),
+                actions: insight.actions ? JSON.stringify(insight.actions) : null,
+                social_spend: parseFloat(insight.social_spend || '0'),
+                website_ctr: parseFloat(insight.website_ctr || '0'),
+                outbound_clicks: parseInt(insight.outbound_clicks || '0'),
+                quality_ranking: insight.quality_ranking || null,
+                engagement_rate_ranking: insight.engagement_rate_ranking || null,
+                conversion_rate_ranking: insight.conversion_rate_ranking || null,
+                results,
+                result_type: resultType,
                 client_number: campaign.client_number,
                 marketing_reference: campaign.marketing_reference,
                 updated_at: new Date().toISOString()
               }, {
-                onConflict: 'ad_id,date,age,gender,country'
+                onConflict: 'ad_id,date'
               });
+
+            totalSynced++;
+          }
+
+          console.log(`    Fetching demographics for ad: ${ad.name}`);
+          const demographicsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,clicks,spend,actions&breakdowns=age,gender,country&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
+
+          const demographicsResponse = await fetchWithRateLimit(demographicsUrl);
+
+          if (demographicsResponse.ok) {
+            const demographicsData = await demographicsResponse.json();
+            const demographics = demographicsData.data || [];
+
+            for (const demo of demographics) {
+              let demoResults = 0;
+              if (demo.actions && Array.isArray(demo.actions)) {
+                const resultAction = demo.actions.find((a: any) =>
+                  a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
+                  a.action_type === 'onsite_conversion.post_save' ||
+                  a.action_type === 'lead' ||
+                  a.action_type === 'omni_purchase'
+                );
+                if (resultAction) {
+                  demoResults = parseInt(resultAction.value || '0');
+                }
+              }
+
+              await supabase
+                .from('meta_ad_insights_demographics')
+                .upsert({
+                  ad_id: ad.id,
+                  date: demo.date_start,
+                  age: demo.age || null,
+                  gender: demo.gender || null,
+                  country: demo.country || null,
+                  impressions: parseInt(demo.impressions || '0'),
+                  clicks: parseInt(demo.clicks || '0'),
+                  spend: parseFloat(demo.spend || '0'),
+                  conversions: 0,
+                  results: demoResults,
+                  client_number: campaign.client_number,
+                  marketing_reference: campaign.marketing_reference,
+                  updated_at: new Date().toISOString()
+                }, {
+                  onConflict: 'ad_id,date,age,gender,country'
+                });
+            }
           }
         }
       }
@@ -299,6 +368,7 @@ Deno.serve(async (req: Request) => {
     console.log(`\n========================================`);
     console.log(`SYNC COMPLETE`);
     console.log(`Campaigns processed: ${totalCampaignsProcessed}/${campaigns.length}`);
+    console.log(`Total ad sets found: ${totalAdSets}`);
     console.log(`Total ads found: ${totalAds}`);
     console.log(`Total insight records synced: ${totalSynced}`);
     console.log(`Errors encountered: ${errors.length}`);
@@ -308,10 +378,11 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: errors.length === 0,
         message: errors.length === 0
-          ? `Successfully synced ${totalSynced} insights records from ${totalAds} ads across ${totalCampaignsProcessed} campaigns`
+          ? `Successfully synced ${totalSynced} insights records from ${totalAds} ads in ${totalAdSets} ad sets across ${totalCampaignsProcessed} campaigns`
           : `Synced ${totalSynced} insights records with ${errors.length} errors`,
         synced: totalSynced,
         campaigns: totalCampaignsProcessed,
+        totalAdSets,
         totalAds,
         errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
         hasMoreErrors: errors.length > 10

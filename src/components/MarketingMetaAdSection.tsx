@@ -529,9 +529,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
         if (insightsData.errors && insightsData.errors.length > 0) {
           const errorList = insightsData.errors.join('\n');
-          alert(`Synced ${campaigns.length} campaign(s):\n- ${insightsData.totalAds} ads found\n- ${insightsData.synced} insights records synced\n\nErrors encountered:\n${errorList}${insightsData.hasMoreErrors ? '\n... and more errors (check console)' : ''}`);
+          alert(`Synced ${campaigns.length} campaign(s):\n- ${insightsData.totalAdSets || 0} ad sets found\n- ${insightsData.totalAds} ads found\n- ${insightsData.synced} insights records synced\n\nErrors encountered:\n${errorList}${insightsData.hasMoreErrors ? '\n... and more errors (check console)' : ''}`);
         } else {
-          alert(`Successfully synced:\n- ${campaigns.length} campaign(s)\n- ${insightsData.totalAds} ads\n- ${insightsData.synced} insights records`);
+          alert(`Successfully synced:\n- ${campaigns.length} campaign(s)\n- ${insightsData.totalAdSets || 0} ad sets\n- ${insightsData.totalAds} ads\n- ${insightsData.synced} insights records`);
         }
       }
 
