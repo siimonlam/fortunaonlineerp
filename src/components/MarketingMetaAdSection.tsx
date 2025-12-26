@@ -468,37 +468,51 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         return;
       }
 
-      const formattedId = accountId.startsWith('act_') ? accountId : `act_${accountId}`;
-      const url = `https://graph.facebook.com/v21.0/${formattedId}/campaigns?fields=id,name,objective,status,daily_budget,lifetime_budget,created_time,updated_time&access_token=${settings.value}`;
+      // First, get existing campaigns linked to this marketing project
+      const { data: existingCampaigns } = await supabase
+        .from('meta_campaigns')
+        .select('campaign_id')
+        .eq('account_id', accountId)
+        .eq('marketing_reference', projectId);
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'Failed to fetch campaigns');
+      const existingCampaignIds = existingCampaigns?.map(c => c.campaign_id) || [];
+
+      // Fetch campaign details from Meta API to update them
+      if (existingCampaignIds.length > 0) {
+        const formattedId = accountId.startsWith('act_') ? accountId : `act_${accountId}`;
+
+        for (const campaignId of existingCampaignIds) {
+          const url = `https://graph.facebook.com/v21.0/${campaignId}?fields=id,name,objective,status,daily_budget,lifetime_budget,created_time,updated_time&access_token=${settings.value}`;
+
+          const response = await fetch(url);
+          if (response.ok) {
+            const campaign = await response.json();
+
+            await supabase
+              .from('meta_campaigns')
+              .upsert({
+                campaign_id: campaign.id,
+                account_id: accountId,
+                name: campaign.name,
+                objective: campaign.objective,
+                status: campaign.status,
+                daily_budget: campaign.daily_budget,
+                lifetime_budget: campaign.lifetime_budget,
+                created_time: campaign.created_time,
+                updated_time: campaign.updated_time,
+                client_number: clientNumber,
+                marketing_reference: projectId,
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'campaign_id'
+              });
+          }
+        }
       }
 
-      const data = await response.json();
-      const campaigns = data.data || [];
-
-      for (const campaign of campaigns) {
-        await supabase
-          .from('meta_campaigns')
-          .upsert({
-            campaign_id: campaign.id,
-            account_id: accountId,
-            name: campaign.name,
-            objective: campaign.objective,
-            status: campaign.status,
-            daily_budget: campaign.daily_budget,
-            lifetime_budget: campaign.lifetime_budget,
-            created_time: campaign.created_time,
-            updated_time: campaign.updated_time,
-            client_number: clientNumber,
-            marketing_reference: projectId,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'campaign_id'
-          });
+      if (existingCampaignIds.length === 0) {
+        alert('No campaigns linked to this marketing project. Please add campaigns first from the Admin → Meta Ads page.');
+        return;
       }
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -512,6 +526,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         },
         body: JSON.stringify({
           accountId: accountId,
+          campaignIds: existingCampaignIds,
           dateRange: {
             since: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             until: new Date().toISOString().split('T')[0]
@@ -522,16 +537,16 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       if (!insightsResponse.ok) {
         const errorData = await insightsResponse.json();
         console.error('Failed to sync insights:', errorData);
-        alert(`Synced ${campaigns.length} campaign(s), but failed to sync insights: ${errorData.error || 'Unknown error'}`);
+        alert(`Updated ${existingCampaignIds.length} campaign(s), but failed to sync insights: ${errorData.error || 'Unknown error'}`);
       } else {
         const insightsData = await insightsResponse.json();
         console.log('Sync results:', insightsData);
 
         if (insightsData.errors && insightsData.errors.length > 0) {
           const errorList = insightsData.errors.join('\n');
-          alert(`Synced ${campaigns.length} campaign(s):\n- ${insightsData.totalAdSets || 0} ad sets found\n- ${insightsData.totalAds} ads found\n- ${insightsData.synced} insights records synced\n\nErrors encountered:\n${errorList}${insightsData.hasMoreErrors ? '\n... and more errors (check console)' : ''}`);
+          alert(`Synced ${existingCampaignIds.length} campaign(s) for this project:\n- ${insightsData.totalAdSets || 0} ad sets found\n- ${insightsData.totalAds} ads found\n- ${insightsData.synced} insights records synced\n\nErrors encountered:\n${errorList}${insightsData.hasMoreErrors ? '\n... and more errors (check console)' : ''}`);
         } else {
-          alert(`Successfully synced:\n- ${campaigns.length} campaign(s)\n- ${insightsData.totalAdSets || 0} ad sets\n- ${insightsData.totalAds} ads\n- ${insightsData.synced} insights records`);
+          alert(`Successfully synced for this project:\n- ${existingCampaignIds.length} campaign(s)\n- ${insightsData.totalAdSets || 0} ad sets\n- ${insightsData.totalAds} ads\n- ${insightsData.synced} insights records`);
         }
       }
 
