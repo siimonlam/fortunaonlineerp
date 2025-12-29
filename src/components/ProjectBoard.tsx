@@ -1684,6 +1684,36 @@ export function ProjectBoard() {
       }
     });
 
+  const filteredChannelPartners = channelPartners
+    .filter(partner => {
+      if (!searchQuery.trim()) return true;
+
+      const query = searchQuery.toLowerCase();
+      return (
+        (partner.name && partner.name.toLowerCase().includes(query)) ||
+        (partner.client_number && partner.client_number.toLowerCase().includes(query)) ||
+        (partner.contact_person && partner.contact_person.toLowerCase().includes(query)) ||
+        (partner.email && partner.email.toLowerCase().includes(query)) ||
+        (partner.phone && partner.phone.toLowerCase().includes(query)) ||
+        ((partner as any).brand_name && (partner as any).brand_name.toLowerCase().includes(query)) ||
+        ((partner as any).abbreviation && (partner as any).abbreviation.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => {
+      switch (clientSortBy) {
+        case 'client_number_asc':
+          return (a.client_number || '').localeCompare(b.client_number || '');
+        case 'client_number_desc':
+          return (b.client_number || '').localeCompare(a.client_number || '');
+        case 'created_newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'created_oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        default:
+          return 0;
+      }
+    });
+
   const currentStatus = statuses.find(s => s.id === selectedStatus);
   const parentStatus = currentStatus?.parent_status_id
     ? statuses.find(s => s.id === currentStatus.parent_status_id)
@@ -2945,18 +2975,7 @@ export function ProjectBoard() {
                   ) : activeClientTab === 'channel' && channelPartnerSubTab === 'partners' ? (
                     <div className="bg-white rounded-lg border border-slate-200 rounded-t-none border-t-0 p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {channelPartners.filter(partner => {
-                          if (!searchQuery.trim()) return true;
-                          const query = searchQuery.toLowerCase();
-                          return (
-                            (partner.name && partner.name.toLowerCase().includes(query)) ||
-                            (partner.client_number && partner.client_number.toLowerCase().includes(query)) ||
-                            (partner.contact_person && partner.contact_person.toLowerCase().includes(query)) ||
-                            (partner.email && partner.email.toLowerCase().includes(query)) ||
-                            ((partner as any).brand_name && (partner as any).brand_name.toLowerCase().includes(query)) ||
-                            ((partner as any).abbreviation && (partner as any).abbreviation.toLowerCase().includes(query))
-                          );
-                        }).map((client) => (
+                        {filteredChannelPartners.map((client) => (
                           <ClientCard
                             key={client.id}
                             client={client}
@@ -2972,18 +2991,7 @@ export function ProjectBoard() {
                             isChannelPartner={true}
                           />
                         ))}
-                        {channelPartners.filter(partner => {
-                          if (!searchQuery.trim()) return true;
-                          const query = searchQuery.toLowerCase();
-                          return (
-                            (partner.name && partner.name.toLowerCase().includes(query)) ||
-                            (partner.client_number && partner.client_number.toLowerCase().includes(query)) ||
-                            (partner.contact_person && partner.contact_person.toLowerCase().includes(query)) ||
-                            (partner.email && partner.email.toLowerCase().includes(query)) ||
-                            ((partner as any).brand_name && (partner as any).brand_name.toLowerCase().includes(query)) ||
-                            ((partner as any).abbreviation && (partner as any).abbreviation.toLowerCase().includes(query))
-                          );
-                        }).length === 0 && (
+                        {filteredChannelPartners.length === 0 && (
                           <div className="col-span-full text-center py-12">
                             <p className="text-slate-500">
                               {searchQuery
@@ -3026,7 +3034,7 @@ export function ProjectBoard() {
               ) : (
                 <ClientTableView
                   clients={filteredClients}
-                  channelPartners={channelPartners}
+                  channelPartners={filteredChannelPartners}
                   projectTypes={projectTypes}
                   onClientClick={(client) => setSelectedClient(client)}
                   onCreateProject={(client, targetProjectTypeId) => {
