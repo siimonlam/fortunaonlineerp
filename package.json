@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "import:projects": "node import_projects_from_csv.js",
-    "preview:import": "node preview_import.js"
+    "preview:import": "node preview_import.js",
+    "update:sales": "node update_projects_sales.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
