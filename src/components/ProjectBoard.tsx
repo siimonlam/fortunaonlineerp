@@ -2164,7 +2164,7 @@ export function ProjectBoard() {
           </aside>
         )}
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-slate-50">
           <div className="p-8">
             <div className="flex justify-between items-center mb-6">
               <div className="flex-1">
@@ -3007,7 +3007,7 @@ export function ProjectBoard() {
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-white rounded-lg border border-slate-200 p-6">
+                    <div className="bg-white rounded-lg border border-slate-200 p-6 min-h-[200px]">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filteredClients.map((client) => (
                           <ClientCard
