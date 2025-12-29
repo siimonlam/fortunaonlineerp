@@ -1664,7 +1664,9 @@ export function ProjectBoard() {
         (client.email && client.email.toLowerCase().includes(query)) ||
         (client.phone && client.phone.toLowerCase().includes(query)) ||
         (client.sales_source && client.sales_source.toLowerCase().includes(query)) ||
-        (client.notes && client.notes.toLowerCase().includes(query))
+        (client.notes && client.notes.toLowerCase().includes(query)) ||
+        ((client as any).brand_name && (client as any).brand_name.toLowerCase().includes(query)) ||
+        ((client as any).abbreviation && (client as any).abbreviation.toLowerCase().includes(query))
       );
     })
     .sort((a, b) => {
@@ -2948,7 +2950,9 @@ export function ProjectBoard() {
                           (partner.name && partner.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           (partner.client_number && partner.client_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           (partner.contact_person && partner.contact_person.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (partner.email && partner.email.toLowerCase().includes(searchQuery.toLowerCase()))
+                          (partner.email && partner.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          ((partner as any).brand_name && (partner as any).brand_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          ((partner as any).abbreviation && (partner as any).abbreviation.toLowerCase().includes(searchQuery.toLowerCase()))
                         ).map((client) => (
                           <ClientCard
                             key={client.id}
@@ -2970,7 +2974,9 @@ export function ProjectBoard() {
                           (partner.name && partner.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           (partner.client_number && partner.client_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           (partner.contact_person && partner.contact_person.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (partner.email && partner.email.toLowerCase().includes(searchQuery.toLowerCase()))
+                          (partner.email && partner.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          ((partner as any).brand_name && (partner as any).brand_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          ((partner as any).abbreviation && (partner as any).abbreviation.toLowerCase().includes(searchQuery.toLowerCase()))
                         ).length === 0 && (
                           <div className="col-span-full text-center py-12">
                             <p className="text-slate-500">
