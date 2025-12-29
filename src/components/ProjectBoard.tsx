@@ -3007,31 +3007,33 @@ export function ProjectBoard() {
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredClients.map((client) => (
-                        <ClientCard
-                          key={client.id}
-                          client={client}
-                          projectTypes={projectTypes}
-                          statuses={statuses}
-                          onClick={() => setSelectedClient(client)}
-                          onCreateProject={(targetProjectTypeId, targetStatusId) => {
-                            handleCreateProjectFromClient(client, targetProjectTypeId, targetStatusId);
-                          }}
-                          onProjectClick={(project) => setSelectedProject(project)}
-                          projectTypePermissions={projectTypePermissions}
-                          isAdmin={isAdmin}
-                        />
-                      ))}
-                      {filteredClients.length === 0 && (
-                        <div className="col-span-full text-center py-12">
-                          <p className="text-slate-500">
-                            {searchQuery
-                              ? 'No clients found matching your search.'
-                              : 'No company clients yet. Click the add button to get started.'}
-                          </p>
-                        </div>
-                      )}
+                    <div className="bg-white rounded-lg border border-slate-200 p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filteredClients.map((client) => (
+                          <ClientCard
+                            key={client.id}
+                            client={client}
+                            projectTypes={projectTypes}
+                            statuses={statuses}
+                            onClick={() => setSelectedClient(client)}
+                            onCreateProject={(targetProjectTypeId, targetStatusId) => {
+                              handleCreateProjectFromClient(client, targetProjectTypeId, targetStatusId);
+                            }}
+                            onProjectClick={(project) => setSelectedProject(project)}
+                            projectTypePermissions={projectTypePermissions}
+                            isAdmin={isAdmin}
+                          />
+                        ))}
+                        {filteredClients.length === 0 && (
+                          <div className="col-span-full text-center py-12">
+                            <p className="text-slate-500">
+                              {searchQuery
+                                ? 'No clients found matching your search.'
+                                : 'No company clients yet. Click the add button to get started.'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>
