@@ -1658,13 +1658,13 @@ export function ProjectBoard() {
 
       const query = searchQuery.toLowerCase();
       return (
-        client.name.toLowerCase().includes(query) ||
+        (client.name && client.name.toLowerCase().includes(query)) ||
         (client.client_number && client.client_number.toLowerCase().includes(query)) ||
-        client.contact_person?.toLowerCase().includes(query) ||
-        client.email?.toLowerCase().includes(query) ||
-        client.phone?.toLowerCase().includes(query) ||
-        client.sales_source?.toLowerCase().includes(query) ||
-        client.notes?.toLowerCase().includes(query)
+        (client.contact_person && client.contact_person.toLowerCase().includes(query)) ||
+        (client.email && client.email.toLowerCase().includes(query)) ||
+        (client.phone && client.phone.toLowerCase().includes(query)) ||
+        (client.sales_source && client.sales_source.toLowerCase().includes(query)) ||
+        (client.notes && client.notes.toLowerCase().includes(query))
       );
     })
     .sort((a, b) => {
@@ -2945,10 +2945,10 @@ export function ProjectBoard() {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {channelPartners.filter(partner =>
                           !searchQuery ||
-                          partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (partner.name && partner.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           (partner.client_number && partner.client_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                          (partner.contact_person && partner.contact_person.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          (partner.email && partner.email.toLowerCase().includes(searchQuery.toLowerCase()))
                         ).map((client) => (
                           <ClientCard
                             key={client.id}
@@ -2967,10 +2967,10 @@ export function ProjectBoard() {
                         ))}
                         {channelPartners.filter(partner =>
                           !searchQuery ||
-                          partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (partner.name && partner.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           (partner.client_number && partner.client_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          partner.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          partner.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                          (partner.contact_person && partner.contact_person.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          (partner.email && partner.email.toLowerCase().includes(searchQuery.toLowerCase()))
                         ).length === 0 && (
                           <div className="col-span-full text-center py-12">
                             <p className="text-slate-500">

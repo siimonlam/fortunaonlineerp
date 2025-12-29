@@ -596,8 +596,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
   function renderClientsTab() {
     const filteredClients = comSecClients.filter(client =>
-      client.company_name.toLowerCase().includes(searchTermClients.toLowerCase()) ||
-      client.company_code?.toLowerCase().includes(searchTermClients.toLowerCase())
+      (client.company_name && client.company_name.toLowerCase().includes(searchTermClients.toLowerCase())) ||
+      (client.company_code && client.company_code.toLowerCase().includes(searchTermClients.toLowerCase()))
     );
 
     return (
@@ -924,8 +924,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
   function renderInvoicesTab() {
     const filteredInvoices = invoices.filter(inv =>
-      inv.invoice_number.toLowerCase().includes(searchTermInvoices.toLowerCase()) ||
-      inv.comsec_client?.company_name.toLowerCase().includes(searchTermInvoices.toLowerCase())
+      (inv.invoice_number && inv.invoice_number.toLowerCase().includes(searchTermInvoices.toLowerCase())) ||
+      (inv.comsec_client?.company_name && inv.comsec_client.company_name.toLowerCase().includes(searchTermInvoices.toLowerCase()))
     );
 
     return (
@@ -1105,14 +1105,14 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     today.setHours(0, 0, 0, 0);
 
     const filteredVirtualOffices = virtualOffices.filter(vo =>
-      vo.comsec_client?.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()) ||
-      vo.comsec_client?.company_code?.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())
+      (vo.comsec_client?.company_name && vo.comsec_client.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())) ||
+      (vo.comsec_client?.company_code && vo.comsec_client.company_code.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()))
     );
 
     const filteredLetters = letters.filter(letter =>
-      letter.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()) ||
-      letter.company_code.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()) ||
-      letter.sender_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())
+      (letter.company_name && letter.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())) ||
+      (letter.company_code && letter.company_code.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())) ||
+      (letter.sender_name && letter.sender_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()))
     );
 
     return (
@@ -1306,8 +1306,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
   function renderKnowledgeBaseTab() {
     const filteredKB = knowledgeBase.filter(kb =>
-      kb.title.toLowerCase().includes(searchTermKnowledgeBase.toLowerCase()) ||
-      kb.category.toLowerCase().includes(searchTermKnowledgeBase.toLowerCase())
+      (kb.title && kb.title.toLowerCase().includes(searchTermKnowledgeBase.toLowerCase())) ||
+      (kb.category && kb.category.toLowerCase().includes(searchTermKnowledgeBase.toLowerCase()))
     );
 
     return (
@@ -1380,9 +1380,9 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     now.setHours(0, 0, 0, 0);
 
     const filteredReminders = reminders.filter(r =>
-      r.comsec_client?.company_name.toLowerCase().includes(searchTermReminders.toLowerCase()) ||
-      r.reminder_type.toLowerCase().includes(searchTermReminders.toLowerCase()) ||
-      r.description?.toLowerCase().includes(searchTermReminders.toLowerCase())
+      (r.comsec_client?.company_name && r.comsec_client.company_name.toLowerCase().includes(searchTermReminders.toLowerCase())) ||
+      (r.reminder_type && r.reminder_type.toLowerCase().includes(searchTermReminders.toLowerCase())) ||
+      (r.description && r.description.toLowerCase().includes(searchTermReminders.toLowerCase()))
     );
     const pendingReminders = filteredReminders.filter(r => !r.is_completed && new Date(r.due_date) >= now);
     const overdueReminders = filteredReminders.filter(r => !r.is_completed && new Date(r.due_date) < now);
@@ -1390,8 +1390,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     const arReminders = comSecClients
       .filter(client => {
         if (!client.ar_due_date || !client.reminder_days) return false;
-        const matchesSearch = client.company_name.toLowerCase().includes(searchTermReminders.toLowerCase()) ||
-                             client.company_code?.toLowerCase().includes(searchTermReminders.toLowerCase());
+        const matchesSearch = (client.company_name && client.company_name.toLowerCase().includes(searchTermReminders.toLowerCase())) ||
+                             (client.company_code && client.company_code.toLowerCase().includes(searchTermReminders.toLowerCase()));
         return matchesSearch;
       })
       .map(client => {
