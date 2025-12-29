@@ -247,7 +247,7 @@ export function ProjectBoard() {
       if (selectedView === 'projects') {
         loadProjectsViewData(essentialData.projectTypes, essentialData.selectedType);
       } else if (selectedView === 'clients') {
-        loadClientsViewData();
+        loadClientsViewData(essentialData.projectTypes);
       } else if (selectedView === 'admin') {
         loadAdminViewData();
       }
@@ -830,8 +830,12 @@ export function ProjectBoard() {
   }
 
   // Load data for Clients view
-  async function loadClientsViewData() {
+  async function loadClientsViewData(projectTypesData?: any[]) {
     console.log('[loadClientsViewData] Loading...');
+
+    // Use passed data or fall back to state
+    const typesData = projectTypesData || projectTypes;
+
     const [clientsRes, projectsRes, marketingProjectsRes, comSecClientsRes, channelPartnersRes, partnerProjectsRes] = await Promise.all([
       loadWithTimeout(
         supabase.from('clients').select('*'),
@@ -859,8 +863,8 @@ export function ProjectBoard() {
       ),
     ]);
 
-    const comSecProjectTypeId = projectTypes.find(pt => pt.name === 'Com Sec')?.id;
-    const marketingProjectTypeId = projectTypes.find(pt => pt.name === 'Marketing')?.id;
+    const comSecProjectTypeId = typesData.find(pt => pt.name === 'Com Sec')?.id;
+    const marketingProjectTypeId = typesData.find(pt => pt.name === 'Marketing')?.id;
 
     if (clientsRes.data) {
       const enrichedClients = clientsRes.data.map(client => {
