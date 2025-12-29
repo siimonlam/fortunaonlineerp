@@ -1663,7 +1663,7 @@ export function ProjectBoard() {
       const query = searchQuery.toLowerCase();
       return (
         (client.name && client.name.toLowerCase().includes(query)) ||
-        (client.client_number && client.client_number.toLowerCase().includes(query)) ||
+        (client.client_number && String(client.client_number).toLowerCase().includes(query)) ||
         (client.contact_person && client.contact_person.toLowerCase().includes(query)) ||
         (client.email && client.email.toLowerCase().includes(query)) ||
         (client.phone && client.phone.toLowerCase().includes(query)) ||
@@ -1695,7 +1695,7 @@ export function ProjectBoard() {
       const query = searchQuery.toLowerCase();
       return (
         (partner.name && partner.name.toLowerCase().includes(query)) ||
-        (partner.client_number && partner.client_number.toLowerCase().includes(query)) ||
+        (partner.client_number && String(partner.client_number).toLowerCase().includes(query)) ||
         (partner.contact_person && partner.contact_person.toLowerCase().includes(query)) ||
         (partner.email && partner.email.toLowerCase().includes(query)) ||
         (partner.phone && partner.phone.toLowerCase().includes(query)) ||
