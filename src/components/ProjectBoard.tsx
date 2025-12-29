@@ -1676,9 +1676,9 @@ export function ProjectBoard() {
     .sort((a, b) => {
       switch (clientSortBy) {
         case 'client_number_asc':
-          return (a.client_number || '').localeCompare(b.client_number || '');
+          return String(a.client_number || '').localeCompare(String(b.client_number || ''));
         case 'client_number_desc':
-          return (b.client_number || '').localeCompare(a.client_number || '');
+          return String(b.client_number || '').localeCompare(String(a.client_number || ''));
         case 'created_newest':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case 'created_oldest':
@@ -1706,9 +1706,9 @@ export function ProjectBoard() {
     .sort((a, b) => {
       switch (clientSortBy) {
         case 'client_number_asc':
-          return (a.client_number || '').localeCompare(b.client_number || '');
+          return String(a.client_number || '').localeCompare(String(b.client_number || ''));
         case 'client_number_desc':
-          return (b.client_number || '').localeCompare(a.client_number || '');
+          return String(b.client_number || '').localeCompare(String(a.client_number || ''));
         case 'created_newest':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case 'created_oldest':
