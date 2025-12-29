@@ -2945,15 +2945,18 @@ export function ProjectBoard() {
                   ) : activeClientTab === 'channel' && channelPartnerSubTab === 'partners' ? (
                     <div className="bg-white rounded-lg border border-slate-200 rounded-t-none border-t-0 p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {channelPartners.filter(partner =>
-                          !searchQuery ||
-                          (partner.name && partner.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (partner.client_number && partner.client_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (partner.contact_person && partner.contact_person.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (partner.email && partner.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          ((partner as any).brand_name && (partner as any).brand_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          ((partner as any).abbreviation && (partner as any).abbreviation.toLowerCase().includes(searchQuery.toLowerCase()))
-                        ).map((client) => (
+                        {channelPartners.filter(partner => {
+                          if (!searchQuery.trim()) return true;
+                          const query = searchQuery.toLowerCase();
+                          return (
+                            (partner.name && partner.name.toLowerCase().includes(query)) ||
+                            (partner.client_number && partner.client_number.toLowerCase().includes(query)) ||
+                            (partner.contact_person && partner.contact_person.toLowerCase().includes(query)) ||
+                            (partner.email && partner.email.toLowerCase().includes(query)) ||
+                            ((partner as any).brand_name && (partner as any).brand_name.toLowerCase().includes(query)) ||
+                            ((partner as any).abbreviation && (partner as any).abbreviation.toLowerCase().includes(query))
+                          );
+                        }).map((client) => (
                           <ClientCard
                             key={client.id}
                             client={client}
@@ -2969,15 +2972,18 @@ export function ProjectBoard() {
                             isChannelPartner={true}
                           />
                         ))}
-                        {channelPartners.filter(partner =>
-                          !searchQuery ||
-                          (partner.name && partner.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (partner.client_number && partner.client_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (partner.contact_person && partner.contact_person.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (partner.email && partner.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          ((partner as any).brand_name && (partner as any).brand_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          ((partner as any).abbreviation && (partner as any).abbreviation.toLowerCase().includes(searchQuery.toLowerCase()))
-                        ).length === 0 && (
+                        {channelPartners.filter(partner => {
+                          if (!searchQuery.trim()) return true;
+                          const query = searchQuery.toLowerCase();
+                          return (
+                            (partner.name && partner.name.toLowerCase().includes(query)) ||
+                            (partner.client_number && partner.client_number.toLowerCase().includes(query)) ||
+                            (partner.contact_person && partner.contact_person.toLowerCase().includes(query)) ||
+                            (partner.email && partner.email.toLowerCase().includes(query)) ||
+                            ((partner as any).brand_name && (partner as any).brand_name.toLowerCase().includes(query)) ||
+                            ((partner as any).abbreviation && (partner as any).abbreviation.toLowerCase().includes(query))
+                          );
+                        }).length === 0 && (
                           <div className="col-span-full text-center py-12">
                             <p className="text-slate-500">
                               {searchQuery
