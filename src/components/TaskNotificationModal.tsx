@@ -48,17 +48,32 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
     if (!user) return;
 
     setLoading(true);
+
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.error('[TaskNotificationModal] Loading timeout - forcing close');
+      setLoading(false);
+      onClose();
+    }, 10000); // 10 second timeout
+
     try {
+      console.log('[TaskNotificationModal] Starting to load data...');
       await Promise.all([loadUserTasks(), loadTeamStats()]);
+      console.log('[TaskNotificationModal] Data loaded successfully');
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('[TaskNotificationModal] Error loading data:', error);
+      // Still close on error so user isn't blocked
+      onClose();
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   }
 
   async function loadUserTasks() {
     if (!user) return;
+
+    console.log('[TaskNotificationModal] Loading user tasks for:', user.id);
 
     const [regularTasksRes, marketingTasksRes] = await Promise.all([
       supabase
@@ -81,15 +96,25 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
         .not('deadline', 'is', null),
     ]);
 
+    if (regularTasksRes.error) {
+      console.error('[TaskNotificationModal] Error loading tasks:', regularTasksRes.error);
+    }
+    if (marketingTasksRes.error) {
+      console.error('[TaskNotificationModal] Error loading marketing tasks:', marketingTasksRes.error);
+    }
+
     const allTasks = [
       ...(regularTasksRes.data || []),
       ...(marketingTasksRes.data || []),
     ];
 
+    console.log('[TaskNotificationModal] Loaded', allTasks.length, 'tasks');
     setTasks(allTasks);
   }
 
   async function loadTeamStats() {
+    console.log('[TaskNotificationModal] Loading team stats...');
+
     const [staffRes, regularTasksRes, marketingTasksRes] = await Promise.all([
       supabase
         .from('staff')
@@ -109,11 +134,23 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
         .not('assigned_to', 'is', null),
     ]);
 
+    if (staffRes.error) {
+      console.error('[TaskNotificationModal] Error loading staff:', staffRes.error);
+    }
+    if (regularTasksRes.error) {
+      console.error('[TaskNotificationModal] Error loading all tasks:', regularTasksRes.error);
+    }
+    if (marketingTasksRes.error) {
+      console.error('[TaskNotificationModal] Error loading all marketing tasks:', marketingTasksRes.error);
+    }
+
     const staff = staffRes.data || [];
     const allTasks = [
       ...(regularTasksRes.data || []),
       ...(marketingTasksRes.data || []),
     ];
+
+    console.log('[TaskNotificationModal] Loaded', staff.length, 'staff members and', allTasks.length, 'team tasks');
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -153,6 +190,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
         return b.upcomingCount - a.upcomingCount;
       });
 
+    console.log('[TaskNotificationModal] Computed stats for', sortedStats.length, 'staff with pending tasks');
     setTeamStats(sortedStats);
   }
 

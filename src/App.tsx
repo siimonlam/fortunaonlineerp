@@ -39,15 +39,14 @@ function AppContent() {
     }
   }, [user]);
 
-  // Temporarily disabled - causing infinite loading
-  // useEffect(() => {
-  //   if (user && !loading && window.location.pathname !== '/onboarding' && window.location.pathname !== '/phone-scan') {
-  //     const timer = setTimeout(() => {
-  //       setShowTaskSummary(true);
-  //     }, 500);
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [user, loading]);
+  useEffect(() => {
+    if (user && !loading && window.location.pathname !== '/onboarding' && window.location.pathname !== '/phone-scan') {
+      const timer = setTimeout(() => {
+        setShowTaskSummary(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user, loading]);
 
   useEffect(() => {
     const handlePendingInstagramAuth = async () => {
