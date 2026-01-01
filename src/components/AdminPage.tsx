@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign, Instagram, Facebook, BarChart3 } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign, Instagram, Facebook, BarChart3, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
 import { AutomationPage } from './AutomationPage';
 import { ProjectTypeAuthorizationPage } from './ProjectTypeAuthorizationPage';
 import { FinanceAuthorizationPage } from './FinanceAuthorizationPage';
+import { EmailSettingsPage } from './EmailSettingsPage';
 import InstagramAccountsPage from './InstagramAccountsPage';
 import FacebookAccountsPage from './FacebookAccountsPage';
 import MetaAdsSettingsPage from './MetaAdsSettingsPage';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'instagram' | 'facebook' | 'meta-ads';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'email' | 'instagram' | 'facebook' | 'meta-ads';
 
 interface User {
   id: string;
@@ -145,6 +146,7 @@ export function AdminPage() {
     { id: 'finance-auth', label: 'Finance Authorization', icon: DollarSign },
     { id: 'labels', label: 'Labels', icon: Tag },
     { id: 'automation', label: 'Automation', icon: Zap },
+    { id: 'email', label: 'Email Settings', icon: Mail },
     { id: 'instagram', label: 'Instagram', icon: Instagram },
     { id: 'facebook', label: 'Facebook', icon: Facebook },
     { id: 'meta-ads', label: 'Meta Ads', icon: BarChart3 },
@@ -415,6 +417,8 @@ export function AdminPage() {
               <AutomationPage />
             </div>
           )}
+
+          {currentView === 'email' && <EmailSettingsPage />}
 
           {currentView === 'instagram' && (
             <div>
