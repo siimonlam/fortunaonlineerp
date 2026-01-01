@@ -29,7 +29,6 @@ interface EmailAccount {
   id: string;
   account_name: string;
   smtp_from_email: string;
-  is_default: boolean;
   is_active: boolean;
 }
 
@@ -81,16 +80,14 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
   const fetchEmailAccounts = async () => {
     const { data, error } = await supabase
       .from('email_accounts')
-      .select('id, account_name, smtp_from_email, is_default, is_active')
+      .select('id, account_name, smtp_from_email, is_active')
       .eq('is_active', true)
-      .order('is_default', { ascending: false })
       .order('account_name', { ascending: true });
 
     if (!error && data) {
       setEmailAccounts(data);
-      const defaultAccount = data.find(acc => acc.is_default);
-      if (defaultAccount && !formData.from_account_id) {
-        setFormData(prev => ({ ...prev, from_account_id: defaultAccount.id }));
+      if (data.length > 0 && !formData.from_account_id) {
+        setFormData(prev => ({ ...prev, from_account_id: data[0].id }));
       }
     }
   };
@@ -205,9 +202,9 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
   };
 
   const resetForm = () => {
-    const defaultAccount = emailAccounts.find(acc => acc.is_default);
+    const firstAccount = emailAccounts.length > 0 ? emailAccounts[0] : null;
     setFormData({
-      from_account_id: defaultAccount?.id || '',
+      from_account_id: firstAccount?.id || '',
       recipient_emails: clientEmails || '',
       subject: '',
       body: '',
@@ -408,7 +405,6 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
                     {emailAccounts.map(account => (
                       <option key={account.id} value={account.id}>
                         {account.account_name} ({account.smtp_from_email})
-                        {account.is_default && ' - Default'}
                       </option>
                     ))}
                   </select>

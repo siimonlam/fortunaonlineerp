@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mail, Save, AlertCircle, CheckCircle, Eye, EyeOff, Plus, Trash2, Edit2, X, Star } from 'lucide-react';
+import { Mail, Save, AlertCircle, CheckCircle, Eye, EyeOff, Plus, Trash2, Edit2, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,7 +14,7 @@ interface EmailAccount {
   smtp_from_email: string;
   smtp_from_name: string;
   is_active: boolean;
-  is_default: boolean;
+  user_id: string;
   created_at: string;
 }
 
@@ -37,7 +37,6 @@ export function EmailSettingsPage() {
     smtp_from_email: '',
     smtp_from_name: 'Your Company',
     is_active: true,
-    is_default: false,
   });
 
   useEffect(() => {
@@ -65,7 +64,7 @@ export function EmailSettingsPage() {
       const { data, error } = await supabase
         .from('email_accounts')
         .select('*')
-        .order('is_default', { ascending: false })
+        .eq('user_id', user?.id)
         .order('account_name', { ascending: true });
 
       if (error) throw error;
@@ -89,7 +88,6 @@ export function EmailSettingsPage() {
       smtp_from_email: '',
       smtp_from_name: 'Your Company',
       is_active: true,
-      is_default: false,
     });
     setEditingAccount(null);
     setShowModal(false);
@@ -112,7 +110,6 @@ export function EmailSettingsPage() {
       smtp_from_email: account.smtp_from_email,
       smtp_from_name: account.smtp_from_name,
       is_active: account.is_active,
-      is_default: account.is_default,
     });
     setShowModal(true);
   };
@@ -140,7 +137,6 @@ export function EmailSettingsPage() {
             smtp_from_email: formData.smtp_from_email,
             smtp_from_name: formData.smtp_from_name,
             is_active: formData.is_active,
-            is_default: formData.is_default,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingAccount.id);
@@ -189,21 +185,6 @@ export function EmailSettingsPage() {
     }
   };
 
-  const toggleDefault = async (accountId: string) => {
-    try {
-      const { error } = await supabase
-        .from('email_accounts')
-        .update({ is_default: true })
-        .eq('id', accountId);
-
-      if (error) throw error;
-      setMessage({ type: 'success', text: 'Default account updated!' });
-      loadAccounts();
-    } catch (err: any) {
-      console.error('Error updating default account:', err);
-      setMessage({ type: 'error', text: err.message || 'Failed to update default account' });
-    }
-  };
 
   const toggleActive = async (accountId: string, isActive: boolean) => {
     try {
@@ -235,8 +216,8 @@ export function EmailSettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Email Accounts (SMTP)</h2>
-          <p className="text-slate-600">Manage SMTP accounts for sending scheduled emails</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">My Email Accounts (SMTP)</h2>
+          <p className="text-slate-600">Manage your SMTP accounts for sending scheduled emails</p>
         </div>
         <button
           onClick={openCreateModal}
@@ -288,12 +269,6 @@ export function EmailSettingsPage() {
                   <div className="flex items-center gap-3 mb-3">
                     <Mail className="w-5 h-5 text-blue-600 flex-shrink-0" />
                     <h3 className="text-lg font-semibold text-slate-900">{account.account_name}</h3>
-                    {account.is_default && (
-                      <span className="flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
-                        <Star className="w-3 h-3" />
-                        Default
-                      </span>
-                    )}
                     {!account.is_active && (
                       <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">
                         Inactive
@@ -320,15 +295,6 @@ export function EmailSettingsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  {!account.is_default && (
-                    <button
-                      onClick={() => toggleDefault(account.id)}
-                      className="p-2 text-slate-600 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                      title="Set as default"
-                    >
-                      <Star className="w-4 h-4" />
-                    </button>
-                  )}
                   <button
                     onClick={() => toggleActive(account.id, account.is_active)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
@@ -521,15 +487,6 @@ export function EmailSettingsPage() {
                       className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                     />
                     <span className="text-sm text-slate-700">Active</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_default}
-                      onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-slate-700">Set as default</span>
                   </label>
                 </div>
 
