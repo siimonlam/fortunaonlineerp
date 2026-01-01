@@ -37,6 +37,8 @@ interface FundingDashboardProps {
   onProjectClick?: (projectId: string) => void;
 }
 
+const QA_ATTENTION_LABEL_ID = 'qa-attention-label-id';
+
 export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [dashboardData, setDashboardData] = useState<DashboardData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [selectedMonths, setSelectedMonths] = useState(4);
   const [agingProjects, setAgingProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [filterQAAttention, setFilterQAAttention] = useState(false);
 
   const filterAgingProjects = useCallback(async () => {
     try {
