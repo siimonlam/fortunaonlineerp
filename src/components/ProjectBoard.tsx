@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns2 as Columns, Scan, Share2 } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns2 as Columns, Scan, Share2, Mail } from 'lucide-react';
 import { APP_VERSION } from '../version';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
@@ -18,6 +18,7 @@ import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import { MeetingsPage } from './MeetingsPage';
 import { ShareResourcesPage } from './ShareResourcesPage';
+import { ScheduledEmailsPage } from './ScheduledEmailsPage';
 import { BusinessCardScanner } from './BusinessCardScanner';
 import { TaskNotificationModal } from './TaskNotificationModal';
 import { CreateMarketingProjectModal } from './CreateMarketingProjectModal';
@@ -182,7 +183,7 @@ export function ProjectBoard() {
   const [showCreateMarketingProjectModal, setShowCreateMarketingProjectModal] = useState(false);
   const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
   const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
-  const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings' | 'resources'>('projects');
+  const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings' | 'resources' | 'emails'>('projects');
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
   const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
@@ -2147,6 +2148,19 @@ export function ProjectBoard() {
                     </span>
                   </button>
                   <button
+                    onClick={() => setFundingProjectTab('emails')}
+                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                      fundingProjectTab === 'emails'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      Scheduled Emails
+                    </span>
+                  </button>
+                  <button
                     onClick={() => setFundingProjectTab('meetings')}
                     className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
                       fundingProjectTab === 'meetings'
@@ -3087,6 +3101,16 @@ export function ProjectBoard() {
               )
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'dashboard' ? (
               <FundingDashboard
+                onProjectClick={async (projectId) => {
+                  const project = projects.find(p => p.id === projectId);
+                  if (project) {
+                    setSelectedProject(project);
+                    setFundingProjectTab('projects');
+                  }
+                }}
+              />
+            ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'emails' ? (
+              <ScheduledEmailsPage
                 onProjectClick={async (projectId) => {
                   const project = projects.find(p => p.id === projectId);
                   if (project) {

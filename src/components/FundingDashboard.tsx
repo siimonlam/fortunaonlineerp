@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar, Tag, Mail, Send, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar, Tag } from 'lucide-react';
 
 interface Status {
   id: string;
@@ -43,8 +43,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [dashboardData, setDashboardData] = useState<DashboardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalProjects, setTotalProjects] = useState(0);
-  const [activeTab, setActiveTab] = useState<'summary' | 'progress' | 'emails'>('summary');
-  const [scheduledEmails, setScheduledEmails] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'summary' | 'progress'>('summary');
   const [endingSoonProjects, setEndingSoonProjects] = useState<Project[]>([]);
   const [selectedMonths, setSelectedMonths] = useState(4);
   const [agingProjects, setAgingProjects] = useState<Project[]>([]);
@@ -103,28 +102,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
   useEffect(() => {
     loadDashboardData();
-    if (activeTab === 'emails') {
-      loadScheduledEmails();
-    }
-  }, [filterQAAttention, activeTab]);
-
-  const loadScheduledEmails = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('scheduled_emails')
-        .select(`
-          *,
-          projects:project_id(title, project_reference, company_name),
-          staff:user_id(full_name)
-        `)
-        .order('scheduled_date', { ascending: true });
-
-      if (error) throw error;
-      setScheduledEmails(data || []);
-    } catch (err) {
-      console.error('Error loading scheduled emails:', err);
-    }
-  };
+  }, [filterQAAttention]);
 
   useEffect(() => {
     filterAgingProjects();
@@ -290,17 +268,6 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
             }`}
           >
             Progress
-          </button>
-          <button
-            onClick={() => setActiveTab('emails')}
-            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-              activeTab === 'emails'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <Mail className="w-4 h-4" />
-            Scheduled Emails
           </button>
         </div>
 
@@ -596,89 +563,6 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
               )}
             </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'emails' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-blue-600 rounded-lg p-2">
-                <Mail className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-800">Scheduled Emails</h2>
-                <p className="text-sm text-slate-600">All scheduled emails across funding projects</p>
-              </div>
-            </div>
-
-            {scheduledEmails.length > 0 ? (
-              <div className="space-y-3">
-                {scheduledEmails.map((email) => (
-                  <div
-                    key={email.id}
-                    className="bg-slate-50 rounded-lg border border-slate-200 p-4 hover:bg-slate-100 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          {email.status === 'pending' && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              Pending
-                            </span>
-                          )}
-                          {email.status === 'sent' && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" />
-                              Sent
-                            </span>
-                          )}
-                          {email.status === 'failed' && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 flex items-center gap-1">
-                              <XCircle className="w-3 h-3" />
-                              Failed
-                            </span>
-                          )}
-                          {email.status === 'cancelled' && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">
-                              Cancelled
-                            </span>
-                          )}
-                          <button
-                            onClick={() => onProjectClick?.(email.project_id)}
-                            className="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1"
-                          >
-                            {email.projects?.title || 'Unknown Project'}
-                            <ExternalLink className="w-3 h-3" />
-                          </button>
-                        </div>
-                        <h4 className="font-semibold text-slate-900 mb-1">{email.subject}</h4>
-                        <p className="text-sm text-slate-600 line-clamp-2 mb-2">{email.body}</p>
-                        <div className="flex items-center gap-4 text-xs text-slate-500">
-                          <span className="flex items-center gap-1">
-                            <Send className="w-3 h-3" />
-                            To: {email.recipient_emails.join(', ')}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Scheduled: {new Date(email.scheduled_date).toLocaleString()}
-                          </span>
-                          <span>By: {email.staff?.full_name || 'Unknown'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <Mail className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500">No scheduled emails yet</p>
-                <p className="text-sm text-slate-400 mt-2">Schedule emails from individual project pages</p>
-              </div>
-            )}
           </div>
         </div>
       )}
