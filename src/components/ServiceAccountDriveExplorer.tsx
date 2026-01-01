@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Folder, FileText, Download, RefreshCw, File, FileSpreadsheet, Image, FileVideo, FileAudio, ChevronRight, Home, ExternalLink } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Folder, FileText, Download, RefreshCw, File, FileSpreadsheet, Image, FileVideo, FileAudio, ChevronRight, Home, ExternalLink, Upload, FolderPlus, Pencil, Trash2, Move, MoreVertical } from 'lucide-react';
 
 interface ServiceAccountDriveExplorerProps {
   onClose?: () => void;
@@ -37,10 +37,33 @@ export function ServiceAccountDriveExplorer({
   const [error, setError] = useState<string | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string>(folderId);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([{ id: folderId, name: folderName }]);
+  const [uploading, setUploading] = useState(false);
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFileName, setNewFileName] = useState('');
+  const [dragActive, setDragActive] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadFiles(currentFolderId);
   }, [currentFolderId]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (activeMenu) {
+        setActiveMenu(null);
+      }
+    }
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [activeMenu]);
 
   async function loadFiles(targetFolderId: string) {
     setLoading(true);
@@ -165,6 +188,185 @@ export function ServiceAccountDriveExplorer({
     return new Date(dateString).toLocaleDateString();
   }
 
+  async function handleCreateFolder() {
+    if (!newFolderName.trim()) return;
+
+    setLoading(true);
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
+      const response = await fetch(`${apiUrl}?action=createFolder`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          folderName: newFolderName,
+          parentId: currentFolderId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create folder');
+      }
+
+      setNewFolderName('');
+      setShowCreateFolderModal(false);
+      await loadFiles(currentFolderId);
+    } catch (err: any) {
+      console.error('Error creating folder:', err);
+      alert(`Failed to create folder: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleFileUpload(uploadFiles: FileList | null) {
+    if (!uploadFiles || uploadFiles.length === 0) return;
+
+    setUploading(true);
+    try {
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
+        const reader = new FileReader();
+
+        await new Promise((resolve, reject) => {
+          reader.onload = async (e) => {
+            try {
+              const arrayBuffer = e.target?.result as ArrayBuffer;
+              const bytes = new Uint8Array(arrayBuffer);
+              const base64 = btoa(String.fromCharCode(...bytes));
+
+              const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
+              const response = await fetch(`${apiUrl}?action=upload`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  fileName: file.name,
+                  parentId: currentFolderId,
+                  fileData: base64,
+                  mimeType: file.type || 'application/octet-stream',
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error(`Failed to upload ${file.name}`);
+              }
+
+              resolve(null);
+            } catch (error) {
+              reject(error);
+            }
+          };
+
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(file);
+        });
+      }
+
+      await loadFiles(currentFolderId);
+    } catch (err: any) {
+      console.error('Error uploading files:', err);
+      alert(`Failed to upload files: ${err.message}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
+
+  async function handleDeleteFile(file: DriveFile) {
+    if (!confirm(`Are you sure you want to delete "${file.name}"?`)) return;
+
+    setLoading(true);
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
+      const response = await fetch(`${apiUrl}?action=delete&fileId=${file.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete file');
+      }
+
+      await loadFiles(currentFolderId);
+      setActiveMenu(null);
+    } catch (err: any) {
+      console.error('Error deleting file:', err);
+      alert(`Failed to delete file: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRenameFile() {
+    if (!selectedFile || !newFileName.trim()) return;
+
+    setLoading(true);
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
+      const response = await fetch(`${apiUrl}?action=rename&fileId=${selectedFile.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newName: newFileName,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to rename file');
+      }
+
+      setNewFileName('');
+      setShowRenameModal(false);
+      setSelectedFile(null);
+      await loadFiles(currentFolderId);
+      setActiveMenu(null);
+    } catch (err: any) {
+      console.error('Error renaming file:', err);
+      alert(`Failed to rename file: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileUpload(e.dataTransfer.files);
+    }
+  }
+
   if (error) {
     const errorContent = (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -246,17 +448,66 @@ export function ServiceAccountDriveExplorer({
         </div>
       </div>
 
-      <div className="p-6 flex-1 overflow-y-auto">
+      <div
+        className="p-6 flex-1 overflow-y-auto"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() => loadFiles(currentFolderId)}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => loadFiles(currentFolderId)}
+              disabled={loading}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              onClick={() => setShowCreateFolderModal(true)}
+              disabled={loading || uploading}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
+            >
+              <FolderPlus className="w-4 h-4" />
+              New Folder
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading || uploading}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-green-600 bg-white border border-green-300 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4" />
+              Upload Files
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={(e) => handleFileUpload(e.target.files)}
+              className="hidden"
+            />
+          </div>
         </div>
+
+        {dragActive && (
+          <div className="fixed inset-0 bg-blue-500 bg-opacity-20 border-4 border-dashed border-blue-500 rounded-lg flex items-center justify-center z-50 pointer-events-none">
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              <Upload className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-slate-900">Drop files here to upload</p>
+            </div>
+          </div>
+        )}
+
+        {uploading && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              <p className="text-sm text-blue-800">Uploading files...</p>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12">
@@ -293,8 +544,8 @@ export function ServiceAccountDriveExplorer({
                     </p>
                   </div>
                 </div>
-                {file.mimeType !== 'application/vnd.google-apps.folder' && (
-                  <div className="flex items-center gap-1 ml-4">
+                <div className="flex items-center gap-1 ml-4">
+                  {file.mimeType !== 'application/vnd.google-apps.folder' && (
                     <button
                       onClick={() => handleDownloadFile(file.id, file.name)}
                       className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -302,8 +553,46 @@ export function ServiceAccountDriveExplorer({
                     >
                       <Download className="w-4 h-4" />
                     </button>
+                  )}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMenu(activeMenu === file.id ? null : file.id);
+                      }}
+                      className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                      title="More options"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                    {activeMenu === file.id && (
+                      <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedFile(file);
+                            setNewFileName(file.name);
+                            setShowRenameModal(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Rename
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFile(file);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded-b-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             ))}
           </div>
@@ -312,11 +601,131 @@ export function ServiceAccountDriveExplorer({
     </div>
   );
 
-  return embedded ? explorerContent : (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
-      <div className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {explorerContent}
-      </div>
-    </div>
+  return (
+    <>
+      {embedded ? explorerContent : (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+          <div className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {explorerContent}
+          </div>
+        </div>
+      )}
+
+      {showCreateFolderModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Create New Folder</h3>
+              <button
+                onClick={() => {
+                  setShowCreateFolderModal(false);
+                  setNewFolderName('');
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Folder Name
+                </label>
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCreateFolder();
+                    }
+                  }}
+                  placeholder="Enter folder name"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowCreateFolderModal(false);
+                    setNewFolderName('');
+                  }}
+                  className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateFolder}
+                  disabled={!newFolderName.trim() || loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Create Folder
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRenameModal && selectedFile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Rename</h3>
+              <button
+                onClick={() => {
+                  setShowRenameModal(false);
+                  setSelectedFile(null);
+                  setNewFileName('');
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  New Name
+                </label>
+                <input
+                  type="text"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleRenameFile();
+                    }
+                  }}
+                  placeholder="Enter new name"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowRenameModal(false);
+                    setSelectedFile(null);
+                    setNewFileName('');
+                  }}
+                  className="px-4 py-2 text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRenameFile}
+                  disabled={!newFileName.trim() || loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Rename
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

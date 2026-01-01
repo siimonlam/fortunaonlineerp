@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
@@ -41,7 +41,7 @@ async function getServiceAccountToken(): Promise<string> {
 
   const claimSet = {
     iss: serviceAccountEmail,
-    scope: "https://www.googleapis.com/auth/drive.readonly",
+    scope: "https://www.googleapis.com/auth/drive",
     aud: "https://oauth2.googleapis.com/token",
     exp: expiry,
     iat: now,
@@ -174,6 +174,128 @@ async function downloadFile(fileId: string, accessToken: string): Promise<Respon
   return response;
 }
 
+async function createFolder(folderName: string, parentId: string, accessToken: string): Promise<DriveFile> {
+  const url = `https://www.googleapis.com/drive/v3/files?supportsAllDrives=true`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [parentId],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to create folder: ${error}`);
+  }
+
+  return await response.json();
+}
+
+async function uploadFile(fileName: string, parentId: string, fileData: Uint8Array, mimeType: string, accessToken: string): Promise<DriveFile> {
+  const metadata = {
+    name: fileName,
+    parents: [parentId],
+  };
+
+  const boundary = "-------314159265358979323846";
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelimiter = `\r\n--${boundary}--`;
+
+  const multipartRequestBody =
+    delimiter +
+    "Content-Type: application/json\r\n\r\n" +
+    JSON.stringify(metadata) +
+    delimiter +
+    `Content-Type: ${mimeType}\r\n` +
+    "Content-Transfer-Encoding: base64\r\n\r\n" +
+    btoa(String.fromCharCode(...fileData)) +
+    closeDelimiter;
+
+  const url = `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": `multipart/related; boundary=${boundary}`,
+    },
+    body: multipartRequestBody,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to upload file: ${error}`);
+  }
+
+  return await response.json();
+}
+
+async function deleteFile(fileId: string, accessToken: string): Promise<void> {
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to delete file: ${error}`);
+  }
+}
+
+async function renameFile(fileId: string, newName: string, accessToken: string): Promise<DriveFile> {
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`;
+
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: newName,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to rename file: ${error}`);
+  }
+
+  return await response.json();
+}
+
+async function moveFile(fileId: string, newParentId: string, accessToken: string): Promise<DriveFile> {
+  const metadata = await getFileMetadata(fileId, accessToken);
+  const oldParents = metadata.parents?.join(",") || "";
+
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${newParentId}&removeParents=${oldParents}&supportsAllDrives=true`;
+
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to move file: ${error}`);
+  }
+
+  return await response.json();
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -187,16 +309,6 @@ Deno.serve(async (req: Request) => {
     const action = url.searchParams.get("action") || "list";
     const folderId = url.searchParams.get("folderId");
     const fileId = url.searchParams.get("fileId");
-
-    if (!folderId && action === "list") {
-      return new Response(
-        JSON.stringify({ error: "folderId is required for list action" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
 
     const accessToken = await getServiceAccountToken();
 
@@ -224,6 +336,94 @@ Deno.serve(async (req: Request) => {
           "Content-Type": fileResponse.headers.get("Content-Type") || "application/octet-stream",
           "Content-Disposition": fileResponse.headers.get("Content-Disposition") || "attachment",
         },
+      });
+    }
+
+    if (action === "createFolder" && req.method === "POST") {
+      const body = await req.json();
+      const { folderName, parentId } = body;
+      
+      if (!folderName || !parentId) {
+        return new Response(
+          JSON.stringify({ error: "folderName and parentId are required" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const folder = await createFolder(folderName, parentId, accessToken);
+      return new Response(JSON.stringify({ folder }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "upload" && req.method === "POST") {
+      const body = await req.json();
+      const { fileName, parentId, fileData, mimeType } = body;
+      
+      if (!fileName || !parentId || !fileData || !mimeType) {
+        return new Response(
+          JSON.stringify({ error: "fileName, parentId, fileData, and mimeType are required" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const fileDataBytes = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
+      const file = await uploadFile(fileName, parentId, fileDataBytes, mimeType, accessToken);
+      return new Response(JSON.stringify({ file }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete" && req.method === "DELETE" && fileId) {
+      await deleteFile(fileId, accessToken);
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "rename" && req.method === "PATCH" && fileId) {
+      const body = await req.json();
+      const { newName } = body;
+      
+      if (!newName) {
+        return new Response(
+          JSON.stringify({ error: "newName is required" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const file = await renameFile(fileId, newName, accessToken);
+      return new Response(JSON.stringify({ file }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "move" && req.method === "PATCH" && fileId) {
+      const body = await req.json();
+      const { newParentId } = body;
+      
+      if (!newParentId) {
+        return new Response(
+          JSON.stringify({ error: "newParentId is required" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const file = await moveFile(fileId, newParentId, accessToken);
+      return new Response(JSON.stringify({ file }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
