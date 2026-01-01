@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { X, Folder, FileText, Download, RefreshCw, File, FileSpreadsheet, Image, FileVideo, FileAudio, ChevronRight, Home, ExternalLink } from 'lucide-react';
 
 interface ServiceAccountDriveExplorerProps {
-  onClose: () => void;
+  onClose?: () => void;
   folderId: string;
   folderName?: string;
   driveUrl?: string;
+  embedded?: boolean;
 }
 
 interface DriveFile {
@@ -28,7 +29,8 @@ export function ServiceAccountDriveExplorer({
   onClose,
   folderId,
   folderName = 'Shared Files',
-  driveUrl
+  driveUrl,
+  embedded = false
 }: ServiceAccountDriveExplorerProps) {
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -164,18 +166,20 @@ export function ServiceAccountDriveExplorer({
   }
 
   if (error) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
-        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-slate-900">Error Loading Files</h2>
+    const errorContent = (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-slate-900">Error Loading Files</h2>
+          {!embedded && onClose && (
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
               <X className="w-5 h-5" />
             </button>
-          </div>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-800">{error}</p>
-          </div>
+          )}
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+        {!embedded && onClose && (
           <div className="mt-6 flex justify-end">
             <button
               onClick={onClose}
@@ -184,120 +188,134 @@ export function ServiceAccountDriveExplorer({
               Close
             </button>
           </div>
-        </div>
+        )}
+      </div>
+    );
+
+    return embedded ? errorContent : (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+        {errorContent}
       </div>
     );
   }
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-slate-900">Shared Files</h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Browsing with service account • {files.length} items
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {driveUrl && (
-              <a
-                href={driveUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Open in Drive
-              </a>
-            )}
+  const explorerContent = (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+      <div className="flex items-center justify-between p-6 border-b border-slate-200">
+        <div className="flex-1">
+          <h2 className="text-xl font-bold text-slate-900">Shared Files</h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Browsing with service account • {files.length} items
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {driveUrl && (
+            <a
+              href={driveUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Open in Drive
+            </a>
+          )}
+          {!embedded && onClose && (
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-2">
               <X className="w-5 h-5" />
             </button>
-          </div>
+          )}
+        </div>
+      </div>
+
+      <div className="px-6 py-3 bg-slate-50 border-b border-slate-200">
+        <div className="flex items-center gap-2 text-sm">
+          {breadcrumbs.map((crumb, index) => (
+            <div key={crumb.id} className="flex items-center gap-2">
+              {index > 0 && <ChevronRight className="w-4 h-4 text-slate-400" />}
+              <button
+                onClick={() => handleBreadcrumbClick(index)}
+                className="text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                disabled={index === breadcrumbs.length - 1}
+              >
+                {index === 0 && <Home className="w-4 h-4" />}
+                {crumb.name}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-6 flex-1 overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => loadFiles(currentFolderId)}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
-        <div className="px-6 py-3 bg-slate-50 border-b border-slate-200">
-          <div className="flex items-center gap-2 text-sm">
-            {breadcrumbs.map((crumb, index) => (
-              <div key={crumb.id} className="flex items-center gap-2">
-                {index > 0 && <ChevronRight className="w-4 h-4 text-slate-400" />}
-                <button
-                  onClick={() => handleBreadcrumbClick(index)}
-                  className="text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
-                  disabled={index === breadcrumbs.length - 1}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="text-slate-500 mt-4">Loading files...</p>
+          </div>
+        ) : files.length === 0 ? (
+          <div className="text-center py-12 bg-slate-50 rounded-lg">
+            <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+            <p className="text-slate-600">No files in this folder</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {files.map((file) => (
+              <div
+                key={file.id}
+                className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors"
+              >
+                <div
+                  className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                  onClick={() => {
+                    if (file.mimeType === 'application/vnd.google-apps.folder') {
+                      handleFolderClick(file);
+                    } else {
+                      handleFileOpen(file);
+                    }
+                  }}
                 >
-                  {index === 0 && <Home className="w-4 h-4" />}
-                  {crumb.name}
-                </button>
+                  {getFileIcon(file.mimeType)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {formatFileSize(file.size)} • {formatDate(file.modifiedTime)}
+                    </p>
+                  </div>
+                </div>
+                {file.mimeType !== 'application/vnd.google-apps.folder' && (
+                  <div className="flex items-center gap-1 ml-4">
+                    <button
+                      onClick={() => handleDownloadFile(file.id, file.name)}
+                      className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Download"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
-        </div>
+        )}
+      </div>
+    </div>
+  );
 
-        <div className="p-6 flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => loadFiles(currentFolderId)}
-              disabled={loading}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-slate-500 mt-4">Loading files...</p>
-            </div>
-          ) : files.length === 0 ? (
-            <div className="text-center py-12 bg-slate-50 rounded-lg">
-              <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <p className="text-slate-600">No files in this folder</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {files.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors"
-                >
-                  <div
-                    className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                    onClick={() => {
-                      if (file.mimeType === 'application/vnd.google-apps.folder') {
-                        handleFolderClick(file);
-                      } else {
-                        handleFileOpen(file);
-                      }
-                    }}
-                  >
-                    {getFileIcon(file.mimeType)}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {formatFileSize(file.size)} • {formatDate(file.modifiedTime)}
-                      </p>
-                    </div>
-                  </div>
-                  {file.mimeType !== 'application/vnd.google-apps.folder' && (
-                    <div className="flex items-center gap-1 ml-4">
-                      <button
-                        onClick={() => handleDownloadFile(file.id, file.name)}
-                        className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Download"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+  return embedded ? explorerContent : (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+      <div className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {explorerContent}
       </div>
     </div>
   );

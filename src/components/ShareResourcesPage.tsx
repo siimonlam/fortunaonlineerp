@@ -28,7 +28,6 @@ export function ShareResourcesPage() {
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [showDriveExplorer, setShowDriveExplorer] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -302,10 +301,10 @@ export function ShareResourcesPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 mb-6">
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">Team Resources</h2>
               <p className="text-sm text-slate-600 mt-1">Share files, information, and helpful resources with the team</p>
@@ -318,8 +317,16 @@ export function ShareResourcesPage() {
               Add Resource
             </button>
           </div>
-
         </div>
+      </div>
+
+      <div className="mb-6" style={{ height: '600px' }}>
+        <ServiceAccountDriveExplorer
+          folderId="0AK-QGp_5SOJWUk9PVA"
+          folderName="Shared Files"
+          driveUrl="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
+          embedded={true}
+        />
       </div>
 
       <div className="space-y-4">
@@ -576,15 +583,6 @@ export function ShareResourcesPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {showDriveExplorer && (
-        <ServiceAccountDriveExplorer
-          onClose={() => setShowDriveExplorer(false)}
-          folderId="0AK-QGp_5SOJWUk9PVA"
-          folderName="Shared Files"
-          driveUrl="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
-        />
       )}
     </div>
   );

@@ -60,12 +60,21 @@ async function getServiceAccountToken(): Promise<string> {
   const signatureInput = `${encodedHeader}.${encodedClaimSet}`;
 
   // Import the private key
-  const pemContents = privateKey
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\s/g, "");
+  // Handle both escaped newlines (\n) and actual newlines
+  let cleanedKey = privateKey
+    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+    .replace(/-----END PRIVATE KEY-----/g, "")
+    .replace(/\\n/g, "") // Remove escaped newlines
+    .replace(/\n/g, "")  // Remove actual newlines
+    .replace(/\s/g, ""); // Remove all whitespace
 
-  const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+  let binaryKey: Uint8Array;
+  try {
+    binaryKey = Uint8Array.from(atob(cleanedKey), c => c.charCodeAt(0));
+  } catch (e) {
+    console.error("Failed to decode private key:", e);
+    throw new Error("Invalid private key format. Please ensure the key is properly base64 encoded.");
+  }
 
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
