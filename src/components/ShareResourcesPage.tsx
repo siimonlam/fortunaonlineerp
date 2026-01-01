@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon } from 'lucide-react';
-import { GoogleDriveExplorer } from './GoogleDriveExplorer';
+import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
   id: string;
@@ -606,9 +606,11 @@ export function ShareResourcesPage() {
       )}
 
       {showDriveExplorer && (
-        <GoogleDriveExplorer
+        <ServiceAccountDriveExplorer
           onClose={() => setShowDriveExplorer(false)}
-          projectFolderId="0AK-QGp_5SOJWUk9PVA"
+          folderId="0AK-QGp_5SOJWUk9PVA"
+          folderName="Shared Files"
+          driveUrl="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
         />
       )}
     </div>
