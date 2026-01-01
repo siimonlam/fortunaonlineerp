@@ -7,6 +7,7 @@ interface ScheduledEmail {
   id: string;
   project_id: string;
   user_id: string;
+  from_account_id: string;
   recipient_emails: string[];
   subject: string;
   body: string;
@@ -18,6 +19,18 @@ interface ScheduledEmail {
   staff?: {
     full_name: string;
   };
+  email_account?: {
+    account_name: string;
+    smtp_from_email: string;
+  };
+}
+
+interface EmailAccount {
+  id: string;
+  account_name: string;
+  smtp_from_email: string;
+  is_default: boolean;
+  is_active: boolean;
 }
 
 interface EmailSchedulerTabProps {
@@ -29,9 +42,13 @@ interface EmailSchedulerTabProps {
 export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: EmailSchedulerTabProps) {
   const { user } = useAuth();
   const [emails, setEmails] = useState<ScheduledEmail[]>([]);
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [formData, setFormData] = useState({
+    from_account_id: '',
     recipient_emails: clientEmails || '',
     subject: '',
     body: '',
@@ -40,6 +57,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
   });
 
   useEffect(() => {
+    fetchEmailAccounts();
     fetchScheduledEmails();
     fetchEmailTemplates();
 
@@ -60,12 +78,30 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
     };
   }, [projectId]);
 
+  const fetchEmailAccounts = async () => {
+    const { data, error } = await supabase
+      .from('email_accounts')
+      .select('id, account_name, smtp_from_email, is_default, is_active')
+      .eq('is_active', true)
+      .order('is_default', { ascending: false })
+      .order('account_name', { ascending: true });
+
+    if (!error && data) {
+      setEmailAccounts(data);
+      const defaultAccount = data.find(acc => acc.is_default);
+      if (defaultAccount && !formData.from_account_id) {
+        setFormData(prev => ({ ...prev, from_account_id: defaultAccount.id }));
+      }
+    }
+  };
+
   const fetchScheduledEmails = async () => {
     const { data, error } = await supabase
       .from('scheduled_emails')
       .select(`
         *,
-        staff:user_id(full_name)
+        staff:user_id(full_name),
+        email_account:from_account_id(account_name, smtp_from_email)
       `)
       .eq('project_id', projectId)
       .order('scheduled_date', { ascending: true });
@@ -87,9 +123,27 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
     }
   };
 
+  const showErrorPopup = (message: string) => {
+    setErrorMessage(message);
+    setShowError(true);
+  };
+
+  const openScheduleModal = () => {
+    if (emailAccounts.length === 0) {
+      showErrorPopup('No email accounts configured. Please ask your administrator to set up an email account in Admin → Email Settings.');
+      return;
+    }
+    setShowModal(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    if (!formData.from_account_id) {
+      showErrorPopup('Please select an email account to send from.');
+      return;
+    }
 
     const recipientList = formData.recipient_emails
       .split(',')
@@ -97,7 +151,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
       .filter(email => email);
 
     if (recipientList.length === 0) {
-      alert('Please enter at least one recipient email');
+      showErrorPopup('Please enter at least one recipient email');
       return;
     }
 
@@ -108,6 +162,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
       .insert({
         project_id: projectId,
         user_id: user.id,
+        from_account_id: formData.from_account_id,
         recipient_emails: recipientList,
         subject: formData.subject,
         body: formData.body,
@@ -119,7 +174,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
       fetchScheduledEmails();
       resetForm();
     } else {
-      alert(`Error scheduling email: ${error.message}`);
+      showErrorPopup(`Error scheduling email: ${error.message}`);
     }
   };
 
@@ -150,7 +205,9 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
   };
 
   const resetForm = () => {
+    const defaultAccount = emailAccounts.find(acc => acc.is_default);
     setFormData({
+      from_account_id: defaultAccount?.id || '',
       recipient_emails: clientEmails || '',
       subject: '',
       body: '',
@@ -189,13 +246,27 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
           <p className="text-sm text-slate-600 mt-1">Schedule emails to be sent for this project</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openScheduleModal}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
           Schedule Email
         </button>
       </div>
+
+      {emailAccounts.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">No email accounts configured</p>
+              <p className="text-sm text-yellow-700 mt-1">
+                Contact your administrator to set up an email account in Admin → Email Settings before scheduling emails.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {emails.length === 0 ? (
@@ -216,6 +287,11 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
                       <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
                         <span>To: {email.recipient_emails.join(', ')}</span>
                       </div>
+                      {email.email_account && (
+                        <div className="text-xs text-slate-500 mt-1">
+                          From: {email.email_account.account_name} ({email.email_account.smtp_from_email})
+                        </div>
+                      )}
                     </div>
                     {getStatusBadge(email.status)}
                   </div>
@@ -257,6 +333,32 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
         )}
       </div>
 
+      {showError && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-slate-900">Cannot Schedule Email</h3>
+                </div>
+              </div>
+              <p className="text-slate-700 mb-6">{errorMessage}</p>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowError(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -292,6 +394,27 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails }: Ema
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Send From <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.from_account_id}
+                    onChange={(e) => setFormData({ ...formData, from_account_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="">Select email account</option>
+                    {emailAccounts.map(account => (
+                      <option key={account.id} value={account.id}>
+                        {account.account_name} ({account.smtp_from_email})
+                        {account.is_default && ' - Default'}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">Choose which email account to send from</p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Recipient Emails *
