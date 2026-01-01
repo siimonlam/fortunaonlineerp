@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon } from 'lucide-react';
+import { GoogleDriveExplorer } from './GoogleDriveExplorer';
 
 interface Resource {
   id: string;
@@ -27,6 +28,7 @@ export function ShareResourcesPage() {
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showDriveExplorer, setShowDriveExplorer] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -322,16 +324,25 @@ export function ShareResourcesPage() {
               <FolderOpen className="w-5 h-5 text-blue-700 mt-0.5" />
               <div className="flex-1">
                 <h3 className="font-semibold text-blue-900 mb-1">Shared Files Folder</h3>
-                <p className="text-sm text-blue-800 mb-2">Access all team files in Google Drive</p>
-                <a
-                  href="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Open Google Drive
-                </a>
+                <p className="text-sm text-blue-800 mb-3">Access all team files in Google Drive</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowDriveExplorer(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Browse Files
+                  </button>
+                  <a
+                    href="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors text-sm font-medium"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Open in Drive
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -592,6 +603,13 @@ export function ShareResourcesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showDriveExplorer && (
+        <GoogleDriveExplorer
+          onClose={() => setShowDriveExplorer(false)}
+          projectFolderId="0AK-QGp_5SOJWUk9PVA"
+        />
       )}
     </div>
   );
