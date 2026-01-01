@@ -428,8 +428,6 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
       {/* Main content area */}
       <main className="flex-1 overflow-y-auto">
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">Team Meetings</h2>
-
           <div className="space-y-4">
         {meetings.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg border border-slate-200">

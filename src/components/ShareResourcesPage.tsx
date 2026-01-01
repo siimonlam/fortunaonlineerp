@@ -367,23 +367,15 @@ export function ShareResourcesPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 mb-6">
-        <div className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Team Resources</h2>
-              <p className="text-sm text-slate-600 mt-1">Share files, information, and helpful resources with the team</p>
-            </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Add Resource
-            </button>
-          </div>
-        </div>
+    <div className="max-w-7xl mx-auto p-6">
+      <div className="flex justify-end mb-6">
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          Add Resource
+        </button>
       </div>
 
       <div className="mb-6" style={{ height: '600px' }}>

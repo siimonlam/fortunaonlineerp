@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar, Tag } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar } from 'lucide-react';
 
 interface Status {
   id: string;
@@ -37,8 +37,6 @@ interface FundingDashboardProps {
   onProjectClick?: (projectId: string) => void;
 }
 
-const QA_ATTENTION_LABEL_ID = 'd144c662-d462-4554-be6b-19710a4733a1';
-
 export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [dashboardData, setDashboardData] = useState<DashboardData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +46,6 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [selectedMonths, setSelectedMonths] = useState(4);
   const [agingProjects, setAgingProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [filterQAAttention, setFilterQAAttention] = useState(false);
 
   const filterAgingProjects = useCallback(async () => {
     try {
@@ -66,21 +63,9 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
       if (error) throw error;
 
-      let filteredByLabel = projects || [];
-
-      if (filterQAAttention) {
-        const { data: projectLabels } = await supabase
-          .from('project_labels')
-          .select('project_id')
-          .eq('label_id', QA_ATTENTION_LABEL_ID);
-
-        const qaProjectIds = new Set(projectLabels?.map(pl => pl.project_id) || []);
-        filteredByLabel = filteredByLabel.filter(p => qaProjectIds.has(p.id));
-      }
-
       const currentDate = new Date();
 
-      const filtered = filteredByLabel?.filter(p => {
+      const filtered = projects?.filter(p => {
         if (!p.submission_date) return false;
         const submissionDate = new Date(p.submission_date);
         const daysDiff = (currentDate.getTime() - submissionDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -98,11 +83,11 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
     } catch (error) {
       console.error('Error filtering aging projects:', error);
     }
-  }, [selectedMonths, filterQAAttention]);
+  }, [selectedMonths]);
 
   useEffect(() => {
     loadDashboardData();
-  }, [filterQAAttention]);
+  }, []);
 
   useEffect(() => {
     filterAgingProjects();
@@ -234,58 +219,26 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
   return (
     <div className="p-6 space-y-6 overflow-auto h-full bg-slate-50">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Funding Projects Dashboard</h1>
-            <p className="text-blue-100">Overview of all funding project statuses</p>
-          </div>
-          <div className="text-right">
-            <div className="text-5xl font-bold">{totalProjects}</div>
-            <div className="text-blue-100 text-sm font-medium">Total Projects</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveTab('summary')}
-            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === 'summary'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            Project Summary
-          </button>
-          <button
-            onClick={() => setActiveTab('progress')}
-            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === 'progress'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            Progress
-          </button>
-        </div>
-
+      <div className="flex gap-2">
         <button
-          onClick={() => setFilterQAAttention(!filterQAAttention)}
-          className={`px-4 py-2.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
-            filterQAAttention
-              ? 'bg-red-600 text-white shadow-md'
+          onClick={() => setActiveTab('summary')}
+          className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            activeTab === 'summary'
+              ? 'bg-blue-600 text-white shadow-md'
               : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
           }`}
         >
-          <Tag className="w-4 h-4" />
-          Q&A Attention
-          {filterQAAttention && (
-            <span className="ml-1 bg-white bg-opacity-20 px-2 py-0.5 rounded-full text-xs">
-              Active
-            </span>
-          )}
+          Project Summary
+        </button>
+        <button
+          onClick={() => setActiveTab('progress')}
+          className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            activeTab === 'progress'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          Progress
         </button>
       </div>
 

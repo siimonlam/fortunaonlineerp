@@ -109,20 +109,7 @@ export function ScheduledEmailsPage({ onProjectClick }: ScheduledEmailsPageProps
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Scheduled Emails</h1>
-            <p className="text-blue-100">Manage all scheduled emails for funding projects</p>
-          </div>
-          <div className="text-right">
-            <div className="text-5xl font-bold">{scheduledEmails.length}</div>
-            <div className="text-blue-100 text-sm font-medium">Total Emails</div>
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-6 p-6">
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setFilter('all')}
