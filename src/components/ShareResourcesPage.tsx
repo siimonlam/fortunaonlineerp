@@ -28,7 +28,7 @@ export function ShareResourcesPage() {
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [showDriveExplorer, setShowDriveExplorer] = useState(false);
+  const [showDriveExplorer, setShowDriveExplorer] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -319,33 +319,6 @@ export function ShareResourcesPage() {
             </button>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <FolderOpen className="w-5 h-5 text-blue-700 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-blue-900 mb-1">Shared Files Folder</h3>
-                <p className="text-sm text-blue-800 mb-3">Access all team files in Google Drive</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowDriveExplorer(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    <FolderOpen className="w-4 h-4" />
-                    Browse Files
-                  </button>
-                  <a
-                    href="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors text-sm font-medium"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Open in Drive
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
