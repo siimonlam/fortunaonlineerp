@@ -27,6 +27,7 @@ export function ShareResourcesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -71,6 +72,12 @@ export function ShareResourcesPage() {
     }
   };
 
+  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedImageFile(e.target.files[0]);
+    }
+  };
+
   const uploadFile = async (): Promise<{ path: string; name: string; size: number } | null> => {
     if (!selectedFile || !user) return null;
 
@@ -93,6 +100,38 @@ export function ShareResourcesPage() {
     };
   };
 
+  const uploadImageToDrive = async (): Promise<string | null> => {
+    if (!selectedImageFile || !user) return null;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedImageFile);
+      formData.append('fileName', selectedImageFile.name);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-image-to-drive`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload image');
+      }
+
+      const result = await response.json();
+      return result.file.directLink;
+    } catch (error) {
+      alert(`Error uploading image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -101,6 +140,8 @@ export function ShareResourcesPage() {
 
     try {
       let fileData = null;
+      let imageUrl = formData.image_url;
+
       if (formData.resource_type === 'file' && selectedFile) {
         fileData = await uploadFile();
         if (!fileData) {
@@ -109,11 +150,20 @@ export function ShareResourcesPage() {
         }
       }
 
+      if (formData.resource_type === 'image' && selectedImageFile) {
+        const uploadedImageUrl = await uploadImageToDrive();
+        if (!uploadedImageUrl) {
+          setUploading(false);
+          return;
+        }
+        imageUrl = uploadedImageUrl;
+      }
+
       const resourceData = {
         title: formData.title,
         content: formData.content,
         resource_type: formData.resource_type,
-        image_url: formData.resource_type === 'image' ? formData.image_url : null,
+        image_url: formData.resource_type === 'image' ? imageUrl : null,
         external_url: formData.resource_type === 'link' ? formData.external_url : null,
         file_path: fileData?.path || null,
         file_name: fileData?.name || null,
@@ -194,6 +244,7 @@ export function ShareResourcesPage() {
       external_url: ''
     });
     setSelectedFile(null);
+    setSelectedImageFile(null);
     setEditingResource(null);
     setShowModal(false);
   };
@@ -263,11 +314,14 @@ export function ShareResourcesPage() {
         return (
           <div className="mt-3">
             {resource.image_url && (
-              <img
-                src={resource.image_url}
-                alt={resource.title}
-                className="max-w-full h-auto rounded-lg border border-slate-200"
-              />
+              <div className="max-w-2xl">
+                <img
+                  src={resource.image_url}
+                  alt={resource.title}
+                  className="w-full h-auto rounded-lg border border-slate-200 shadow-sm"
+                  loading="lazy"
+                />
+              </div>
             )}
             {resource.content && (
               <p className="text-slate-700 mt-3 whitespace-pre-wrap">{resource.content}</p>
@@ -340,10 +394,20 @@ export function ShareResourcesPage() {
           resources.map(resource => (
             <div key={resource.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
               <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                <div className="flex items-start justify-between gap-4">
+                  {resource.resource_type === 'image' && resource.image_url && (
+                    <div className="flex-shrink-0">
+                      <img
+                        src={resource.image_url}
+                        alt={resource.title}
+                        className="w-32 h-32 object-cover rounded-lg border border-slate-200"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className={`p-2 rounded-lg ${
+                      <div className={`p-2 rounded-lg flex-shrink-0 ${
                         resource.resource_type === 'file'
                           ? 'bg-green-100 text-green-600'
                           : resource.resource_type === 'image'
@@ -362,8 +426,8 @@ export function ShareResourcesPage() {
                           <FileText className="w-5 h-5" />
                         )}
                       </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-900">{resource.title}</h3>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-semibold text-slate-900 truncate">{resource.title}</h3>
                         <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
                           <span>Shared by {resource.staff?.full_name || 'Unknown'}</span>
                           <span>•</span>
@@ -371,9 +435,15 @@ export function ShareResourcesPage() {
                         </div>
                       </div>
                     </div>
-                    {renderResourceContent(resource)}
+                    {resource.resource_type === 'image' ? (
+                      resource.content && (
+                        <p className="text-slate-700 mt-3 whitespace-pre-wrap">{resource.content}</p>
+                      )
+                    ) : (
+                      renderResourceContent(resource)
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => openEditModal(resource)}
                       className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -512,18 +582,51 @@ export function ShareResourcesPage() {
                 )}
 
                 {formData.resource_type === 'image' && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Image URL *
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.image_url}
-                      onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                      placeholder="https://example.com/image.jpg"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Upload Image to Google Drive *
+                      </label>
+                      <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                        <input
+                          type="file"
+                          onChange={handleImageFileSelect}
+                          className="hidden"
+                          id="image-upload"
+                          accept="image/*"
+                          required={!editingResource && !formData.image_url}
+                        />
+                        <label htmlFor="image-upload" className="cursor-pointer">
+                          <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                          {selectedImageFile ? (
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">{selectedImageFile.name}</p>
+                              <p className="text-xs text-slate-500 mt-1">{formatFileSize(selectedImageFile.size)}</p>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">Click to upload an image</p>
+                              <p className="text-xs text-slate-500 mt-1">PNG, JPG, GIF, etc.</p>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">
+                        Images will be saved to Google Drive for team access
+                      </p>
+                    </div>
+                    {editingResource && (
+                      <div className="text-center">
+                        <p className="text-xs text-slate-600 mb-2">Or keep existing image URL:</p>
+                        <input
+                          type="url"
+                          value={formData.image_url}
+                          onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                          placeholder="https://example.com/image.jpg"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
