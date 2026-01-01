@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
   id: string;
   title: string;
   content: string;
-  resource_type: 'text' | 'image' | 'link' | 'file';
+  resource_type: 'text' | 'image' | 'link' | 'file' | 'email';
   image_url?: string;
   external_url?: string;
   file_path?: string;
@@ -32,7 +32,7 @@ export function ShareResourcesPage() {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    resource_type: 'text' as 'text' | 'image' | 'link' | 'file',
+    resource_type: 'text' as 'text' | 'image' | 'link' | 'file' | 'email',
     image_url: '',
     external_url: ''
   });
@@ -282,6 +282,18 @@ export function ShareResourcesPage() {
 
   const renderResourceContent = (resource: Resource) => {
     switch (resource.resource_type) {
+      case 'email':
+        return (
+          <div className="mt-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Mail className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">Email Template</span>
+              </div>
+              <p className="text-slate-700 whitespace-pre-wrap">{resource.content}</p>
+            </div>
+          </div>
+        );
       case 'file':
         return (
           <div className="mt-3">
@@ -414,6 +426,8 @@ export function ShareResourcesPage() {
                           ? 'bg-purple-100 text-purple-600'
                           : resource.resource_type === 'link'
                           ? 'bg-blue-100 text-blue-600'
+                          : resource.resource_type === 'email'
+                          ? 'bg-orange-100 text-orange-600'
                           : 'bg-slate-100 text-slate-600'
                       }`}>
                         {resource.resource_type === 'file' ? (
@@ -422,6 +436,8 @@ export function ShareResourcesPage() {
                           <ImageIcon className="w-5 h-5" />
                         ) : resource.resource_type === 'link' ? (
                           <ExternalLink className="w-5 h-5" />
+                        ) : resource.resource_type === 'email' ? (
+                          <Mail className="w-5 h-5" />
                         ) : (
                           <FileText className="w-5 h-5" />
                         )}
@@ -485,7 +501,7 @@ export function ShareResourcesPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Resource Type
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-5 gap-2">
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, resource_type: 'text' })}
@@ -533,6 +549,18 @@ export function ShareResourcesPage() {
                     >
                       <File className="w-5 h-5 mx-auto mb-1" />
                       File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, resource_type: 'email' })}
+                      className={`px-4 py-2 rounded-lg border-2 transition-colors ${
+                        formData.resource_type === 'email'
+                          ? 'border-blue-600 bg-blue-50 text-blue-700'
+                          : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <Mail className="w-5 h-5 mx-auto mb-1" />
+                      Email
                     </button>
                   </div>
                 </div>
@@ -648,21 +676,28 @@ export function ShareResourcesPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {formData.resource_type === 'link' || formData.resource_type === 'file' ? 'Description' : 'Content'}
-                    {formData.resource_type === 'text' && ' *'}
+                    {formData.resource_type === 'link' || formData.resource_type === 'file' ? 'Description' : formData.resource_type === 'email' ? 'Email Template' : 'Content'}
+                    {(formData.resource_type === 'text' || formData.resource_type === 'email') && ' *'}
                   </label>
                   <textarea
                     value={formData.content}
                     onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                    rows={6}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={formData.resource_type === 'email' ? 10 : 6}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                     placeholder={
                       formData.resource_type === 'text'
                         ? 'Enter your text content here...'
+                        : formData.resource_type === 'email'
+                        ? 'Enter your email template here...\n\nYou can use placeholders like:\n{{company_name}}\n{{project_name}}\n{{contact_name}}'
                         : 'Add a description or notes...'
                     }
-                    required={formData.resource_type === 'text'}
+                    required={formData.resource_type === 'text' || formData.resource_type === 'email'}
                   />
+                  {formData.resource_type === 'email' && (
+                    <p className="text-xs text-slate-500 mt-2">
+                      This email template can be used when scheduling emails for funding projects
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-4">
