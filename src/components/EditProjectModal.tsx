@@ -4,7 +4,7 @@ import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeO
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
-import { GoogleDriveExplorer } from './GoogleDriveExplorer';
+import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 import { InvoiceFieldMappingSettings } from './InvoiceFieldMappingSettings';
 import { ReceiptFieldMappingSettings } from './ReceiptFieldMappingSettings';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
@@ -139,7 +139,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [invoices, setInvoices] = useState<any[]>([]);
   const [receipts, setReceipts] = useState<any[]>([]);
   const [depositStatus, setDepositStatus] = useState<'paid' | 'unpaid'>('unpaid');
-  const [showGoogleDrive, setShowGoogleDrive] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<any>({});
   const [creatingFolders, setCreatingFolders] = useState(false);
@@ -3171,21 +3170,39 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 </div>
               )}
 
-              <div className="bg-white border border-slate-200 rounded-lg p-4">
-                <p className="text-sm text-slate-600 mb-4 text-center">
-                  Browse and manage project documents on Google Drive
-                </p>
-                <div className="text-center">
-                  <button
-                    type="button"
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
-                    onClick={() => setShowGoogleDrive(true)}
-                  >
-                    <FileText className="w-5 h-5" />
-                    Open Google Drive Explorer
-                  </button>
+              {formData.googleDriveFolderId ? (
+                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-slate-900">Project Files</h4>
+                    <a
+                      href={`https://drive.google.com/drive/folders/${formData.googleDriveFolderId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Open in Google Drive
+                    </a>
+                  </div>
+                  <div className="h-[600px]">
+                    <ServiceAccountDriveExplorer
+                      folderId={formData.googleDriveFolderId}
+                      folderName={project.title || 'Project Files'}
+                      driveUrl={`https://drive.google.com/drive/folders/${formData.googleDriveFolderId}`}
+                      embedded={true}
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+                  <p className="text-sm text-amber-800 mb-2 font-medium">
+                    No Google Drive folder configured
+                  </p>
+                  <p className="text-xs text-amber-700">
+                    Please create or configure a folder above to access project files
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -3285,14 +3302,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         />
       )}
 
-      {showGoogleDrive && (
-        <GoogleDriveExplorer
-          onClose={() => setShowGoogleDrive(false)}
-          projectReference={project.project_reference}
-          projectId={project.id}
-          projectFolderId={formData.googleDriveFolderId || project.google_drive_folder_id}
-        />
-      )}
 
       {showInvoiceSettings && (
         <InvoiceFieldMappingSettings
