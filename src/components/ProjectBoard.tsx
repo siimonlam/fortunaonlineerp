@@ -2247,6 +2247,14 @@ export function ProjectBoard() {
                     )}
                   </>
                 )}
+                {!selectedMarketingProject && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab !== 'projects' && fundingProjectTab !== 'invoices' && (
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    {fundingProjectTab === 'dashboard' && 'Dashboard'}
+                    {fundingProjectTab === 'emails' && 'Scheduled Emails'}
+                    {fundingProjectTab === 'meetings' && 'Meetings'}
+                    {fundingProjectTab === 'resources' && 'Share Resources'}
+                  </h2>
+                )}
               </div>
 
               {!selectedMarketingProject && !isClientSection && !isAdminSection && !isComSecSection && (isFundingProjectType || isMarketingProjectType) && fundingProjectTab === 'projects' && (
