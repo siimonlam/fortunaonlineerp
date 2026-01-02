@@ -276,6 +276,27 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
       });
 
     if (!error) {
+      if (sendImmediately) {
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-scheduled-emails`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          if (!response.ok) {
+            console.error('Failed to trigger immediate email processing');
+          }
+        } catch (err) {
+          console.error('Error triggering email send:', err);
+        }
+      }
+
       fetchScheduledEmails();
       resetForm();
     } else {
