@@ -189,7 +189,8 @@ export function ProjectBoard() {
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
   const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
-  const [invoiceSortBy, setInvoiceSortBy] = useState<'payment_date_asc' | 'payment_date_desc' | 'issue_date_asc' | 'issue_date_desc' | 'payment_status'>('issue_date_desc');
+  const [invoiceSortColumn, setInvoiceSortColumn] = useState<'invoice_number' | 'project' | 'client' | 'amount' | 'issued_company' | 'category' | 'issue_date' | 'payment_date' | 'payment_method' | 'payment_type' | 'payment_status'>('issue_date');
+  const [invoiceSortDirection, setInvoiceSortDirection] = useState<'asc' | 'desc'>('desc');
   const [invoicePaymentStatusFilter, setInvoicePaymentStatusFilter] = useState<'all' | 'paid' | 'unpaid' | 'void' | 'overdue'>('all');
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
@@ -1365,6 +1366,15 @@ export function ProjectBoard() {
     } catch (error: any) {
       console.error('Error voiding invoice:', error);
       alert('Failed to void invoice: ' + error.message);
+    }
+  }
+
+  function handleInvoiceColumnSort(column: typeof invoiceSortColumn) {
+    if (invoiceSortColumn === column) {
+      setInvoiceSortDirection(invoiceSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setInvoiceSortColumn(column);
+      setInvoiceSortDirection('asc');
     }
   }
 
@@ -3182,34 +3192,155 @@ export function ProjectBoard() {
                         <option value="void">Void</option>
                         <option value="overdue">Overdue</option>
                       </select>
-                      <select
-                        value={invoiceSortBy}
-                        onChange={(e) => setInvoiceSortBy(e.target.value as any)}
-                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                      >
-                        <option value="issue_date_desc">Issue Date (Latest First)</option>
-                        <option value="issue_date_asc">Issue Date (Oldest First)</option>
-                        <option value="payment_date_desc">Payment Date (Latest First)</option>
-                        <option value="payment_date_asc">Payment Date (Oldest First)</option>
-                        <option value="payment_status">Payment Status</option>
-                      </select>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-slate-200">
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Invoice #</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Project</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Client</th>
-                          <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Amount</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Issued Company</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Category</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Issue Date</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Date</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Method</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Type</th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
+                          <th
+                            className="text-left py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('invoice_number')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Invoice #
+                              {invoiceSortColumn === 'invoice_number' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-left py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('project')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Project
+                              {invoiceSortColumn === 'project' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-left py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('client')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Client
+                              {invoiceSortColumn === 'client' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-right py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('amount')}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              Amount
+                              {invoiceSortColumn === 'amount' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-left py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('issued_company')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Issued Company
+                              {invoiceSortColumn === 'issued_company' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-left py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('category')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Category
+                              {invoiceSortColumn === 'category' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-left py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('issue_date')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Issue Date
+                              {invoiceSortColumn === 'issue_date' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-left py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('payment_date')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Payment Date
+                              {invoiceSortColumn === 'payment_date' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-left py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('payment_method')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Payment Method
+                              {invoiceSortColumn === 'payment_method' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-left py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('payment_type')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Payment Type
+                              {invoiceSortColumn === 'payment_type' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="text-center py-3 px-4 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 select-none"
+                            onClick={() => handleInvoiceColumnSort('payment_status')}
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              Status
+                              {invoiceSortColumn === 'payment_status' && (
+                                <span className="text-blue-600">
+                                  {invoiceSortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </th>
                           <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Invoice Link</th>
                           <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Receipt Link</th>
                           <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Actions</th>
@@ -3238,41 +3369,72 @@ export function ProjectBoard() {
                             return matchesSearch && matchesPaymentStatus;
                           })
                           .sort((a, b) => {
-                            switch (invoiceSortBy) {
-                              case 'issue_date_asc': {
-                                const aDate = a.issue_date ? new Date(a.issue_date).getTime() : 0;
-                                const bDate = b.issue_date ? new Date(b.issue_date).getTime() : 0;
-                                return aDate - bDate;
-                              }
-                              case 'issue_date_desc': {
-                                const aDate = a.issue_date ? new Date(a.issue_date).getTime() : 0;
-                                const bDate = b.issue_date ? new Date(b.issue_date).getTime() : 0;
-                                return bDate - aDate;
-                              }
-                              case 'payment_date_asc': {
-                                const aDate = a.payment_date ? new Date(a.payment_date).getTime() : 0;
-                                const bDate = b.payment_date ? new Date(b.payment_date).getTime() : 0;
-                                return aDate - bDate;
-                              }
-                              case 'payment_date_desc': {
-                                const aDate = a.payment_date ? new Date(a.payment_date).getTime() : 0;
-                                const bDate = b.payment_date ? new Date(b.payment_date).getTime() : 0;
-                                return bDate - aDate;
-                              }
-                              case 'payment_status': {
+                            const invoiceProjectA = projects.find(p => p.id === a.project_id);
+                            const invoiceProjectB = projects.find(p => p.id === b.project_id);
+                            const invoiceClientA = clients.find(c => c.id === a.client_id);
+                            const invoiceClientB = clients.find(c => c.id === b.client_id);
+
+                            let aValue: any;
+                            let bValue: any;
+
+                            switch (invoiceSortColumn) {
+                              case 'invoice_number':
+                                aValue = a.invoice_number || '';
+                                bValue = b.invoice_number || '';
+                                break;
+                              case 'project':
+                                aValue = (a.project_reference || invoiceProjectA?.title || '').toLowerCase();
+                                bValue = (b.project_reference || invoiceProjectB?.title || '').toLowerCase();
+                                break;
+                              case 'client':
+                                aValue = (a.company_name || invoiceClientA?.name || '').toLowerCase();
+                                bValue = (b.company_name || invoiceClientB?.name || '').toLowerCase();
+                                break;
+                              case 'amount':
+                                aValue = Number(a.amount) || 0;
+                                bValue = Number(b.amount) || 0;
+                                break;
+                              case 'issued_company':
+                                aValue = (a.issued_company || '').toLowerCase();
+                                bValue = (b.issued_company || '').toLowerCase();
+                                break;
+                              case 'category':
+                                aValue = (a.category || '').toLowerCase();
+                                bValue = (b.category || '').toLowerCase();
+                                break;
+                              case 'issue_date':
+                                aValue = a.issue_date ? new Date(a.issue_date).getTime() : 0;
+                                bValue = b.issue_date ? new Date(b.issue_date).getTime() : 0;
+                                break;
+                              case 'payment_date':
+                                aValue = a.payment_date ? new Date(a.payment_date).getTime() : 0;
+                                bValue = b.payment_date ? new Date(b.payment_date).getTime() : 0;
+                                break;
+                              case 'payment_method':
+                                aValue = (a.payment_method || '').toLowerCase();
+                                bValue = (b.payment_method || '').toLowerCase();
+                                break;
+                              case 'payment_type':
+                                aValue = (a.payment_type || '').toLowerCase();
+                                bValue = (b.payment_type || '').toLowerCase();
+                                break;
+                              case 'payment_status':
                                 const statusOrder: { [key: string]: number } = {
                                   'Overdue': 1,
                                   'Unpaid': 2,
                                   'Paid': 3,
                                   'Void': 4
                                 };
-                                const aOrder = statusOrder[a.payment_status] || 999;
-                                const bOrder = statusOrder[b.payment_status] || 999;
-                                return aOrder - bOrder;
-                              }
+                                aValue = statusOrder[a.payment_status] || 999;
+                                bValue = statusOrder[b.payment_status] || 999;
+                                break;
                               default:
                                 return 0;
                             }
+
+                            if (aValue < bValue) return invoiceSortDirection === 'asc' ? -1 : 1;
+                            if (aValue > bValue) return invoiceSortDirection === 'asc' ? 1 : -1;
+                            return 0;
                           })
                           .map((invoice) => {
                           const invoiceProject = projects.find(p => p.id === invoice.project_id);
