@@ -101,36 +101,49 @@ export function ShareResourcesPage() {
   const searchClients = async (query: string) => {
     if (!query.trim()) {
       setClients([]);
+      setShowClientDropdown(false);
       return;
     }
 
-    const searchTerm = `%${query}%`;
+    try {
+      const searchTerm = `%${query}%`;
 
-    const { data: fundingClients } = await supabase
-      .from('clients')
-      .select('client_number, company_name, company_name_chinese, contact_email, contact_person')
-      .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
-      .limit(10);
+      const { data: fundingClients, error: fundingError } = await supabase
+        .from('clients')
+        .select('client_number, company_name, company_name_chinese, contact_email, contact_person')
+        .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+        .limit(10);
 
-    const { data: comsecClients } = await supabase
-      .from('comsec_clients')
-      .select('client_number, company_name, company_name_chinese, contact_email, contact_person')
-      .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
-      .limit(10);
+      if (fundingError) console.error('Funding clients error:', fundingError);
 
-    const { data: marketingProjects } = await supabase
-      .from('marketing_projects')
-      .select('client_number, company_name, brand_name, contact_email, contact_person')
-      .or(`company_name.ilike.${searchTerm},brand_name.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
-      .limit(10);
+      const { data: comsecClients, error: comsecError } = await supabase
+        .from('comsec_clients')
+        .select('client_number, company_name, company_name_chinese, contact_email, contact_person')
+        .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+        .limit(10);
 
-    const allClients = [
-      ...(fundingClients || []).map(c => ({ ...c, source: 'Funding' })),
-      ...(comsecClients || []).map(c => ({ ...c, source: 'ComSec' })),
-      ...(marketingProjects || []).map(c => ({ ...c, source: 'Marketing' }))
-    ];
+      if (comsecError) console.error('ComSec clients error:', comsecError);
 
-    setClients(allClients);
+      const { data: marketingProjects, error: marketingError } = await supabase
+        .from('marketing_projects')
+        .select('client_number, company_name, brand_name, contact_email, contact_person')
+        .or(`company_name.ilike.${searchTerm},brand_name.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+        .limit(10);
+
+      if (marketingError) console.error('Marketing projects error:', marketingError);
+
+      const allClients = [
+        ...(fundingClients || []).map(c => ({ ...c, source: 'Funding' })),
+        ...(comsecClients || []).map(c => ({ ...c, source: 'ComSec' })),
+        ...(marketingProjects || []).map(c => ({ ...c, source: 'Marketing' }))
+      ];
+
+      console.log('Search results:', allClients.length, allClients);
+      setClients(allClients);
+      setShowClientDropdown(true);
+    } catch (err) {
+      console.error('Search error:', err);
+    }
   };
 
   const selectClient = (client: any) => {
@@ -943,30 +956,29 @@ export function ShareResourcesPage() {
                         onChange={(e) => {
                           setSearchQuery(e.target.value);
                           searchClients(e.target.value);
-                          setShowClientDropdown(true);
                         }}
                         onFocus={() => {
                           if (clients.length > 0) setShowClientDropdown(true);
-                        }}
-                        onBlur={() => {
-                          setTimeout(() => setShowClientDropdown(false), 200);
                         }}
                         placeholder="Search by company name or contact person..."
                         className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                     {showClientDropdown && clients.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div className="absolute z-50 w-full mt-1 bg-white border-2 border-slate-300 rounded-lg shadow-xl max-h-64 overflow-y-auto">
                         {clients.map((client, idx) => (
                           <button
                             key={`${client.source}-${client.client_number}-${idx}`}
                             type="button"
-                            onClick={() => selectClient(client)}
-                            className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              selectClient(client);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-slate-200 last:border-b-0 transition-colors"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                <div className="font-medium text-slate-900 truncate">
+                                <div className="font-medium text-slate-900">
                                   {client.company_name}
                                   {client.company_name_chinese && (
                                     <span className="text-slate-600"> ({client.company_name_chinese})</span>
@@ -976,13 +988,13 @@ export function ShareResourcesPage() {
                                   )}
                                 </div>
                                 {client.contact_person && (
-                                  <div className="text-sm text-slate-600">{client.contact_person}</div>
+                                  <div className="text-sm text-slate-600 mt-1">{client.contact_person}</div>
                                 )}
                                 {client.contact_email && (
-                                  <div className="text-sm text-blue-600">{client.contact_email}</div>
+                                  <div className="text-sm text-blue-600 mt-1 font-medium">{client.contact_email}</div>
                                 )}
                               </div>
-                              <span className="flex-shrink-0 text-xs px-2 py-1 bg-slate-100 text-slate-700 rounded">
+                              <span className="flex-shrink-0 text-xs px-2 py-1 bg-slate-200 text-slate-700 rounded font-medium">
                                 {client.source}
                               </span>
                             </div>
