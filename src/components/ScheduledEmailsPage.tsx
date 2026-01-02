@@ -51,7 +51,7 @@ export function ScheduledEmailsPage({ onProjectClick }: ScheduledEmailsPageProps
           *,
           projects:project_id(title, project_reference, company_name, client_number),
           staff:user_id(full_name),
-          email_accounts!scheduled_emails_account_id_fkey(email)
+          email_accounts:from_account_id(email)
         `)
         .order('scheduled_date', { ascending: true });
 
