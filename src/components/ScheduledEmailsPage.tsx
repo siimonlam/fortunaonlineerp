@@ -51,7 +51,7 @@ export function ScheduledEmailsPage({ onProjectClick }: ScheduledEmailsPageProps
           *,
           projects:project_id(title, project_reference, company_name, client_number),
           staff:user_id(full_name),
-          email_accounts:from_account_id(email)
+          email_accounts:from_account_id(smtp_from_email, account_name)
         `)
         .order('scheduled_date', { ascending: true });
 
@@ -158,7 +158,7 @@ export function ScheduledEmailsPage({ onProjectClick }: ScheduledEmailsPageProps
       const companyName = email.projects?.company_name?.toLowerCase() || '';
       const clientNumber = email.projects?.client_number?.toLowerCase() || '';
       const projectReference = email.projects?.project_reference?.toLowerCase() || '';
-      const senderEmail = email.email_accounts?.email?.toLowerCase() || '';
+      const senderEmail = email.email_accounts?.smtp_from_email?.toLowerCase() || '';
       const recipientEmails = email.recipient_emails?.join(' ').toLowerCase() || '';
 
       return (
@@ -334,7 +334,7 @@ export function ScheduledEmailsPage({ onProjectClick }: ScheduledEmailsPageProps
                       {email.subject}
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">
-                      {email.email_accounts?.email || 'N/A'}
+                      {email.email_accounts?.smtp_from_email || 'N/A'}
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">
                       <div className="max-w-xs truncate">
@@ -430,7 +430,7 @@ export function ScheduledEmailsPage({ onProjectClick }: ScheduledEmailsPageProps
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-700">From</label>
-                    <p className="text-slate-900 mt-1">{selectedEmail.email_accounts?.email || 'N/A'}</p>
+                    <p className="text-slate-900 mt-1">{selectedEmail.email_accounts?.smtp_from_email || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-700">Scheduled Date</label>
