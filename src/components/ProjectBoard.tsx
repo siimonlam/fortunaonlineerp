@@ -151,6 +151,8 @@ interface FundingInvoice {
   client_id: string | null;
   project_id: string | null;
   issue_date: string | null;
+  issued_company?: string;
+  category?: string;
   due_date: string | null;
   payment_status: string;
   amount: number;
@@ -3201,6 +3203,8 @@ export function ProjectBoard() {
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Project</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Client</th>
                           <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Amount</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Issued Company</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Category</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Issue Date</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Date</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Payment Method</th>
@@ -3283,6 +3287,8 @@ export function ProjectBoard() {
                               <td className="py-3 px-4 text-sm text-right text-slate-900">
                                 ${invoice.amount ? Number(invoice.amount).toFixed(2) : '0.00'}
                               </td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{invoice.issued_company || '-'}</td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{invoice.category || '-'}</td>
                               <td className="py-3 px-4 text-sm text-slate-600">
                                 {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}
                               </td>
