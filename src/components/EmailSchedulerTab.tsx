@@ -169,14 +169,12 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
     setLoadingFiles(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${googleDriveFolderId}`,
         {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ folderId: googleDriveFolderId })
+          }
         }
       );
 
