@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Mail, Save, AlertCircle, CheckCircle, Eye, EyeOff, Plus, Trash2, Edit2, X } from 'lucide-react';
+import { Mail, Save, AlertCircle, CheckCircle, Eye, EyeOff, Plus, Trash2, Edit2, X, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { EmailTemplateManager } from './EmailTemplateManager';
 
 interface EmailAccount {
   id: string;
@@ -20,6 +21,7 @@ interface EmailAccount {
 
 export function EmailSettingsPage() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'accounts' | 'templates'>('accounts');
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -214,19 +216,53 @@ export function EmailSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">My Email Accounts (SMTP)</h2>
-          <p className="text-slate-600">Manage your SMTP accounts for sending scheduled emails</p>
-        </div>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Account
-        </button>
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Email Settings</h2>
+        <p className="text-slate-600">Manage email accounts and templates</p>
       </div>
+
+      <div className="border-b border-slate-200">
+        <div className="flex gap-6">
+          <button
+            onClick={() => setActiveTab('accounts')}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+              activeTab === 'accounts'
+                ? 'border-blue-600 text-blue-600 font-medium'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Mail className="w-5 h-5" />
+            Email Accounts
+          </button>
+          <button
+            onClick={() => setActiveTab('templates')}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+              activeTab === 'templates'
+                ? 'border-blue-600 text-blue-600 font-medium'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <FileText className="w-5 h-5" />
+            Email Templates
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'accounts' ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">My Email Accounts (SMTP)</h3>
+              <p className="text-slate-600 text-sm">Manage your SMTP accounts for sending emails</p>
+            </div>
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Account
+            </button>
+          </div>
 
       {message && (
         <div className={`rounded-lg p-4 flex items-start gap-3 ${
@@ -511,6 +547,10 @@ export function EmailSettingsPage() {
             </div>
           </div>
         </div>
+      )}
+        </div>
+      ) : (
+        <EmailTemplateManager />
       )}
     </div>
   );

@@ -12,6 +12,20 @@ interface EmailPayload {
   subject: string;
   body: string;
   html?: boolean;
+  smtpSettings?: {
+    smtp_host: string;
+    smtp_port: string;
+    smtp_secure: string;
+    smtp_user: string;
+    smtp_password: string;
+    smtp_from_email: string;
+    smtp_from_name: string;
+  };
+  attachments?: Array<{
+    filename: string;
+    content: string;
+    encoding?: string;
+  }>;
 }
 
 async function getSmtpSettings(supabase: any) {
@@ -146,7 +160,18 @@ Deno.serve(async (req: Request) => {
       throw new Error('Email body is required');
     }
 
-    const settings = await getSmtpSettings(supabase);
+    const settings = payload.smtpSettings
+      ? {
+          smtp_host: payload.smtpSettings.smtp_host,
+          smtp_port: payload.smtpSettings.smtp_port,
+          smtp_secure: payload.smtpSettings.smtp_secure,
+          smtp_user: payload.smtpSettings.smtp_user,
+          smtp_password: payload.smtpSettings.smtp_password,
+          smtp_from_email: payload.smtpSettings.smtp_from_email,
+          smtp_from_name: payload.smtpSettings.smtp_from_name,
+        }
+      : await getSmtpSettings(supabase);
+
     const result = await sendEmail(settings, payload);
 
     return new Response(

@@ -21,9 +21,9 @@ Deno.serve(async (req: Request) => {
 
     const { data: pendingEmails, error: fetchError } = await supabase
       .from('scheduled_emails')
-      .select('*')
+      .select('*, email_accounts:from_account_id(smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, smtp_from_email, smtp_from_name)')
       .eq('status', 'pending')
-      .lte('scheduled_date', now)
+      .or(`send_immediately.eq.true,scheduled_date.lte.${now}`)
       .order('scheduled_date', { ascending: true })
       .limit(10);
 
@@ -43,6 +43,22 @@ Deno.serve(async (req: Request) => {
 
     for (const email of pendingEmails) {
       try {
+        const emailAccount = email.email_accounts;
+
+        if (!emailAccount) {
+          throw new Error('Email account not found or not accessible');
+        }
+
+        const smtpSettings = {
+          smtp_host: emailAccount.smtp_host,
+          smtp_port: emailAccount.smtp_port.toString(),
+          smtp_secure: emailAccount.smtp_secure.toString(),
+          smtp_user: emailAccount.smtp_user,
+          smtp_password: emailAccount.smtp_password,
+          smtp_from_email: emailAccount.smtp_from_email,
+          smtp_from_name: emailAccount.smtp_from_name,
+        };
+
         const emailFunctionUrl = `${supabaseUrl}/functions/v1/send-smtp-email`;
 
         const response = await fetch(emailFunctionUrl, {
@@ -56,6 +72,7 @@ Deno.serve(async (req: Request) => {
             subject: email.subject,
             body: email.body,
             html: false,
+            smtpSettings: smtpSettings,
           }),
         });
 
