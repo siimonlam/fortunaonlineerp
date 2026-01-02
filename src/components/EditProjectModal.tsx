@@ -444,6 +444,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     setEditingInvoice({
       invoiceNumber: invoice.invoice_number,
       amount: invoice.amount,
+      issuedCompany: invoice.issued_company || 'Amazing Channel (HK) Limited',
+      category: invoice.category || '',
       issueDate: invoice.issue_date || '',
       dueDate: invoice.due_date || '',
       paymentDate: invoice.payment_date || '',
@@ -461,6 +463,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         .update({
           invoice_number: editingInvoice.invoiceNumber,
           amount: parseFloat(editingInvoice.amount),
+          issued_company: editingInvoice.issuedCompany,
+          category: editingInvoice.category || null,
           issue_date: editingInvoice.issueDate || null,
           due_date: editingInvoice.dueDate || null,
           payment_status: editingInvoice.paymentStatus,
@@ -2894,6 +2898,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                         <tr>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Invoice #</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Amount</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Issued Company</th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-700">Category</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Issue Date</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Payment Date</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-700">Payment Method</th>
@@ -2910,6 +2916,31 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                             <tr key={invoice.id} className="border-b border-slate-200 bg-blue-50">
                               <td className="px-3 py-2 text-slate-900">{editingInvoice.invoiceNumber}</td>
                               <td className="px-3 py-2 text-slate-900">${Number(editingInvoice.amount).toFixed(2)}</td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={editingInvoice.issuedCompany}
+                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, issuedCompany: e.target.value })}
+                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                                  placeholder="Issued Company"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <select
+                                  value={editingInvoice.category}
+                                  onChange={(e) => setEditingInvoice({ ...editingInvoice, category: e.target.value })}
+                                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                                >
+                                  <option value="">Select</option>
+                                  <option value="Marketing">Marketing</option>
+                                  <option value="Website">Website</option>
+                                  <option value="Production">Production</option>
+                                  <option value="BUD">BUD</option>
+                                  <option value="TVP">TVP</option>
+                                  <option value="Platform">Platform</option>
+                                  <option value="Others">Others</option>
+                                </select>
+                              </td>
                               <td className="px-3 py-2 text-slate-600">
                                 {editingInvoice.issueDate ? new Date(editingInvoice.issueDate).toLocaleDateString() : '-'}
                               </td>
@@ -2986,6 +3017,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                             <tr key={invoice.id} className="border-b border-slate-200 hover:bg-slate-50">
                               <td className="px-3 py-2 text-slate-900">{invoice.invoice_number}</td>
                               <td className="px-3 py-2 text-slate-900">${Number(invoice.amount).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-slate-600">{invoice.issued_company || '-'}</td>
+                              <td className="px-3 py-2 text-slate-600">{invoice.category || '-'}</td>
                               <td className="px-3 py-2 text-slate-600">
                                 {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}
                               </td>

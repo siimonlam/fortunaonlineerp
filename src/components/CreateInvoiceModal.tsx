@@ -25,6 +25,8 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
     paymentMethod: '',
     paymentType: 'Deposit',
     remark: '',
+    issuedCompany: 'Amazing Channel (HK) Limited',
+    category: '',
   });
 
   useEffect(() => {
@@ -232,6 +234,8 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
           payment_type: formData.paymentType,
           remark: formData.remark || null,
           google_drive_url: driveFileUrl,
+          issued_company: formData.issuedCompany,
+          category: formData.category || null,
           created_by: (await supabase.auth.getUser()).data.user?.id,
         });
 
@@ -361,6 +365,42 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                   <option value="2nd Payment">2nd Payment</option>
                   <option value="3rd Payment">3rd Payment</option>
                   <option value="Final Payment">Final Payment</option>
+                  <option value="Others">Others</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Issued Company *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.issuedCompany}
+                  onChange={(e) => setFormData({ ...formData, issuedCompany: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Amazing Channel (HK) Limited"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Category
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Category</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Website">Website</option>
+                  <option value="Production">Production</option>
+                  <option value="BUD">BUD</option>
+                  <option value="TVP">TVP</option>
+                  <option value="Platform">Platform</option>
+                  <option value="Others">Others</option>
                 </select>
               </div>
             </div>
