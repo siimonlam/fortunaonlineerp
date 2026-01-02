@@ -7,6 +7,139 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+async function getServiceAccountToken(): Promise<string> {
+  const serviceAccountEmail = "fortunaerp@fortuna-erp.iam.gserviceaccount.com";
+  const privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY");
+
+  if (!privateKey) {
+    throw new Error("Service account private key not configured");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const expiry = now + 3600;
+
+  const header = {
+    alg: "RS256",
+    typ: "JWT",
+  };
+
+  const claimSet = {
+    iss: serviceAccountEmail,
+    scope: "https://www.googleapis.com/auth/drive",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: expiry,
+    iat: now,
+  };
+
+  const encodedHeader = btoa(JSON.stringify(header))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
+  const encodedClaimSet = btoa(JSON.stringify(claimSet))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
+  const signatureInput = `${encodedHeader}.${encodedClaimSet}`;
+
+  let cleanedKey = privateKey
+    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+    .replace(/-----END PRIVATE KEY-----/g, "")
+    .replace(/\\n/g, "")
+    .replace(/\n/g, "")
+    .replace(/\s/g, "");
+
+  let binaryKey: Uint8Array;
+  try {
+    binaryKey = Uint8Array.from(atob(cleanedKey), c => c.charCodeAt(0));
+  } catch (e) {
+    console.error("Failed to decode private key:", e);
+    throw new Error("Invalid private key format");
+  }
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryKey,
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      hash: "SHA-256",
+    },
+    false,
+    ["sign"]
+  );
+
+  const signatureBuffer = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    new TextEncoder().encode(signatureInput)
+  );
+
+  const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
+  const jwt = `${signatureInput}.${signature}`;
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    const error = await tokenResponse.text();
+    throw new Error(`Failed to get access token: ${error}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  return tokenData.access_token;
+}
+
+async function downloadFileFromDrive(fileId: string, accessToken: string): Promise<{ content: string; filename: string; mimeType: string }> {
+  const metadataUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType&supportsAllDrives=true`;
+
+  const metadataResponse = await fetch(metadataUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!metadataResponse.ok) {
+    throw new Error(`Failed to get file metadata: ${await metadataResponse.text()}`);
+  }
+
+  const metadata = await metadataResponse.json();
+
+  const downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`;
+
+  const response = await fetch(downloadUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to download file: ${await response.text()}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  const content = btoa(String.fromCharCode(...uint8Array));
+
+  return {
+    content,
+    filename: metadata.name,
+    mimeType: metadata.mimeType,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -63,6 +196,55 @@ Deno.serve(async (req: Request) => {
           smtp_from_name: emailAccount.smtp_from_name,
         };
 
+        const attachments: any[] = [];
+
+        if (email.attachment_type === 'google_drive' && email.attachment_ids && email.attachment_ids.length > 0) {
+          const accessToken = await getServiceAccountToken();
+
+          for (const fileId of email.attachment_ids) {
+            try {
+              const file = await downloadFileFromDrive(fileId, accessToken);
+              attachments.push({
+                filename: file.filename,
+                content: file.content,
+                encoding: 'base64',
+              });
+            } catch (error) {
+              console.error(`Failed to download file ${fileId}:`, error);
+            }
+          }
+        } else if (email.attachment_type === 'share_resource' && email.attachment_ids && email.attachment_ids.length > 0) {
+          for (const resourceId of email.attachment_ids) {
+            try {
+              const { data: resource } = await supabase
+                .from('share_resources')
+                .select('title, file_path')
+                .eq('id', resourceId)
+                .single();
+
+              if (resource && resource.file_path) {
+                const { data: fileData } = await supabase.storage
+                  .from('share-resources')
+                  .download(resource.file_path);
+
+                if (fileData) {
+                  const arrayBuffer = await fileData.arrayBuffer();
+                  const uint8Array = new Uint8Array(arrayBuffer);
+                  const content = btoa(String.fromCharCode(...uint8Array));
+
+                  attachments.push({
+                    filename: resource.title || 'attachment',
+                    content: content,
+                    encoding: 'base64',
+                  });
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to download share resource ${resourceId}:`, error);
+            }
+          }
+        }
+
         const emailFunctionUrl = `${supabaseUrl}/functions/v1/send-smtp-email`;
 
         const response = await fetch(emailFunctionUrl, {
@@ -77,6 +259,7 @@ Deno.serve(async (req: Request) => {
             body: email.body,
             html: false,
             smtpSettings: smtpSettings,
+            attachments: attachments,
           }),
         });
 

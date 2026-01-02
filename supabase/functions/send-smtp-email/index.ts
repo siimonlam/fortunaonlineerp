@@ -75,6 +75,10 @@ async function sendEmail(settings: Record<string, string>, payload: EmailPayload
       emailMessage.text = payload.body;
     }
 
+    if (payload.attachments && payload.attachments.length > 0) {
+      emailMessage.attachments = payload.attachments;
+    }
+
     await transporter.sendMail(emailMessage);
 
     return { success: true };
