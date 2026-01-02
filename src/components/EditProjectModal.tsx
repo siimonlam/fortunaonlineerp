@@ -3138,6 +3138,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               projectId={project.id}
               projectTitle={project.title}
               clientEmails={project.email}
+              googleDriveFolderId={formData.googleDriveFolderId}
             />
           </div>
         ) : (
