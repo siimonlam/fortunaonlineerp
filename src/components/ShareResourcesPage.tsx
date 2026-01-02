@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
@@ -39,6 +39,9 @@ export function ShareResourcesPage() {
 
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [emailForm, setEmailForm] = useState({
     from_account_id: '',
     recipient_emails: '',
@@ -93,6 +96,57 @@ export function ShareResourcesPage() {
         setEmailForm(prev => ({ ...prev, from_account_id: data[0].id }));
       }
     }
+  };
+
+  const searchClients = async (query: string) => {
+    if (!query.trim()) {
+      setClients([]);
+      return;
+    }
+
+    const searchTerm = `%${query}%`;
+
+    const { data: fundingClients } = await supabase
+      .from('clients')
+      .select('client_number, company_name, company_name_chinese, contact_email, contact_person')
+      .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+      .limit(10);
+
+    const { data: comsecClients } = await supabase
+      .from('comsec_clients')
+      .select('client_number, company_name, company_name_chinese, contact_email, contact_person')
+      .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+      .limit(10);
+
+    const { data: marketingProjects } = await supabase
+      .from('marketing_projects')
+      .select('client_number, company_name, brand_name, contact_email, contact_person')
+      .or(`company_name.ilike.${searchTerm},brand_name.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+      .limit(10);
+
+    const allClients = [
+      ...(fundingClients || []).map(c => ({ ...c, source: 'Funding' })),
+      ...(comsecClients || []).map(c => ({ ...c, source: 'ComSec' })),
+      ...(marketingProjects || []).map(c => ({ ...c, source: 'Marketing' }))
+    ];
+
+    setClients(allClients);
+  };
+
+  const selectClient = (client: any) => {
+    const emails = emailForm.recipient_emails
+      .split(',')
+      .map(e => e.trim())
+      .filter(e => e.length > 0);
+
+    if (client.contact_email && !emails.includes(client.contact_email)) {
+      emails.push(client.contact_email);
+    }
+
+    setEmailForm({ ...emailForm, recipient_emails: emails.join(', ') });
+    setSearchQuery('');
+    setShowClientDropdown(false);
+    setClients([]);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -327,6 +381,9 @@ export function ShareResourcesPage() {
       scheduled_date: scheduledDate,
       send_immediately: true
     });
+    setSearchQuery('');
+    setClients([]);
+    setShowClientDropdown(false);
     setShowEmailModal(true);
   };
 
@@ -875,6 +932,72 @@ export function ShareResourcesPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Search Company
+                  </label>
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          searchClients(e.target.value);
+                          setShowClientDropdown(true);
+                        }}
+                        onFocus={() => {
+                          if (clients.length > 0) setShowClientDropdown(true);
+                        }}
+                        onBlur={() => {
+                          setTimeout(() => setShowClientDropdown(false), 200);
+                        }}
+                        placeholder="Search by company name or contact person..."
+                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    {showClientDropdown && clients.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {clients.map((client, idx) => (
+                          <button
+                            key={`${client.source}-${client.client_number}-${idx}`}
+                            type="button"
+                            onClick={() => selectClient(client)}
+                            className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-slate-900 truncate">
+                                  {client.company_name}
+                                  {client.company_name_chinese && (
+                                    <span className="text-slate-600"> ({client.company_name_chinese})</span>
+                                  )}
+                                  {client.brand_name && (
+                                    <span className="text-slate-600"> - {client.brand_name}</span>
+                                  )}
+                                </div>
+                                {client.contact_person && (
+                                  <div className="text-sm text-slate-600">{client.contact_person}</div>
+                                )}
+                                {client.contact_email && (
+                                  <div className="text-sm text-blue-600">{client.contact_email}</div>
+                                )}
+                              </div>
+                              <span className="flex-shrink-0 text-xs px-2 py-1 bg-slate-100 text-slate-700 rounded">
+                                {client.source}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Search and select companies to add their contact emails
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Recipient Emails * (comma-separated)
                   </label>
                   <input
@@ -886,7 +1009,7 @@ export function ShareResourcesPage() {
                     required
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    Enter multiple email addresses separated by commas
+                    Enter multiple email addresses separated by commas, or add via company search above
                   </p>
                 </div>
 
