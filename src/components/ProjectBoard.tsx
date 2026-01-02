@@ -186,6 +186,7 @@ export function ProjectBoard() {
   const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
   const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
   const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings' | 'resources' | 'emails'>('projects');
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
   const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
@@ -242,6 +243,12 @@ export function ProjectBoard() {
   const [selectedMarketingProjectButton, setSelectedMarketingProjectButton] = useState<string | null>(null);
   const [showAddMarketingProjectButtonModal, setShowAddMarketingProjectButtonModal] = useState(false);
   const [marketingButtonSourceProjectId, setMarketingButtonSourceProjectId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (fundingProjectTab !== 'meetings') {
+      setSelectedMeetingId(null);
+    }
+  }, [fundingProjectTab]);
 
   useEffect(() => {
     if (!user) {
@@ -3132,7 +3139,10 @@ export function ProjectBoard() {
                 }}
               />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'meetings' ? (
-              <MeetingsPage projects={filteredProjects.map(p => ({ id: p.id, title: p.title }))} />
+              <MeetingsPage
+                projects={filteredProjects.map(p => ({ id: p.id, title: p.title }))}
+                initialMeetingId={selectedMeetingId || undefined}
+              />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'resources' ? (
               <ShareResourcesPage />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
@@ -4220,7 +4230,8 @@ export function ProjectBoard() {
                               }
                             }
                           } else if (task.meeting_id) {
-                            setSelectedView('meetings');
+                            setFundingProjectTab('meetings');
+                            setSelectedMeetingId(task.meeting_id);
                           }
                         }}
                         className={`p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${
@@ -4344,7 +4355,8 @@ export function ProjectBoard() {
                               }
                             }
                           } else if (task.meeting_id) {
-                            setSelectedView('meetings');
+                            setFundingProjectTab('meetings');
+                            setSelectedMeetingId(task.meeting_id);
                           }
                         }}
                         className={`p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${

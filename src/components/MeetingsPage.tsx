@@ -43,9 +43,10 @@ interface Project {
 
 interface MeetingsPageProps {
   projects: Project[];
+  initialMeetingId?: string;
 }
 
-export function MeetingsPage({ projects }: MeetingsPageProps) {
+export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) {
   const { user } = useAuth();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -69,6 +70,18 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
     fetchMeetings();
     fetchStaff();
   }, [projects]);
+
+  useEffect(() => {
+    if (initialMeetingId && meetings.length > 0) {
+      setExpandedMeetings(new Set([initialMeetingId]));
+      setTimeout(() => {
+        const element = document.getElementById(`meeting-${initialMeetingId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [initialMeetingId, meetings]);
 
   const fetchMeetings = async () => {
     let query = supabase
@@ -436,7 +449,7 @@ export function MeetingsPage({ projects }: MeetingsPageProps) {
           </div>
         ) : (
           meetings.map(meeting => (
-            <div key={meeting.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+            <div key={meeting.id} id={`meeting-${meeting.id}`} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
               <div className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
