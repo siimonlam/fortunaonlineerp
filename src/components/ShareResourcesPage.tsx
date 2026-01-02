@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
@@ -37,8 +37,20 @@ export function ShareResourcesPage() {
     external_url: ''
   });
 
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
+  const [emailForm, setEmailForm] = useState({
+    from_account_id: '',
+    recipient_emails: '',
+    subject: '',
+    body: '',
+    scheduled_date: '',
+    send_immediately: true
+  });
+
   useEffect(() => {
     fetchResources();
+    fetchEmailAccounts();
 
     const channel = supabase
       .channel('share_resources_changes')
@@ -63,6 +75,23 @@ export function ShareResourcesPage() {
 
     if (!error && data) {
       setResources(data);
+    }
+  };
+
+  const fetchEmailAccounts = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('email_accounts')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setEmailAccounts(data);
+      if (data.length > 0) {
+        setEmailForm(prev => ({ ...prev, from_account_id: data[0].id }));
+      }
     }
   };
 
@@ -280,6 +309,84 @@ export function ShareResourcesPage() {
     return <File className="w-5 h-5" />;
   };
 
+  const openEmailModal = (resource?: Resource) => {
+    if (emailAccounts.length === 0) {
+      alert('Please configure an email account in Settings > Email Settings first');
+      return;
+    }
+
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 5);
+    const scheduledDate = now.toISOString().slice(0, 16);
+
+    setEmailForm({
+      from_account_id: emailAccounts[0].id,
+      recipient_emails: '',
+      subject: resource?.title || '',
+      body: resource?.content || '',
+      scheduled_date: scheduledDate,
+      send_immediately: true
+    });
+    setShowEmailModal(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!user) return;
+
+    if (!emailForm.recipient_emails.trim()) {
+      alert('Please enter at least one recipient email');
+      return;
+    }
+
+    if (!emailForm.subject.trim()) {
+      alert('Please enter email subject');
+      return;
+    }
+
+    if (!emailForm.body.trim()) {
+      alert('Please enter email body');
+      return;
+    }
+
+    if (!emailForm.send_immediately && !emailForm.scheduled_date) {
+      alert('Please select a scheduled date');
+      return;
+    }
+
+    try {
+      const recipientEmails = emailForm.recipient_emails
+        .split(',')
+        .map(email => email.trim())
+        .filter(email => email.length > 0);
+
+      const scheduledDate = emailForm.send_immediately
+        ? new Date().toISOString()
+        : new Date(emailForm.scheduled_date).toISOString();
+
+      const { error } = await supabase
+        .from('scheduled_emails')
+        .insert({
+          project_id: null,
+          user_id: user.id,
+          from_account_id: emailForm.from_account_id,
+          recipient_emails: recipientEmails,
+          subject: emailForm.subject,
+          body: emailForm.body,
+          scheduled_date: scheduledDate,
+          status: 'pending',
+          send_immediately: emailForm.send_immediately
+        });
+
+      if (error) throw error;
+
+      alert(emailForm.send_immediately ? 'Email scheduled to send immediately' : 'Email scheduled successfully');
+      setShowEmailModal(false);
+    } catch (err) {
+      console.error('Error scheduling email:', err);
+      alert('Failed to schedule email');
+    }
+  };
+
   const renderResourceContent = (resource: Resource) => {
     switch (resource.resource_type) {
       case 'email':
@@ -368,7 +475,14 @@ export function ShareResourcesPage() {
 
   return (
     <div className="max-w-full -mx-8 -mt-6 px-4 py-2 h-[calc(100vh-12rem)]">
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end gap-3 mb-3">
+        <button
+          onClick={() => openEmailModal()}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <Send className="w-5 h-5" />
+          Send Email
+        </button>
         <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -454,6 +568,13 @@ export function ShareResourcesPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => openEmailModal(resource)}
+                      className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Send via Email"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => openEditModal(resource)}
                       className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -714,6 +835,160 @@ export function ShareResourcesPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Send Email</h3>
+                <button
+                  onClick={() => setShowEmailModal(false)}
+                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    From Email Account *
+                  </label>
+                  <select
+                    value={emailForm.from_account_id}
+                    onChange={(e) => setEmailForm({ ...emailForm, from_account_id: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    {emailAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.account_name} ({account.smtp_from_email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Recipient Emails * (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={emailForm.recipient_emails}
+                    onChange={(e) => setEmailForm({ ...emailForm, recipient_emails: e.target.value })}
+                    placeholder="example1@email.com, example2@email.com"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Enter multiple email addresses separated by commas
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Subject *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailForm.subject}
+                    onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Email Body *
+                  </label>
+                  <textarea
+                    value={emailForm.body}
+                    onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                    rows={12}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    required
+                  />
+                </div>
+
+                <div className="border-t border-slate-200 pt-4">
+                  <div className="flex items-center gap-4 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setEmailForm({ ...emailForm, send_immediately: true })}
+                      className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
+                        emailForm.send_immediately
+                          ? 'border-green-600 bg-green-50 text-green-700'
+                          : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <Send className="w-5 h-5" />
+                        <span className="font-medium">Send Immediately</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmailForm({ ...emailForm, send_immediately: false })}
+                      className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
+                        !emailForm.send_immediately
+                          ? 'border-blue-600 bg-blue-50 text-blue-700'
+                          : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <Clock className="w-5 h-5" />
+                        <span className="font-medium">Schedule for Later</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  {!emailForm.send_immediately && (
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Scheduled Date & Time *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={emailForm.scheduled_date}
+                        onChange={(e) => setEmailForm({ ...emailForm, scheduled_date: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                  <button
+                    onClick={() => setShowEmailModal(false)}
+                    className="px-6 py-2 text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendEmail}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    {emailForm.send_immediately ? (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Send Now
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="w-4 h-4" />
+                        Schedule Email
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
