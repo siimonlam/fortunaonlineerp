@@ -84,7 +84,8 @@ export async function generateInvoiceFromTemplate(
     dueDate?: string;
     paymentType?: string;
     remark?: string;
-  }
+  },
+  flatten: boolean = false
 ): Promise<Blob> {
   console.log('=== Starting Invoice Generation ===');
   console.log('Project ID:', projectId);
@@ -199,9 +200,13 @@ export async function generateInvoiceFromTemplate(
     console.warn('Could not set NeedAppearances flag:', error);
   }
 
-  // Flatten the form to make all fields non-editable
-  form.flatten();
-  console.log('Form fields flattened (converted to non-editable content)');
+  // Optionally flatten the form to make all fields non-editable
+  if (flatten) {
+    form.flatten();
+    console.log('Form fields flattened (converted to non-editable content)');
+  } else {
+    console.log('Keeping form fields editable for preview');
+  }
 
   const pdfBytes = await pdfDoc.save();
   console.log('PDF generated successfully, size:', pdfBytes.length, 'bytes');

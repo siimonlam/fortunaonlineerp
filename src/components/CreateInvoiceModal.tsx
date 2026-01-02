@@ -133,7 +133,8 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
           dueDate: formData.dueDate,
           paymentType: formData.paymentType,
           remark: formData.remark,
-        }
+        },
+        false // Keep fields editable for preview
       );
 
       console.log('PDF Blob generated, size:', pdfBlob.size, 'bytes');
