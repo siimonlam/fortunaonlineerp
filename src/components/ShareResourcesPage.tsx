@@ -367,7 +367,7 @@ export function ShareResourcesPage() {
   };
 
   return (
-    <div className="max-w-full -mx-8 -mt-6 px-4 py-2">
+    <div className="max-w-full -mx-8 -mt-6 px-4 py-2 h-[calc(100vh-12rem)]">
       <div className="flex justify-end mb-3">
         <button
           onClick={() => setShowModal(true)}
@@ -378,16 +378,18 @@ export function ShareResourcesPage() {
         </button>
       </div>
 
-      <div className="mb-4" style={{ height: '550px' }}>
-        <ServiceAccountDriveExplorer
-          folderId="0AK-QGp_5SOJWUk9PVA"
-          folderName="Shared Files"
-          driveUrl="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
-          embedded={true}
-        />
-      </div>
+      <div className="flex gap-4 h-[calc(100%-4rem)]">
+        <div className="flex-1 min-w-0">
+          <ServiceAccountDriveExplorer
+            folderId="0AK-QGp_5SOJWUk9PVA"
+            folderName="Shared Files"
+            driveUrl="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
+            embedded={true}
+          />
+        </div>
 
-      <div className="space-y-4">
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          <div className="space-y-4 pr-2">
         {resources.length === 0 ? (
           <div className="bg-white rounded-lg border border-slate-200 text-center py-12">
             <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -470,6 +472,8 @@ export function ShareResourcesPage() {
             </div>
           ))
         )}
+          </div>
+        </div>
       </div>
 
       {showModal && (
