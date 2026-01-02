@@ -21,7 +21,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: pendingEmails, error: fetchError } = await supabase
       .from('scheduled_emails')
-      .select('*, email_accounts:from_account_id(smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, smtp_from_email, smtp_from_name)')
+      .select('*')
       .eq('status', 'pending')
       .or(`send_immediately.eq.true,scheduled_date.lte.${now}`)
       .order('scheduled_date', { ascending: true })
@@ -43,10 +43,14 @@ Deno.serve(async (req: Request) => {
 
     for (const email of pendingEmails) {
       try {
-        const emailAccount = email.email_accounts;
+        const { data: emailAccount, error: accountError } = await supabase
+          .from('email_accounts')
+          .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, smtp_from_email, smtp_from_name')
+          .eq('id', email.from_account_id)
+          .single();
 
-        if (!emailAccount) {
-          throw new Error('Email account not found or not accessible');
+        if (accountError || !emailAccount) {
+          throw new Error(`Email account not found: ${accountError?.message || 'Unknown error'}`);
         }
 
         const smtpSettings = {

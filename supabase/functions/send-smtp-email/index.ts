@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import nodemailer from "npm:nodemailer@6.9.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,92 +51,37 @@ async function getSmtpSettings(supabase: any) {
 
 async function sendEmail(settings: Record<string, string>, payload: EmailPayload) {
   const port = parseInt(settings.smtp_port || '587');
-  const secure = settings.smtp_secure === 'true';
-
-  const auth = btoa(`${settings.smtp_user}:${settings.smtp_password}`);
-
-  const emailContent = payload.html
-    ? `Content-Type: text/html; charset=utf-8\r\n\r\n${payload.body}`
-    : `Content-Type: text/plain; charset=utf-8\r\n\r\n${payload.body}`;
-
-  const message = [
-    `From: ${settings.smtp_from_name} <${settings.smtp_from_email}>`,
-    `To: ${payload.to.join(', ')}`,
-    `Subject: ${payload.subject}`,
-    emailContent
-  ].join('\r\n');
 
   try {
-    const conn = await Deno.connect({
-      hostname: settings.smtp_host,
+    const transporter = nodemailer.createTransport({
+      host: settings.smtp_host,
       port: port,
+      secure: settings.smtp_secure === 'true' && port === 465,
+      auth: {
+        user: settings.smtp_user,
+        pass: settings.smtp_password,
+      },
     });
 
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+    const emailMessage: any = {
+      from: `${settings.smtp_from_name} <${settings.smtp_from_email}>`,
+      to: payload.to.join(', '),
+      subject: payload.subject,
+    };
 
-    if (secure && port === 465) {
-      const tlsConn = await Deno.startTls(conn, { hostname: settings.smtp_host });
-      await sendSmtpCommands(tlsConn, encoder, decoder, settings, message, auth);
+    if (payload.html) {
+      emailMessage.html = payload.body;
     } else {
-      await sendSmtpCommands(conn, encoder, decoder, settings, message, auth, port === 587);
+      emailMessage.text = payload.body;
     }
+
+    await transporter.sendMail(emailMessage);
 
     return { success: true };
   } catch (error) {
     console.error('SMTP Error:', error);
     throw new Error(`Failed to send email: ${error.message}`);
   }
-}
-
-async function sendSmtpCommands(
-  conn: any,
-  encoder: TextEncoder,
-  decoder: TextDecoder,
-  settings: Record<string, string>,
-  message: string,
-  auth: string,
-  startTls = false
-) {
-  const readResponse = async () => {
-    const buffer = new Uint8Array(1024);
-    const n = await conn.read(buffer);
-    return decoder.decode(buffer.subarray(0, n));
-  };
-
-  const sendCommand = async (command: string) => {
-    await conn.write(encoder.encode(command + '\r\n'));
-    return await readResponse();
-  };
-
-  await readResponse();
-
-  await sendCommand(`EHLO ${settings.smtp_host}`);
-
-  if (startTls) {
-    await sendCommand('STARTTLS');
-    const tlsConn = await Deno.startTls(conn, { hostname: settings.smtp_host });
-    await sendSmtpCommands(tlsConn, encoder, decoder, settings, message, auth, false);
-    return;
-  }
-
-  await sendCommand('AUTH LOGIN');
-  await sendCommand(btoa(settings.smtp_user));
-  await sendCommand(btoa(settings.smtp_password));
-  await sendCommand(`MAIL FROM:<${settings.smtp_from_email}>`);
-
-  const recipients = message.match(/To: (.+)/)?.[1].split(', ') || [];
-  for (const recipient of recipients) {
-    const email = recipient.match(/<(.+)>|(.+)/)?.[1] || recipient.trim();
-    await sendCommand(`RCPT TO:<${email}>`);
-  }
-
-  await sendCommand('DATA');
-  await conn.write(encoder.encode(message + '\r\n.\r\n'));
-  await readResponse();
-  await sendCommand('QUIT');
-
-  conn.close();
 }
 
 Deno.serve(async (req: Request) => {
