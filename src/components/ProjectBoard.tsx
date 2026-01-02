@@ -2215,7 +2215,7 @@ export function ProjectBoard() {
           <div className="p-8">
             <div className="flex justify-between items-center mb-6">
               <div className="flex-1">
-                {!selectedMarketingProject && !isAdminSection && !isComSecSection && (
+                {!selectedMarketingProject && !isAdminSection && !isComSecSection && !isFundingProjectType && (
                   <>
                     <h2 className="text-2xl font-bold text-slate-900">
                       {isClientSection ? 'Clients' : (
@@ -2243,30 +2243,6 @@ export function ProjectBoard() {
                             </div>
                           ))}
                         </div>
-                      </div>
-                    )}
-                    {isFundingProjectType && !isClientSection && fundingProjectTab !== 'dashboard' && fundingProjectTab !== 'meetings' && fundingProjectTab !== 'resources' && (
-                      <div className="flex gap-2 mt-4">
-                        <button
-                          onClick={() => setFundingProjectTab('projects')}
-                          className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
-                            fundingProjectTab === 'projects'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                          }`}
-                        >
-                          Projects
-                        </button>
-                        <button
-                          onClick={() => setFundingProjectTab('invoices')}
-                          className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
-                            fundingProjectTab === 'invoices'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                          }`}
-                        >
-                          Invoices
-                        </button>
                       </div>
                     )}
                   </>
