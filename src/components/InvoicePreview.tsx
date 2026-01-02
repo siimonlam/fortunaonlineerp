@@ -11,7 +11,6 @@ interface InvoicePreviewProps {
 
 export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePreviewProps) {
   const [pdfUrl, setPdfUrl] = useState<string>('');
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [iframeError, setIframeError] = useState(false);
 
   useEffect(() => {
@@ -40,6 +39,13 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
     URL.revokeObjectURL(downloadUrl);
   };
 
+  const handleOpenInNewTab = () => {
+    const newWindow = window.open(pdfUrl, '_blank');
+    if (!newWindow) {
+      alert('Please allow popups to open PDF in a new tab');
+    }
+  };
+
   const handleSave = async () => {
     // Flatten the PDF before saving to make it non-editable
     try {
@@ -63,22 +69,22 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
-      <div className={`bg-white rounded-lg shadow-xl w-full overflow-hidden flex flex-col transition-all ${
-        isFullscreen ? 'h-screen max-w-full m-0' : 'max-w-[95vw] max-h-[98vh] lg:max-w-7xl'
-      }`}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-[95vw] max-h-[98vh] lg:max-w-7xl overflow-hidden flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
           <div>
             <h2 className="text-xl font-semibold text-slate-800">Invoice Preview</h2>
-            <p className="text-sm text-slate-600 mt-1">Click on any field below to edit. Saved PDF will be non-editable.</p>
+            <p className="text-sm text-slate-600 mt-1">
+              Click on any field to edit. If preview is blank, click "Open in New Tab" for full editing.
+            </p>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => setIsFullscreen(!isFullscreen)}
+              onClick={handleOpenInNewTab}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+              title="Open in new tab for better editing"
             >
               <Maximize2 className="w-4 h-4" />
-              {isFullscreen ? 'Exit' : 'Fullscreen'}
+              Open in New Tab
             </button>
             <button
               onClick={handleDownload}
@@ -121,18 +127,24 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
                 </button>
               </div>
             ) : (
-              <iframe
-                src={`${pdfUrl}#view=FitH`}
+              <object
+                data={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                type="application/pdf"
                 className="w-full h-full border-0"
-                title="Invoice Preview"
                 onLoad={() => {
-                  console.log('Iframe loaded successfully');
+                  console.log('PDF loaded successfully');
                 }}
                 onError={(e) => {
-                  console.error('Iframe failed to load PDF', e);
+                  console.error('Failed to load PDF', e);
                   setIframeError(true);
                 }}
-              />
+              >
+                <embed
+                  src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                  type="application/pdf"
+                  className="w-full h-full border-0"
+                />
+              </object>
             )}
           </div>
         </div>
