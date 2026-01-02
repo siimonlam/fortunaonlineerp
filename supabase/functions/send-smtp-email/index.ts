@@ -26,6 +26,7 @@ interface EmailPayload {
     filename: string;
     content: string;
     encoding?: string;
+    contentType?: string;
   }>;
 }
 

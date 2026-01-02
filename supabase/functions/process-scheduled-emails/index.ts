@@ -208,6 +208,7 @@ Deno.serve(async (req: Request) => {
                 filename: file.filename,
                 content: file.content,
                 encoding: 'base64',
+                contentType: file.mimeType,
               });
             } catch (error) {
               console.error(`Failed to download file ${fileId}:`, error);
@@ -232,10 +233,15 @@ Deno.serve(async (req: Request) => {
                   const uint8Array = new Uint8Array(arrayBuffer);
                   const content = btoa(String.fromCharCode(...uint8Array));
 
+                  const mimeType = fileData.type || 'application/octet-stream';
+                  const filename = resource.title || 'attachment';
+                  const finalFilename = filename.includes('.') ? filename : `${filename}.pdf`;
+
                   attachments.push({
-                    filename: resource.title || 'attachment',
+                    filename: finalFilename,
                     content: content,
                     encoding: 'base64',
+                    contentType: mimeType,
                   });
                 }
               }
