@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
@@ -42,6 +42,7 @@ export function ShareResourcesPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
   const [emailForm, setEmailForm] = useState({
     from_account_id: '',
     recipient_emails: '',
@@ -386,6 +387,7 @@ export function ShareResourcesPage() {
     now.setMinutes(now.getMinutes() + 5);
     const scheduledDate = now.toISOString().slice(0, 16);
 
+    setSelectedResource(resource || null);
     setEmailForm({
       from_account_id: emailAccounts[0].id,
       recipient_emails: '',
@@ -433,24 +435,43 @@ export function ShareResourcesPage() {
         ? new Date().toISOString()
         : new Date(emailForm.scheduled_date).toISOString();
 
+      const attachmentData: any = {
+        project_id: null,
+        user_id: user.id,
+        from_account_id: emailForm.from_account_id,
+        recipient_emails: recipientEmails,
+        subject: emailForm.subject,
+        body: emailForm.body,
+        scheduled_date: scheduledDate,
+        status: 'pending',
+        send_immediately: emailForm.send_immediately
+      };
+
+      if (selectedResource) {
+        attachmentData.attachment_type = 'share_resource';
+        attachmentData.attachment_ids = [selectedResource.id];
+        attachmentData.attachment_metadata = {
+          files: [{
+            id: selectedResource.id,
+            title: selectedResource.title,
+            resource_type: selectedResource.resource_type,
+            file_path: selectedResource.file_path,
+            file_name: selectedResource.file_name,
+            image_url: selectedResource.image_url,
+            external_url: selectedResource.external_url
+          }]
+        };
+      }
+
       const { error } = await supabase
         .from('scheduled_emails')
-        .insert({
-          project_id: null,
-          user_id: user.id,
-          from_account_id: emailForm.from_account_id,
-          recipient_emails: recipientEmails,
-          subject: emailForm.subject,
-          body: emailForm.body,
-          scheduled_date: scheduledDate,
-          status: 'pending',
-          send_immediately: emailForm.send_immediately
-        });
+        .insert(attachmentData);
 
       if (error) throw error;
 
       alert(emailForm.send_immediately ? 'Email scheduled to send immediately' : 'Email scheduled successfully');
       setShowEmailModal(false);
+      setSelectedResource(null);
     } catch (err) {
       console.error('Error scheduling email:', err);
       alert('Failed to schedule email');
@@ -945,11 +966,11 @@ export function ShareResourcesPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Search Company
+                    Search Company or Contact
                   </label>
                   <div className="relative">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
                         type="text"
                         value={searchQuery}
@@ -960,12 +981,12 @@ export function ShareResourcesPage() {
                         onFocus={() => {
                           if (clients.length > 0) setShowClientDropdown(true);
                         }}
-                        placeholder="Search by company name or contact person..."
-                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Type company name or contact person..."
+                        className="w-full pl-12 pr-4 py-3 text-base border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                       />
                     </div>
                     {showClientDropdown && clients.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border-2 border-slate-300 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                      <div className="absolute z-50 w-full mt-2 bg-white border-2 border-blue-200 rounded-lg shadow-2xl max-h-80 overflow-y-auto">
                         {clients.map((client, idx) => (
                           <button
                             key={`${client.source}-${client.client_number}-${idx}`}
@@ -974,11 +995,11 @@ export function ShareResourcesPage() {
                               e.preventDefault();
                               selectClient(client);
                             }}
-                            className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-slate-200 last:border-b-0 transition-colors"
+                            className="w-full px-5 py-4 text-left hover:bg-blue-50 border-b border-slate-200 last:border-b-0 transition-all hover:shadow-sm"
                           >
-                            <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
-                                <div className="font-medium text-slate-900">
+                                <div className="font-semibold text-base text-slate-900">
                                   {client.company_name}
                                   {client.company_name_chinese && (
                                     <span className="text-slate-600"> ({client.company_name_chinese})</span>
@@ -988,13 +1009,19 @@ export function ShareResourcesPage() {
                                   )}
                                 </div>
                                 {client.contact_person && (
-                                  <div className="text-sm text-slate-600 mt-1">{client.contact_person}</div>
+                                  <div className="text-sm text-slate-600 mt-1.5 flex items-center gap-1">
+                                    <span className="text-slate-400">Contact:</span>
+                                    <span className="font-medium">{client.contact_person}</span>
+                                  </div>
                                 )}
                                 {client.contact_email && (
-                                  <div className="text-sm text-blue-600 mt-1 font-medium">{client.contact_email}</div>
+                                  <div className="text-base text-blue-600 mt-2 font-semibold flex items-center gap-1">
+                                    <Mail className="w-4 h-4" />
+                                    {client.contact_email}
+                                  </div>
                                 )}
                               </div>
-                              <span className="flex-shrink-0 text-xs px-2 py-1 bg-slate-200 text-slate-700 rounded font-medium">
+                              <span className="flex-shrink-0 text-xs px-2.5 py-1.5 bg-slate-200 text-slate-700 rounded-md font-semibold">
                                 {client.source}
                               </span>
                             </div>
@@ -1003,8 +1030,9 @@ export function ShareResourcesPage() {
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Search and select companies to add their contact emails
+                  <p className="text-xs text-slate-600 mt-2 flex items-center gap-1">
+                    <span className="text-blue-600">💡</span>
+                    <span className="font-medium">Click any result to automatically add their email address</span>
                   </p>
                 </div>
 
@@ -1050,6 +1078,34 @@ export function ShareResourcesPage() {
                     required
                   />
                 </div>
+
+                {selectedResource && (
+                  <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <Paperclip className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-green-900">Attachment included</p>
+                        <p className="text-sm text-green-700 mt-1">
+                          {selectedResource.resource_type === 'file' && selectedResource.file_name}
+                          {selectedResource.resource_type === 'image' && 'Image: ' + selectedResource.title}
+                          {selectedResource.resource_type === 'link' && 'Link: ' + selectedResource.title}
+                          {selectedResource.resource_type === 'text' && 'Text: ' + selectedResource.title}
+                          {selectedResource.resource_type === 'email' && 'Email Template: ' + selectedResource.title}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedResource(null)}
+                        className="p-2 text-green-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove attachment"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="border-t border-slate-200 pt-4">
                   <div className="flex items-center gap-4 mb-4">
