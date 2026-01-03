@@ -159,6 +159,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         setCampaigns([]);
         setAdSets([]);
         setAds([]);
+        setDemographics([]);
         return;
       }
 
@@ -206,37 +207,37 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       setCampaigns(metrics);
 
       if (metrics.length > 0) {
-        const allCampaignIds = metrics.map(c => c.campaign_id);
         loadAdSets(monthlyData);
       }
+
+      loadDemographics(accountIds);
     } catch (err: any) {
       console.error('Error loading campaign metrics:', err);
     }
   };
 
-  const loadDemographics = async (campaignIds: string[]) => {
+  const loadDemographics = async (accountIds: string[]) => {
     try {
-      const { data: adIds } = await supabase
-        .from('meta_ads')
-        .select('ad_id')
-        .in('campaign_id', campaignIds);
-
-      if (!adIds || adIds.length === 0) return;
-
-      const adIdList = adIds.map(a => a.ad_id);
+      const [year, month] = selectedMonth.split('-');
+      const monthStart = `${year}-${month}-01`;
 
       const { data: demographics } = await supabase
-        .from('meta_ad_insights_demographics')
-        .select('age, gender, country, impressions, clicks, spend, results')
-        .in('ad_id', adIdList);
+        .from('meta_monthly_demographics')
+        .select('age_group, gender, country, impressions, clicks, spend, reach, results, conversions')
+        .in('account_id', accountIds)
+        .gte('month_year', monthStart)
+        .lt('month_year', `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`);
 
-      if (!demographics) return;
+      if (!demographics || demographics.length === 0) {
+        setDemographics([]);
+        return;
+      }
 
       const aggregated = demographics.reduce((acc: any, demo: any) => {
-        const key = `${demo.age || 'unknown'}_${demo.gender || 'unknown'}_${demo.country || 'unknown'}`;
+        const key = `${demo.age_group || 'unknown'}_${demo.gender || 'unknown'}_${demo.country || 'unknown'}`;
         if (!acc[key]) {
           acc[key] = {
-            age: demo.age || 'Unknown',
+            age: demo.age_group || 'Unknown',
             gender: demo.gender || 'Unknown',
             country: demo.country || 'Unknown',
             impressions: 0,
