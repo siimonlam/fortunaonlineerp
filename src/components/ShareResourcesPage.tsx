@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
@@ -43,6 +43,10 @@ export function ShareResourcesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+  const [driveFiles, setDriveFiles] = useState<any[]>([]);
+  const [selectedDriveFiles, setSelectedDriveFiles] = useState<any[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
   const [emailForm, setEmailForm] = useState({
     from_account_id: '',
     recipient_emails: '',
@@ -161,6 +165,46 @@ export function ShareResourcesPage() {
     setSearchQuery('');
     setShowClientDropdown(false);
     setClients([]);
+  };
+
+  const fetchDriveFiles = async () => {
+    const folderId = '0AK-QGp_5SOJWUk9PVA';
+    setLoadingFiles(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${folderId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          }
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch Google Drive files');
+
+      const data = await response.json();
+      setDriveFiles(data.files || []);
+    } catch (error: any) {
+      console.error('Error fetching drive files:', error);
+      alert(error.message || 'Failed to load Google Drive files');
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
+  const toggleDriveFileSelection = (file: any) => {
+    const exists = selectedDriveFiles.find(f => f.id === file.id);
+    if (exists) {
+      setSelectedDriveFiles(selectedDriveFiles.filter(f => f.id !== file.id));
+    } else {
+      setSelectedDriveFiles([...selectedDriveFiles, file]);
+    }
+  };
+
+  const openAttachmentModal = () => {
+    setShowAttachmentModal(true);
+    fetchDriveFiles();
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -447,20 +491,38 @@ export function ShareResourcesPage() {
         send_immediately: emailForm.send_immediately
       };
 
+      const allAttachments: any[] = [];
+
       if (selectedResource) {
-        attachmentData.attachment_type = 'share_resource';
-        attachmentData.attachment_ids = [selectedResource.id];
-        attachmentData.attachment_metadata = {
-          files: [{
-            id: selectedResource.id,
-            title: selectedResource.title,
-            resource_type: selectedResource.resource_type,
-            file_path: selectedResource.file_path,
-            file_name: selectedResource.file_name,
-            image_url: selectedResource.image_url,
-            external_url: selectedResource.external_url
-          }]
-        };
+        allAttachments.push({
+          id: selectedResource.id,
+          title: selectedResource.title,
+          resource_type: selectedResource.resource_type,
+          file_path: selectedResource.file_path,
+          file_name: selectedResource.file_name,
+          image_url: selectedResource.image_url,
+          external_url: selectedResource.external_url,
+          source: 'share_resource'
+        });
+      }
+
+      if (selectedDriveFiles.length > 0) {
+        selectedDriveFiles.forEach(file => {
+          allAttachments.push({
+            id: file.id,
+            name: file.name,
+            mimeType: file.mimeType,
+            size: file.size,
+            webViewLink: file.webViewLink,
+            source: 'google_drive'
+          });
+        });
+      }
+
+      if (allAttachments.length > 0) {
+        attachmentData.attachment_type = 'mixed';
+        attachmentData.attachment_ids = allAttachments.map(a => a.id);
+        attachmentData.attachment_metadata = { files: allAttachments };
       }
 
       const { error } = await supabase
@@ -472,6 +534,10 @@ export function ShareResourcesPage() {
       alert(emailForm.send_immediately ? 'Email scheduled to send immediately' : 'Email scheduled successfully');
       setShowEmailModal(false);
       setSelectedResource(null);
+      setSelectedDriveFiles([]);
+      setSearchQuery('');
+      setClients([]);
+      setShowClientDropdown(false);
     } catch (err) {
       console.error('Error scheduling email:', err);
       alert('Failed to schedule email');
@@ -1079,33 +1145,73 @@ export function ShareResourcesPage() {
                   />
                 </div>
 
-                {selectedResource && (
-                  <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <Paperclip className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-green-900">Attachment included</p>
-                        <p className="text-sm text-green-700 mt-1">
-                          {selectedResource.resource_type === 'file' && selectedResource.file_name}
-                          {selectedResource.resource_type === 'image' && 'Image: ' + selectedResource.title}
-                          {selectedResource.resource_type === 'link' && 'Link: ' + selectedResource.title}
-                          {selectedResource.resource_type === 'text' && 'Text: ' + selectedResource.title}
-                          {selectedResource.resource_type === 'email' && 'Email Template: ' + selectedResource.title}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedResource(null)}
-                        className="p-2 text-green-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remove attachment"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                <div className="border-t border-slate-200 pt-4">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Attachments (Optional)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={openAttachmentModal}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border-2 border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <Folder className="w-4 h-4" />
+                    Browse Google Drive Files
+                  </button>
+
+                  {(selectedResource || selectedDriveFiles.length > 0) && (
+                    <div className="mt-3 space-y-2">
+                      {selectedResource && (
+                        <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 rounded-lg">
+                              <Paperclip className="w-4 h-4 text-green-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-green-900">Share Resource</p>
+                              <p className="text-sm text-green-700 truncate">
+                                {selectedResource.resource_type === 'file' && selectedResource.file_name}
+                                {selectedResource.resource_type === 'image' && 'Image: ' + selectedResource.title}
+                                {selectedResource.resource_type === 'link' && 'Link: ' + selectedResource.title}
+                                {selectedResource.resource_type === 'text' && 'Text: ' + selectedResource.title}
+                                {selectedResource.resource_type === 'email' && 'Email Template: ' + selectedResource.title}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedResource(null)}
+                              className="p-2 text-green-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Remove attachment"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedDriveFiles.length > 0 && (
+                        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Folder className="w-4 h-4 text-blue-600" />
+                            <p className="text-sm font-semibold text-blue-900">
+                              Google Drive Files ({selectedDriveFiles.length})
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            {selectedDriveFiles.map((file, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-sm text-blue-700">
+                                <FileText className="w-3 h-3" />
+                                <span className="truncate">{file.name}</span>
+                                {file.size && (
+                                  <span className="text-xs text-blue-600">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <div className="border-t border-slate-200 pt-4">
                   <div className="flex items-center gap-4 mb-4">
@@ -1180,6 +1286,73 @@ export function ShareResourcesPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAttachmentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">
+                Select Files from Share Resources
+              </h3>
+              <button
+                onClick={() => setShowAttachmentModal(false)}
+                className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingFiles ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="text-slate-600 mt-2">Loading files...</p>
+                </div>
+              ) : driveFiles.length === 0 ? (
+                <div className="text-center py-8">
+                  <Folder className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                  <p className="text-slate-600">No files found in Google Drive folder</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {driveFiles.map((file) => (
+                    <label
+                      key={file.id}
+                      className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedDriveFiles.some(f => f.id === file.id)}
+                        onChange={() => toggleDriveFileSelection(file)}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                      />
+                      <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 truncate">{file.name}</p>
+                        {file.size && (
+                          <p className="text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-200 flex justify-between items-center">
+              <p className="text-sm text-slate-600">
+                {selectedDriveFiles.length} file(s) selected
+              </p>
+              <button
+                onClick={() => setShowAttachmentModal(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>
