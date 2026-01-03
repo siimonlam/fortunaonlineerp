@@ -87,6 +87,17 @@ Deno.serve(async (req: Request) => {
     if (customDateRange) {
       const timeRangeObj = JSON.stringify({ since: customDateRange.since, until: customDateRange.until });
       timeRangeParam = `time_range=${encodeURIComponent(timeRangeObj)}`;
+    } else if (datePreset === 'last_6_months') {
+      // Calculate explicit date range for better reliability
+      const today = new Date();
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(today.getMonth() - 6);
+
+      const since = sixMonthsAgo.toISOString().split('T')[0];
+      const until = today.toISOString().split('T')[0];
+
+      const timeRangeObj = JSON.stringify({ since, until });
+      timeRangeParam = `time_range=${encodeURIComponent(timeRangeObj)}`;
     } else {
       timeRangeParam = `date_preset=${datePreset}`;
     }
@@ -96,6 +107,11 @@ Deno.serve(async (req: Request) => {
     console.log(`Date preset: ${datePreset}`);
     if (customDateRange) {
       console.log(`Custom range: ${customDateRange.since} to ${customDateRange.until}`);
+    } else if (datePreset === 'last_6_months') {
+      const today = new Date();
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(today.getMonth() - 6);
+      console.log(`Calculated range: ${sixMonthsAgo.toISOString().split('T')[0]} to ${today.toISOString().split('T')[0]}`);
     }
     console.log(`========================================\n`);
 
