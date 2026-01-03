@@ -47,18 +47,18 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
       const monthMap = new Map<string, MonthlyData>();
 
       (insights || []).forEach((insight: MonthlyInsight) => {
-        const monthKey = insight.month_year;
+        const monthKey = insight.month_year.slice(0, 7);
 
         if (!monthMap.has(monthKey)) {
           monthMap.set(monthKey, {
-            month: formatMonthYear(insight.month_year),
+            month: formatMonthYear(monthKey),
             spend: 0,
             roas: 0,
             clicks: 0,
             cpc: 0,
             impressions: 0,
             results: 0,
-            isCurrentMonth: insight.month_year === currentMonth
+            isCurrentMonth: monthKey === currentMonth
           });
         }
 
