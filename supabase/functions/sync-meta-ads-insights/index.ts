@@ -111,6 +111,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Limit to first 3 campaigns to prevent timeout
+    const campaignsToProcess = campaigns.slice(0, 3);
+    const hasMore = campaigns.length > 3;
+
     let totalSynced = 0;
     let totalAds = 0;
     let totalAdSets = 0;
@@ -118,13 +122,17 @@ Deno.serve(async (req: Request) => {
     const errors: string[] = [];
 
     console.log(`\n========================================`);
-    console.log(`Starting sync for ${campaigns.length} campaigns`);
+    console.log(`Starting sync for ${campaignsToProcess.length} of ${campaigns.length} campaigns`);
     console.log(`Date range: ${since} to ${until}`);
+    if (hasMore) {
+      console.log(`WARNING: Processing only first 3 campaigns to avoid timeout`);
+      console.log(`Remaining campaigns will need separate sync requests`);
+    }
     console.log(`========================================\n`);
 
-    for (let i = 0; i < campaigns.length; i++) {
-      const campaign = campaigns[i];
-      console.log(`\n[${i + 1}/${campaigns.length}] Processing campaign: ${campaign.name} (${campaign.campaign_id})`);
+    for (let i = 0; i < campaignsToProcess.length; i++) {
+      const campaign = campaignsToProcess[i];
+      console.log(`\n[${i + 1}/${campaignsToProcess.length}] Processing campaign: ${campaign.name} (${campaign.campaign_id})`);
 
       // First, fetch and save all adsets for this campaign
       const adsetsUrl = `https://graph.facebook.com/v21.0/${campaign.campaign_id}/adsets?fields=id,name,status,daily_budget,lifetime_budget,targeting,billing_event,optimization_goal,bid_amount,created_time,updated_time&access_token=${accessToken}`;
@@ -384,16 +392,23 @@ Deno.serve(async (req: Request) => {
     console.log(`Errors encountered: ${errors.length}`);
     console.log(`========================================\n`);
 
+    const message = hasMore
+      ? `Synced ${totalSynced} insights records from ${totalAds} ads. Processed ${totalCampaignsProcessed} of ${campaigns.length} campaigns. ${campaigns.length - totalCampaignsProcessed} campaigns remaining - please sync again.`
+      : errors.length === 0
+        ? `Successfully synced ${totalSynced} insights records from ${totalAds} ads in ${totalAdSets} ad sets across ${totalCampaignsProcessed} campaigns`
+        : `Synced ${totalSynced} insights records with ${errors.length} errors`;
+
     return new Response(
       JSON.stringify({
         success: errors.length === 0,
-        message: errors.length === 0
-          ? `Successfully synced ${totalSynced} insights records from ${totalAds} ads in ${totalAdSets} ad sets across ${totalCampaignsProcessed} campaigns`
-          : `Synced ${totalSynced} insights records with ${errors.length} errors`,
+        message,
         synced: totalSynced,
         campaigns: totalCampaignsProcessed,
+        totalCampaigns: campaigns.length,
         totalAdSets,
         totalAds,
+        hasMore,
+        remainingCampaigns: campaigns.length - totalCampaignsProcessed,
         errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
         hasMoreErrors: errors.length > 10
       }),
