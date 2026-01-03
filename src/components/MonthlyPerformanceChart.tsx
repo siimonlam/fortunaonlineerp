@@ -83,7 +83,7 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
     }
   };
 
-  const syncCurrentMonth = async () => {
+  const syncMonthlyData = async (preset: 'this_month' | 'last_6_months') => {
     setSyncing(true);
     try {
       const response = await fetch(
@@ -96,7 +96,7 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
           },
           body: JSON.stringify({
             accountId,
-            datePreset: 'last_6_months'
+            datePreset: preset
           })
         }
       );
@@ -150,7 +150,7 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
         <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
         <p className="text-gray-600 mb-4">No monthly data available</p>
         <button
-          onClick={syncCurrentMonth}
+          onClick={() => syncMonthlyData('last_6_months')}
           disabled={syncing}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
         >
@@ -164,14 +164,24 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900">Monthly Performance (Last 6 Months)</h3>
-        <button
-          onClick={syncCurrentMonth}
-          disabled={syncing}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Syncing...' : 'Sync Last 6 Months'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => syncMonthlyData('this_month')}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync This Month'}
+          </button>
+          <button
+            onClick={() => syncMonthlyData('last_6_months')}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync Last 6 Months'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
