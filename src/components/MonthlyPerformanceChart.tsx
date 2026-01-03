@@ -32,10 +32,14 @@ interface DemographicData {
   results: number;
 }
 
-export default function MonthlyPerformanceChart({ accountId }: { accountId: string }) {
+interface Props {
+  accountId: string;
+  selectedMonth: string;
+}
+
+export default function MonthlyPerformanceChart({ accountId, selectedMonth }: Props) {
   const [data, setData] = useState<MonthlyData[]>([]);
   const [allMonths, setAllMonths] = useState<MonthlyData[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [demographics, setDemographics] = useState<DemographicData[]>([]);
@@ -46,12 +50,17 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
   }, [accountId]);
 
   useEffect(() => {
-    if (selectedMonth !== 'all') {
-      fetchDemographicData(selectedMonth);
-    } else {
-      const months = data.map(d => d.month);
-      if (months.length > 0) {
-        fetchDemographicData(months);
+    if (data.length > 0) {
+      const monthToFetch = convertMonthFormatToDisplayFormat(selectedMonth);
+      const monthExists = data.find(d => d.month === monthToFetch);
+
+      if (monthExists) {
+        fetchDemographicData(monthToFetch);
+      } else {
+        const months = data.map(d => d.month);
+        if (months.length > 0) {
+          fetchDemographicData(months);
+        }
       }
     }
   }, [selectedMonth, data]);
@@ -220,6 +229,12 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
 
+  const convertMonthFormatToDisplayFormat = (monthStr: string): string => {
+    const [year, month] = monthStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  };
+
   const formatCurrency = (amount: number) => {
     return `HK$${amount.toFixed(2)}`;
   };
@@ -260,26 +275,15 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
     );
   }
 
-  const displayData = selectedMonth === 'all' ? data : data.filter(d => d.month === selectedMonth);
-  const statsData = selectedMonth === 'all' ? data : displayData;
+  const displayMonth = convertMonthFormatToDisplayFormat(selectedMonth);
+  const displayData = data.filter(d => d.month === displayMonth);
+  const statsData = displayData.length > 0 ? displayData : data.slice(-6);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900">Monthly Performance</h3>
         <div className="flex items-center gap-2">
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="all">Last 6 Months</option>
-            {allMonths.slice(-12).map((month) => (
-              <option key={month.month} value={month.month}>
-                {month.month}
-              </option>
-            ))}
-          </select>
           <button
             onClick={() => syncMonthlyData('this_month')}
             disabled={syncing}
@@ -303,34 +307,30 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
         <div className="bg-blue-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 text-blue-600 mb-2">
             <DollarSign className="w-5 h-5" />
-            <span className="text-sm font-medium">{selectedMonth === 'all' ? 'Total' : 'Month'} Spend</span>
+            <span className="text-sm font-medium">Month Spend</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{formatCurrency(statsData.reduce((sum, d) => sum + d.spend, 0))}</p>
         </div>
         <div className="bg-green-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 text-green-600 mb-2">
             <TrendingUp className="w-5 h-5" />
-            <span className="text-sm font-medium">{selectedMonth === 'all' ? 'Avg' : 'Month'} ROAS</span>
+            <span className="text-sm font-medium">Month ROAS</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">
-            {statsData.length > 0
-              ? (selectedMonth === 'all'
-                  ? (statsData.reduce((sum, d) => sum + d.roas, 0) / statsData.length).toFixed(2)
-                  : statsData[0].roas.toFixed(2))
-              : '0.00'}x
+            {statsData.length > 0 && statsData[0].roas ? statsData[0].roas.toFixed(2) : '0.00'}x
           </p>
         </div>
         <div className="bg-amber-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 text-amber-600 mb-2">
             <MousePointer className="w-5 h-5" />
-            <span className="text-sm font-medium">{selectedMonth === 'all' ? 'Total' : 'Month'} Clicks</span>
+            <span className="text-sm font-medium">Month Clicks</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{formatNumber(statsData.reduce((sum, d) => sum + d.clicks, 0))}</p>
         </div>
         <div className="bg-orange-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 text-orange-600 mb-2">
             <Target className="w-5 h-5" />
-            <span className="text-sm font-medium">{selectedMonth === 'all' ? 'Avg' : 'Month'} CPC</span>
+            <span className="text-sm font-medium">Month CPC</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {(() => {
@@ -344,7 +344,7 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
 
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h4 className="text-sm font-medium text-gray-700 mb-4">
-          {selectedMonth === 'all' ? 'Spend vs ROAS Comparison' : `${selectedMonth} - Spend vs ROAS`}
+          {displayData.length > 0 ? `${displayMonth} - Spend vs ROAS` : 'Spend vs ROAS Comparison'}
         </h4>
         <div className="space-y-6">
           {displayData.map((month, index) => (
@@ -458,35 +458,6 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
                 </tr>
               ))}
             </tbody>
-            {selectedMonth === 'all' && (
-              <tfoot className="bg-gray-50 font-semibold">
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Total / Average</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {formatCurrency(statsData.reduce((sum, d) => sum + d.spend, 0))}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {(statsData.reduce((sum, d) => sum + d.roas, 0) / statsData.length).toFixed(2)}x
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {formatNumber(statsData.reduce((sum, d) => sum + d.clicks, 0))}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {(() => {
-                      const totalSpend = statsData.reduce((sum, d) => sum + d.spend, 0);
-                      const totalClicks = statsData.reduce((sum, d) => sum + d.clicks, 0);
-                      return formatCurrency(totalClicks > 0 ? totalSpend / totalClicks : 0);
-                    })()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {formatNumber(statsData.reduce((sum, d) => sum + d.impressions, 0))}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {formatNumber(statsData.reduce((sum, d) => sum + d.results, 0))}
-                  </td>
-                </tr>
-              </tfoot>
-            )}
           </table>
         </div>
       </div>

@@ -159,13 +159,19 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       const [year, month] = selectedMonth.split('-');
       const monthStart = `${year}-${month}-01`;
 
+      // Calculate next month (handle December -> January of next year)
+      const currentMonth = Number(month);
+      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+      const nextYear = currentMonth === 12 ? Number(year) + 1 : Number(year);
+      const monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
       // Query monthly insights for the selected month
       const { data: monthlyData } = await supabase
         .from('meta_monthly_insights')
         .select('*')
         .eq('account_id', accountId)
         .gte('month_year', monthStart)
-        .lt('month_year', `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`);
+        .lt('month_year', monthEnd);
 
       if (!monthlyData || monthlyData.length === 0) {
         setCampaigns([]);
@@ -233,12 +239,18 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       const [year, month] = selectedMonth.split('-');
       const monthStart = `${year}-${month}-01`;
 
+      // Calculate next month (handle December -> January of next year)
+      const currentMonth = Number(month);
+      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+      const nextYear = currentMonth === 12 ? Number(year) + 1 : Number(year);
+      const monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
       const { data: demographics } = await supabase
         .from('meta_monthly_demographics')
         .select('age_group, gender, country, impressions, clicks, spend, reach, results, conversions')
         .eq('account_id', accountId)
         .gte('month_year', monthStart)
-        .lt('month_year', `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`);
+        .lt('month_year', monthEnd);
 
       if (!demographics || demographics.length === 0) {
         setDemographics([]);
@@ -950,7 +962,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
                     {reportView === 'monthly' && (
                       <div className="mt-4">
-                        <MonthlyPerformanceChart accountId={link.account_id} />
+                        <MonthlyPerformanceChart accountId={link.account_id} selectedMonth={selectedMonth} />
                       </div>
                     )}
 
