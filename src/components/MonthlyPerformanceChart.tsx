@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, TrendingUp, DollarSign, MousePointer, Target } from 'lucide-react';
+import { RefreshCw, TrendingUp, DollarSign, MousePointer, Target, Users, User } from 'lucide-react';
 
 interface MonthlyInsight {
   month_year: string;
@@ -22,16 +22,39 @@ interface MonthlyData {
   isCurrentMonth: boolean;
 }
 
+interface DemographicData {
+  age_group: string;
+  gender: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  reach: number;
+  results: number;
+}
+
 export default function MonthlyPerformanceChart({ accountId }: { accountId: string }) {
   const [data, setData] = useState<MonthlyData[]>([]);
   const [allMonths, setAllMonths] = useState<MonthlyData[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [demographics, setDemographics] = useState<DemographicData[]>([]);
+  const [genderData, setGenderData] = useState<{ gender: string; spend: number; impressions: number; clicks: number; results: number }[]>([]);
 
   useEffect(() => {
     fetchMonthlyData();
   }, [accountId]);
+
+  useEffect(() => {
+    if (selectedMonth !== 'all') {
+      fetchDemographicData(selectedMonth);
+    } else {
+      const months = data.map(d => d.month);
+      if (months.length > 0) {
+        fetchDemographicData(months);
+      }
+    }
+  }, [selectedMonth, data]);
 
   const fetchMonthlyData = async () => {
     setLoading(true);
@@ -88,6 +111,66 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchDemographicData = async (months: string | string[]) => {
+    try {
+      let query = supabase
+        .from('meta_monthly_demographics')
+        .select('*')
+        .eq('account_id', accountId);
+
+      if (typeof months === 'string') {
+        const monthYear = convertToMonthYear(months);
+        query = query.like('month_year', `${monthYear}%`);
+      } else {
+        const monthYears = months.map(m => convertToMonthYear(m));
+        const orConditions = monthYears.map(my => `month_year.like.${my}%`).join(',');
+        query = query.or(orConditions);
+      }
+
+      const { data: demoData, error } = await query;
+
+      if (error) throw error;
+
+      setDemographics(demoData || []);
+
+      const genderMap = new Map<string, { spend: number; impressions: number; clicks: number; results: number }>();
+
+      (demoData || []).forEach((demo: any) => {
+        const gender = demo.gender || 'unknown';
+        if (!genderMap.has(gender)) {
+          genderMap.set(gender, { spend: 0, impressions: 0, clicks: 0, results: 0 });
+        }
+        const genderStats = genderMap.get(gender)!;
+        genderStats.spend += Number(demo.spend) || 0;
+        genderStats.impressions += Number(demo.impressions) || 0;
+        genderStats.clicks += Number(demo.clicks) || 0;
+        genderStats.results += Number(demo.results) || 0;
+      });
+
+      const genderArray = Array.from(genderMap.entries()).map(([gender, stats]) => ({
+        gender,
+        ...stats
+      })).sort((a, b) => b.spend - a.spend);
+
+      setGenderData(genderArray);
+    } catch (error) {
+      console.error('Error fetching demographic data:', error);
+    }
+  };
+
+  const convertToMonthYear = (monthStr: string): string => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const parts = monthStr.split(' ');
+    if (parts.length !== 2) return monthStr;
+
+    const monthIndex = monthNames.indexOf(parts[0]);
+    if (monthIndex === -1) return monthStr;
+
+    const year = parts[1];
+    const month = String(monthIndex + 1).padStart(2, '0');
+    return `${year}-${month}`;
   };
 
   const syncMonthlyData = async (preset: 'this_month' | 'last_6_months') => {
@@ -407,6 +490,223 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
           </table>
         </div>
       </div>
+
+      {genderData.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="w-5 h-5 text-blue-600" />
+              <h4 className="text-lg font-semibold text-gray-900">Gender Distribution</h4>
+            </div>
+            <div className="space-y-4">
+              {genderData.map((item, index) => {
+                const totalSpend = genderData.reduce((sum, g) => sum + g.spend, 0);
+                const percentage = totalSpend > 0 ? (item.spend / totalSpend) * 100 : 0;
+                const genderLabel = item.gender === 'male' ? 'Male' : item.gender === 'female' ? 'Female' : 'Unknown';
+                const genderColor = item.gender === 'male' ? 'bg-blue-500' : item.gender === 'female' ? 'bg-pink-500' : 'bg-gray-500';
+
+                return (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <User className={`w-4 h-4 ${item.gender === 'male' ? 'text-blue-600' : item.gender === 'female' ? 'text-pink-600' : 'text-gray-600'}`} />
+                        <span className="font-medium text-gray-700">{genderLabel}</span>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {formatCurrency(item.spend)} ({percentage.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="bg-gray-100 rounded-full h-6 overflow-hidden">
+                      <div
+                        className={`${genderColor} h-full rounded-full transition-all duration-500 flex items-center justify-center`}
+                        style={{ width: `${percentage}%` }}
+                      >
+                        {percentage > 15 && (
+                          <span className="text-xs font-semibold text-white">{percentage.toFixed(0)}%</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
+                      <div>Impressions: {formatNumber(item.impressions)}</div>
+                      <div>Clicks: {formatNumber(item.clicks)}</div>
+                      <div>Results: {formatNumber(item.results)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="w-5 h-5 text-purple-600" />
+              <h4 className="text-lg font-semibold text-gray-900">Age Group Distribution</h4>
+            </div>
+            <div className="space-y-4">
+              {(() => {
+                const ageGroupMap = new Map<string, { spend: number; impressions: number; clicks: number; results: number }>();
+
+                demographics.forEach((demo) => {
+                  const age = demo.age_group || 'unknown';
+                  if (!ageGroupMap.has(age)) {
+                    ageGroupMap.set(age, { spend: 0, impressions: 0, clicks: 0, results: 0 });
+                  }
+                  const ageStats = ageGroupMap.get(age)!;
+                  ageStats.spend += Number(demo.spend) || 0;
+                  ageStats.impressions += Number(demo.impressions) || 0;
+                  ageStats.clicks += Number(demo.clicks) || 0;
+                  ageStats.results += Number(demo.results) || 0;
+                });
+
+                const ageArray = Array.from(ageGroupMap.entries())
+                  .map(([age, stats]) => ({ age, ...stats }))
+                  .sort((a, b) => {
+                    if (a.age === 'unknown') return 1;
+                    if (b.age === 'unknown') return -1;
+                    const aNum = parseInt(a.age.split('-')[0]);
+                    const bNum = parseInt(b.age.split('-')[0]);
+                    return aNum - bNum;
+                  });
+
+                const totalSpend = ageArray.reduce((sum, item) => sum + item.spend, 0);
+
+                return ageArray.map((item, index) => {
+                  const percentage = totalSpend > 0 ? (item.spend / totalSpend) * 100 : 0;
+                  const colorClass = [
+                    'bg-purple-500',
+                    'bg-indigo-500',
+                    'bg-blue-500',
+                    'bg-cyan-500',
+                    'bg-teal-500',
+                    'bg-emerald-500',
+                    'bg-amber-500',
+                    'bg-orange-500',
+                    'bg-red-500',
+                    'bg-gray-500'
+                  ][index % 10];
+
+                  return (
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-700">{item.age}</span>
+                        <div className="text-sm text-gray-600">
+                          {formatCurrency(item.spend)} ({percentage.toFixed(1)}%)
+                        </div>
+                      </div>
+                      <div className="bg-gray-100 rounded-full h-6 overflow-hidden">
+                        <div
+                          className={`${colorClass} h-full rounded-full transition-all duration-500 flex items-center justify-center`}
+                          style={{ width: `${percentage}%` }}
+                        >
+                          {percentage > 15 && (
+                            <span className="text-xs font-semibold text-white">{percentage.toFixed(0)}%</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
+                        <div>Impressions: {formatNumber(item.impressions)}</div>
+                        <div>Clicks: {formatNumber(item.clicks)}</div>
+                        <div>Results: {formatNumber(item.results)}</div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {demographics.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <h4 className="text-lg font-semibold text-gray-900">Detailed Demographics Breakdown</h4>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Age Group
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Gender
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Spend
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Impressions
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Clicks
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Reach
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Results
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    CTR
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {demographics
+                  .sort((a, b) => b.spend - a.spend)
+                  .slice(0, 20)
+                  .map((demo, index) => {
+                    const ctr = demo.impressions > 0 ? (demo.clicks / demo.impressions * 100) : 0;
+                    const genderLabel = demo.gender === 'male' ? 'Male' : demo.gender === 'female' ? 'Female' : 'Unknown';
+
+                    return (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {demo.age_group}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            demo.gender === 'male' ? 'bg-blue-100 text-blue-800' :
+                            demo.gender === 'female' ? 'bg-pink-100 text-pink-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {genderLabel}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                          {formatCurrency(demo.spend)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                          {formatNumber(demo.impressions)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                          {formatNumber(demo.clicks)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                          {formatNumber(demo.reach)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                          {formatNumber(demo.results)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                          <span className={ctr >= 1 ? 'text-green-600 font-semibold' : 'text-gray-900'}>
+                            {ctr.toFixed(2)}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+          {demographics.length > 20 && (
+            <div className="px-6 py-3 bg-gray-50 text-sm text-gray-600 text-center">
+              Showing top 20 of {demographics.length} demographic segments
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
