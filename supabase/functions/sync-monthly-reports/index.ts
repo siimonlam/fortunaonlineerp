@@ -120,6 +120,29 @@ Deno.serve(async (req: Request) => {
     let totalAdSetsProcessed = 0;
     const errors: string[] = [];
 
+    // Fetch all metadata upfront to avoid repeated database calls
+    console.log('Fetching metadata for account...');
+    const { data: allAdsets } = await supabase
+      .from('meta_adsets')
+      .select('adset_id, name, client_number, marketing_reference')
+      .eq('account_id', accountId);
+
+    const { data: allCampaigns } = await supabase
+      .from('meta_campaigns')
+      .select('campaign_id, name')
+      .eq('account_id', accountId);
+
+    const { data: accountData } = await supabase
+      .from('meta_ad_accounts')
+      .select('account_name')
+      .eq('account_id', accountId)
+      .maybeSingle();
+
+    // Create lookup maps for O(1) access
+    const adsetMap = new Map((allAdsets || []).map(a => [a.adset_id, a]));
+    const campaignMap = new Map((allCampaigns || []).map(c => [c.campaign_id, c]));
+    console.log(`Loaded ${adsetMap.size} adsets, ${campaignMap.size} campaigns\n`);
+
     const baseFields = [
       'adset_id',
       'campaign_id',
@@ -143,7 +166,9 @@ Deno.serve(async (req: Request) => {
     console.log('=== FETCHING GENERAL MONTHLY INSIGHTS ===\n');
     console.log('Initial URL:', nextPageUrl.replace(accessToken, 'REDACTED'));
 
+    const insightsToUpsert: any[] = [];
     let pageCount = 0;
+
     while (nextPageUrl) {
       try {
         pageCount++;
@@ -191,23 +216,9 @@ Deno.serve(async (req: Request) => {
               }
             }
 
-            const { data: adsetData } = await supabase
-              .from('meta_adsets')
-              .select('name, client_number, marketing_reference')
-              .eq('adset_id', adsetId)
-              .maybeSingle();
-
-            const { data: campaignData } = await supabase
-              .from('meta_campaigns')
-              .select('name')
-              .eq('campaign_id', insight.campaign_id)
-              .maybeSingle();
-
-            const { data: accountData } = await supabase
-              .from('meta_ad_accounts')
-              .select('account_name')
-              .eq('account_id', accountId)
-              .maybeSingle();
+            // Use lookup maps instead of database queries
+            const adsetData = adsetMap.get(adsetId);
+            const campaignData = campaignMap.get(insight.campaign_id);
 
             const record = {
               account_id: accountId,
@@ -235,21 +246,8 @@ Deno.serve(async (req: Request) => {
               updated_at: new Date().toISOString()
             };
 
-            const { error: upsertError } = await supabase
-              .from('meta_monthly_insights')
-              .upsert(record, {
-                onConflict: 'adset_id,month_year',
-                ignoreDuplicates: false
-              });
-
-            if (upsertError) {
-              console.error(`Error upserting insight for adset ${adsetId}:`, upsertError.message);
-              errors.push(`Adset ${adsetId}: ${upsertError.message}`);
-            } else {
-              totalInsightsUpserted++;
-              totalAdSetsProcessed++;
-              console.log(`  ✓ Upserted: AdSet ${adsetId}, Month ${monthYear}, Spend: $${record.spend}, Impressions: ${record.impressions}`);
-            }
+            insightsToUpsert.push(record);
+            totalAdSetsProcessed++;
           } catch (error: any) {
             console.error(`Error processing insight record:`, error.message);
             errors.push(`Record processing error: ${error.message}`);
@@ -271,11 +269,32 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Bulk upsert all insights
+    if (insightsToUpsert.length > 0) {
+      console.log(`\nUpserting ${insightsToUpsert.length} insights to database...`);
+      const { error: bulkUpsertError } = await supabase
+        .from('meta_monthly_insights')
+        .upsert(insightsToUpsert, {
+          onConflict: 'adset_id,month_year',
+          ignoreDuplicates: false
+        });
+
+      if (bulkUpsertError) {
+        console.error('Bulk upsert error:', bulkUpsertError.message);
+        errors.push(`Bulk upsert error: ${bulkUpsertError.message}`);
+      } else {
+        totalInsightsUpserted = insightsToUpsert.length;
+        console.log(`✓ Successfully upserted ${totalInsightsUpserted} insights\n`);
+      }
+    }
+
     console.log('\n=== FETCHING DEMOGRAPHIC BREAKDOWNS ===\n');
 
     nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,campaign_id,impressions,reach,spend,clicks,conversions,date_start,date_stop&breakdowns=age,gender&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
 
+    const demographicsToUpsert: any[] = [];
     pageCount = 0;
+
     while (nextPageUrl) {
       try {
         pageCount++;
@@ -310,11 +329,8 @@ Deno.serve(async (req: Request) => {
             const ageGroup = demo.age || 'unknown';
             const gender = demo.gender || 'unknown';
 
-            const { data: adsetData } = await supabase
-              .from('meta_adsets')
-              .select('client_number, marketing_reference')
-              .eq('adset_id', adsetId)
-              .maybeSingle();
+            // Use lookup map instead of database query
+            const adsetData = adsetMap.get(adsetId);
 
             let results = 0;
             if (demo.actions && Array.isArray(demo.actions)) {
@@ -348,20 +364,7 @@ Deno.serve(async (req: Request) => {
               updated_at: new Date().toISOString()
             };
 
-            const { error: upsertError } = await supabase
-              .from('meta_monthly_demographics')
-              .upsert(record, {
-                onConflict: 'adset_id,month_year,age_group,gender,country',
-                ignoreDuplicates: false
-              });
-
-            if (upsertError) {
-              console.error(`Error upserting demographic for adset ${adsetId}:`, upsertError.message);
-              errors.push(`Adset ${adsetId} demographic: ${upsertError.message}`);
-            } else {
-              totalDemographicsUpserted++;
-              console.log(`  ✓ Upserted: AdSet ${adsetId}, Month ${monthYear}, Age ${ageGroup}, Gender ${gender}, Spend: $${record.spend}`);
-            }
+            demographicsToUpsert.push(record);
           } catch (error: any) {
             console.error(`Error processing demographic record:`, error.message);
             errors.push(`Demographic processing error: ${error.message}`);
@@ -380,6 +383,25 @@ Deno.serve(async (req: Request) => {
         console.error(`Error processing demographics page ${pageCount}:`, pageError.message);
         errors.push(`Demographics page ${pageCount} error: ${pageError.message}`);
         break;
+      }
+    }
+
+    // Bulk upsert all demographics
+    if (demographicsToUpsert.length > 0) {
+      console.log(`\nUpserting ${demographicsToUpsert.length} demographics to database...`);
+      const { error: bulkUpsertError } = await supabase
+        .from('meta_monthly_demographics')
+        .upsert(demographicsToUpsert, {
+          onConflict: 'adset_id,month_year,age_group,gender,country',
+          ignoreDuplicates: false
+        });
+
+      if (bulkUpsertError) {
+        console.error('Bulk demographics upsert error:', bulkUpsertError.message);
+        errors.push(`Bulk demographics upsert error: ${bulkUpsertError.message}`);
+      } else {
+        totalDemographicsUpserted = demographicsToUpsert.length;
+        console.log(`✓ Successfully upserted ${totalDemographicsUpserted} demographics\n`);
       }
     }
 
