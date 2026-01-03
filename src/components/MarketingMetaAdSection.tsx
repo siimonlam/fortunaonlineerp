@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { BarChart3, Plus, RefreshCw, Trash2, ExternalLink, TrendingUp, DollarSign, Eye, MousePointer, Filter, ChevronDown, Calendar } from 'lucide-react';
+import MonthlyPerformanceChart from './MonthlyPerformanceChart';
 
 interface MarketingMetaAdSectionProps {
   projectId: string;
@@ -76,7 +77,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [reportView, setReportView] = useState<'campaigns' | 'demographics' | 'adsets' | 'ads'>('campaigns');
+  const [reportView, setReportView] = useState<'monthly' | 'campaigns' | 'demographics' | 'adsets' | 'ads'>('monthly');
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [showMonthlyReportModal, setShowMonthlyReportModal] = useState(false);
   const [monthlyReportResults, setMonthlyReportResults] = useState<any>(null);
@@ -791,6 +792,16 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                   <>
                     <div className="flex gap-2 mb-4 border-b border-gray-200">
                       <button
+                        onClick={() => setReportView('monthly')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors ${
+                          reportView === 'monthly'
+                            ? 'text-blue-600 border-b-2 border-blue-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Monthly Overview
+                      </button>
+                      <button
                         onClick={() => setReportView('campaigns')}
                         className={`px-4 py-2 text-sm font-medium transition-colors ${
                           reportView === 'campaigns'
@@ -831,6 +842,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                         Ads
                       </button>
                     </div>
+
+                    {reportView === 'monthly' && (
+                      <div className="mt-4">
+                        <MonthlyPerformanceChart accountId={link.account_id} />
+                      </div>
+                    )}
 
                     {reportView === 'campaigns' && (
                       <div className="space-y-3">
