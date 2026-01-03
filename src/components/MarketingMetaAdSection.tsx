@@ -87,6 +87,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const [demographicView, setDemographicView] = useState<'age' | 'gender' | 'all'>('age');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -257,6 +259,78 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     } catch (err: any) {
       console.error('Error loading demographics:', err);
     }
+  };
+
+  const getAggregatedDemographics = () => {
+    if (demographicView === 'age') {
+      const ageAggregated = demographics.reduce((acc: any, demo: any) => {
+        const key = demo.age;
+        if (!acc[key]) {
+          acc[key] = {
+            age: demo.age,
+            impressions: 0,
+            clicks: 0,
+            spend: 0,
+            results: 0
+          };
+        }
+        acc[key].impressions += demo.impressions;
+        acc[key].clicks += demo.clicks;
+        acc[key].spend += demo.spend;
+        acc[key].results += demo.results;
+        return acc;
+      }, {});
+      return Object.values(ageAggregated);
+    } else if (demographicView === 'gender') {
+      const genderAggregated = demographics.reduce((acc: any, demo: any) => {
+        const key = demo.gender;
+        if (!acc[key]) {
+          acc[key] = {
+            gender: demo.gender,
+            impressions: 0,
+            clicks: 0,
+            spend: 0,
+            results: 0
+          };
+        }
+        acc[key].impressions += demo.impressions;
+        acc[key].clicks += demo.clicks;
+        acc[key].spend += demo.spend;
+        acc[key].results += demo.results;
+        return acc;
+      }, {});
+      return Object.values(genderAggregated);
+    }
+    return demographics;
+  };
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedData = (data: any[]) => {
+    if (!sortConfig) return data;
+
+    const sorted = [...data].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+
+      const aStr = String(aVal).toLowerCase();
+      const bStr = String(bVal).toLowerCase();
+      if (aStr < bStr) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aStr > bStr) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
   };
 
   const loadAdSets = async (monthlyData: any[]) => {
@@ -905,41 +979,320 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                     )}
 
                     {reportView === 'demographics' && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                              <th className="px-4 py-2 text-left font-medium text-gray-700">Age</th>
-                              <th className="px-4 py-2 text-left font-medium text-gray-700">Gender</th>
-                              <th className="px-4 py-2 text-left font-medium text-gray-700">Country</th>
-                              <th className="px-4 py-2 text-right font-medium text-gray-700">Spend</th>
-                              <th className="px-4 py-2 text-right font-medium text-gray-700">Impressions</th>
-                              <th className="px-4 py-2 text-right font-medium text-gray-700">Clicks</th>
-                              <th className="px-4 py-2 text-right font-medium text-gray-700">Results</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {demographics.length === 0 ? (
-                              <tr>
-                                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                                  No demographic data available. Sync campaigns to fetch demographic insights.
-                                </td>
-                              </tr>
-                            ) : (
-                              demographics.map((demo, idx) => (
-                                <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                                  <td className="px-4 py-2">{demo.age}</td>
-                                  <td className="px-4 py-2 capitalize">{demo.gender}</td>
-                                  <td className="px-4 py-2">{demo.country}</td>
-                                  <td className="px-4 py-2 text-right font-medium">${demo.spend.toFixed(2)}</td>
-                                  <td className="px-4 py-2 text-right">{demo.impressions.toLocaleString()}</td>
-                                  <td className="px-4 py-2 text-right">{demo.clicks.toLocaleString()}</td>
-                                  <td className="px-4 py-2 text-right">{demo.results.toLocaleString()}</td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
+                      <div>
+                        <div className="flex gap-2 mb-4 border-b border-gray-200">
+                          <button
+                            onClick={() => { setDemographicView('age'); setSortConfig(null); }}
+                            className={`px-4 py-2 text-sm font-medium transition-colors ${
+                              demographicView === 'age'
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            Demographic
+                          </button>
+                          <button
+                            onClick={() => { setDemographicView('gender'); setSortConfig(null); }}
+                            className={`px-4 py-2 text-sm font-medium transition-colors ${
+                              demographicView === 'gender'
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            Gender
+                          </button>
+                          <button
+                            onClick={() => { setDemographicView('all'); setSortConfig(null); }}
+                            className={`px-4 py-2 text-sm font-medium transition-colors ${
+                              demographicView === 'all'
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            All
+                          </button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          {(() => {
+                            const displayData = getSortedData(getAggregatedDemographics());
+
+                            if (demographicView === 'age') {
+                              return (
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                      <th
+                                        className="px-4 py-2 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('age')}
+                                      >
+                                        <div className="flex items-center gap-1">
+                                          Age Group
+                                          {sortConfig?.key === 'age' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('spend')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Spend
+                                          {sortConfig?.key === 'spend' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('impressions')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Impressions
+                                          {sortConfig?.key === 'impressions' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('clicks')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Clicks
+                                          {sortConfig?.key === 'clicks' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('results')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Results
+                                          {sortConfig?.key === 'results' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {displayData.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                          No demographic data available. Sync monthly reports to fetch demographic insights.
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      displayData.map((demo: any, idx: number) => (
+                                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                                          <td className="px-4 py-2 font-medium">{demo.age}</td>
+                                          <td className="px-4 py-2 text-right font-medium">${demo.spend.toFixed(2)}</td>
+                                          <td className="px-4 py-2 text-right">{demo.impressions.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right">{demo.clicks.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right">{demo.results.toLocaleString()}</td>
+                                        </tr>
+                                      ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              );
+                            } else if (demographicView === 'gender') {
+                              return (
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                      <th
+                                        className="px-4 py-2 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('gender')}
+                                      >
+                                        <div className="flex items-center gap-1">
+                                          Gender
+                                          {sortConfig?.key === 'gender' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('spend')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Spend
+                                          {sortConfig?.key === 'spend' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('impressions')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Impressions
+                                          {sortConfig?.key === 'impressions' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('clicks')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Clicks
+                                          {sortConfig?.key === 'clicks' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('results')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Results
+                                          {sortConfig?.key === 'results' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {displayData.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                          No demographic data available. Sync monthly reports to fetch demographic insights.
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      displayData.map((demo: any, idx: number) => (
+                                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                                          <td className="px-4 py-2 font-medium capitalize">{demo.gender}</td>
+                                          <td className="px-4 py-2 text-right font-medium">${demo.spend.toFixed(2)}</td>
+                                          <td className="px-4 py-2 text-right">{demo.impressions.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right">{demo.clicks.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right">{demo.results.toLocaleString()}</td>
+                                        </tr>
+                                      ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              );
+                            } else {
+                              return (
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                      <th
+                                        className="px-4 py-2 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('age')}
+                                      >
+                                        <div className="flex items-center gap-1">
+                                          Age
+                                          {sortConfig?.key === 'age' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('gender')}
+                                      >
+                                        <div className="flex items-center gap-1">
+                                          Gender
+                                          {sortConfig?.key === 'gender' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('country')}
+                                      >
+                                        <div className="flex items-center gap-1">
+                                          Country
+                                          {sortConfig?.key === 'country' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('spend')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Spend
+                                          {sortConfig?.key === 'spend' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('impressions')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Impressions
+                                          {sortConfig?.key === 'impressions' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('clicks')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Clicks
+                                          {sortConfig?.key === 'clicks' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('results')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Results
+                                          {sortConfig?.key === 'results' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {displayData.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                                          No demographic data available. Sync monthly reports to fetch demographic insights.
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      displayData.map((demo: any, idx: number) => (
+                                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                                          <td className="px-4 py-2">{demo.age}</td>
+                                          <td className="px-4 py-2 capitalize">{demo.gender}</td>
+                                          <td className="px-4 py-2">{demo.country}</td>
+                                          <td className="px-4 py-2 text-right font-medium">${demo.spend.toFixed(2)}</td>
+                                          <td className="px-4 py-2 text-right">{demo.impressions.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right">{demo.clicks.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right">{demo.results.toLocaleString()}</td>
+                                        </tr>
+                                      ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              );
+                            }
+                          })()}
+                        </div>
                       </div>
                     )}
 
