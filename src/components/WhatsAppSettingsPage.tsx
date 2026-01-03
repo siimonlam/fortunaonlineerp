@@ -29,12 +29,19 @@ export function WhatsAppSettingsPage() {
   const [editingAccount, setEditingAccount] = useState<WhatsAppAccount | null>(null);
   const [showToken, setShowToken] = useState(false);
   const [syncingGroups, setSyncingGroups] = useState<string | null>(null);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [selectedAccountForGroup, setSelectedAccountForGroup] = useState<string | null>(null);
   const [accountForm, setAccountForm] = useState({
     account_name: '',
     phone_number_id: '',
     phone_number: '',
     access_token: '',
     is_active: true
+  });
+  const [groupForm, setGroupForm] = useState({
+    group_id: '',
+    group_name: '',
+    participants_count: 0
   });
 
   useEffect(() => {
@@ -206,17 +213,75 @@ export function WhatsAppSettingsPage() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to sync groups');
+        throw new Error(error.error || 'Failed to verify connection');
       }
 
       const result = await response.json();
-      setMessage({ type: 'success', text: `Synced ${result.groups_count || 0} groups successfully!` });
+      if (result.connection_verified) {
+        setMessage({ type: 'success', text: 'Connection verified! Add groups manually using the + button.' });
+      }
       loadGroups();
     } catch (err: any) {
-      console.error('Error syncing groups:', err);
-      setMessage({ type: 'error', text: err.message || 'Failed to sync groups' });
+      console.error('Error verifying connection:', err);
+      setMessage({ type: 'error', text: err.message || 'Failed to verify connection' });
     } finally {
       setSyncingGroups(null);
+    }
+  };
+
+  const openGroupModal = (accountId: string) => {
+    setSelectedAccountForGroup(accountId);
+    setGroupForm({
+      group_id: '',
+      group_name: '',
+      participants_count: 0
+    });
+    setShowGroupModal(true);
+  };
+
+  const handleAddGroup = async () => {
+    try {
+      if (!selectedAccountForGroup) throw new Error('No account selected');
+      if (!groupForm.group_id.trim() || !groupForm.group_name.trim()) {
+        throw new Error('Group ID and name are required');
+      }
+
+      const { error } = await supabase
+        .from('whatsapp_groups')
+        .insert({
+          account_id: selectedAccountForGroup,
+          group_id: groupForm.group_id.trim(),
+          group_name: groupForm.group_name.trim(),
+          participants_count: groupForm.participants_count || 0
+        });
+
+      if (error) throw error;
+      setMessage({ type: 'success', text: 'Group added successfully!' });
+      setShowGroupModal(false);
+      loadGroups();
+    } catch (err: any) {
+      console.error('Error adding group:', err);
+      setMessage({ type: 'error', text: err.message || 'Failed to add group' });
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!confirm('Are you sure you want to delete this group?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('whatsapp_groups')
+        .delete()
+        .eq('id', groupId);
+
+      if (error) throw error;
+      setMessage({ type: 'success', text: 'Group deleted successfully!' });
+      loadGroups();
+    } catch (err: any) {
+      console.error('Error deleting group:', err);
+      setMessage({ type: 'error', text: 'Failed to delete group' });
     }
   };
 
@@ -300,9 +365,16 @@ export function WhatsAppSettingsPage() {
                       onClick={() => handleSyncGroups(account.id)}
                       disabled={syncingGroups === account.id}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
-                      title="Sync Groups from WhatsApp"
+                      title="Test Connection"
                     >
                       <RefreshCw className={`w-4 h-4 ${syncingGroups === account.id ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => openGroupModal(account.id)}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Add Group"
+                    >
+                      <Plus className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => openAccountModal(account)}
@@ -336,6 +408,13 @@ export function WhatsAppSettingsPage() {
                               {group.participants_count} participants • {group.group_id}
                             </div>
                           </div>
+                          <button
+                            onClick={() => handleDeleteGroup(group.id)}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Delete Group"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -356,8 +435,16 @@ export function WhatsAppSettingsPage() {
           <li>Generate a system user access token (permanent or long-lived)</li>
           <li>Navigate to WhatsApp → Phone Numbers to get the Phone Number ID</li>
           <li>Click "Add Account" above and paste your credentials</li>
-          <li>Click "Sync Groups" to automatically fetch all WhatsApp groups</li>
+          <li>Click the refresh icon to test your connection</li>
+          <li>Click the + icon to manually add groups (format: 120363XXXXXXXX@g.us)</li>
         </ol>
+        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded">
+          <p className="text-xs text-amber-800">
+            <strong>Note:</strong> WhatsApp API does not provide a direct endpoint to list groups.
+            To get group IDs, send a test message to your group from WhatsApp Web or mobile,
+            then check your webhook logs or use the WhatsApp Business API to retrieve message details.
+          </p>
+        </div>
       </div>
 
       {showAccountModal && (
@@ -465,6 +552,97 @@ export function WhatsAppSettingsPage() {
                 >
                   <Save className="w-4 h-4" />
                   {editingAccount ? 'Update' : 'Add'} Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showGroupModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Add WhatsApp Group</h3>
+                <button
+                  onClick={() => setShowGroupModal(false)}
+                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Group ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={groupForm.group_id}
+                    onChange={(e) => setGroupForm({ ...groupForm, group_id: e.target.value })}
+                    placeholder="120363XXXXXXXX@g.us"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Format: 120363XXXXXXXX@g.us (obtained from WhatsApp API webhooks)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Group Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={groupForm.group_name}
+                    onChange={(e) => setGroupForm({ ...groupForm, group_name: e.target.value })}
+                    placeholder="e.g., Marketing Team"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Participants Count (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    value={groupForm.participants_count}
+                    onChange={(e) => setGroupForm({ ...groupForm, participants_count: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                    min="0"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>How to get Group ID:</strong>
+                    <br />
+                    1. Send a test message to the group from WhatsApp
+                    <br />
+                    2. Check your webhook logs for incoming messages
+                    <br />
+                    3. The group ID will be in the "from" field of group messages
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowGroupModal(false)}
+                  className="px-4 py-2 text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddGroup}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Group
                 </button>
               </div>
             </div>

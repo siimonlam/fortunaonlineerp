@@ -44,43 +44,36 @@ Deno.serve(async (req: Request) => {
 
     console.log('Syncing groups for account:', account.account_name);
 
-    const whatsappApiUrl = `https://graph.facebook.com/v21.0/${account.phone_number_id}/groups`;
-    const response = await fetch(whatsappApiUrl, {
+    // Note: WhatsApp Business API does not provide a direct endpoint to list all groups.
+    // Groups can only be accessed when:
+    // 1. A message is sent to the group (you'll receive the group ID in webhooks)
+    // 2. The business receives a message from a group
+    // 3. You manually add groups via the UI
+    
+    // For now, we'll test the connection and return instructions
+    const testUrl = `https://graph.facebook.com/v21.0/${account.phone_number_id}`;
+    const testResponse = await fetch(testUrl, {
       headers: {
         'Authorization': `Bearer ${account.access_token}`,
         'Content-Type': 'application/json'
       }
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('WhatsApp API error:', errorData);
+    if (!testResponse.ok) {
+      const errorData = await testResponse.json();
+      console.error('WhatsApp API connection test failed:', errorData);
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to fetch groups from WhatsApp API',
-          details: errorData
+          error: 'Failed to connect to WhatsApp API. Please verify your credentials.',
+          details: errorData,
+          help: 'Make sure your system user has WhatsApp Business Management permissions'
         }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: testResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
-    const groups = data.data || [];
-
-    console.log(`Found ${groups.length} groups`);
-
-    for (const group of groups) {
-      await supabase
-        .from('whatsapp_groups')
-        .upsert({
-          account_id: account.id,
-          group_id: group.id,
-          group_name: group.name || 'Unnamed Group',
-          participants_count: group.participants_count || 0
-        }, {
-          onConflict: 'account_id,group_id'
-        });
-    }
+    const phoneData = await testResponse.json();
+    console.log('WhatsApp phone number info:', phoneData);
 
     await supabase
       .from('whatsapp_accounts')
@@ -90,14 +83,16 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        groups_count: groups.length,
-        message: `Successfully synced ${groups.length} groups`
+        connection_verified: true,
+        phone_info: phoneData,
+        message: 'WhatsApp connection verified successfully!',
+        note: 'WhatsApp Business API does not provide a direct endpoint to list groups. To add groups:\n1. Send a test message to your group from WhatsApp\n2. Check incoming webhooks for group IDs\n3. Manually add groups using the group ID format: 120363XXXXXXXX@g.us'
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: any) {
-    console.error('Error syncing WhatsApp groups:', error);
+    console.error('Error in sync-whatsapp-groups:', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
