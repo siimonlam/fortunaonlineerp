@@ -24,6 +24,8 @@ interface MonthlyData {
 
 export default function MonthlyPerformanceChart({ accountId }: { accountId: string }) {
   const [data, setData] = useState<MonthlyData[]>([]);
+  const [allMonths, setAllMonths] = useState<MonthlyData[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
@@ -75,7 +77,12 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
         roas: data.spend > 0 ? (data.results * 100) / data.spend : 0
       }));
 
+      setAllMonths(processedData);
       setData(processedData.slice(-6));
+
+      if (selectedMonth === 'all' || !processedData.find(d => d.month === selectedMonth)) {
+        setSelectedMonth('all');
+      }
     } catch (error) {
       console.error('Error fetching monthly data:', error);
     } finally {
@@ -160,11 +167,26 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
     );
   }
 
+  const displayData = selectedMonth === 'all' ? data : data.filter(d => d.month === selectedMonth);
+  const statsData = selectedMonth === 'all' ? data : displayData;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Monthly Performance (Last 6 Months)</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Monthly Performance</h3>
         <div className="flex items-center gap-2">
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">Last 6 Months</option>
+            {allMonths.slice(-12).map((month) => (
+              <option key={month.month} value={month.month}>
+                {month.month}
+              </option>
+            ))}
+          </select>
           <button
             onClick={() => syncMonthlyData('this_month')}
             disabled={syncing}
@@ -188,37 +210,51 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
         <div className="bg-blue-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 text-blue-600 mb-2">
             <DollarSign className="w-5 h-5" />
-            <span className="text-sm font-medium">Total Spend</span>
+            <span className="text-sm font-medium">{selectedMonth === 'all' ? 'Total' : 'Month'} Spend</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalSpend)}</p>
+          <p className="text-2xl font-bold text-gray-900">{formatCurrency(statsData.reduce((sum, d) => sum + d.spend, 0))}</p>
         </div>
         <div className="bg-green-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 text-green-600 mb-2">
             <TrendingUp className="w-5 h-5" />
-            <span className="text-sm font-medium">Avg ROAS</span>
+            <span className="text-sm font-medium">{selectedMonth === 'all' ? 'Avg' : 'Month'} ROAS</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{avgRoas.toFixed(2)}x</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {statsData.length > 0
+              ? (selectedMonth === 'all'
+                  ? (statsData.reduce((sum, d) => sum + d.roas, 0) / statsData.length).toFixed(2)
+                  : statsData[0].roas.toFixed(2))
+              : '0.00'}x
+          </p>
         </div>
-        <div className="bg-purple-50 p-4 rounded-lg">
-          <div className="flex items-center gap-2 text-purple-600 mb-2">
+        <div className="bg-amber-50 p-4 rounded-lg">
+          <div className="flex items-center gap-2 text-amber-600 mb-2">
             <MousePointer className="w-5 h-5" />
-            <span className="text-sm font-medium">Total Clicks</span>
+            <span className="text-sm font-medium">{selectedMonth === 'all' ? 'Total' : 'Month'} Clicks</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatNumber(totalClicks)}</p>
+          <p className="text-2xl font-bold text-gray-900">{formatNumber(statsData.reduce((sum, d) => sum + d.clicks, 0))}</p>
         </div>
         <div className="bg-orange-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 text-orange-600 mb-2">
             <Target className="w-5 h-5" />
-            <span className="text-sm font-medium">Avg CPC</span>
+            <span className="text-sm font-medium">{selectedMonth === 'all' ? 'Avg' : 'Month'} CPC</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(avgCpc)}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {(() => {
+              const totalSpend = statsData.reduce((sum, d) => sum + d.spend, 0);
+              const totalClicks = statsData.reduce((sum, d) => sum + d.clicks, 0);
+              return formatCurrency(totalClicks > 0 ? totalSpend / totalClicks : 0);
+            })()}
+          </p>
         </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h4 className="text-sm font-medium text-gray-700 mb-4">Spend vs ROAS Comparison</h4>
+        <h4 className="text-sm font-medium text-gray-700 mb-4">
+          {selectedMonth === 'all' ? 'Spend vs ROAS Comparison' : `${selectedMonth} - Spend vs ROAS`}
+        </h4>
         <div className="space-y-6">
-          {data.map((month, index) => (
+          {displayData.map((month, index) => (
             <div key={index} className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-gray-700">
@@ -298,7 +334,7 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {data.map((month, index) => (
+              {displayData.map((month, index) => (
                 <tr key={index} className={month.isCurrentMonth ? 'bg-blue-50' : 'hover:bg-gray-50'}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {month.month}
@@ -329,29 +365,35 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-gray-50 font-semibold">
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Total / Average</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                  {formatCurrency(totalSpend)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                  {avgRoas.toFixed(2)}x
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                  {formatNumber(totalClicks)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                  {formatCurrency(avgCpc)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                  {formatNumber(data.reduce((sum, d) => sum + d.impressions, 0))}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                  {formatNumber(data.reduce((sum, d) => sum + d.results, 0))}
-                </td>
-              </tr>
-            </tfoot>
+            {selectedMonth === 'all' && (
+              <tfoot className="bg-gray-50 font-semibold">
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Total / Average</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                    {formatCurrency(statsData.reduce((sum, d) => sum + d.spend, 0))}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                    {(statsData.reduce((sum, d) => sum + d.roas, 0) / statsData.length).toFixed(2)}x
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                    {formatNumber(statsData.reduce((sum, d) => sum + d.clicks, 0))}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                    {(() => {
+                      const totalSpend = statsData.reduce((sum, d) => sum + d.spend, 0);
+                      const totalClicks = statsData.reduce((sum, d) => sum + d.clicks, 0);
+                      return formatCurrency(totalClicks > 0 ? totalSpend / totalClicks : 0);
+                    })()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                    {formatNumber(statsData.reduce((sum, d) => sum + d.impressions, 0))}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                    {formatNumber(statsData.reduce((sum, d) => sum + d.results, 0))}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
