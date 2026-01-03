@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Mail, Plus, Trash2, Clock, Send, X, AlertCircle, CheckCircle, Paperclip, FileText, Folder } from 'lucide-react';
+import { Mail, Plus, Trash2, Clock, Send, X, AlertCircle, CheckCircle, Paperclip, FileText, Folder, Settings } from 'lucide-react';
+import { EmailTemplateManager } from './EmailTemplateManager';
 
 interface ScheduledEmail {
   id: string;
@@ -61,6 +62,7 @@ interface ShareResource {
 
 export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googleDriveFolderId }: EmailSchedulerTabProps) {
   const { user } = useAuth();
+  const [subTab, setSubTab] = useState<'schedule' | 'templates'>('schedule');
   const [emails, setEmails] = useState<ScheduledEmail[]>([]);
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -377,15 +379,46 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900">Scheduled Emails</h3>
-          <p className="text-sm text-slate-600 mt-1">Schedule emails to be sent for this project</p>
-        </div>
+      <div className="flex gap-2 mb-4 border-b border-slate-200">
         <button
-          onClick={openScheduleModal}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          onClick={() => setSubTab('schedule')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+            subTab === 'schedule'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
+          }`}
         >
+          <div className="flex items-center gap-2">
+            <Mail className="w-4 h-4" />
+            Schedule Emails
+          </div>
+        </button>
+        <button
+          onClick={() => setSubTab('templates')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+            subTab === 'templates'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Settings className="w-4 h-4" />
+            Email Templates
+          </div>
+        </button>
+      </div>
+
+      {subTab === 'schedule' ? (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Scheduled Emails</h3>
+              <p className="text-sm text-slate-600 mt-1">Schedule emails to be sent for this project</p>
+            </div>
+            <button
+              onClick={openScheduleModal}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
           <Plus className="w-4 h-4" />
           Schedule Email
         </button>
@@ -807,6 +840,10 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
             </div>
           </div>
         </div>
+      )}
+        </>
+      ) : (
+        <EmailTemplateManager />
       )}
     </div>
   );

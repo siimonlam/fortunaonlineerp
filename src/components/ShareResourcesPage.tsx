@@ -59,12 +59,15 @@ export function ShareResourcesPage() {
   });
   const [whatsappForm, setWhatsappForm] = useState({
     recipient_phone: '',
-    message: ''
+    message: '',
+    is_group: false
   });
+  const [whatsappGroups, setWhatsappGroups] = useState<any[]>([]);
 
   useEffect(() => {
     fetchResources();
     fetchEmailAccounts();
+    fetchWhatsAppGroups();
 
     const channel = supabase
       .channel('share_resources_changes')
@@ -105,6 +108,23 @@ export function ShareResourcesPage() {
       setEmailAccounts(data);
       if (data.length > 0) {
         setEmailForm(prev => ({ ...prev, from_account_id: data[0].id }));
+      }
+    }
+  };
+
+  const fetchWhatsAppGroups = async () => {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'whatsapp_groups')
+      .maybeSingle();
+
+    if (!error && data && data.value) {
+      try {
+        const parsedGroups = JSON.parse(data.value);
+        setWhatsappGroups(Array.isArray(parsedGroups) ? parsedGroups : []);
+      } catch {
+        setWhatsappGroups([]);
       }
     }
   };
@@ -554,7 +574,8 @@ export function ShareResourcesPage() {
     setSelectedResource(resource || null);
     setWhatsappForm({
       recipient_phone: '',
-      message: resource?.content || ''
+      message: resource?.content || '',
+      is_group: false
     });
     setSearchQuery('');
     setClients([]);
@@ -567,7 +588,7 @@ export function ShareResourcesPage() {
     if (!user) return;
 
     if (!whatsappForm.recipient_phone.trim()) {
-      alert('Please enter a phone number');
+      alert('Please enter a phone number or select a group');
       return;
     }
 
@@ -578,11 +599,14 @@ export function ShareResourcesPage() {
 
     setSendingWhatsApp(true);
     try {
-      const phone = whatsappForm.recipient_phone.replace(/[^\d+]/g, '');
+      const phone = whatsappForm.is_group
+        ? whatsappForm.recipient_phone
+        : whatsappForm.recipient_phone.replace(/[^\d+]/g, '');
 
       const payload: any = {
         phone: phone,
-        message: whatsappForm.message
+        message: whatsappForm.message,
+        is_group: whatsappForm.is_group
       };
 
       if (selectedDriveFiles.length > 0) {
@@ -1591,22 +1615,69 @@ export function ShareResourcesPage() {
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Phone Number * (with country code)
+                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={!whatsappForm.is_group}
+                      onChange={() => setWhatsappForm({ ...whatsappForm, is_group: false, recipient_phone: '' })}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <span className="text-sm font-medium text-slate-700">Send to Individual</span>
                   </label>
-                  <input
-                    type="text"
-                    value={whatsappForm.recipient_phone}
-                    onChange={(e) => setWhatsappForm({ ...whatsappForm, recipient_phone: e.target.value })}
-                    placeholder="+852 1234 5678 or +86 138 0000 0000"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Include country code (e.g., +852 for Hong Kong, +86 for China)
-                  </p>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={whatsappForm.is_group}
+                      onChange={() => setWhatsappForm({ ...whatsappForm, is_group: true, recipient_phone: '' })}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <span className="text-sm font-medium text-slate-700">Send to Group</span>
+                  </label>
                 </div>
+
+                {whatsappForm.is_group ? (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Select Group *
+                    </label>
+                    <select
+                      value={whatsappForm.recipient_phone}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, recipient_phone: e.target.value })}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    >
+                      <option value="">Select a group...</option>
+                      {whatsappGroups.map((group) => (
+                        <option key={group.id} value={group.group_id}>
+                          {group.group_name}
+                        </option>
+                      ))}
+                    </select>
+                    {whatsappGroups.length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        No groups configured. Please add groups in Admin → WhatsApp Settings
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Phone Number * (with country code)
+                    </label>
+                    <input
+                      type="text"
+                      value={whatsappForm.recipient_phone}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, recipient_phone: e.target.value })}
+                      placeholder="+852 1234 5678 or +86 138 0000 0000"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Include country code (e.g., +852 for Hong Kong, +86 for China)
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
