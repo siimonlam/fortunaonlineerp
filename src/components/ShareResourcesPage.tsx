@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
@@ -38,6 +38,7 @@ export function ShareResourcesPage() {
   });
 
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,6 +48,7 @@ export function ShareResourcesPage() {
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [selectedDriveFiles, setSelectedDriveFiles] = useState<any[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [emailForm, setEmailForm] = useState({
     from_account_id: '',
     recipient_emails: '',
@@ -54,6 +56,10 @@ export function ShareResourcesPage() {
     body: '',
     scheduled_date: '',
     send_immediately: true
+  });
+  const [whatsappForm, setWhatsappForm] = useState({
+    recipient_phone: '',
+    message: ''
   });
 
   useEffect(() => {
@@ -544,6 +550,133 @@ export function ShareResourcesPage() {
     }
   };
 
+  const openWhatsAppModal = (resource?: Resource) => {
+    setSelectedResource(resource || null);
+    setWhatsappForm({
+      recipient_phone: '',
+      message: resource?.content || ''
+    });
+    setSearchQuery('');
+    setClients([]);
+    setShowClientDropdown(false);
+    setSelectedDriveFiles([]);
+    setShowWhatsAppModal(true);
+  };
+
+  const handleSendWhatsApp = async () => {
+    if (!user) return;
+
+    if (!whatsappForm.recipient_phone.trim()) {
+      alert('Please enter a phone number');
+      return;
+    }
+
+    if (!whatsappForm.message.trim() && selectedDriveFiles.length === 0) {
+      alert('Please enter a message or select files to send');
+      return;
+    }
+
+    setSendingWhatsApp(true);
+    try {
+      const phone = whatsappForm.recipient_phone.replace(/[^\d+]/g, '');
+
+      const payload: any = {
+        phone: phone,
+        message: whatsappForm.message
+      };
+
+      if (selectedDriveFiles.length > 0) {
+        payload.files = selectedDriveFiles.map(file => ({
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          size: file.size
+        }));
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send WhatsApp message');
+      }
+
+      alert('WhatsApp message sent successfully!');
+      setShowWhatsAppModal(false);
+      setSelectedResource(null);
+      setSelectedDriveFiles([]);
+      setSearchQuery('');
+      setClients([]);
+      setShowClientDropdown(false);
+    } catch (err: any) {
+      console.error('Error sending WhatsApp:', err);
+      alert(err.message || 'Failed to send WhatsApp message');
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  };
+
+  const searchClientsForWhatsApp = async (query: string) => {
+    if (!query.trim()) {
+      setClients([]);
+      setShowClientDropdown(false);
+      return;
+    }
+
+    try {
+      const searchTerm = `%${query}%`;
+
+      const { data: fundingClients } = await supabase
+        .from('clients')
+        .select('client_number, company_name, company_name_chinese, contact_person, contact_number')
+        .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+        .limit(10);
+
+      const { data: comsecClients } = await supabase
+        .from('comsec_clients')
+        .select('client_number, company_name, company_name_chinese, contact_person, phone')
+        .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+        .limit(10);
+
+      const { data: marketingProjects } = await supabase
+        .from('marketing_projects')
+        .select('client_number, company_name, brand_name, contact_person, contact_number')
+        .or(`company_name.ilike.${searchTerm},brand_name.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+        .limit(10);
+
+      const allClients = [
+        ...(fundingClients || []).map(c => ({ ...c, phone: c.contact_number, source: 'Funding' })),
+        ...(comsecClients || []).map(c => ({ ...c, source: 'ComSec' })),
+        ...(marketingProjects || []).map(c => ({ ...c, phone: c.contact_number, source: 'Marketing' }))
+      ];
+
+      setClients(allClients);
+      setShowClientDropdown(true);
+    } catch (err) {
+      console.error('Search error:', err);
+    }
+  };
+
+  const selectClientForWhatsApp = (client: any) => {
+    if (client.phone) {
+      setWhatsappForm({ ...whatsappForm, recipient_phone: client.phone });
+    }
+    setSearchQuery('');
+    setShowClientDropdown(false);
+    setClients([]);
+  };
+
   const renderResourceContent = (resource: Resource) => {
     switch (resource.resource_type) {
       case 'email':
@@ -641,6 +774,13 @@ export function ShareResourcesPage() {
           Send Email
         </button>
         <button
+          onClick={() => openWhatsAppModal()}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <MessageCircle className="w-5 h-5" />
+          Send WhatsApp
+        </button>
+        <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
@@ -731,6 +871,13 @@ export function ShareResourcesPage() {
                       title="Send via Email"
                     >
                       <Send className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => openWhatsAppModal(resource)}
+                      className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Send via WhatsApp"
+                    >
+                      <MessageCircle className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => openEditModal(resource)}
@@ -1353,6 +1500,200 @@ export function ShareResourcesPage() {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showWhatsAppModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Send WhatsApp Message</h3>
+                <button
+                  onClick={() => setShowWhatsAppModal(false)}
+                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Search Company or Contact
+                  </label>
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          searchClientsForWhatsApp(e.target.value);
+                        }}
+                        onFocus={() => {
+                          if (clients.length > 0) setShowClientDropdown(true);
+                        }}
+                        placeholder="Type company name or contact person..."
+                        className="w-full pl-12 pr-4 py-3 text-base border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      />
+                    </div>
+                    {showClientDropdown && clients.length > 0 && (
+                      <div className="absolute z-50 w-full mt-2 bg-white border-2 border-blue-200 rounded-lg shadow-2xl max-h-80 overflow-y-auto">
+                        {clients.map((client, idx) => (
+                          <button
+                            key={`${client.source}-${client.client_number}-${idx}`}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              selectClientForWhatsApp(client);
+                            }}
+                            className="w-full px-5 py-4 text-left hover:bg-blue-50 border-b border-slate-200 last:border-b-0 transition-all hover:shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-base text-slate-900">
+                                  {client.company_name}
+                                  {client.company_name_chinese && (
+                                    <span className="text-slate-600"> ({client.company_name_chinese})</span>
+                                  )}
+                                  {client.brand_name && (
+                                    <span className="text-slate-600"> - {client.brand_name}</span>
+                                  )}
+                                </div>
+                                {client.contact_person && (
+                                  <div className="text-sm text-slate-600 mt-1.5 flex items-center gap-1">
+                                    <span className="text-slate-400">Contact:</span>
+                                    <span className="font-medium">{client.contact_person}</span>
+                                  </div>
+                                )}
+                                {client.phone && (
+                                  <div className="text-base text-green-600 mt-2 font-semibold flex items-center gap-1">
+                                    <MessageCircle className="w-4 h-4" />
+                                    {client.phone}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="flex-shrink-0 text-xs px-2.5 py-1.5 bg-slate-200 text-slate-700 rounded-md font-semibold">
+                                {client.source}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-600 mt-2">
+                    Click any result to automatically add their phone number
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Phone Number * (with country code)
+                  </label>
+                  <input
+                    type="text"
+                    value={whatsappForm.recipient_phone}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, recipient_phone: e.target.value })}
+                    placeholder="+852 1234 5678 or +86 138 0000 0000"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Include country code (e.g., +852 for Hong Kong, +86 for China)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Message
+                  </label>
+                  <textarea
+                    value={whatsappForm.message}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, message: e.target.value })}
+                    rows={8}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Type your message here..."
+                  />
+                </div>
+
+                <div className="border-t border-slate-200 pt-4">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Attachments (Optional)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={openAttachmentModal}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border-2 border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <Folder className="w-4 h-4" />
+                    Browse Google Drive Files
+                  </button>
+
+                  {selectedDriveFiles.length > 0 && (
+                    <div className="mt-3 bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Folder className="w-4 h-4 text-blue-600" />
+                        <p className="text-sm font-semibold text-blue-900">
+                          Google Drive Files ({selectedDriveFiles.length})
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        {selectedDriveFiles.map((file, idx) => (
+                          <div key={idx} className="flex items-center justify-between gap-2 text-sm text-blue-700">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <FileText className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{file.name}</span>
+                              {file.size && (
+                                <span className="text-xs text-blue-600 flex-shrink-0">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleDriveFileSelection(file)}
+                              className="p-1 text-blue-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                              title="Remove"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                  <button
+                    onClick={() => setShowWhatsAppModal(false)}
+                    className="px-6 py-2 text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                    disabled={sendingWhatsApp}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendWhatsApp}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={sendingWhatsApp}
+                  >
+                    {sendingWhatsApp ? (
+                      <>
+                        <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <MessageCircle className="w-4 h-4" />
+                        Send WhatsApp
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
