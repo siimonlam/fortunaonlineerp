@@ -53,9 +53,10 @@ interface DriveFile {
 
 interface ShareResource {
   id: string;
-  title: string;
-  file_url?: string;
-  file_path?: string;
+  name: string;
+  mimeType?: string;
+  size?: number;
+  webViewLink?: string;
 }
 
 export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googleDriveFolderId }: EmailSchedulerTabProps) {
@@ -191,15 +192,23 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
   };
 
   const fetchShareResources = async () => {
+    const shareResourcesFolderId = '0AK-QGp_5SOJWUk9PVA';
     setLoadingFiles(true);
     try {
-      const { data, error } = await supabase
-        .from('share_resources')
-        .select('*')
-        .order('title', { ascending: true });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${shareResourcesFolderId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          }
+        }
+      );
 
-      if (error) throw error;
-      setShareResources(data || []);
+      if (!response.ok) throw new Error('Failed to fetch Share Resources from Google Drive');
+
+      const data = await response.json();
+      setShareResources(data.files || []);
     } catch (error: any) {
       console.error('Error fetching share resources:', error);
       showErrorPopup(error.message || 'Failed to load share resources');
@@ -773,7 +782,10 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
                         />
                         <FileText className="w-5 h-5 text-green-600 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900 truncate">{resource.title}</p>
+                          <p className="font-medium text-slate-900 truncate">{resource.name}</p>
+                          {resource.size && (
+                            <p className="text-xs text-slate-500">{(resource.size / 1024 / 1024).toFixed(2)} MB</p>
+                          )}
                         </div>
                       </label>
                     ))}
