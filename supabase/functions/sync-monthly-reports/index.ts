@@ -141,119 +141,133 @@ Deno.serve(async (req: Request) => {
     let nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=${baseFields}&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
 
     console.log('=== FETCHING GENERAL MONTHLY INSIGHTS ===\n');
+    console.log('Initial URL:', nextPageUrl.replace(accessToken, 'REDACTED'));
 
     let pageCount = 0;
     while (nextPageUrl) {
-      pageCount++;
-      console.log(`Fetching page ${pageCount}...`);
+      try {
+        pageCount++;
+        console.log(`Fetching page ${pageCount}...`);
 
-      const response = await fetchWithRetry(nextPageUrl);
+        const response = await fetchWithRetry(nextPageUrl);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
-        const errorMsg = `Failed to fetch insights (page ${pageCount}): ${errorData.error?.message || response.statusText}`;
-        console.error(errorMsg);
-        errors.push(errorMsg);
-        break;
-      }
-
-      const data = await response.json();
-      const insights = data.data || [];
-
-      console.log(`Page ${pageCount}: ${insights.length} records`);
-
-      for (const insight of insights) {
-        try {
-          const monthYear = insight.date_start;
-          const adsetId = insight.adset_id;
-
-          let results = 0;
-          let resultType = null;
-          if (insight.actions && Array.isArray(insight.actions)) {
-            const resultAction = insight.actions.find((a: any) =>
-              a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
-              a.action_type === 'onsite_conversion.post_save' ||
-              a.action_type === 'lead' ||
-              a.action_type === 'omni_purchase'
-            );
-            if (resultAction) {
-              results = parseInt(resultAction.value || '0');
-              resultType = resultAction.action_type;
-            }
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: { message: errorText } };
           }
-
-          const { data: adsetData } = await supabase
-            .from('meta_adsets')
-            .select('name, client_number, marketing_reference')
-            .eq('adset_id', adsetId)
-            .maybeSingle();
-
-          const { data: campaignData } = await supabase
-            .from('meta_campaigns')
-            .select('name')
-            .eq('campaign_id', insight.campaign_id)
-            .maybeSingle();
-
-          const { data: accountData } = await supabase
-            .from('meta_ad_accounts')
-            .select('account_name')
-            .eq('account_id', accountId)
-            .maybeSingle();
-
-          const record = {
-            account_id: accountId,
-            campaign_id: insight.campaign_id || null,
-            adset_id: adsetId,
-            month_year: monthYear,
-            adset_name: adsetData?.name || null,
-            campaign_name: campaignData?.name || null,
-            account_name: accountData?.account_name || null,
-            spend: parseFloat(insight.spend || '0'),
-            impressions: parseInt(insight.impressions || '0'),
-            clicks: parseInt(insight.clicks || '0'),
-            reach: parseInt(insight.reach || '0'),
-            cpc: parseFloat(insight.cpc || '0'),
-            ctr: parseFloat(insight.ctr || '0'),
-            cpm: parseFloat(insight.cpm || '0'),
-            conversions: parseInt(insight.conversions || '0'),
-            results: results,
-            result_type: resultType,
-            inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
-            outbound_clicks: parseInt(insight.outbound_clicks || '0'),
-            actions: insight.actions ? JSON.stringify(insight.actions) : null,
-            client_number: adsetData?.client_number || null,
-            marketing_reference: adsetData?.marketing_reference || null,
-            updated_at: new Date().toISOString()
-          };
-
-          const { error: upsertError } = await supabase
-            .from('meta_monthly_insights')
-            .upsert(record, {
-              onConflict: 'adset_id,month_year',
-              ignoreDuplicates: false
-            });
-
-          if (upsertError) {
-            console.error(`Error upserting insight for adset ${adsetId}:`, upsertError.message);
-            errors.push(`Adset ${adsetId}: ${upsertError.message}`);
-          } else {
-            totalInsightsUpserted++;
-            totalAdSetsProcessed++;
-            console.log(`  ✓ Upserted: AdSet ${adsetId}, Month ${monthYear}, Spend: $${record.spend}, Impressions: ${record.impressions}`);
-          }
-        } catch (error: any) {
-          console.error(`Error processing insight record:`, error.message);
-          errors.push(`Record processing error: ${error.message}`);
+          const errorMsg = `Failed to fetch insights (page ${pageCount}): ${errorData.error?.message || response.statusText}`;
+          console.error(errorMsg);
+          console.error('Full error:', errorText);
+          errors.push(errorMsg);
+          break;
         }
-      }
 
-      nextPageUrl = data.paging?.next || null;
+        const data = await response.json();
+        const insights = data.data || [];
 
-      if (nextPageUrl) {
-        console.log(`More pages available, continuing...\n`);
-        await delay(200);
-      } else {
-        console.log(`No more pages. General insights complete.\n`);
+        console.log(`Page ${pageCount}: ${insights.length} records`);
+
+        for (const insight of insights) {
+          try {
+            const monthYear = insight.date_start;
+            const adsetId = insight.adset_id;
+
+            let results = 0;
+            let resultType = null;
+            if (insight.actions && Array.isArray(insight.actions)) {
+              const resultAction = insight.actions.find((a: any) =>
+                a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
+                a.action_type === 'onsite_conversion.post_save' ||
+                a.action_type === 'lead' ||
+                a.action_type === 'omni_purchase'
+              );
+              if (resultAction) {
+                results = parseInt(resultAction.value || '0');
+                resultType = resultAction.action_type;
+              }
+            }
+
+            const { data: adsetData } = await supabase
+              .from('meta_adsets')
+              .select('name, client_number, marketing_reference')
+              .eq('adset_id', adsetId)
+              .maybeSingle();
+
+            const { data: campaignData } = await supabase
+              .from('meta_campaigns')
+              .select('name')
+              .eq('campaign_id', insight.campaign_id)
+              .maybeSingle();
+
+            const { data: accountData } = await supabase
+              .from('meta_ad_accounts')
+              .select('account_name')
+              .eq('account_id', accountId)
+              .maybeSingle();
+
+            const record = {
+              account_id: accountId,
+              campaign_id: insight.campaign_id || null,
+              adset_id: adsetId,
+              month_year: monthYear,
+              adset_name: adsetData?.name || null,
+              campaign_name: campaignData?.name || null,
+              account_name: accountData?.account_name || null,
+              spend: parseFloat(insight.spend || '0'),
+              impressions: parseInt(insight.impressions || '0'),
+              clicks: parseInt(insight.clicks || '0'),
+              reach: parseInt(insight.reach || '0'),
+              cpc: parseFloat(insight.cpc || '0'),
+              ctr: parseFloat(insight.ctr || '0'),
+              cpm: parseFloat(insight.cpm || '0'),
+              conversions: parseInt(insight.conversions || '0'),
+              results: results,
+              result_type: resultType,
+              inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
+              outbound_clicks: parseInt(insight.outbound_clicks || '0'),
+              actions: insight.actions ? JSON.stringify(insight.actions) : null,
+              client_number: adsetData?.client_number || null,
+              marketing_reference: adsetData?.marketing_reference || null,
+              updated_at: new Date().toISOString()
+            };
+
+            const { error: upsertError } = await supabase
+              .from('meta_monthly_insights')
+              .upsert(record, {
+                onConflict: 'adset_id,month_year',
+                ignoreDuplicates: false
+              });
+
+            if (upsertError) {
+              console.error(`Error upserting insight for adset ${adsetId}:`, upsertError.message);
+              errors.push(`Adset ${adsetId}: ${upsertError.message}`);
+            } else {
+              totalInsightsUpserted++;
+              totalAdSetsProcessed++;
+              console.log(`  ✓ Upserted: AdSet ${adsetId}, Month ${monthYear}, Spend: $${record.spend}, Impressions: ${record.impressions}`);
+            }
+          } catch (error: any) {
+            console.error(`Error processing insight record:`, error.message);
+            errors.push(`Record processing error: ${error.message}`);
+          }
+        }
+
+        nextPageUrl = data.paging?.next || null;
+
+        if (nextPageUrl) {
+          console.log(`More pages available, continuing...\n`);
+          await delay(200);
+        } else {
+          console.log(`No more pages. General insights complete.\n`);
+        }
+      } catch (pageError: any) {
+        console.error(`Error processing page ${pageCount}:`, pageError.message);
+        errors.push(`Page ${pageCount} error: ${pageError.message}`);
+        break;
       }
     }
 
@@ -263,96 +277,109 @@ Deno.serve(async (req: Request) => {
 
     pageCount = 0;
     while (nextPageUrl) {
-      pageCount++;
-      console.log(`Fetching demographics page ${pageCount}...`);
+      try {
+        pageCount++;
+        console.log(`Fetching demographics page ${pageCount}...`);
 
-      const response = await fetchWithRetry(nextPageUrl);
+        const response = await fetchWithRetry(nextPageUrl);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
-        const errorMsg = `Failed to fetch demographics (page ${pageCount}): ${errorData.error?.message || response.statusText}`;
-        console.error(errorMsg);
-        errors.push(errorMsg);
-        break;
-      }
-
-      const data = await response.json();
-      const demographics = data.data || [];
-
-      console.log(`Demographics page ${pageCount}: ${demographics.length} records`);
-
-      for (const demo of demographics) {
-        try {
-          const monthYear = demo.date_start;
-          const adsetId = demo.adset_id;
-          const ageGroup = demo.age || 'unknown';
-          const gender = demo.gender || 'unknown';
-
-          const { data: adsetData } = await supabase
-            .from('meta_adsets')
-            .select('client_number, marketing_reference')
-            .eq('adset_id', adsetId)
-            .maybeSingle();
-
-          let results = 0;
-          if (demo.actions && Array.isArray(demo.actions)) {
-            const resultAction = demo.actions.find((a: any) =>
-              a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
-              a.action_type === 'onsite_conversion.post_save' ||
-              a.action_type === 'lead' ||
-              a.action_type === 'omni_purchase'
-            );
-            if (resultAction) {
-              results = parseInt(resultAction.value || '0');
-            }
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: { message: errorText } };
           }
-
-          const record = {
-            account_id: accountId,
-            campaign_id: demo.campaign_id || null,
-            adset_id: adsetId,
-            month_year: monthYear,
-            age_group: ageGroup,
-            gender: gender,
-            country: null,
-            spend: parseFloat(demo.spend || '0'),
-            impressions: parseInt(demo.impressions || '0'),
-            clicks: parseInt(demo.clicks || '0'),
-            reach: parseInt(demo.reach || '0'),
-            conversions: parseInt(demo.conversions || '0'),
-            results: results,
-            client_number: adsetData?.client_number || null,
-            marketing_reference: adsetData?.marketing_reference || null,
-            updated_at: new Date().toISOString()
-          };
-
-          const { error: upsertError } = await supabase
-            .from('meta_monthly_demographics')
-            .upsert(record, {
-              onConflict: 'adset_id,month_year,age_group,gender,country',
-              ignoreDuplicates: false
-            });
-
-          if (upsertError) {
-            console.error(`Error upserting demographic for adset ${adsetId}:`, upsertError.message);
-            errors.push(`Adset ${adsetId} demographic: ${upsertError.message}`);
-          } else {
-            totalDemographicsUpserted++;
-            console.log(`  ✓ Upserted: AdSet ${adsetId}, Month ${monthYear}, Age ${ageGroup}, Gender ${gender}, Spend: $${record.spend}`);
-          }
-        } catch (error: any) {
-          console.error(`Error processing demographic record:`, error.message);
-          errors.push(`Demographic processing error: ${error.message}`);
+          const errorMsg = `Failed to fetch demographics (page ${pageCount}): ${errorData.error?.message || response.statusText}`;
+          console.error(errorMsg);
+          console.error('Full error:', errorText);
+          errors.push(errorMsg);
+          break;
         }
-      }
 
-      nextPageUrl = data.paging?.next || null;
+        const data = await response.json();
+        const demographics = data.data || [];
 
-      if (nextPageUrl) {
-        console.log(`More demographics pages available, continuing...\n`);
-        await delay(200);
-      } else {
-        console.log(`No more pages. Demographics complete.\n`);
+        console.log(`Demographics page ${pageCount}: ${demographics.length} records`);
+
+        for (const demo of demographics) {
+          try {
+            const monthYear = demo.date_start;
+            const adsetId = demo.adset_id;
+            const ageGroup = demo.age || 'unknown';
+            const gender = demo.gender || 'unknown';
+
+            const { data: adsetData } = await supabase
+              .from('meta_adsets')
+              .select('client_number, marketing_reference')
+              .eq('adset_id', adsetId)
+              .maybeSingle();
+
+            let results = 0;
+            if (demo.actions && Array.isArray(demo.actions)) {
+              const resultAction = demo.actions.find((a: any) =>
+                a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
+                a.action_type === 'onsite_conversion.post_save' ||
+                a.action_type === 'lead' ||
+                a.action_type === 'omni_purchase'
+              );
+              if (resultAction) {
+                results = parseInt(resultAction.value || '0');
+              }
+            }
+
+            const record = {
+              account_id: accountId,
+              campaign_id: demo.campaign_id || null,
+              adset_id: adsetId,
+              month_year: monthYear,
+              age_group: ageGroup,
+              gender: gender,
+              country: null,
+              spend: parseFloat(demo.spend || '0'),
+              impressions: parseInt(demo.impressions || '0'),
+              clicks: parseInt(demo.clicks || '0'),
+              reach: parseInt(demo.reach || '0'),
+              conversions: parseInt(demo.conversions || '0'),
+              results: results,
+              client_number: adsetData?.client_number || null,
+              marketing_reference: adsetData?.marketing_reference || null,
+              updated_at: new Date().toISOString()
+            };
+
+            const { error: upsertError } = await supabase
+              .from('meta_monthly_demographics')
+              .upsert(record, {
+                onConflict: 'adset_id,month_year,age_group,gender,country',
+                ignoreDuplicates: false
+              });
+
+            if (upsertError) {
+              console.error(`Error upserting demographic for adset ${adsetId}:`, upsertError.message);
+              errors.push(`Adset ${adsetId} demographic: ${upsertError.message}`);
+            } else {
+              totalDemographicsUpserted++;
+              console.log(`  ✓ Upserted: AdSet ${adsetId}, Month ${monthYear}, Age ${ageGroup}, Gender ${gender}, Spend: $${record.spend}`);
+            }
+          } catch (error: any) {
+            console.error(`Error processing demographic record:`, error.message);
+            errors.push(`Demographic processing error: ${error.message}`);
+          }
+        }
+
+        nextPageUrl = data.paging?.next || null;
+
+        if (nextPageUrl) {
+          console.log(`More demographics pages available, continuing...\n`);
+          await delay(200);
+        } else {
+          console.log(`No more pages. Demographics complete.\n`);
+        }
+      } catch (pageError: any) {
+        console.error(`Error processing demographics page ${pageCount}:`, pageError.message);
+        errors.push(`Demographics page ${pageCount} error: ${pageError.message}`);
+        break;
       }
     }
 

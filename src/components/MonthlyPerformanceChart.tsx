@@ -108,14 +108,24 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
         }
       );
 
+      const result = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to sync monthly data');
+        console.error('Sync error:', result);
+        throw new Error(result.error || 'Failed to sync monthly data');
+      }
+
+      if (result.errors && result.errors.length > 0) {
+        console.warn('Sync completed with errors:', result.errors);
+        alert(`Sync completed with ${result.errors.length} errors. Check console for details.`);
+      } else {
+        alert(result.message || 'Monthly data synced successfully!');
       }
 
       await fetchMonthlyData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error syncing monthly data:', error);
-      alert('Failed to sync monthly data. Please try again.');
+      alert(`Failed to sync monthly data: ${error.message}`);
     } finally {
       setSyncing(false);
     }
