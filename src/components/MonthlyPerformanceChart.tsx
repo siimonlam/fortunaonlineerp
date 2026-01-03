@@ -38,22 +38,41 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
         .from('meta_monthly_insights')
         .select('*')
         .eq('account_id', accountId)
-        .eq('entity_level', 'campaign')
         .order('month_year', { ascending: true });
 
       if (error) throw error;
 
       const currentMonth = new Date().toISOString().slice(0, 7);
 
-      const processedData = (insights || []).map((insight: MonthlyInsight) => ({
-        month: formatMonthYear(insight.month_year),
-        spend: insight.spend || 0,
-        roas: insight.purchase_roas || 0,
-        clicks: insight.clicks || 0,
-        cpc: insight.clicks > 0 ? insight.spend / insight.clicks : 0,
-        impressions: insight.impressions || 0,
-        results: insight.results || 0,
-        isCurrentMonth: insight.month_year === currentMonth
+      const monthMap = new Map<string, MonthlyData>();
+
+      (insights || []).forEach((insight: MonthlyInsight) => {
+        const monthKey = insight.month_year;
+
+        if (!monthMap.has(monthKey)) {
+          monthMap.set(monthKey, {
+            month: formatMonthYear(insight.month_year),
+            spend: 0,
+            roas: 0,
+            clicks: 0,
+            cpc: 0,
+            impressions: 0,
+            results: 0,
+            isCurrentMonth: insight.month_year === currentMonth
+          });
+        }
+
+        const monthData = monthMap.get(monthKey)!;
+        monthData.spend += Number(insight.spend) || 0;
+        monthData.clicks += Number(insight.clicks) || 0;
+        monthData.impressions += Number(insight.impressions) || 0;
+        monthData.results += Number(insight.results) || 0;
+      });
+
+      const processedData = Array.from(monthMap.values()).map(data => ({
+        ...data,
+        cpc: data.clicks > 0 ? data.spend / data.clicks : 0,
+        roas: data.spend > 0 ? (data.results * 100) / data.spend : 0
       }));
 
       setData(processedData.slice(-6));
