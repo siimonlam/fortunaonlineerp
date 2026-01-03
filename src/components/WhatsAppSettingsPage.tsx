@@ -1,26 +1,64 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, Save, AlertCircle, CheckCircle, Eye, EyeOff, Users, Plus, X, Trash2 } from 'lucide-react';
+import { MessageCircle, Save, AlertCircle, CheckCircle, Eye, EyeOff, Users, Plus, X, Trash2, RefreshCw, Edit } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+
+interface WhatsAppAccount {
+  id: string;
+  account_name: string;
+  phone_number_id: string;
+  phone_number: string;
+  access_token: string;
+  is_active: boolean;
+  last_synced_at: string | null;
+}
 
 interface WhatsAppGroup {
   id: string;
-  group_name: string;
+  account_id: string;
   group_id: string;
+  group_name: string;
+  participants_count: number;
 }
 
 export function WhatsAppSettingsPage() {
-  const [phoneNumberId, setPhoneNumberId] = useState('');
-  const [accessToken, setAccessToken] = useState('');
+  const [accounts, setAccounts] = useState<WhatsAppAccount[]>([]);
   const [groups, setGroups] = useState<WhatsAppGroup[]>([]);
-  const [showToken, setShowToken] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [newGroup, setNewGroup] = useState({ group_name: '', group_id: '' });
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<WhatsAppAccount | null>(null);
+  const [showToken, setShowToken] = useState(false);
+  const [syncingGroups, setSyncingGroups] = useState<string | null>(null);
+  const [accountForm, setAccountForm] = useState({
+    account_name: '',
+    phone_number_id: '',
+    phone_number: '',
+    access_token: '',
+    is_active: true
+  });
 
   useEffect(() => {
-    loadSettings();
+    loadAccounts();
+    loadGroups();
+
+    const accountsChannel = supabase
+      .channel('whatsapp_accounts_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_accounts' }, () => {
+        loadAccounts();
+      })
+      .subscribe();
+
+    const groupsChannel = supabase
+      .channel('whatsapp_groups_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_groups' }, () => {
+        loadGroups();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(accountsChannel);
+      supabase.removeChannel(groupsChannel);
+    };
   }, []);
 
   useEffect(() => {
@@ -30,119 +68,160 @@ export function WhatsAppSettingsPage() {
     }
   }, [message]);
 
-  const loadSettings = async () => {
+  const loadAccounts = async () => {
     try {
       setLoading(true);
+      const { data, error } = await supabase
+        .from('whatsapp_accounts')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const { data: phoneData } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'whatsapp_phone_number_id')
-        .maybeSingle();
-
-      const { data: tokenData } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'whatsapp_access_token')
-        .maybeSingle();
-
-      const { data: groupsData } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'whatsapp_groups')
-        .maybeSingle();
-
-      if (phoneData) setPhoneNumberId(phoneData.value || '');
-      if (tokenData) setAccessToken(tokenData.value || '');
-      if (groupsData && groupsData.value) {
-        try {
-          const parsedGroups = JSON.parse(groupsData.value);
-          setGroups(Array.isArray(parsedGroups) ? parsedGroups : []);
-        } catch {
-          setGroups([]);
-        }
-      }
+      if (error) throw error;
+      setAccounts(data || []);
     } catch (err: any) {
-      console.error('Error loading WhatsApp settings:', err);
-      setMessage({ type: 'error', text: 'Failed to load settings' });
+      console.error('Error loading WhatsApp accounts:', err);
+      setMessage({ type: 'error', text: 'Failed to load accounts' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setMessage(null);
-
+  const loadGroups = async () => {
     try {
-      if (!phoneNumberId.trim() || !accessToken.trim()) {
-        throw new Error('Phone Number ID and Access Token are required');
-      }
+      const { data, error } = await supabase
+        .from('whatsapp_groups')
+        .select('*')
+        .order('group_name', { ascending: true });
 
-      const { error: phoneError } = await supabase
-        .from('system_settings')
-        .upsert({
-          key: 'whatsapp_phone_number_id',
-          value: phoneNumberId.trim(),
-          description: 'WhatsApp Business Phone Number ID from Meta Business Manager'
-        }, {
-          onConflict: 'key'
-        });
-
-      if (phoneError) throw phoneError;
-
-      const { error: tokenError } = await supabase
-        .from('system_settings')
-        .upsert({
-          key: 'whatsapp_access_token',
-          value: accessToken.trim(),
-          description: 'WhatsApp Business API Access Token from Meta Business Manager'
-        }, {
-          onConflict: 'key'
-        });
-
-      if (tokenError) throw tokenError;
-
-      const { error: groupsError } = await supabase
-        .from('system_settings')
-        .upsert({
-          key: 'whatsapp_groups',
-          value: JSON.stringify(groups),
-          description: 'WhatsApp Groups for broadcasting'
-        }, {
-          onConflict: 'key'
-        });
-
-      if (groupsError) throw groupsError;
-
-      setMessage({ type: 'success', text: 'WhatsApp settings saved successfully!' });
+      if (error) throw error;
+      setGroups(data || []);
     } catch (err: any) {
-      console.error('Error saving settings:', err);
-      setMessage({ type: 'error', text: err.message || 'Failed to save settings' });
-    } finally {
-      setSaving(false);
+      console.error('Error loading WhatsApp groups:', err);
     }
   };
 
-  const addGroup = () => {
-    if (!newGroup.group_name.trim() || !newGroup.group_id.trim()) {
-      setMessage({ type: 'error', text: 'Group name and ID are required' });
+  const openAccountModal = (account?: WhatsAppAccount) => {
+    if (account) {
+      setEditingAccount(account);
+      setAccountForm({
+        account_name: account.account_name,
+        phone_number_id: account.phone_number_id,
+        phone_number: account.phone_number || '',
+        access_token: account.access_token,
+        is_active: account.is_active
+      });
+    } else {
+      setEditingAccount(null);
+      setAccountForm({
+        account_name: '',
+        phone_number_id: '',
+        phone_number: '',
+        access_token: '',
+        is_active: true
+      });
+    }
+    setShowAccountModal(true);
+    setShowToken(false);
+  };
+
+  const handleSaveAccount = async () => {
+    try {
+      if (!accountForm.account_name.trim() || !accountForm.phone_number_id.trim() || !accountForm.access_token.trim()) {
+        throw new Error('Account name, Phone Number ID, and Access Token are required');
+      }
+
+      if (editingAccount) {
+        const { error } = await supabase
+          .from('whatsapp_accounts')
+          .update({
+            account_name: accountForm.account_name.trim(),
+            phone_number_id: accountForm.phone_number_id.trim(),
+            phone_number: accountForm.phone_number.trim() || null,
+            access_token: accountForm.access_token.trim(),
+            is_active: accountForm.is_active
+          })
+          .eq('id', editingAccount.id);
+
+        if (error) throw error;
+        setMessage({ type: 'success', text: 'Account updated successfully!' });
+      } else {
+        const { error } = await supabase
+          .from('whatsapp_accounts')
+          .insert({
+            account_name: accountForm.account_name.trim(),
+            phone_number_id: accountForm.phone_number_id.trim(),
+            phone_number: accountForm.phone_number.trim() || null,
+            access_token: accountForm.access_token.trim(),
+            is_active: accountForm.is_active
+          });
+
+        if (error) throw error;
+        setMessage({ type: 'success', text: 'Account added successfully!' });
+      }
+
+      setShowAccountModal(false);
+      loadAccounts();
+    } catch (err: any) {
+      console.error('Error saving account:', err);
+      setMessage({ type: 'error', text: err.message || 'Failed to save account' });
+    }
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this account? All associated groups will also be deleted.')) {
       return;
     }
 
-    const group: WhatsAppGroup = {
-      id: crypto.randomUUID(),
-      group_name: newGroup.group_name.trim(),
-      group_id: newGroup.group_id.trim()
-    };
+    try {
+      const { error } = await supabase
+        .from('whatsapp_accounts')
+        .delete()
+        .eq('id', id);
 
-    setGroups([...groups, group]);
-    setNewGroup({ group_name: '', group_id: '' });
-    setShowGroupModal(false);
+      if (error) throw error;
+      setMessage({ type: 'success', text: 'Account deleted successfully!' });
+    } catch (err: any) {
+      console.error('Error deleting account:', err);
+      setMessage({ type: 'error', text: 'Failed to delete account' });
+    }
   };
 
-  const removeGroup = (id: string) => {
-    setGroups(groups.filter(g => g.id !== id));
+  const handleSyncGroups = async (accountId: string) => {
+    setSyncingGroups(accountId);
+    try {
+      const account = accounts.find(a => a.id === accountId);
+      if (!account) throw new Error('Account not found');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-whatsapp-groups`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ account_id: accountId })
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to sync groups');
+      }
+
+      const result = await response.json();
+      setMessage({ type: 'success', text: `Synced ${result.groups_count || 0} groups successfully!` });
+      loadGroups();
+    } catch (err: any) {
+      console.error('Error syncing groups:', err);
+      setMessage({ type: 'error', text: err.message || 'Failed to sync groups' });
+    } finally {
+      setSyncingGroups(null);
+    }
+  };
+
+  const getAccountGroups = (accountId: string) => {
+    return groups.filter(g => g.account_id === accountId);
   };
 
   if (loading) {
@@ -157,7 +236,7 @@ export function WhatsAppSettingsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900 mb-2">WhatsApp Business Settings</h2>
-        <p className="text-slate-600">Configure WhatsApp Business API credentials and groups</p>
+        <p className="text-slate-600">Manage WhatsApp Business accounts and groups using Meta service user credentials</p>
       </div>
 
       {message && (
@@ -173,94 +252,95 @@ export function WhatsAppSettingsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
-        <div className="flex items-center gap-2 mb-4">
-          <MessageCircle className="w-5 h-5 text-slate-600" />
-          <h3 className="text-xl font-semibold text-slate-900">API Credentials</h3>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Phone Number ID *
-            </label>
-            <input
-              type="text"
-              value={phoneNumberId}
-              onChange={(e) => setPhoneNumberId(e.target.value)}
-              placeholder="Enter your WhatsApp Business Phone Number ID"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              Find this in Meta Business Manager → WhatsApp → API Setup
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Access Token *
-            </label>
-            <div className="relative">
-              <input
-                type={showToken ? 'text' : 'password'}
-                value={accessToken}
-                onChange={(e) => setAccessToken(e.target.value)}
-                placeholder="Enter your WhatsApp Business Access Token"
-                className="w-full px-4 py-2 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken(!showToken)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                {showToken ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Generate a permanent access token in Meta Business Manager
-            </p>
-          </div>
-        </div>
-      </div>
-
       <div className="bg-white rounded-lg border border-slate-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-slate-600" />
-            <h3 className="text-xl font-semibold text-slate-900">WhatsApp Groups</h3>
+            <MessageCircle className="w-5 h-5 text-slate-600" />
+            <h3 className="text-xl font-semibold text-slate-900">WhatsApp Accounts</h3>
           </div>
           <button
-            onClick={() => setShowGroupModal(true)}
+            onClick={() => openAccountModal()}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Add Group
+            Add Account
           </button>
         </div>
 
-        <p className="text-sm text-slate-600 mb-4">
-          Configure WhatsApp groups for broadcasting messages. Get the Group ID from WhatsApp Business API.
-        </p>
-
-        {groups.length === 0 ? (
+        {accounts.length === 0 ? (
           <div className="text-center py-8 text-slate-500">
-            <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No groups configured yet</p>
+            <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>No WhatsApp accounts configured yet</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {groups.map((group) => (
-              <div key={group.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50">
-                <div>
-                  <div className="font-semibold text-slate-900">{group.group_name}</div>
-                  <div className="text-sm text-slate-600">ID: {group.group_id}</div>
+          <div className="space-y-4">
+            {accounts.map((account) => (
+              <div key={account.id} className="border border-slate-200 rounded-lg p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h4 className="font-semibold text-slate-900">{account.account_name}</h4>
+                      {account.is_active ? (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Active</span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">Inactive</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-slate-600 space-y-1">
+                      <p><strong>Phone:</strong> {account.phone_number || 'Not set'}</p>
+                      <p><strong>Phone Number ID:</strong> {account.phone_number_id}</p>
+                      {account.last_synced_at && (
+                        <p><strong>Last Synced:</strong> {new Date(account.last_synced_at).toLocaleString()}</p>
+                      )}
+                      <p><strong>Groups:</strong> {getAccountGroups(account.id).length} configured</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleSyncGroups(account.id)}
+                      disabled={syncingGroups === account.id}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                      title="Sync Groups from WhatsApp"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${syncingGroups === account.id ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => openAccountModal(account)}
+                      className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                      title="Edit Account"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAccount(account.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete Account"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => removeGroup(group.id)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
+                {getAccountGroups(account.id).length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <h5 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Groups ({getAccountGroups(account.id).length})
+                    </h5>
+                    <div className="space-y-2">
+                      {getAccountGroups(account.id).map((group) => (
+                        <div key={group.id} className="flex items-center justify-between p-2 bg-slate-50 rounded text-sm">
+                          <div>
+                            <div className="font-medium text-slate-900">{group.group_name}</div>
+                            <div className="text-xs text-slate-600">
+                              {group.participants_count} participants • {group.group_id}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -271,35 +351,25 @@ export function WhatsAppSettingsPage() {
         <h4 className="font-semibold text-blue-900 mb-2">Setup Instructions:</h4>
         <ol className="text-sm text-blue-800 space-y-1 ml-4 list-decimal">
           <li>Go to <a href="https://business.facebook.com/" target="_blank" rel="noopener noreferrer" className="underline">Meta Business Manager</a></li>
-          <li>Navigate to WhatsApp → API Setup</li>
-          <li>Copy your Phone Number ID and generate a permanent Access Token</li>
-          <li>Paste the credentials above and click Save</li>
-          <li>To send to groups, add group IDs obtained from WhatsApp Business API</li>
+          <li>Navigate to Business Settings → System Users</li>
+          <li>Create a system user with WhatsApp Business permissions</li>
+          <li>Generate a system user access token (permanent or long-lived)</li>
+          <li>Navigate to WhatsApp → Phone Numbers to get the Phone Number ID</li>
+          <li>Click "Add Account" above and paste your credentials</li>
+          <li>Click "Sync Groups" to automatically fetch all WhatsApp groups</li>
         </ol>
       </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Saving...' : 'Save Settings'}
-        </button>
-      </div>
-
-      {showGroupModal && (
+      {showAccountModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-slate-900">Add WhatsApp Group</h3>
+                <h3 className="text-xl font-bold text-slate-900">
+                  {editingAccount ? 'Edit WhatsApp Account' : 'Add WhatsApp Account'}
+                </h3>
                 <button
-                  onClick={() => {
-                    setShowGroupModal(false);
-                    setNewGroup({ group_name: '', group_id: '' });
-                  }}
+                  onClick={() => setShowAccountModal(false)}
                   className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -309,49 +379,92 @@ export function WhatsAppSettingsPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Group Name *
+                    Account Name *
                   </label>
                   <input
                     type="text"
-                    value={newGroup.group_name}
-                    onChange={(e) => setNewGroup({ ...newGroup, group_name: e.target.value })}
-                    placeholder="e.g., Sales Team, Marketing Group"
+                    value={accountForm.account_name}
+                    onChange={(e) => setAccountForm({ ...accountForm, account_name: e.target.value })}
+                    placeholder="e.g., Main Business Account"
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Group ID *
+                    Phone Number ID *
                   </label>
                   <input
                     type="text"
-                    value={newGroup.group_id}
-                    onChange={(e) => setNewGroup({ ...newGroup, group_id: e.target.value })}
-                    placeholder="e.g., 120363XXXXXXXX@g.us"
+                    value={accountForm.phone_number_id}
+                    onChange={(e) => setAccountForm({ ...accountForm, phone_number_id: e.target.value })}
+                    placeholder="Find in WhatsApp Manager → Phone Numbers"
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Get this from WhatsApp Business API
-                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Phone Number (Display)
+                  </label>
+                  <input
+                    type="text"
+                    value={accountForm.phone_number}
+                    onChange={(e) => setAccountForm({ ...accountForm, phone_number: e.target.value })}
+                    placeholder="e.g., +852 1234 5678"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    System User Access Token *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showToken ? 'text' : 'password'}
+                      value={accountForm.access_token}
+                      onChange={(e) => setAccountForm({ ...accountForm, access_token: e.target.value })}
+                      placeholder="System user permanent access token"
+                      className="w-full px-4 py-2 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowToken(!showToken)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showToken ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={accountForm.is_active}
+                    onChange={(e) => setAccountForm({ ...accountForm, is_active: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 rounded"
+                  />
+                  <label htmlFor="is_active" className="text-sm text-slate-700">
+                    Account is active
+                  </label>
                 </div>
               </div>
 
               <div className="flex justify-end gap-3 mt-6">
                 <button
-                  onClick={() => {
-                    setShowGroupModal(false);
-                    setNewGroup({ group_name: '', group_id: '' });
-                  }}
+                  onClick={() => setShowAccountModal(false)}
                   className="px-4 py-2 text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={addGroup}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={handleSaveAccount}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Add Group
+                  <Save className="w-4 h-4" />
+                  {editingAccount ? 'Update' : 'Add'} Account
                 </button>
               </div>
             </div>

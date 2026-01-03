@@ -1,15 +1,17 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
 interface WhatsAppRequest {
+  account_id?: string;
   phone: string;
   message: string;
+  is_group?: boolean;
   files?: {
     id: string;
     name: string;
@@ -19,7 +21,7 @@ interface WhatsAppRequest {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
       headers: corsHeaders,
@@ -28,52 +30,65 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { phone, message, files }: WhatsAppRequest = await req.json();
+    const { account_id, phone, message, is_group, files }: WhatsAppRequest = await req.json();
 
     if (!phone) {
-      throw new Error("Phone number is required");
+      throw new Error('Phone number is required');
     }
 
-    const { data: settings, error: settingsError } = await supabase
-      .from("system_settings")
-      .select("key, value")
-      .in("key", ["whatsapp_phone_number_id", "whatsapp_access_token"])
-      .limit(2);
+    let phoneNumberId: string;
+    let accessToken: string;
 
-    if (settingsError) {
-      console.error("Error fetching settings:", settingsError);
-      throw new Error("Failed to fetch WhatsApp credentials");
+    if (account_id) {
+      const { data: account, error: accountError } = await supabase
+        .from('whatsapp_accounts')
+        .select('phone_number_id, access_token, is_active')
+        .eq('id', account_id)
+        .single();
+
+      if (accountError || !account) {
+        throw new Error('WhatsApp account not found');
+      }
+
+      if (!account.is_active) {
+        throw new Error('WhatsApp account is inactive');
+      }
+
+      phoneNumberId = account.phone_number_id;
+      accessToken = account.access_token;
+    } else {
+      const { data: activeAccount, error: accountError } = await supabase
+        .from('whatsapp_accounts')
+        .select('phone_number_id, access_token')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (accountError || !activeAccount) {
+        throw new Error('No active WhatsApp account found. Please configure in Admin → WhatsApp');
+      }
+
+      phoneNumberId = activeAccount.phone_number_id;
+      accessToken = activeAccount.access_token;
     }
 
-    const phoneNumberId = settings?.find(
-      (s) => s.key === "whatsapp_phone_number_id"
-    )?.value;
-    const accessToken = settings?.find(
-      (s) => s.key === "whatsapp_access_token"
-    )?.value;
-
-    if (!phoneNumberId || !accessToken) {
-      throw new Error(
-        "WhatsApp credentials not configured. Please configure in Admin → Settings"
-      );
-    }
-
-    const cleanPhone = phone.replace(/[^\d]/g, "");
+    const recipient = is_group ? phone : phone.replace(/[^\d]/g, '');
 
     if (files && files.length > 0) {
       const { data: oauth } = await supabase
-        .from("google_oauth_tokens")
-        .select("access_token, refresh_token, expires_at, email")
-        .order("created_at", { ascending: false })
+        .from('google_oauth_tokens')
+        .select('access_token, refresh_token, expires_at, email')
+        .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
       if (!oauth) {
-        throw new Error("Google OAuth not configured");
+        throw new Error('Google OAuth not configured');
       }
 
       let currentAccessToken = oauth.access_token;
@@ -82,21 +97,21 @@ Deno.serve(async (req: Request) => {
 
       if (now >= expiresAt - 300000) {
         const tokenResponse = await fetch(
-          "https://oauth2.googleapis.com/token",
+          'https://oauth2.googleapis.com/token',
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              client_id: Deno.env.get("GOOGLE_CLIENT_ID"),
-              client_secret: Deno.env.get("GOOGLE_CLIENT_SECRET"),
+              client_id: Deno.env.get('GOOGLE_CLIENT_ID'),
+              client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET'),
               refresh_token: oauth.refresh_token,
-              grant_type: "refresh_token",
+              grant_type: 'refresh_token',
             }),
           }
         );
 
         if (!tokenResponse.ok) {
-          throw new Error("Failed to refresh Google access token");
+          throw new Error('Failed to refresh Google access token');
         }
 
         const tokenData = await tokenResponse.json();
@@ -107,12 +122,12 @@ Deno.serve(async (req: Request) => {
         ).toISOString();
 
         await supabase
-          .from("google_oauth_tokens")
+          .from('google_oauth_tokens')
           .update({
             access_token: currentAccessToken,
             expires_at: newExpiresAt,
           })
-          .eq("email", oauth.email);
+          .eq('email', oauth.email);
       }
 
       for (const file of files) {
@@ -131,26 +146,26 @@ Deno.serve(async (req: Request) => {
         }
 
         const fileData = await fileResponse.blob();
-        const mediaType = file.mimeType?.includes("image")
-          ? "image"
-          : file.mimeType?.includes("video")
-          ? "video"
-          : file.mimeType?.includes("audio")
-          ? "audio"
-          : "document";
+        const mediaType = file.mimeType?.includes('image')
+          ? 'image'
+          : file.mimeType?.includes('video')
+          ? 'video'
+          : file.mimeType?.includes('audio')
+          ? 'audio'
+          : 'document';
 
         const formData = new FormData();
         formData.append(
-          "file",
+          'file',
           fileData,
           file.name
         );
-        formData.append("messaging_product", "whatsapp");
+        formData.append('messaging_product', 'whatsapp');
 
         const uploadResponse = await fetch(
           `https://graph.facebook.com/v21.0/${phoneNumberId}/media`,
           {
-            method: "POST",
+            method: 'POST',
             headers: {
               Authorization: `Bearer ${accessToken}`,
             },
@@ -160,9 +175,9 @@ Deno.serve(async (req: Request) => {
 
         if (!uploadResponse.ok) {
           const errorData = await uploadResponse.json();
-          console.error("WhatsApp media upload error:", errorData);
+          console.error('WhatsApp media upload error:', errorData);
           throw new Error(
-            `Failed to upload media: ${errorData.error?.message || "Unknown error"}`
+            `Failed to upload media: ${errorData.error?.message || 'Unknown error'}`
           );
         }
 
@@ -170,8 +185,8 @@ Deno.serve(async (req: Request) => {
         const mediaId = uploadResult.id;
 
         const messagePayload: any = {
-          messaging_product: "whatsapp",
-          to: cleanPhone,
+          messaging_product: 'whatsapp',
+          to: recipient,
           type: mediaType,
         };
 
@@ -186,10 +201,10 @@ Deno.serve(async (req: Request) => {
         const sendResponse = await fetch(
           `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
           {
-            method: "POST",
+            method: 'POST',
             headers: {
               Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
             },
             body: JSON.stringify(messagePayload),
           }
@@ -197,9 +212,9 @@ Deno.serve(async (req: Request) => {
 
         if (!sendResponse.ok) {
           const errorData = await sendResponse.json();
-          console.error("WhatsApp send error:", errorData);
+          console.error('WhatsApp send error:', errorData);
           throw new Error(
-            `Failed to send WhatsApp message: ${errorData.error?.message || "Unknown error"}`
+            `Failed to send WhatsApp message: ${errorData.error?.message || 'Unknown error'}`
           );
         }
       }
@@ -207,20 +222,20 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: "Files sent successfully via WhatsApp",
+          message: 'Files sent successfully via WhatsApp',
         }),
         {
           headers: {
             ...corsHeaders,
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
         }
       );
     } else if (message) {
       const messagePayload = {
-        messaging_product: "whatsapp",
-        to: cleanPhone,
-        type: "text",
+        messaging_product: 'whatsapp',
+        to: recipient,
+        type: 'text',
         text: {
           body: message,
         },
@@ -229,10 +244,10 @@ Deno.serve(async (req: Request) => {
       const sendResponse = await fetch(
         `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
         {
-          method: "POST",
+          method: 'POST',
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify(messagePayload),
         }
@@ -240,9 +255,9 @@ Deno.serve(async (req: Request) => {
 
       if (!sendResponse.ok) {
         const errorData = await sendResponse.json();
-        console.error("WhatsApp send error:", errorData);
+        console.error('WhatsApp send error:', errorData);
         throw new Error(
-          `Failed to send WhatsApp message: ${errorData.error?.message || "Unknown error"}`
+          `Failed to send WhatsApp message: ${errorData.error?.message || 'Unknown error'}`
         );
       }
 
@@ -251,30 +266,30 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: "WhatsApp message sent successfully",
+          message: 'WhatsApp message sent successfully',
           result,
         }),
         {
           headers: {
             ...corsHeaders,
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
         }
       );
     } else {
-      throw new Error("Either message or files must be provided");
+      throw new Error('Either message or files must be provided');
     }
   } catch (error: any) {
-    console.error("Error in send-whatsapp function:", error);
+    console.error('Error in send-whatsapp function:', error);
     return new Response(
       JSON.stringify({
-        error: error.message || "Failed to send WhatsApp message",
+        error: error.message || 'Failed to send WhatsApp message',
       }),
       {
         status: 500,
         headers: {
           ...corsHeaders,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
       }
     );

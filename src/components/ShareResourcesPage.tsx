@@ -58,15 +58,18 @@ export function ShareResourcesPage() {
     send_immediately: true
   });
   const [whatsappForm, setWhatsappForm] = useState({
+    account_id: '',
     recipient_phone: '',
     message: '',
     is_group: false
   });
+  const [whatsappAccounts, setWhatsappAccounts] = useState<any[]>([]);
   const [whatsappGroups, setWhatsappGroups] = useState<any[]>([]);
 
   useEffect(() => {
     fetchResources();
     fetchEmailAccounts();
+    fetchWhatsAppAccounts();
     fetchWhatsAppGroups();
 
     const channel = supabase
@@ -112,20 +115,29 @@ export function ShareResourcesPage() {
     }
   };
 
+  const fetchWhatsAppAccounts = async () => {
+    const { data, error } = await supabase
+      .from('whatsapp_accounts')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setWhatsappAccounts(data);
+      if (data.length > 0) {
+        setWhatsappForm(prev => ({ ...prev, account_id: data[0].id }));
+      }
+    }
+  };
+
   const fetchWhatsAppGroups = async () => {
     const { data, error } = await supabase
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'whatsapp_groups')
-      .maybeSingle();
+      .from('whatsapp_groups')
+      .select('*')
+      .order('group_name', { ascending: true });
 
-    if (!error && data && data.value) {
-      try {
-        const parsedGroups = JSON.parse(data.value);
-        setWhatsappGroups(Array.isArray(parsedGroups) ? parsedGroups : []);
-      } catch {
-        setWhatsappGroups([]);
-      }
+    if (!error && data) {
+      setWhatsappGroups(data);
     }
   };
 
@@ -573,6 +585,7 @@ export function ShareResourcesPage() {
   const openWhatsAppModal = (resource?: Resource) => {
     setSelectedResource(resource || null);
     setWhatsappForm({
+      account_id: whatsappAccounts.length > 0 ? whatsappAccounts[0].id : '',
       recipient_phone: '',
       message: resource?.content || '',
       is_group: false
@@ -586,6 +599,11 @@ export function ShareResourcesPage() {
 
   const handleSendWhatsApp = async () => {
     if (!user) return;
+
+    if (!whatsappForm.account_id) {
+      alert('Please select a WhatsApp account');
+      return;
+    }
 
     if (!whatsappForm.recipient_phone.trim()) {
       alert('Please enter a phone number or select a group');
@@ -604,6 +622,7 @@ export function ShareResourcesPage() {
         : whatsappForm.recipient_phone.replace(/[^\d+]/g, '');
 
       const payload: any = {
+        account_id: whatsappForm.account_id,
         phone: phone,
         message: whatsappForm.message,
         is_group: whatsappForm.is_group
@@ -1615,6 +1634,30 @@ export function ShareResourcesPage() {
                   </p>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    WhatsApp Account *
+                  </label>
+                  <select
+                    value={whatsappForm.account_id}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, account_id: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="">Select an account...</option>
+                    {whatsappAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.account_name} {account.phone_number ? `(${account.phone_number})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {whatsappAccounts.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      No WhatsApp accounts configured. Please add accounts in Admin → WhatsApp Settings
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -1648,15 +1691,17 @@ export function ShareResourcesPage() {
                       required
                     >
                       <option value="">Select a group...</option>
-                      {whatsappGroups.map((group) => (
-                        <option key={group.id} value={group.group_id}>
-                          {group.group_name}
-                        </option>
-                      ))}
+                      {whatsappGroups
+                        .filter(group => group.account_id === whatsappForm.account_id)
+                        .map((group) => (
+                          <option key={group.id} value={group.group_id}>
+                            {group.group_name} ({group.participants_count} participants)
+                          </option>
+                        ))}
                     </select>
-                    {whatsappGroups.length === 0 && (
+                    {whatsappGroups.filter(g => g.account_id === whatsappForm.account_id).length === 0 && (
                       <p className="text-xs text-amber-600 mt-1">
-                        No groups configured. Please add groups in Admin → WhatsApp Settings
+                        No groups found for this account. Click "Sync Groups" in Admin → WhatsApp Settings
                       </p>
                     )}
                   </div>
