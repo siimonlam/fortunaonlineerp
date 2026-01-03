@@ -116,7 +116,6 @@ Deno.serve(async (req: Request) => {
       'cpm',
       'inline_link_clicks',
       'outbound_clicks',
-      'video_views',
       'conversions',
       'actions',
       'date_start',
@@ -188,7 +187,6 @@ Deno.serve(async (req: Request) => {
             conversions: parseInt(insight.conversions || '0'),
             results: results,
             result_type: resultType,
-            video_views: parseInt(insight.video_views || '0'),
             inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
             outbound_clicks: parseInt(insight.outbound_clicks || '0'),
             actions: insight.actions ? JSON.stringify(insight.actions) : null,
@@ -285,6 +283,7 @@ Deno.serve(async (req: Request) => {
             month_year: monthYear,
             age_group: ageGroup,
             gender: gender,
+            country: null,
             spend: parseFloat(demo.spend || '0'),
             impressions: parseInt(demo.impressions || '0'),
             clicks: parseInt(demo.clicks || '0'),
@@ -299,7 +298,7 @@ Deno.serve(async (req: Request) => {
           const { error: upsertError } = await supabase
             .from('meta_monthly_demographics')
             .upsert(record, {
-              onConflict: 'adset_id,month_year,age_group,gender',
+              onConflict: 'adset_id,month_year,age_group,gender,country',
               ignoreDuplicates: false
             });
 
