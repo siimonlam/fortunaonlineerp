@@ -52,6 +52,10 @@ Deno.serve(async (req: Request) => {
     
     // For now, we'll test the connection and return instructions
     const testUrl = `https://graph.facebook.com/v21.0/${account.phone_number_id}`;
+    console.log('Testing WhatsApp connection with URL:', testUrl);
+    console.log('Phone Number ID:', account.phone_number_id);
+    console.log('Token starts with:', account.access_token.substring(0, 10) + '...');
+
     const testResponse = await fetch(testUrl, {
       headers: {
         'Authorization': `Bearer ${account.access_token}`,
@@ -59,14 +63,24 @@ Deno.serve(async (req: Request) => {
       }
     });
 
+    console.log('Response status:', testResponse.status);
+
     if (!testResponse.ok) {
       const errorData = await testResponse.json();
       console.error('WhatsApp API connection test failed:', errorData);
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'Failed to connect to WhatsApp API. Please verify your credentials.',
           details: errorData,
-          help: 'Make sure your system user has WhatsApp Business Management permissions'
+          phone_number_id: account.phone_number_id,
+          token_preview: account.access_token.substring(0, 10) + '...',
+          help: [
+            '1. Verify Phone Number ID is correct (numbers only, e.g., 274716139056049)',
+            '2. Ensure access token is a System User token (starts with EAA...)',
+            '3. System user must have "WhatsApp Business Management" permission',
+            '4. Token must not be expired',
+            '5. In Meta Business Manager, go to: Business Settings → System Users → Your System User → Assign Assets → WhatsApp Accounts'
+          ]
         }),
         { status: testResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
