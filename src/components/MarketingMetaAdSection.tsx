@@ -78,6 +78,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [reportView, setReportView] = useState<'campaigns' | 'demographics' | 'adsets' | 'ads'>('campaigns');
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [showMonthlyReportModal, setShowMonthlyReportModal] = useState(false);
+  const [monthlyReportResults, setMonthlyReportResults] = useState<any>(null);
+  const [syncingMonthly, setSyncingMonthly] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -454,6 +457,44 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
+  const handleSyncMonthlyReports = async (accountId: string, datePreset: string = 'last_month') => {
+    setSyncingMonthly(true);
+    setMonthlyReportResults(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-monthly-reports`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accountId: accountId,
+          datePreset: datePreset
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to sync monthly reports');
+      }
+
+      const results = await response.json();
+      setMonthlyReportResults(results);
+      setShowMonthlyReportModal(true);
+
+      await loadData();
+    } catch (err: any) {
+      console.error('Error syncing monthly reports:', err);
+      alert('Error syncing monthly reports: ' + err.message);
+    } finally {
+      setSyncingMonthly(false);
+    }
+  };
+
   const handleSyncCampaigns = async (accountId: string) => {
     setSyncing(true);
     try {
@@ -626,17 +667,25 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                 </div>
                 <div className="flex gap-2">
                   <button
+                    onClick={() => handleSyncMonthlyReports(link.account_id)}
+                    disabled={syncingMonthly || syncing}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                  >
+                    <BarChart3 size={14} className={syncingMonthly ? 'animate-spin' : ''} />
+                    Sync Monthly Reports
+                  </button>
+                  <button
                     onClick={() => handleSyncCampaigns(link.account_id)}
-                    disabled={syncing}
+                    disabled={syncing || syncingMonthly}
                     className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                   >
                     <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-                    Sync Campaigns
+                    Sync Daily Data
                   </button>
                   <button
                     onClick={() => handleTestApiConnection(link.account_id)}
-                    disabled={syncing}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                    disabled={syncing || syncingMonthly}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
                   >
                     <BarChart3 size={14} />
                     Test API
@@ -919,6 +968,85 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Add Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMonthlyReportModal && monthlyReportResults && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Monthly Report Sync Results</h3>
+              <button
+                onClick={() => setShowMonthlyReportModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="text-2xl">&times;</span>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-semibold text-green-900 mb-2">Summary</h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-green-700">Campaigns:</span>
+                    <span className="ml-2 font-semibold">{monthlyReportResults.campaigns?.length || 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-green-700">Ad Sets:</span>
+                    <span className="ml-2 font-semibold">{monthlyReportResults.adSets?.length || 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-green-700">Insights Synced:</span>
+                    <span className="ml-2 font-semibold">{monthlyReportResults.totalInsightsSynced || 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-green-700">Date Preset:</span>
+                    <span className="ml-2 font-semibold">{monthlyReportResults.datePreset || 'last_month'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {monthlyReportResults.campaigns && monthlyReportResults.campaigns.length > 0 && (
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-900 mb-3">Campaigns Processed</h4>
+                  <div className="space-y-2">
+                    {monthlyReportResults.campaigns.map((campaign: any) => (
+                      <div key={campaign.campaign_id} className="bg-gray-50 rounded p-3">
+                        <div className="font-medium text-gray-900">{campaign.name}</div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          {campaign.objective} • {campaign.status}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {monthlyReportResults.errors && monthlyReportResults.errors.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-900 mb-2">Errors</h4>
+                  <ul className="list-disc list-inside text-sm text-red-800 space-y-1">
+                    {monthlyReportResults.errors.slice(0, 5).map((error: string, idx: number) => (
+                      <li key={idx}>{error}</li>
+                    ))}
+                    {monthlyReportResults.errors.length > 5 && (
+                      <li className="text-red-600">... and {monthlyReportResults.errors.length - 5} more errors</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowMonthlyReportModal(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
