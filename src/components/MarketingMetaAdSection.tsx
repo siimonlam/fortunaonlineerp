@@ -89,10 +89,17 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [demographicView, setDemographicView] = useState<'age' | 'gender' | 'all'>('age');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
 
   useEffect(() => {
     loadData();
-  }, [projectId, selectedMonth]);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (selectedAccountForView) {
+      loadCampaignMetrics(selectedAccountForView);
+    }
+  }, [selectedMonth, selectedAccountForView]);
 
   const loadData = async () => {
     try {
@@ -112,8 +119,11 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
         const accountIds = linkedRes.data.map((l: any) => l.account_id);
         if (accountIds.length > 0) {
+          if (!selectedAccountForView && accountIds.length > 0) {
+            setSelectedAccountForView(accountIds[0]);
+          }
           loadAvailableMonths(accountIds);
-          loadCampaignMetrics(accountIds);
+          loadCampaignMetrics(selectedAccountForView || accountIds[0]);
         }
       }
     } catch (err: any) {
@@ -143,7 +153,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
-  const loadCampaignMetrics = async (accountIds: string[]) => {
+  const loadCampaignMetrics = async (accountId: string) => {
     try {
       // Parse selected month
       const [year, month] = selectedMonth.split('-');
@@ -153,7 +163,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       const { data: monthlyData } = await supabase
         .from('meta_monthly_insights')
         .select('*')
-        .in('account_id', accountIds)
+        .eq('account_id', accountId)
         .gte('month_year', monthStart)
         .lt('month_year', `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`);
 
@@ -212,13 +222,13 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         loadAdSets(monthlyData);
       }
 
-      loadDemographics(accountIds);
+      loadDemographics(accountId);
     } catch (err: any) {
       console.error('Error loading campaign metrics:', err);
     }
   };
 
-  const loadDemographics = async (accountIds: string[]) => {
+  const loadDemographics = async (accountId: string) => {
     try {
       const [year, month] = selectedMonth.split('-');
       const monthStart = `${year}-${month}-01`;
@@ -226,7 +236,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       const { data: demographics } = await supabase
         .from('meta_monthly_demographics')
         .select('age_group, gender, country, impressions, clicks, spend, reach, results, conversions')
-        .in('account_id', accountIds)
+        .eq('account_id', accountId)
         .gte('month_year', monthStart)
         .lt('month_year', `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`);
 
@@ -774,38 +784,27 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
-            <div className="flex items-center justify-between">
+          {linkedAccounts.length > 1 && (
+            <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
               <div className="flex items-center gap-3">
-                <Calendar size={20} className="text-gray-600" />
-                <label className="text-sm font-medium text-gray-700">View Data For:</label>
+                <BarChart3 size={20} className="text-gray-600" />
+                <label className="text-sm font-medium text-gray-700">Select Account:</label>
                 <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={selectedAccountForView}
+                  onChange={(e) => setSelectedAccountForView(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}>
-                    Current Month (Month-to-Date)
-                  </option>
-                  {availableMonths.filter(m => m !== `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`).map(month => {
-                    const [year, monthNum] = month.split('-');
-                    const date = new Date(Number(year), Number(monthNum) - 1);
-                    const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                    return (
-                      <option key={month} value={month}>
-                        {monthName}
-                      </option>
-                    );
-                  })}
+                  {linkedAccounts.map((link) => (
+                    <option key={link.id} value={link.account_id}>
+                      {link.meta_ad_accounts.account_name} ({link.meta_ad_accounts.currency})
+                    </option>
+                  ))}
                 </select>
               </div>
-              <div className="text-sm text-gray-600">
-                {campaigns.length} campaigns • {adSets.length} ad sets
-              </div>
             </div>
-          </div>
+          )}
 
-          {linkedAccounts.map((link) => (
+          {linkedAccounts.filter(link => link.account_id === selectedAccountForView).map((link) => (
             <div key={link.id} className="bg-white rounded-lg shadow border border-gray-200">
               <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                 <div>
@@ -853,6 +852,37 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
               </div>
 
               <div className="p-4">
+                <div className="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Calendar size={18} className="text-gray-600" />
+                      <label className="text-sm font-medium text-gray-700">View Data For:</label>
+                      <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      >
+                        <option value={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}>
+                          Current Month (Month-to-Date)
+                        </option>
+                        {availableMonths.filter(m => m !== `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`).map(month => {
+                          const [year, monthNum] = month.split('-');
+                          const date = new Date(Number(year), Number(monthNum) - 1);
+                          const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                          return (
+                            <option key={month} value={month}>
+                              {monthName}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {campaigns.length} campaigns • {adSets.length} ad sets
+                    </div>
+                  </div>
+                </div>
+
                 {campaigns.filter(c => c.account_id === link.account_id).length === 0 ? (
                   <div className="text-center py-8">
                     <BarChart3 size={48} className="mx-auto text-gray-300 mb-3" />
