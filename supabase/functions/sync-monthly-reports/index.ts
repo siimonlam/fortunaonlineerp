@@ -168,8 +168,20 @@ Deno.serve(async (req: Request) => {
 
           const { data: adsetData } = await supabase
             .from('meta_adsets')
-            .select('client_number, marketing_reference')
+            .select('name, client_number, marketing_reference')
             .eq('adset_id', adsetId)
+            .maybeSingle();
+
+          const { data: campaignData } = await supabase
+            .from('meta_campaigns')
+            .select('name')
+            .eq('campaign_id', insight.campaign_id)
+            .maybeSingle();
+
+          const { data: accountData } = await supabase
+            .from('meta_ad_accounts')
+            .select('account_name')
+            .eq('account_id', accountId)
             .maybeSingle();
 
           const record = {
@@ -177,6 +189,9 @@ Deno.serve(async (req: Request) => {
             campaign_id: insight.campaign_id || null,
             adset_id: adsetId,
             month_year: monthYear,
+            adset_name: adsetData?.name || null,
+            campaign_name: campaignData?.name || null,
+            account_name: accountData?.account_name || null,
             spend: parseFloat(insight.spend || '0'),
             impressions: parseInt(insight.impressions || '0'),
             clicks: parseInt(insight.clicks || '0'),

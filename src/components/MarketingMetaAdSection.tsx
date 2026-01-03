@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { BarChart3, Plus, RefreshCw, Trash2, ExternalLink, TrendingUp, DollarSign, Eye, MousePointer, Filter, ChevronDown } from 'lucide-react';
+import { BarChart3, Plus, RefreshCw, Trash2, ExternalLink, TrendingUp, DollarSign, Eye, MousePointer, Filter, ChevronDown, Calendar } from 'lucide-react';
 
 interface MarketingMetaAdSectionProps {
   projectId: string;
@@ -81,10 +81,15 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   const [showMonthlyReportModal, setShowMonthlyReportModal] = useState(false);
   const [monthlyReportResults, setMonthlyReportResults] = useState<any>(null);
   const [syncingMonthly, setSyncingMonthly] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
-  }, [projectId]);
+  }, [projectId, selectedMonth]);
 
   const loadData = async () => {
     try {
@@ -104,6 +109,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
         const accountIds = linkedRes.data.map((l: any) => l.account_id);
         if (accountIds.length > 0) {
+          loadAvailableMonths(accountIds);
           loadCampaignMetrics(accountIds);
         }
       }
@@ -114,64 +120,93 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
+  const loadAvailableMonths = async (accountIds: string[]) => {
+    try {
+      const { data } = await supabase
+        .from('meta_monthly_insights')
+        .select('month_year')
+        .in('account_id', accountIds)
+        .order('month_year', { ascending: false });
+
+      if (data) {
+        const uniqueMonths = Array.from(new Set(data.map(d => {
+          const date = new Date(d.month_year);
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        })));
+        setAvailableMonths(uniqueMonths);
+      }
+    } catch (err: any) {
+      console.error('Error loading available months:', err);
+    }
+  };
+
   const loadCampaignMetrics = async (accountIds: string[]) => {
     try {
-      const { data: campaignsData } = await supabase
-        .from('meta_campaigns')
-        .select('campaign_id, name, status, objective, account_id')
-        .in('account_id', accountIds);
+      // Parse selected month
+      const [year, month] = selectedMonth.split('-');
+      const monthStart = `${year}-${month}-01`;
 
-      if (!campaignsData) return;
+      // Query monthly insights for the selected month
+      const { data: monthlyData } = await supabase
+        .from('meta_monthly_insights')
+        .select('*')
+        .in('account_id', accountIds)
+        .gte('month_year', monthStart)
+        .lt('month_year', `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`);
 
-      const metricsPromises = campaignsData.map(async (campaign) => {
-        const { data: insights } = await supabase
-          .from('meta_ad_insights')
-          .select('spend, impressions, clicks, conversions, results, ctr, cpc')
-          .eq('campaign_id', campaign.campaign_id);
+      if (!monthlyData || monthlyData.length === 0) {
+        setCampaigns([]);
+        setAdSets([]);
+        setAds([]);
+        return;
+      }
 
-        if (!insights || insights.length === 0) {
-          return {
-            ...campaign,
+      // Aggregate by campaign
+      const campaignMap = new Map<string, any>();
+
+      monthlyData.forEach((insight) => {
+        if (!insight.campaign_id) return;
+
+        if (!campaignMap.has(insight.campaign_id)) {
+          campaignMap.set(insight.campaign_id, {
+            campaign_id: insight.campaign_id,
+            name: insight.campaign_name,
+            account_id: insight.account_id,
+            status: 'ACTIVE',
+            objective: '',
             total_spend: 0,
             total_impressions: 0,
             total_clicks: 0,
             total_conversions: 0,
             total_results: 0,
             avg_ctr: 0,
-            avg_cpc: 0
-          };
+            avg_cpc: 0,
+            count: 0
+          });
         }
 
-        const totals = insights.reduce((acc, insight) => ({
-          spend: acc.spend + (Number(insight.spend) || 0),
-          impressions: acc.impressions + (Number(insight.impressions) || 0),
-          clicks: acc.clicks + (Number(insight.clicks) || 0),
-          conversions: acc.conversions + (Number(insight.conversions) || 0),
-          results: acc.results + (Number(insight.results) || 0),
-          ctr: acc.ctr + (Number(insight.ctr) || 0),
-          cpc: acc.cpc + (Number(insight.cpc) || 0)
-        }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, results: 0, ctr: 0, cpc: 0 });
-
-        return {
-          ...campaign,
-          total_spend: totals.spend,
-          total_impressions: totals.impressions,
-          total_clicks: totals.clicks,
-          total_conversions: totals.conversions,
-          total_results: totals.results,
-          avg_ctr: insights.length > 0 ? totals.ctr / insights.length : 0,
-          avg_cpc: insights.length > 0 ? totals.cpc / insights.length : 0
-        };
+        const campaign = campaignMap.get(insight.campaign_id);
+        campaign.total_spend += Number(insight.spend) || 0;
+        campaign.total_impressions += Number(insight.impressions) || 0;
+        campaign.total_clicks += Number(insight.clicks) || 0;
+        campaign.total_conversions += Number(insight.conversions) || 0;
+        campaign.total_results += Number(insight.results) || 0;
+        campaign.avg_ctr += Number(insight.ctr) || 0;
+        campaign.avg_cpc += Number(insight.cpc) || 0;
+        campaign.count += 1;
       });
 
-      const metrics = await Promise.all(metricsPromises);
+      const metrics = Array.from(campaignMap.values()).map(campaign => ({
+        ...campaign,
+        avg_ctr: campaign.count > 0 ? campaign.avg_ctr / campaign.count : 0,
+        avg_cpc: campaign.count > 0 ? campaign.avg_cpc / campaign.count : 0
+      }));
+
       setCampaigns(metrics);
 
       if (metrics.length > 0) {
         const allCampaignIds = metrics.map(c => c.campaign_id);
-        loadDemographics(allCampaignIds);
-        loadAdSets(allCampaignIds);
-        loadAds(allCampaignIds);
+        loadAdSets(monthlyData);
       }
     } catch (err: any) {
       console.error('Error loading campaign metrics:', err);
@@ -222,38 +257,35 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
-  const loadAdSets = async (campaignIds: string[]) => {
+  const loadAdSets = async (monthlyData: any[]) => {
     try {
-      const { data: adSetsData } = await supabase
-        .from('meta_adsets')
-        .select('adset_id, name, status, campaign_id')
-        .in('campaign_id', campaignIds);
+      // Aggregate by adset
+      const adsetMap = new Map<string, any>();
 
-      if (!adSetsData) return;
+      monthlyData.forEach((insight) => {
+        if (!insight.adset_id) return;
 
-      const metricsPromises = adSetsData.map(async (adset) => {
-        const { data: insights } = await supabase
-          .from('meta_ad_insights')
-          .select('spend, impressions, clicks, results')
-          .eq('adset_id', adset.adset_id);
+        if (!adsetMap.has(insight.adset_id)) {
+          adsetMap.set(insight.adset_id, {
+            adset_id: insight.adset_id,
+            name: insight.adset_name,
+            campaign_id: insight.campaign_id,
+            status: 'ACTIVE',
+            total_spend: 0,
+            total_impressions: 0,
+            total_clicks: 0,
+            total_results: 0
+          });
+        }
 
-        const totals = (insights || []).reduce((acc, insight) => ({
-          spend: acc.spend + (Number(insight.spend) || 0),
-          impressions: acc.impressions + (Number(insight.impressions) || 0),
-          clicks: acc.clicks + (Number(insight.clicks) || 0),
-          results: acc.results + (Number(insight.results) || 0)
-        }), { spend: 0, impressions: 0, clicks: 0, results: 0 });
-
-        return {
-          ...adset,
-          total_spend: totals.spend,
-          total_impressions: totals.impressions,
-          total_clicks: totals.clicks,
-          total_results: totals.results
-        };
+        const adset = adsetMap.get(insight.adset_id);
+        adset.total_spend += Number(insight.spend) || 0;
+        adset.total_impressions += Number(insight.impressions) || 0;
+        adset.total_clicks += Number(insight.clicks) || 0;
+        adset.total_results += Number(insight.results) || 0;
       });
 
-      const metrics = await Promise.all(metricsPromises);
+      const metrics = Array.from(adsetMap.values());
       setAdSets(metrics);
     } catch (err: any) {
       console.error('Error loading ad sets:', err);
@@ -457,13 +489,26 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
-  const handleSyncMonthlyReports = async (accountId: string, datePreset: string = 'last_month') => {
+  const handleSyncMonthlyReports = async (accountId: string, datePreset?: string) => {
     setSyncingMonthly(true);
     setMonthlyReportResults(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-monthly-reports`;
+
+      // If no date preset provided, sync the selected month
+      let syncDatePreset = datePreset;
+      if (!syncDatePreset) {
+        const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+        if (selectedMonth === currentMonth) {
+          syncDatePreset = 'this_month';
+        } else {
+          // For past months, use a custom date range
+          const [year, month] = selectedMonth.split('-');
+          syncDatePreset = 'last_month'; // Will need to adjust the edge function to support specific months
+        }
+      }
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -473,7 +518,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         },
         body: JSON.stringify({
           accountId: accountId,
-          datePreset: datePreset
+          datePreset: syncDatePreset
         })
       });
 
@@ -653,6 +698,37 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar size={20} className="text-gray-600" />
+                <label className="text-sm font-medium text-gray-700">View Data For:</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}>
+                    Current Month (Month-to-Date)
+                  </option>
+                  {availableMonths.filter(m => m !== `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`).map(month => {
+                    const [year, monthNum] = month.split('-');
+                    const date = new Date(Number(year), Number(monthNum) - 1);
+                    const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                    return (
+                      <option key={month} value={month}>
+                        {monthName}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="text-sm text-gray-600">
+                {campaigns.length} campaigns • {adSets.length} ad sets
+              </div>
+            </div>
+          </div>
+
           {linkedAccounts.map((link) => (
             <div key={link.id} className="bg-white rounded-lg shadow border border-gray-200">
               <div className="p-4 border-b border-gray-200 flex items-center justify-between">
@@ -702,9 +778,15 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
               <div className="p-4">
                 {campaigns.filter(c => c.account_id === link.account_id).length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">
-                    No campaigns found. Click "Sync Campaigns" to fetch data.
-                  </p>
+                  <div className="text-center py-8">
+                    <BarChart3 size={48} className="mx-auto text-gray-300 mb-3" />
+                    <p className="text-sm text-gray-600 mb-2 font-medium">
+                      No data for {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Click "Sync Monthly Reports" above to fetch data for this month
+                    </p>
+                  </div>
                 ) : (
                   <>
                     <div className="flex gap-2 mb-4 border-b border-gray-200">
