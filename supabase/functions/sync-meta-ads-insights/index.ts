@@ -229,12 +229,15 @@ Deno.serve(async (req: Request) => {
           console.log(`    Fetching insights for ad: ${ad.name} (${ad.id})`);
           const insightsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,reach,frequency,clicks,unique_clicks,ctr,unique_ctr,inline_link_clicks,inline_link_click_ctr,spend,cpc,cpm,cpp,video_views,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,conversions,conversion_values,cost_per_conversion,actions,social_spend,website_ctr,outbound_clicks,quality_ranking,engagement_rate_ranking,conversion_rate_ranking&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
 
+          console.log(`    Insights URL: ${insightsUrl.substring(0, 150)}...`);
+
           const insightsResponse = await fetchWithRateLimit(insightsUrl);
 
           if (!insightsResponse.ok) {
             const errorData = await insightsResponse.json().catch(() => ({ error: { message: 'Unknown error' } }));
-            const errorMsg = `Ad ${ad.name} (${ad.id}): ${errorData.error?.message || 'Failed to fetch insights'}`;
+            const errorMsg = `Ad ${ad.name} (${ad.id}): HTTP ${insightsResponse.status} - ${errorData.error?.message || 'Failed to fetch insights'}`;
             console.error(errorMsg);
+            console.error('Full error response:', JSON.stringify(errorData, null, 2));
             errors.push(errorMsg);
             continue;
           }
@@ -243,6 +246,13 @@ Deno.serve(async (req: Request) => {
           const insights = insightsData.data || [];
 
           console.log(`    Ad "${ad.name}" has ${insights.length} insight records`);
+
+          if (insights.length === 0) {
+            console.log(`    WARNING: No insights data returned for ad ${ad.id}. This could mean:`);
+            console.log(`      - The ad has no impressions/spend in the date range ${since} to ${until}`);
+            console.log(`      - The ad was not active during this period`);
+            console.log(`      - The ad is too new to have metrics`);
+          }
 
           for (const insight of insights) {
             const videoP25 = insight.video_p25_watched_actions?.[0]?.value || 0;
