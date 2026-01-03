@@ -35,7 +35,7 @@ async function fetchWithRateLimit(url: string, retries = 3): Promise<Response> {
     }
 
     // Add small delay between all requests to avoid hitting limits
-    await delay(200);
+    await delay(100);
     return response;
   }
 
@@ -111,9 +111,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Limit to first 3 campaigns to prevent timeout
-    const campaignsToProcess = campaigns.slice(0, 3);
-    const hasMore = campaigns.length > 3;
+    // Limit to first 1 campaign to prevent resource exhaustion
+    const campaignsToProcess = campaigns.slice(0, 1);
+    const hasMore = campaigns.length > 1;
 
     let totalSynced = 0;
     let totalAds = 0;
@@ -122,11 +122,11 @@ Deno.serve(async (req: Request) => {
     const errors: string[] = [];
 
     console.log(`\n========================================`);
-    console.log(`Starting sync for ${campaignsToProcess.length} of ${campaigns.length} campaigns`);
+    console.log(`Starting sync for campaign 1 of ${campaigns.length}`);
     console.log(`Date range: ${since} to ${until}`);
     if (hasMore) {
-      console.log(`WARNING: Processing only first 3 campaigns to avoid timeout`);
-      console.log(`Remaining campaigns will need separate sync requests`);
+      console.log(`WARNING: Processing only 1 campaign per request to avoid resource limits`);
+      console.log(`${campaigns.length - 1} campaigns remaining - please sync again`);
     }
     console.log(`========================================\n`);
 
@@ -153,30 +153,30 @@ Deno.serve(async (req: Request) => {
       totalCampaignsProcessed++;
       totalAdSets += adsets.length;
 
-      // Save all adsets
-      for (const adset of adsets) {
+      // Batch save all adsets at once
+      if (adsets.length > 0) {
+        const adsetRecords = adsets.map((adset: any) => ({
+          adset_id: adset.id,
+          campaign_id: campaign.campaign_id,
+          account_id: accountId,
+          name: adset.name,
+          status: adset.status,
+          daily_budget: adset.daily_budget,
+          lifetime_budget: adset.lifetime_budget,
+          targeting: adset.targeting ? JSON.stringify(adset.targeting) : null,
+          billing_event: adset.billing_event,
+          optimization_goal: adset.optimization_goal,
+          bid_amount: adset.bid_amount,
+          created_time: adset.created_time,
+          updated_time: adset.updated_time,
+          client_number: campaign.client_number,
+          marketing_reference: campaign.marketing_reference,
+          updated_at: new Date().toISOString()
+        }));
+
         await supabase
           .from('meta_adsets')
-          .upsert({
-            adset_id: adset.id,
-            campaign_id: campaign.campaign_id,
-            account_id: accountId,
-            name: adset.name,
-            status: adset.status,
-            daily_budget: adset.daily_budget,
-            lifetime_budget: adset.lifetime_budget,
-            targeting: adset.targeting ? JSON.stringify(adset.targeting) : null,
-            billing_event: adset.billing_event,
-            optimization_goal: adset.optimization_goal,
-            bid_amount: adset.bid_amount,
-            created_time: adset.created_time,
-            updated_time: adset.updated_time,
-            client_number: campaign.client_number,
-            marketing_reference: campaign.marketing_reference,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'adset_id'
-          });
+          .upsert(adsetRecords, { onConflict: 'adset_id' });
       }
 
       // Now fetch ads for each adset
@@ -335,50 +335,8 @@ Deno.serve(async (req: Request) => {
             totalSynced++;
           }
 
-          console.log(`    Fetching demographics for ad: ${ad.name}`);
-          const demographicsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,clicks,spend,actions&breakdowns=age,gender,country&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
-
-          const demographicsResponse = await fetchWithRateLimit(demographicsUrl);
-
-          if (demographicsResponse.ok) {
-            const demographicsData = await demographicsResponse.json();
-            const demographics = demographicsData.data || [];
-
-            for (const demo of demographics) {
-              let demoResults = 0;
-              if (demo.actions && Array.isArray(demo.actions)) {
-                const resultAction = demo.actions.find((a: any) =>
-                  a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
-                  a.action_type === 'onsite_conversion.post_save' ||
-                  a.action_type === 'lead' ||
-                  a.action_type === 'omni_purchase'
-                );
-                if (resultAction) {
-                  demoResults = parseInt(resultAction.value || '0');
-                }
-              }
-
-              await supabase
-                .from('meta_ad_insights_demographics')
-                .upsert({
-                  ad_id: ad.id,
-                  date: demo.date_start,
-                  age: demo.age || null,
-                  gender: demo.gender || null,
-                  country: demo.country || null,
-                  impressions: parseInt(demo.impressions || '0'),
-                  clicks: parseInt(demo.clicks || '0'),
-                  spend: parseFloat(demo.spend || '0'),
-                  conversions: 0,
-                  results: demoResults,
-                  client_number: campaign.client_number,
-                  marketing_reference: campaign.marketing_reference,
-                  updated_at: new Date().toISOString()
-                }, {
-                  onConflict: 'ad_id,date,age,gender,country'
-                });
-            }
-          }
+          // Skip demographics sync to save resources
+          // Demographics can be fetched separately if needed
         }
       }
     }
