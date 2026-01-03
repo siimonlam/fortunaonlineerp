@@ -11,8 +11,8 @@ interface SyncRequest {
   accountId: string;
   datePreset?: 'this_month' | 'last_month' | 'last_3_months' | 'last_6_months';
   customDateRange?: {
-    since: string; // YYYY-MM-DD
-    until: string; // YYYY-MM-DD
+    since: string;
+    until: string;
   };
 }
 
@@ -83,11 +83,12 @@ Deno.serve(async (req: Request) => {
     const accessToken = tokenData.value;
     const formattedAccountId = accountId.startsWith('act_') ? accountId : `act_${accountId}`;
 
-    let timeRange: string;
+    let timeRangeParam: string;
     if (customDateRange) {
-      timeRange = JSON.stringify({ since: customDateRange.since, until: customDateRange.until });
+      const timeRangeObj = JSON.stringify({ since: customDateRange.since, until: customDateRange.until });
+      timeRangeParam = `time_range=${encodeURIComponent(timeRangeObj)}`;
     } else {
-      timeRange = `{"date_preset":"${datePreset}"}`;
+      timeRangeParam = `date_preset=${datePreset}`;
     }
 
     console.log(`\n========================================`);
@@ -122,7 +123,7 @@ Deno.serve(async (req: Request) => {
       'date_stop'
     ].join(',');
 
-    let nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=${baseFields}&time_range=${timeRange}&time_increment=monthly&limit=25&access_token=${accessToken}`;
+    let nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=${baseFields}&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
 
     console.log('=== FETCHING GENERAL MONTHLY INSIGHTS ===\n');
 
@@ -229,7 +230,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('\n=== FETCHING DEMOGRAPHIC BREAKDOWNS ===\n');
 
-    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,campaign_id,impressions,reach,spend,clicks,conversions,date_start,date_stop&breakdowns=age,gender&time_range=${timeRange}&time_increment=monthly&limit=25&access_token=${accessToken}`;
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,campaign_id,impressions,reach,spend,clicks,conversions,date_start,date_stop&breakdowns=age,gender&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
 
     pageCount = 0;
     while (nextPageUrl) {
@@ -333,6 +334,16 @@ Deno.serve(async (req: Request) => {
     console.log(`Errors: ${errors.length}`);
     console.log(`========================================\n`);
 
+    const { data: campaigns } = await supabase
+      .from('meta_campaigns')
+      .select('campaign_id, name, objective, status')
+      .eq('account_id', accountId);
+
+    const { data: adSets } = await supabase
+      .from('meta_adsets')
+      .select('adset_id, name, status, campaign_id')
+      .eq('account_id', accountId);
+
     const message = errors.length === 0
       ? `Successfully synced ${totalInsightsUpserted} monthly insights and ${totalDemographicsUpserted} demographic records for ${totalAdSetsProcessed} ad sets`
       : `Synced ${totalInsightsUpserted} insights and ${totalDemographicsUpserted} demographics with ${errors.length} errors`;
@@ -341,10 +352,12 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: errors.length === 0,
         message,
-        insightsUpserted: totalInsightsUpserted,
-        demographicsUpserted: totalDemographicsUpserted,
-        adSetsProcessed: totalAdSetsProcessed,
-        errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
+        campaigns: campaigns || [],
+        adSets: adSets || [],
+        totalInsightsSynced: totalInsightsUpserted,
+        totalDemographicsSynced: totalDemographicsUpserted,
+        datePreset: customDateRange ? 'custom' : datePreset,
+        errors: errors.length > 0 ? errors : [],
         hasMoreErrors: errors.length > 10
       }),
       {
