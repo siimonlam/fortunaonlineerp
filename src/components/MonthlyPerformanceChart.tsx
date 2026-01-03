@@ -86,10 +86,6 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
   const syncCurrentMonth = async () => {
     setSyncing(true);
     try {
-      const now = new Date();
-      const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endDate = now;
-
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-monthly-reports`,
         {
@@ -100,8 +96,7 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
           },
           body: JSON.stringify({
             accountId,
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0]
+            datePreset: 'last_6_months'
           })
         }
       );
@@ -159,7 +154,7 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
           disabled={syncing}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
         >
-          {syncing ? 'Syncing...' : 'Sync Current Month'}
+          {syncing ? 'Syncing...' : 'Sync Last 6 Months'}
         </button>
       </div>
     );
@@ -175,7 +170,7 @@ export default function MonthlyPerformanceChart({ accountId }: { accountId: stri
           className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
         >
           <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Syncing...' : 'Sync Current Month'}
+          {syncing ? 'Syncing...' : 'Sync Last 6 Months'}
         </button>
       </div>
 
