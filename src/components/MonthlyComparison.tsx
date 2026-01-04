@@ -70,14 +70,19 @@ export default function MonthlyComparison({ accountId }: Props) {
 
   const fetchAvailableMonths = async () => {
     try {
-      const { data: insights } = await supabase
+      const { data: insights, error } = await supabase
         .from('meta_monthly_insights')
         .select('month_year')
         .eq('account_id', accountId)
         .order('month_year', { ascending: false });
 
-      if (insights) {
-        const uniqueMonths = [...new Set(insights.map(i => i.month_year.slice(0, 7)))];
+      if (error) {
+        console.error('Error fetching available months:', error);
+        return;
+      }
+
+      if (insights && insights.length > 0) {
+        const uniqueMonths = [...new Set(insights.map(i => i.month_year.slice(0, 7)))].sort().reverse();
         setAvailableMonths(uniqueMonths);
 
         if (uniqueMonths.length >= 2) {
@@ -86,6 +91,8 @@ export default function MonthlyComparison({ accountId }: Props) {
         } else if (uniqueMonths.length === 1) {
           setMonth1(uniqueMonths[0]);
         }
+      } else {
+        console.log('No monthly insights data found for account:', accountId);
       }
     } catch (error) {
       console.error('Error fetching available months:', error);
@@ -112,17 +119,25 @@ export default function MonthlyComparison({ accountId }: Props) {
   };
 
   const fetchOverallComparison = async () => {
-    const { data: month1Data } = await supabase
+    console.log('Fetching comparison for months:', month1, 'and', month2, 'Account ID:', accountId);
+
+    const { data: month1Data, error: error1 } = await supabase
       .from('meta_monthly_insights')
       .select('*')
       .eq('account_id', accountId)
       .like('month_year', `${month1}%`);
 
-    const { data: month2Data } = await supabase
+    const { data: month2Data, error: error2 } = await supabase
       .from('meta_monthly_insights')
       .select('*')
       .eq('account_id', accountId)
       .like('month_year', `${month2}%`);
+
+    if (error1) console.error('Error fetching month1 data:', error1);
+    if (error2) console.error('Error fetching month2 data:', error2);
+
+    console.log('Month1 data rows:', month1Data?.length || 0);
+    console.log('Month2 data rows:', month2Data?.length || 0);
 
     const aggregateMetrics = (data: any[]): ComparisonMetrics => {
       const totals = data.reduce((acc, row) => ({
@@ -570,22 +585,47 @@ export default function MonthlyComparison({ accountId }: Props) {
       </div>
 
       {comparisonType === 'overall' && overallMonth1 && overallMonth2 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {renderMetricCard('Spend', DollarSign, overallMonth1.spend, overallMonth2.spend, 'currency')}
-          {renderMetricCard('Impressions', Eye, overallMonth1.impressions, overallMonth2.impressions, 'number')}
-          {renderMetricCard('Clicks', MousePointer, overallMonth1.clicks, overallMonth2.clicks, 'number')}
-          {renderMetricCard('Results', Target, overallMonth1.results, overallMonth2.results, 'number')}
-          {renderMetricCard('CTR', TrendingUp, overallMonth1.ctr, overallMonth2.ctr, 'percentage')}
-          {renderMetricCard('CPC', DollarSign, overallMonth1.cpc, overallMonth2.cpc, 'decimal')}
-          {renderMetricCard('CPM', DollarSign, overallMonth1.cpm, overallMonth2.cpm, 'decimal')}
-          {renderMetricCard('Reach', Eye, overallMonth1.reach, overallMonth2.reach, 'number')}
-        </div>
+        <>
+          {overallMonth1.spend === 0 && overallMonth2.spend === 0 &&
+           overallMonth1.impressions === 0 && overallMonth2.impressions === 0 ? (
+            <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+              <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600 font-medium mb-2">No data available for selected months</p>
+              <p className="text-sm text-gray-500">
+                The selected months ({month1 ? formatMonthDisplay(month1) : '-'} and {month2 ? formatMonthDisplay(month2) : '-'})
+                don't have any data yet.
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Go to <span className="font-semibold">Monthly Overview</span> tab and use <span className="font-semibold">"Sync Monthly Reports"</span> button to fetch data.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {renderMetricCard('Spend', DollarSign, overallMonth1.spend, overallMonth2.spend, 'currency')}
+              {renderMetricCard('Impressions', Eye, overallMonth1.impressions, overallMonth2.impressions, 'number')}
+              {renderMetricCard('Clicks', MousePointer, overallMonth1.clicks, overallMonth2.clicks, 'number')}
+              {renderMetricCard('Results', Target, overallMonth1.results, overallMonth2.results, 'number')}
+              {renderMetricCard('CTR', TrendingUp, overallMonth1.ctr, overallMonth2.ctr, 'percentage')}
+              {renderMetricCard('CPC', DollarSign, overallMonth1.cpc, overallMonth2.cpc, 'decimal')}
+              {renderMetricCard('CPM', DollarSign, overallMonth1.cpm, overallMonth2.cpm, 'decimal')}
+              {renderMetricCard('Reach', Eye, overallMonth1.reach, overallMonth2.reach, 'number')}
+            </div>
+          )}
+        </>
       )}
 
       {comparisonType === 'campaigns' && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <>
+          {campaignComparisons.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+              <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600 font-medium mb-2">No campaign data available</p>
+              <p className="text-sm text-gray-500">Use "Sync Monthly Reports" to fetch campaign comparison data</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Campaign</th>
@@ -626,12 +666,22 @@ export default function MonthlyComparison({ accountId }: Props) {
             </table>
           </div>
         </div>
+          )}
+        </>
       )}
 
       {comparisonType === 'adsets' && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <>
+          {adSetComparisons.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+              <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600 font-medium mb-2">No ad set data available</p>
+              <p className="text-sm text-gray-500">Use "Sync Monthly Reports" to fetch ad set comparison data</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Ad Set</th>
@@ -672,12 +722,22 @@ export default function MonthlyComparison({ accountId }: Props) {
             </table>
           </div>
         </div>
+          )}
+        </>
       )}
 
       {comparisonType === 'demographics' && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <>
+          {demographicComparisons.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+              <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600 font-medium mb-2">No demographic data available</p>
+              <p className="text-sm text-gray-500">Use "Sync Monthly Reports" to fetch demographic comparison data</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Age Group</th>
@@ -730,12 +790,22 @@ export default function MonthlyComparison({ accountId }: Props) {
             </div>
           )}
         </div>
+          )}
+        </>
       )}
 
       {comparisonType === 'platform' && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <>
+          {platformComparisons.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+              <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600 font-medium mb-2">No platform data available</p>
+              <p className="text-sm text-gray-500">Use "Sync Monthly Reports" to fetch platform comparison data</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Platform</th>
@@ -778,6 +848,8 @@ export default function MonthlyComparison({ accountId }: Props) {
             </table>
           </div>
         </div>
+          )}
+        </>
       )}
     </div>
   );
