@@ -56,14 +56,17 @@ interface AdSetMetrics {
   total_results: number;
 }
 
-interface AdCreativeMetrics {
-  ad_id: string;
+interface CreativeMetrics {
+  creative_id: string;
   name: string;
-  status: string;
+  title: string;
   total_spend: number;
   total_impressions: number;
   total_clicks: number;
   total_results: number;
+  avg_ctr: number;
+  avg_cpc: number;
+  roi: number;
 }
 
 export default function MarketingMetaAdSection({ projectId, clientNumber }: MarketingMetaAdSectionProps) {
@@ -72,12 +75,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   const [campaigns, setCampaigns] = useState<CampaignMetrics[]>([]);
   const [demographics, setDemographics] = useState<DemographicBreakdown[]>([]);
   const [adSets, setAdSets] = useState<AdSetMetrics[]>([]);
-  const [ads, setAds] = useState<AdCreativeMetrics[]>([]);
+  const [creatives, setCreatives] = useState<CreativeMetrics[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [reportView, setReportView] = useState<'monthly' | 'campaigns' | 'demographics' | 'adsets' | 'ads'>('monthly');
+  const [reportView, setReportView] = useState<'monthly' | 'campaigns' | 'demographics' | 'adsets' | 'creatives' | 'platform'>('monthly');
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [showMonthlyReportModal, setShowMonthlyReportModal] = useState(false);
   const [monthlyReportResults, setMonthlyReportResults] = useState<any>(null);
@@ -194,7 +197,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       if (!monthlyData || monthlyData.length === 0) {
         setCampaigns([]);
         setAdSets([]);
-        setAds([]);
+        setCreatives([]);
         setDemographics([]);
         return;
       }
@@ -259,6 +262,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       }
 
       loadDemographics(accountId);
+      loadCreatives(accountId);
     } catch (err: any) {
       console.error('Error loading campaign metrics:', err);
     }
@@ -442,41 +446,108 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
-  const loadAds = async (campaignIds: string[]) => {
+  const loadCreatives = async (accountId: string) => {
     try {
+      // Get all ads for this account
       const { data: adsData } = await supabase
         .from('meta_ads')
-        .select('ad_id, name, status, campaign_id')
-        .in('campaign_id', campaignIds);
+        .select('ad_id, creative_id, campaign_id')
+        .eq('account_id', accountId);
 
-      if (!adsData) return;
+      if (!adsData || adsData.length === 0) {
+        setCreatives([]);
+        return;
+      }
 
-      const metricsPromises = adsData.map(async (ad) => {
+      // Get unique creative IDs
+      const creativeIds = [...new Set(adsData.map(a => a.creative_id).filter(Boolean))];
+
+      if (creativeIds.length === 0) {
+        setCreatives([]);
+        return;
+      }
+
+      // Fetch creative details
+      const { data: creativesData } = await supabase
+        .from('meta_ad_creatives')
+        .select('creative_id, name, title')
+        .in('creative_id', creativeIds);
+
+      const creativeMap = new Map((creativesData || []).map(c => [c.creative_id, c]));
+
+      // Aggregate metrics by creative
+      const creativeMetricsMap = new Map<string, any>();
+
+      for (const ad of adsData) {
+        if (!ad.creative_id) continue;
+
         const { data: insights } = await supabase
           .from('meta_ad_insights')
-          .select('spend, impressions, clicks, results')
+          .select('spend, impressions, clicks, results, ctr, cpc')
           .eq('ad_id', ad.ad_id);
 
         const totals = (insights || []).reduce((acc, insight) => ({
           spend: acc.spend + (Number(insight.spend) || 0),
           impressions: acc.impressions + (Number(insight.impressions) || 0),
           clicks: acc.clicks + (Number(insight.clicks) || 0),
-          results: acc.results + (Number(insight.results) || 0)
-        }), { spend: 0, impressions: 0, clicks: 0, results: 0 });
+          results: acc.results + (Number(insight.results) || 0),
+          ctr: acc.ctr + (Number(insight.ctr) || 0),
+          cpc: acc.cpc + (Number(insight.cpc) || 0),
+          count: acc.count + 1
+        }), { spend: 0, impressions: 0, clicks: 0, results: 0, ctr: 0, cpc: 0, count: 0 });
+
+        if (!creativeMetricsMap.has(ad.creative_id)) {
+          const creativeInfo = creativeMap.get(ad.creative_id);
+          creativeMetricsMap.set(ad.creative_id, {
+            creative_id: ad.creative_id,
+            name: creativeInfo?.name || 'Unknown',
+            title: creativeInfo?.title || '',
+            total_spend: 0,
+            total_impressions: 0,
+            total_clicks: 0,
+            total_results: 0,
+            avg_ctr: 0,
+            avg_cpc: 0,
+            ctr_sum: 0,
+            cpc_sum: 0,
+            count: 0
+          });
+        }
+
+        const creativeMetrics = creativeMetricsMap.get(ad.creative_id);
+        creativeMetrics.total_spend += totals.spend;
+        creativeMetrics.total_impressions += totals.impressions;
+        creativeMetrics.total_clicks += totals.clicks;
+        creativeMetrics.total_results += totals.results;
+        creativeMetrics.ctr_sum += totals.ctr;
+        creativeMetrics.cpc_sum += totals.cpc;
+        creativeMetrics.count += totals.count;
+      }
+
+      // Calculate averages and ROI
+      const metrics: CreativeMetrics[] = Array.from(creativeMetricsMap.values()).map(creative => {
+        const avgCtr = creative.count > 0 ? creative.ctr_sum / creative.count : 0;
+        const avgCpc = creative.count > 0 ? creative.cpc_sum / creative.count : 0;
+        const roi = creative.total_spend > 0 ? ((creative.total_results * 100 - creative.total_spend) / creative.total_spend) : 0;
 
         return {
-          ...ad,
-          total_spend: totals.spend,
-          total_impressions: totals.impressions,
-          total_clicks: totals.clicks,
-          total_results: totals.results
+          creative_id: creative.creative_id,
+          name: creative.name,
+          title: creative.title,
+          total_spend: creative.total_spend,
+          total_impressions: creative.total_impressions,
+          total_clicks: creative.total_clicks,
+          total_results: creative.total_results,
+          avg_ctr: avgCtr,
+          avg_cpc: avgCpc,
+          roi: roi
         };
       });
 
-      const metrics = await Promise.all(metricsPromises);
-      setAds(metrics);
+      setCreatives(metrics);
     } catch (err: any) {
-      console.error('Error loading ads:', err);
+      console.error('Error loading creatives:', err);
+      setCreatives([]);
     }
   };
 
@@ -650,13 +721,18 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       // If no date preset provided, sync the selected month
       let syncDatePreset = datePreset;
       if (!syncDatePreset) {
-        const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-        if (selectedMonth === currentMonth) {
-          syncDatePreset = 'this_month';
+        // Check if selectedMonth is a special preset like "last_6_months" or "last_12_months"
+        if (selectedMonth === 'last_6_months' || selectedMonth === 'last_12_months') {
+          syncDatePreset = selectedMonth;
         } else {
-          // For past months, use a custom date range
-          const [year, month] = selectedMonth.split('-');
-          syncDatePreset = 'last_month'; // Will need to adjust the edge function to support specific months
+          const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+          if (selectedMonth === currentMonth) {
+            syncDatePreset = 'this_month';
+          } else {
+            // For past months, use a custom date range
+            const [year, month] = selectedMonth.split('-');
+            syncDatePreset = 'last_month'; // Will need to adjust the edge function to support specific months
+          }
         }
       }
 
@@ -995,14 +1071,24 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                         Ad Sets
                       </button>
                       <button
-                        onClick={() => setReportView('ads')}
+                        onClick={() => setReportView('creatives')}
                         className={`px-4 py-2 text-sm font-medium transition-colors ${
-                          reportView === 'ads'
+                          reportView === 'creatives'
                             ? 'text-blue-600 border-b-2 border-blue-600'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
-                        Ads
+                        Creative
+                      </button>
+                      <button
+                        onClick={() => setReportView('platform')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors ${
+                          reportView === 'platform'
+                            ? 'text-blue-600 border-b-2 border-blue-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Platform
                       </button>
                     </div>
 
@@ -1491,40 +1577,100 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                       </div>
                     )}
 
-                    {reportView === 'ads' && (
-                      <div className="space-y-2">
-                        {ads.filter(ad => campaigns.find(c => c.campaign_id === ad.campaign_id && c.account_id === link.account_id)).length === 0 ? (
+                    {reportView === 'creatives' && (
+                      <div className="overflow-x-auto">
+                        {creatives.length === 0 ? (
                           <p className="text-sm text-gray-500 text-center py-4">
-                            No ads found.
+                            No creatives found.
                           </p>
                         ) : (
-                          ads
-                            .filter(ad => campaigns.find(c => c.campaign_id === ad.campaign_id && c.account_id === link.account_id))
-                            .map((ad) => (
-                              <div key={ad.ad_id} className="border border-gray-200 rounded-lg p-3">
-                                <h5 className="font-medium text-gray-900 mb-2">{ad.name}</h5>
-                                <p className="text-xs text-gray-600 mb-2">{ad.status}</p>
-                                <div className="grid grid-cols-4 gap-3">
-                                  <div className="text-center">
-                                    <p className="text-xs text-gray-600 mb-1">Spend</p>
-                                    <p className="text-sm font-semibold">${ad.total_spend.toFixed(2)}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-xs text-gray-600 mb-1">Impressions</p>
-                                    <p className="text-sm font-semibold">{ad.total_impressions.toLocaleString()}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-xs text-gray-600 mb-1">Clicks</p>
-                                    <p className="text-sm font-semibold">{ad.total_clicks.toLocaleString()}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-xs text-gray-600 mb-1">Results</p>
-                                    <p className="text-sm font-semibold">{ad.total_results.toLocaleString()}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th
+                                  className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('name')}
+                                >
+                                  Creative Name {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('title')}
+                                >
+                                  Title {sortConfig?.key === 'title' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_spend')}
+                                >
+                                  Spend {sortConfig?.key === 'total_spend' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_impressions')}
+                                >
+                                  Impressions {sortConfig?.key === 'total_impressions' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_clicks')}
+                                >
+                                  Clicks {sortConfig?.key === 'total_clicks' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_results')}
+                                >
+                                  Results {sortConfig?.key === 'total_results' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('avg_ctr')}
+                                >
+                                  CTR {sortConfig?.key === 'avg_ctr' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('avg_cpc')}
+                                >
+                                  CPC {sortConfig?.key === 'avg_cpc' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('roi')}
+                                >
+                                  ROI {sortConfig?.key === 'roi' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {(getSortedData(creatives) as CreativeMetrics[]).map((creative) => (
+                                <tr key={creative.creative_id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-3 text-gray-900 font-medium">{creative.name}</td>
+                                  <td className="px-4 py-3 text-gray-700">{creative.title || '-'}</td>
+                                  <td className="px-4 py-3 text-right text-gray-900 font-medium">${creative.total_spend.toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{creative.total_impressions.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{creative.total_clicks.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{creative.total_results.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{creative.avg_ctr.toFixed(2)}%</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">${creative.avg_cpc.toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-right">
+                                    <span className={`font-medium ${creative.roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {creative.roi.toFixed(2)}%
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         )}
+                      </div>
+                    )}
+
+                    {reportView === 'platform' && (
+                      <div className="text-center py-12">
+                        <p className="text-gray-600">Platform metrics coming soon</p>
+                        <p className="text-sm text-gray-500 mt-2">This will show performance by platform (Facebook, Instagram, etc.)</p>
                       </div>
                     )}
                   </>

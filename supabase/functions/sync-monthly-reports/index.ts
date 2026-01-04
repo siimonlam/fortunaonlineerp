@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface SyncRequest {
   accountId: string;
-  datePreset?: 'this_month' | 'last_month' | 'last_3_months' | 'last_6_months';
+  datePreset?: 'this_month' | 'last_month' | 'last_3_months' | 'last_6_months' | 'last_12_months';
   customDateRange?: {
     since: string;
     until: string;
@@ -98,6 +98,17 @@ Deno.serve(async (req: Request) => {
 
       const timeRangeObj = JSON.stringify({ since, until });
       timeRangeParam = `time_range=${encodeURIComponent(timeRangeObj)}`;
+    } else if (datePreset === 'last_12_months') {
+      // Calculate explicit date range for 12 months
+      const today = new Date();
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setMonth(today.getMonth() - 12);
+
+      const since = twelveMonthsAgo.toISOString().split('T')[0];
+      const until = today.toISOString().split('T')[0];
+
+      const timeRangeObj = JSON.stringify({ since, until });
+      timeRangeParam = `time_range=${encodeURIComponent(timeRangeObj)}`;
     } else {
       timeRangeParam = `date_preset=${datePreset}`;
     }
@@ -112,6 +123,11 @@ Deno.serve(async (req: Request) => {
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(today.getMonth() - 6);
       console.log(`Calculated range: ${sixMonthsAgo.toISOString().split('T')[0]} to ${today.toISOString().split('T')[0]}`);
+    } else if (datePreset === 'last_12_months') {
+      const today = new Date();
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setMonth(today.getMonth() - 12);
+      console.log(`Calculated range: ${twelveMonthsAgo.toISOString().split('T')[0]} to ${today.toISOString().split('T')[0]}`);
     }
     console.log(`========================================\n`);
 
