@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { BarChart3, Plus, RefreshCw, Trash2, ExternalLink, TrendingUp, DollarSign, Eye, MousePointer, Filter, ChevronDown, Calendar } from 'lucide-react';
 import MonthlyPerformanceChart from './MonthlyPerformanceChart';
+import MonthlyComparison from './MonthlyComparison';
 
 interface MarketingMetaAdSectionProps {
   projectId: string;
@@ -93,7 +94,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [reportView, setReportView] = useState<'monthly' | 'campaigns' | 'demographics' | 'adsets' | 'creatives' | 'platform'>('monthly');
+  const [reportView, setReportView] = useState<'monthly' | 'campaigns' | 'demographics' | 'adsets' | 'creatives' | 'platform' | 'comparison'>('monthly');
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [showMonthlyReportModal, setShowMonthlyReportModal] = useState(false);
   const [monthlyReportResults, setMonthlyReportResults] = useState<any>(null);
@@ -106,6 +107,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   const [demographicView, setDemographicView] = useState<'age' | 'gender' | 'all'>('age');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
+  const [comparisonMonth1, setComparisonMonth1] = useState('');
+  const [comparisonMonth2, setComparisonMonth2] = useState('');
 
   useEffect(() => {
     loadData();
@@ -1205,6 +1208,16 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                       >
                         Platform
                       </button>
+                      <button
+                        onClick={() => setReportView('comparison')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors ${
+                          reportView === 'comparison'
+                            ? 'text-blue-600 border-b-2 border-blue-600'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Monthly Report
+                      </button>
                     </div>
 
                     {reportView === 'monthly' && (
@@ -1867,6 +1880,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                             </tbody>
                           </table>
                         )}
+                      </div>
+                    )}
+
+                    {reportView === 'comparison' && (
+                      <div className="mt-4">
+                        <MonthlyComparison accountId={link.account_id} />
                       </div>
                     )}
                   </>

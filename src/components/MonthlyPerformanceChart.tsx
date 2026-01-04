@@ -269,9 +269,18 @@ export default function MonthlyPerformanceChart({ accountId, selectedMonth }: Pr
     );
   }
 
-  const displayMonth = convertMonthFormatToDisplayFormat(selectedMonth);
-  const displayData = data.filter(d => d.month === displayMonth);
-  const statsData = displayData.length > 0 ? displayData : data.slice(-6);
+  let displayData: MonthlyData[] = [];
+  let statsData: MonthlyData[] = [];
+
+  if (selectedMonth === 'last_6_months' || selectedMonth === 'last_12_months') {
+    const monthCount = selectedMonth === 'last_6_months' ? 6 : 12;
+    displayData = allMonths.slice(-monthCount);
+    statsData = displayData;
+  } else {
+    const displayMonth = convertMonthFormatToDisplayFormat(selectedMonth);
+    displayData = data.filter(d => d.month === displayMonth);
+    statsData = displayData.length > 0 ? displayData : data.slice(-6);
+  }
 
   return (
     <div className="space-y-6">
@@ -320,7 +329,11 @@ export default function MonthlyPerformanceChart({ accountId, selectedMonth }: Pr
 
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h4 className="text-sm font-medium text-gray-700 mb-4">
-          {displayData.length > 0 ? `${displayMonth} - Spend vs ROAS` : 'Spend vs ROAS Comparison'}
+          {(() => {
+            if (selectedMonth === 'last_6_months') return 'Last 6 Months - Spend vs ROAS Comparison';
+            if (selectedMonth === 'last_12_months') return 'Last 12 Months - Spend vs ROAS Comparison';
+            return displayData.length === 1 ? `${displayData[0].month} - Spend vs ROAS` : 'Spend vs ROAS Comparison';
+          })()}
         </h4>
         <div className="space-y-6">
           {displayData.map((month, index) => (
