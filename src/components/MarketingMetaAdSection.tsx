@@ -199,6 +199,17 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         return;
       }
 
+      // Fetch campaign metadata (objective, status)
+      const campaignIds = [...new Set(monthlyData.map(d => d.campaign_id).filter(Boolean))];
+      const { data: campaignData } = await supabase
+        .from('meta_campaigns')
+        .select('campaign_id, objective, status')
+        .in('campaign_id', campaignIds);
+
+      const campaignMetadataMap = new Map(
+        (campaignData || []).map(c => [c.campaign_id, { objective: c.objective, status: c.status }])
+      );
+
       // Aggregate by campaign
       const campaignMap = new Map<string, any>();
 
@@ -206,12 +217,13 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         if (!insight.campaign_id) return;
 
         if (!campaignMap.has(insight.campaign_id)) {
+          const metadata = campaignMetadataMap.get(insight.campaign_id);
           campaignMap.set(insight.campaign_id, {
             campaign_id: insight.campaign_id,
             name: insight.campaign_name,
             account_id: insight.account_id,
-            status: 'ACTIVE',
-            objective: '',
+            status: metadata?.status || 'UNKNOWN',
+            objective: metadata?.objective || 'UNKNOWN',
             total_spend: 0,
             total_impressions: 0,
             total_clicks: 0,
@@ -389,6 +401,10 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     });
 
     return sorted;
+  };
+
+  const getSortedCampaigns = (campaignsList: CampaignMetrics[]) => {
+    return getSortedData(campaignsList) as CampaignMetrics[];
   };
 
   const loadAdSets = async (monthlyData: any[]) => {
@@ -867,23 +883,15 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleSyncMonthlyReports(link.account_id)}
-                    disabled={syncingMonthly || syncing}
+                    disabled={syncingMonthly}
                     className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                   >
                     <BarChart3 size={14} className={syncingMonthly ? 'animate-spin' : ''} />
                     Sync Monthly Reports
                   </button>
                   <button
-                    onClick={() => handleSyncCampaigns(link.account_id)}
-                    disabled={syncing || syncingMonthly}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                  >
-                    <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-                    Sync Daily Data
-                  </button>
-                  <button
                     onClick={() => handleTestApiConnection(link.account_id)}
-                    disabled={syncing || syncingMonthly}
+                    disabled={syncingMonthly}
                     className="flex items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
                   >
                     <BarChart3 size={14} />
@@ -1005,56 +1013,90 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                     )}
 
                     {reportView === 'campaigns' && (
-                      <div className="space-y-3">
-                        {campaigns.filter(c => c.account_id === link.account_id).map((campaign) => (
-                          <div key={campaign.campaign_id} className="border border-gray-200 rounded-lg p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <div>
-                                <h5 className="font-medium text-gray-900">{campaign.name}</h5>
-                                <p className="text-xs text-gray-600">
-                                  {campaign.objective} • {campaign.status}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-5 gap-3 mt-3">
-                              <div className="text-center">
-                                <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
-                                  <DollarSign size={14} />
-                                  <span className="text-xs font-medium">Spend</span>
-                                </div>
-                                <p className="text-sm font-semibold">${campaign.total_spend.toFixed(2)}</p>
-                              </div>
-                              <div className="text-center">
-                                <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
-                                  <Eye size={14} />
-                                  <span className="text-xs font-medium">Impressions</span>
-                                </div>
-                                <p className="text-sm font-semibold">{campaign.total_impressions.toLocaleString()}</p>
-                              </div>
-                              <div className="text-center">
-                                <div className="flex items-center justify-center gap-1 text-purple-600 mb-1">
-                                  <MousePointer size={14} />
-                                  <span className="text-xs font-medium">Clicks</span>
-                                </div>
-                                <p className="text-sm font-semibold">{campaign.total_clicks.toLocaleString()}</p>
-                              </div>
-                              <div className="text-center">
-                                <div className="flex items-center justify-center gap-1 text-orange-600 mb-1">
-                                  <TrendingUp size={14} />
-                                  <span className="text-xs font-medium">Results</span>
-                                </div>
-                                <p className="text-sm font-semibold">{campaign.total_results.toLocaleString()}</p>
-                              </div>
-                              <div className="text-center">
-                                <div className="flex items-center justify-center gap-1 text-pink-600 mb-1">
-                                  <TrendingUp size={14} />
-                                  <span className="text-xs font-medium">CTR</span>
-                                </div>
-                                <p className="text-sm font-semibold">{campaign.avg_ctr.toFixed(2)}%</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                              <th
+                                className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('name')}
+                              >
+                                Campaign Name {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                              </th>
+                              <th
+                                className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('objective')}
+                              >
+                                Objective {sortConfig?.key === 'objective' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                              </th>
+                              <th
+                                className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('status')}
+                              >
+                                Status {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                              </th>
+                              <th
+                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('total_spend')}
+                              >
+                                Spend {sortConfig?.key === 'total_spend' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                              </th>
+                              <th
+                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('total_impressions')}
+                              >
+                                Impressions {sortConfig?.key === 'total_impressions' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                              </th>
+                              <th
+                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('total_clicks')}
+                              >
+                                Clicks {sortConfig?.key === 'total_clicks' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                              </th>
+                              <th
+                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('total_results')}
+                              >
+                                Results {sortConfig?.key === 'total_results' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                              </th>
+                              <th
+                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('avg_ctr')}
+                              >
+                                CTR {sortConfig?.key === 'avg_ctr' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                              </th>
+                              <th
+                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('avg_cpc')}
+                              >
+                                CPC {sortConfig?.key === 'avg_cpc' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {getSortedCampaigns(campaigns.filter(c => c.account_id === link.account_id)).map((campaign) => (
+                              <tr key={campaign.campaign_id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-gray-900 font-medium">{campaign.name}</td>
+                                <td className="px-4 py-3 text-gray-700">{campaign.objective}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                    campaign.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                                    campaign.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {campaign.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right text-gray-900 font-medium">${campaign.total_spend.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right text-gray-700">{campaign.total_impressions.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right text-gray-700">{campaign.total_clicks.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right text-gray-700">{campaign.total_results.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right text-gray-700">{campaign.avg_ctr.toFixed(2)}%</td>
+                                <td className="px-4 py-3 text-right text-gray-700">${campaign.avg_cpc.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
 
@@ -1377,38 +1419,74 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                     )}
 
                     {reportView === 'adsets' && (
-                      <div className="space-y-2">
+                      <div className="overflow-x-auto">
                         {adSets.filter(as => campaigns.find(c => c.campaign_id === as.campaign_id && c.account_id === link.account_id)).length === 0 ? (
                           <p className="text-sm text-gray-500 text-center py-4">
                             No ad sets found.
                           </p>
                         ) : (
-                          adSets
-                            .filter(as => campaigns.find(c => c.campaign_id === as.campaign_id && c.account_id === link.account_id))
-                            .map((adset) => (
-                              <div key={adset.adset_id} className="border border-gray-200 rounded-lg p-3">
-                                <h5 className="font-medium text-gray-900 mb-2">{adset.name}</h5>
-                                <p className="text-xs text-gray-600 mb-2">{adset.status}</p>
-                                <div className="grid grid-cols-4 gap-3">
-                                  <div className="text-center">
-                                    <p className="text-xs text-gray-600 mb-1">Spend</p>
-                                    <p className="text-sm font-semibold">${adset.total_spend.toFixed(2)}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-xs text-gray-600 mb-1">Impressions</p>
-                                    <p className="text-sm font-semibold">{adset.total_impressions.toLocaleString()}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-xs text-gray-600 mb-1">Clicks</p>
-                                    <p className="text-sm font-semibold">{adset.total_clicks.toLocaleString()}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-xs text-gray-600 mb-1">Results</p>
-                                    <p className="text-sm font-semibold">{adset.total_results.toLocaleString()}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th
+                                  className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('name')}
+                                >
+                                  Ad Set Name {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('status')}
+                                >
+                                  Status {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_spend')}
+                                >
+                                  Spend {sortConfig?.key === 'total_spend' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_impressions')}
+                                >
+                                  Impressions {sortConfig?.key === 'total_impressions' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_clicks')}
+                                >
+                                  Clicks {sortConfig?.key === 'total_clicks' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_results')}
+                                >
+                                  Results {sortConfig?.key === 'total_results' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {(getSortedData(adSets.filter(as => campaigns.find(c => c.campaign_id === as.campaign_id && c.account_id === link.account_id))) as AdSetMetrics[]).map((adset) => (
+                                <tr key={adset.adset_id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-3 text-gray-900 font-medium">{adset.name}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                      adset.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                                      adset.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {adset.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-gray-900 font-medium">${adset.total_spend.toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{adset.total_impressions.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{adset.total_clicks.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{adset.total_results.toLocaleString()}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         )}
                       </div>
                     )}
