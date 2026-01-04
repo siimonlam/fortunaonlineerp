@@ -69,6 +69,18 @@ interface CreativeMetrics {
   roi: number;
 }
 
+interface PlatformMetrics {
+  publisher_platform: string;
+  total_spend: number;
+  total_impressions: number;
+  total_clicks: number;
+  total_results: number;
+  total_reach: number;
+  avg_ctr: number;
+  avg_cpc: number;
+  avg_cpm: number;
+}
+
 export default function MarketingMetaAdSection({ projectId, clientNumber }: MarketingMetaAdSectionProps) {
   const [availableAccounts, setAvailableAccounts] = useState<MetaAdAccount[]>([]);
   const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[]>([]);
@@ -76,6 +88,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   const [demographics, setDemographics] = useState<DemographicBreakdown[]>([]);
   const [adSets, setAdSets] = useState<AdSetMetrics[]>([]);
   const [creatives, setCreatives] = useState<CreativeMetrics[]>([]);
+  const [platforms, setPlatforms] = useState<PlatformMetrics[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -263,6 +276,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
       loadDemographics(accountId);
       loadCreatives(accountId);
+      loadPlatforms(accountId);
     } catch (err: any) {
       console.error('Error loading campaign metrics:', err);
     }
@@ -551,6 +565,92 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
+  const loadPlatforms = async (accountId: string) => {
+    try {
+      let monthStart: string;
+      let monthEnd: string;
+
+      if (selectedMonth === 'last_6_months') {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        monthStart = sixMonthsAgo.toISOString().split('T')[0];
+        monthEnd = new Date().toISOString().split('T')[0];
+      } else if (selectedMonth === 'last_12_months') {
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+        monthStart = twelveMonthsAgo.toISOString().split('T')[0];
+        monthEnd = new Date().toISOString().split('T')[0];
+      } else {
+        const [year, month] = selectedMonth.split('-');
+        monthStart = `${year}-${month}-01`;
+        const nextMonth = new Date(Number(year), Number(month), 1);
+        monthEnd = nextMonth.toISOString().split('T')[0];
+      }
+
+      const { data: platformData } = await supabase
+        .from('meta_platform_insights')
+        .select('*')
+        .eq('account_id', accountId)
+        .gte('month_year', monthStart)
+        .lt('month_year', monthEnd);
+
+      if (!platformData || platformData.length === 0) {
+        setPlatforms([]);
+        return;
+      }
+
+      // Aggregate by platform
+      const platformMap = new Map<string, any>();
+
+      platformData.forEach((insight) => {
+        const platform = insight.publisher_platform;
+
+        if (!platformMap.has(platform)) {
+          platformMap.set(platform, {
+            publisher_platform: platform,
+            total_spend: 0,
+            total_impressions: 0,
+            total_clicks: 0,
+            total_results: 0,
+            total_reach: 0,
+            ctr_sum: 0,
+            cpc_sum: 0,
+            cpm_sum: 0,
+            count: 0
+          });
+        }
+
+        const p = platformMap.get(platform);
+        p.total_spend += Number(insight.spend) || 0;
+        p.total_impressions += Number(insight.impressions) || 0;
+        p.total_clicks += Number(insight.clicks) || 0;
+        p.total_results += Number(insight.results) || 0;
+        p.total_reach += Number(insight.reach) || 0;
+        p.ctr_sum += Number(insight.ctr) || 0;
+        p.cpc_sum += Number(insight.cpc) || 0;
+        p.cpm_sum += Number(insight.cpm) || 0;
+        p.count += 1;
+      });
+
+      const metrics: PlatformMetrics[] = Array.from(platformMap.values()).map(p => ({
+        publisher_platform: p.publisher_platform,
+        total_spend: p.total_spend,
+        total_impressions: p.total_impressions,
+        total_clicks: p.total_clicks,
+        total_results: p.total_results,
+        total_reach: p.total_reach,
+        avg_ctr: p.count > 0 ? p.ctr_sum / p.count : 0,
+        avg_cpc: p.count > 0 ? p.cpc_sum / p.count : 0,
+        avg_cpm: p.count > 0 ? p.cpm_sum / p.count : 0
+      }));
+
+      setPlatforms(metrics);
+    } catch (err: any) {
+      console.error('Error loading platforms:', err);
+      setPlatforms([]);
+    }
+  };
+
   const handleAddAccount = async () => {
     if (!selectedAccountId) return;
 
@@ -720,6 +820,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
       // If no date preset provided, sync the selected month
       let syncDatePreset = datePreset;
+      let customDateRange = null;
+
       if (!syncDatePreset) {
         // Check if selectedMonth is a special preset like "last_6_months" or "last_12_months"
         if (selectedMonth === 'last_6_months' || selectedMonth === 'last_12_months') {
@@ -731,9 +833,25 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           } else {
             // For past months, use a custom date range
             const [year, month] = selectedMonth.split('-');
-            syncDatePreset = 'last_month'; // Will need to adjust the edge function to support specific months
+            const startDate = new Date(Number(year), Number(month) - 1, 1);
+            const endDate = new Date(Number(year), Number(month), 0); // Last day of the month
+
+            customDateRange = {
+              since: startDate.toISOString().split('T')[0],
+              until: endDate.toISOString().split('T')[0]
+            };
           }
         }
+      }
+
+      const requestBody: any = {
+        accountId: accountId
+      };
+
+      if (customDateRange) {
+        requestBody.customDateRange = customDateRange;
+      } else {
+        requestBody.datePreset = syncDatePreset;
       }
 
       const response = await fetch(apiUrl, {
@@ -742,10 +860,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           'Authorization': `Bearer ${session?.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          accountId: accountId,
-          datePreset: syncDatePreset
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -1668,9 +1783,90 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                     )}
 
                     {reportView === 'platform' && (
-                      <div className="text-center py-12">
-                        <p className="text-gray-600">Platform metrics coming soon</p>
-                        <p className="text-sm text-gray-500 mt-2">This will show performance by platform (Facebook, Instagram, etc.)</p>
+                      <div className="overflow-x-auto">
+                        {platforms.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">
+                            No platform data found. Click "Sync Monthly Reports" to fetch platform metrics.
+                          </p>
+                        ) : (
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th
+                                  className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('publisher_platform')}
+                                >
+                                  Platform {sortConfig?.key === 'publisher_platform' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_spend')}
+                                >
+                                  Spend {sortConfig?.key === 'total_spend' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_impressions')}
+                                >
+                                  Impressions {sortConfig?.key === 'total_impressions' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_reach')}
+                                >
+                                  Reach {sortConfig?.key === 'total_reach' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_clicks')}
+                                >
+                                  Clicks {sortConfig?.key === 'total_clicks' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_results')}
+                                >
+                                  Results {sortConfig?.key === 'total_results' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('avg_ctr')}
+                                >
+                                  CTR {sortConfig?.key === 'avg_ctr' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('avg_cpc')}
+                                >
+                                  CPC {sortConfig?.key === 'avg_cpc' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('avg_cpm')}
+                                >
+                                  CPM {sortConfig?.key === 'avg_cpm' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {(getSortedData(platforms) as PlatformMetrics[]).map((platform) => (
+                                <tr key={platform.publisher_platform} className="hover:bg-gray-50">
+                                  <td className="px-4 py-3 text-gray-900 font-medium capitalize">
+                                    {platform.publisher_platform.replace(/_/g, ' ')}
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-gray-900 font-medium">${platform.total_spend.toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{platform.total_impressions.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{platform.total_reach.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{platform.total_clicks.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{platform.total_results.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{platform.avg_ctr.toFixed(2)}%</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">${platform.avg_cpc.toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">${platform.avg_cpm.toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
                       </div>
                     )}
                   </>

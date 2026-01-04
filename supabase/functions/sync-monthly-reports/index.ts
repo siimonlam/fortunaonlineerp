@@ -421,11 +421,127 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    console.log('\n=== FETCHING PLATFORM BREAKDOWNS ===\n');
+
+    let totalPlatformUpserted = 0;
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,campaign_id,impressions,reach,spend,clicks,conversions,ctr,cpc,cpm,date_start,date_stop&breakdowns=publisher_platform&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
+
+    const platformsToUpsert: any[] = [];
+    pageCount = 0;
+
+    while (nextPageUrl) {
+      try {
+        pageCount++;
+        console.log(`Fetching platform page ${pageCount}...`);
+
+        const response = await fetchWithRetry(nextPageUrl);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: { message: errorText } };
+          }
+          const errorMsg = `Failed to fetch platform data (page ${pageCount}): ${errorData.error?.message || response.statusText}`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+          break;
+        }
+
+        const data = await response.json();
+        const platforms = data.data || [];
+
+        console.log(`Platform page ${pageCount}: ${platforms.length} records`);
+
+        for (const platform of platforms) {
+          try {
+            const monthYear = platform.date_start;
+            const adsetId = platform.adset_id;
+            const publisherPlatform = platform.publisher_platform || 'unknown';
+
+            const adsetData = adsetMap.get(adsetId);
+
+            let results = 0;
+            if (platform.actions && Array.isArray(platform.actions)) {
+              const resultAction = platform.actions.find((a: any) =>
+                a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
+                a.action_type === 'onsite_conversion.post_save' ||
+                a.action_type === 'lead' ||
+                a.action_type === 'omni_purchase'
+              );
+              if (resultAction) {
+                results = parseInt(resultAction.value || '0');
+              }
+            }
+
+            const record = {
+              account_id: accountId,
+              campaign_id: platform.campaign_id || null,
+              adset_id: adsetId,
+              month_year: monthYear,
+              publisher_platform: publisherPlatform,
+              impressions: parseInt(platform.impressions || '0'),
+              reach: parseInt(platform.reach || '0'),
+              clicks: parseInt(platform.clicks || '0'),
+              spend: parseFloat(platform.spend || '0'),
+              results: results,
+              ctr: parseFloat(platform.ctr || '0'),
+              cpc: parseFloat(platform.cpc || '0'),
+              cpm: parseFloat(platform.cpm || '0'),
+              conversions: parseInt(platform.conversions || '0'),
+              client_number: adsetData?.client_number || null,
+              marketing_reference: adsetData?.marketing_reference || null,
+              updated_at: new Date().toISOString()
+            };
+
+            platformsToUpsert.push(record);
+          } catch (error: any) {
+            console.error(`Error processing platform record:`, error.message);
+            errors.push(`Platform processing error: ${error.message}`);
+          }
+        }
+
+        nextPageUrl = data.paging?.next || null;
+
+        if (nextPageUrl) {
+          console.log(`More platform pages available, continuing...\n`);
+          await delay(200);
+        } else {
+          console.log(`No more pages. Platform sync complete.\n`);
+        }
+      } catch (pageError: any) {
+        console.error(`Error processing platform page ${pageCount}:`, pageError.message);
+        errors.push(`Platform page error: ${pageError.message}`);
+        break;
+      }
+    }
+
+    if (platformsToUpsert.length > 0) {
+      console.log(`Upserting ${platformsToUpsert.length} platform records...`);
+      const { error: platformUpsertError } = await supabase
+        .from('meta_platform_insights')
+        .upsert(platformsToUpsert, {
+          onConflict: 'account_id,campaign_id,adset_id,month_year,publisher_platform',
+          ignoreDuplicates: false
+        });
+
+      if (platformUpsertError) {
+        console.error('Platform upsert error:', platformUpsertError);
+        errors.push(`Platform upsert error: ${platformUpsertError.message}`);
+      } else {
+        totalPlatformUpserted = platformsToUpsert.length;
+        console.log(`✓ Successfully upserted ${totalPlatformUpserted} platform records\n`);
+      }
+    }
+
     console.log(`\n========================================`);
     console.log(`MONTHLY SYNC COMPLETE`);
     console.log(`Ad Sets Processed: ${totalAdSetsProcessed}`);
     console.log(`Monthly Insights Upserted: ${totalInsightsUpserted}`);
     console.log(`Monthly Demographics Upserted: ${totalDemographicsUpserted}`);
+    console.log(`Platform Insights Upserted: ${totalPlatformUpserted}`);
     console.log(`Errors: ${errors.length}`);
     console.log(`========================================\n`);
 
@@ -440,8 +556,8 @@ Deno.serve(async (req: Request) => {
       .eq('account_id', accountId);
 
     const message = errors.length === 0
-      ? `Successfully synced ${totalInsightsUpserted} monthly insights and ${totalDemographicsUpserted} demographic records for ${totalAdSetsProcessed} ad sets`
-      : `Synced ${totalInsightsUpserted} insights and ${totalDemographicsUpserted} demographics with ${errors.length} errors`;
+      ? `Successfully synced ${totalInsightsUpserted} monthly insights, ${totalDemographicsUpserted} demographic records, and ${totalPlatformUpserted} platform records for ${totalAdSetsProcessed} ad sets`
+      : `Synced ${totalInsightsUpserted} insights, ${totalDemographicsUpserted} demographics, and ${totalPlatformUpserted} platform records with ${errors.length} errors`;
 
     return new Response(
       JSON.stringify({
@@ -451,6 +567,7 @@ Deno.serve(async (req: Request) => {
         adSets: adSets || [],
         totalInsightsSynced: totalInsightsUpserted,
         totalDemographicsSynced: totalDemographicsUpserted,
+        totalPlatformSynced: totalPlatformUpserted,
         datePreset: customDateRange ? 'custom' : datePreset,
         errors: errors.length > 0 ? errors : [],
         hasMoreErrors: errors.length > 10
