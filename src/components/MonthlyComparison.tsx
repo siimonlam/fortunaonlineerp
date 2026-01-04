@@ -70,6 +70,9 @@ export default function MonthlyComparison({ accountId }: Props) {
 
   const fetchAvailableMonths = async () => {
     try {
+      console.log('=== FETCHING AVAILABLE MONTHS ===');
+      console.log('Account ID:', accountId);
+
       const { data: insights, error } = await supabase
         .from('meta_monthly_insights')
         .select('month_year')
@@ -81,15 +84,25 @@ export default function MonthlyComparison({ accountId }: Props) {
         return;
       }
 
+      console.log('Total insights rows:', insights?.length || 0);
+      console.log('Sample month_year values:', insights?.slice(0, 5).map(i => i.month_year));
+
       if (insights && insights.length > 0) {
-        const uniqueMonths = [...new Set(insights.map(i => i.month_year.slice(0, 7)))].sort().reverse();
+        const uniqueMonths = [...new Set(insights.map(i => {
+          const monthYear = i.month_year.slice(0, 7);
+          return monthYear;
+        }))].sort().reverse();
+
+        console.log('Unique months found:', uniqueMonths);
         setAvailableMonths(uniqueMonths);
 
         if (uniqueMonths.length >= 2) {
           setMonth1(uniqueMonths[1]);
           setMonth2(uniqueMonths[0]);
+          console.log('Auto-selected months:', uniqueMonths[1], 'and', uniqueMonths[0]);
         } else if (uniqueMonths.length === 1) {
           setMonth1(uniqueMonths[0]);
+          console.log('Only one month available:', uniqueMonths[0]);
         }
       } else {
         console.log('No monthly insights data found for account:', accountId);
