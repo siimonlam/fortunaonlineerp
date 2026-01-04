@@ -48,6 +48,14 @@ export default function MonthlyComparison({ accountId }: Props) {
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [month1, setMonth1] = useState('');
   const [month2, setMonth2] = useState('');
+
+  // Helper function to get the first day of next month
+  const getNextMonthStart = (yearMonth: string): string => {
+    const [year, month] = yearMonth.split('-').map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    return `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+  };
   const [loading, setLoading] = useState(true);
   const [comparisonType, setComparisonType] = useState<'overall' | 'campaigns' | 'adsets' | 'demographics' | 'platform'>('overall');
 
@@ -139,14 +147,14 @@ export default function MonthlyComparison({ accountId }: Props) {
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
-      .lt('month_year', `${month1}-32`);
+      .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data, error: error2 } = await supabase
       .from('meta_monthly_insights')
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
-      .lt('month_year', `${month2}-32`);
+      .lt('month_year', getNextMonthStart(month2));
 
     if (error1) console.error('Error fetching month1 data:', error1);
     if (error2) console.error('Error fetching month2 data:', error2);
@@ -181,14 +189,14 @@ export default function MonthlyComparison({ accountId }: Props) {
       .select('campaign_id, campaign_name, spend, impressions, clicks, reach, results, ctr, cpc, cpm')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
-      .lt('month_year', `${month1}-32`);
+      .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
       .from('meta_monthly_insights')
       .select('campaign_id, campaign_name, spend, impressions, clicks, reach, results, ctr, cpc, cpm')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
-      .lt('month_year', `${month2}-32`);
+      .lt('month_year', getNextMonthStart(month2));
 
     const campaignMap = new Map<string, CampaignComparison>();
 
@@ -245,14 +253,14 @@ export default function MonthlyComparison({ accountId }: Props) {
       .select('adset_id, adset_name, spend, impressions, clicks, reach, results')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
-      .lt('month_year', `${month1}-32`);
+      .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
       .from('meta_monthly_insights')
       .select('adset_id, adset_name, spend, impressions, clicks, reach, results')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
-      .lt('month_year', `${month2}-32`);
+      .lt('month_year', getNextMonthStart(month2));
 
     const adsetMap = new Map<string, AdSetComparison>();
 
@@ -309,14 +317,14 @@ export default function MonthlyComparison({ accountId }: Props) {
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
-      .lt('month_year', `${month1}-32`);
+      .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
       .from('meta_monthly_demographics')
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
-      .lt('month_year', `${month2}-32`);
+      .lt('month_year', getNextMonthStart(month2));
 
     const demoMap = new Map<string, DemographicComparison>();
 
@@ -375,14 +383,14 @@ export default function MonthlyComparison({ accountId }: Props) {
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
-      .lt('month_year', `${month1}-32`);
+      .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
       .from('meta_platform_insights')
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
-      .lt('month_year', `${month2}-32`);
+      .lt('month_year', getNextMonthStart(month2));
 
     const platformMap = new Map<string, PlatformComparison>();
 
