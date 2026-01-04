@@ -155,17 +155,35 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
   const loadCampaignMetrics = async (accountId: string) => {
     try {
-      // Parse selected month
-      const [year, month] = selectedMonth.split('-');
-      const monthStart = `${year}-${month}-01`;
+      let monthStart: string;
+      let monthEnd: string;
 
-      // Calculate next month (handle December -> January of next year)
-      const currentMonth = Number(month);
-      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextYear = currentMonth === 12 ? Number(year) + 1 : Number(year);
-      const monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+      // Handle special date ranges
+      if (selectedMonth === 'last_6_months') {
+        const today = new Date();
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(today.getMonth() - 6);
+        monthStart = `${sixMonthsAgo.getFullYear()}-${String(sixMonthsAgo.getMonth() + 1).padStart(2, '0')}-01`;
+        monthEnd = `${today.getFullYear()}-${String(today.getMonth() + 2).padStart(2, '0')}-01`;
+      } else if (selectedMonth === 'last_12_months') {
+        const today = new Date();
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(today.getMonth() - 12);
+        monthStart = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth() + 1).padStart(2, '0')}-01`;
+        monthEnd = `${today.getFullYear()}-${String(today.getMonth() + 2).padStart(2, '0')}-01`;
+      } else {
+        // Parse selected month
+        const [year, month] = selectedMonth.split('-');
+        monthStart = `${year}-${month}-01`;
 
-      // Query monthly insights for the selected month
+        // Calculate next month (handle December -> January of next year)
+        const currentMonth = Number(month);
+        const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+        const nextYear = currentMonth === 12 ? Number(year) + 1 : Number(year);
+        monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+      }
+
+      // Query monthly insights for the selected time range
       const { data: monthlyData } = await supabase
         .from('meta_monthly_insights')
         .select('*')
@@ -236,14 +254,32 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
   const loadDemographics = async (accountId: string) => {
     try {
-      const [year, month] = selectedMonth.split('-');
-      const monthStart = `${year}-${month}-01`;
+      let monthStart: string;
+      let monthEnd: string;
 
-      // Calculate next month (handle December -> January of next year)
-      const currentMonth = Number(month);
-      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextYear = currentMonth === 12 ? Number(year) + 1 : Number(year);
-      const monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+      // Handle special date ranges
+      if (selectedMonth === 'last_6_months') {
+        const today = new Date();
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(today.getMonth() - 6);
+        monthStart = `${sixMonthsAgo.getFullYear()}-${String(sixMonthsAgo.getMonth() + 1).padStart(2, '0')}-01`;
+        monthEnd = `${today.getFullYear()}-${String(today.getMonth() + 2).padStart(2, '0')}-01`;
+      } else if (selectedMonth === 'last_12_months') {
+        const today = new Date();
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(today.getMonth() - 12);
+        monthStart = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth() + 1).padStart(2, '0')}-01`;
+        monthEnd = `${today.getFullYear()}-${String(today.getMonth() + 2).padStart(2, '0')}-01`;
+      } else {
+        const [year, month] = selectedMonth.split('-');
+        monthStart = `${year}-${month}-01`;
+
+        // Calculate next month (handle December -> January of next year)
+        const currentMonth = Number(month);
+        const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+        const nextYear = currentMonth === 12 ? Number(year) + 1 : Number(year);
+        monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+      }
 
       const { data: demographics } = await supabase
         .from('meta_monthly_demographics')
@@ -877,6 +913,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                         <option value={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}>
                           Current Month (Month-to-Date)
                         </option>
+                        <option value="last_6_months">Last 6 Months</option>
+                        <option value="last_12_months">Last 12 Months</option>
                         {availableMonths.filter(m => m !== `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`).map(month => {
                           const [year, monthNum] = month.split('-');
                           const date = new Date(Number(year), Number(monthNum) - 1);
@@ -899,10 +937,10 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                   <div className="text-center py-8">
                     <BarChart3 size={48} className="mx-auto text-gray-300 mb-3" />
                     <p className="text-sm text-gray-600 mb-2 font-medium">
-                      No data for {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      No data for {selectedMonth === 'last_6_months' ? 'Last 6 Months' : selectedMonth === 'last_12_months' ? 'Last 12 Months' : new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </p>
                     <p className="text-xs text-gray-500">
-                      Click "Sync Monthly Reports" above to fetch data for this month
+                      Click "Sync Monthly Reports" above to fetch data for this period
                     </p>
                   </div>
                 ) : (
