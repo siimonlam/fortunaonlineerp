@@ -125,19 +125,21 @@ export default function MonthlyComparison({ accountId }: Props) {
       .from('meta_monthly_insights')
       .select('*')
       .eq('account_id', accountId)
-      .like('month_year', `${month1}%`);
+      .gte('month_year', `${month1}-01`)
+      .lt('month_year', `${month1}-32`);
 
     const { data: month2Data, error: error2 } = await supabase
       .from('meta_monthly_insights')
       .select('*')
       .eq('account_id', accountId)
-      .like('month_year', `${month2}%`);
+      .gte('month_year', `${month2}-01`)
+      .lt('month_year', `${month2}-32`);
 
     if (error1) console.error('Error fetching month1 data:', error1);
     if (error2) console.error('Error fetching month2 data:', error2);
 
-    console.log('Month1 data rows:', month1Data?.length || 0);
-    console.log('Month2 data rows:', month2Data?.length || 0);
+    console.log('Month1 (', month1, ') data rows:', month1Data?.length || 0, 'Sample:', month1Data?.[0]);
+    console.log('Month2 (', month2, ') data rows:', month2Data?.length || 0, 'Sample:', month2Data?.[0]);
 
     const aggregateMetrics = (data: any[]): ComparisonMetrics => {
       const totals = data.reduce((acc, row) => ({
@@ -165,13 +167,15 @@ export default function MonthlyComparison({ accountId }: Props) {
       .from('meta_monthly_insights')
       .select('campaign_id, campaign_name, spend, impressions, clicks, reach, results, ctr, cpc, cpm')
       .eq('account_id', accountId)
-      .like('month_year', `${month1}%`);
+      .gte('month_year', `${month1}-01`)
+      .lt('month_year', `${month1}-32`);
 
     const { data: month2Data } = await supabase
       .from('meta_monthly_insights')
       .select('campaign_id, campaign_name, spend, impressions, clicks, reach, results, ctr, cpc, cpm')
       .eq('account_id', accountId)
-      .like('month_year', `${month2}%`);
+      .gte('month_year', `${month2}-01`)
+      .lt('month_year', `${month2}-32`);
 
     const campaignMap = new Map<string, CampaignComparison>();
 
@@ -227,13 +231,15 @@ export default function MonthlyComparison({ accountId }: Props) {
       .from('meta_monthly_insights')
       .select('adset_id, adset_name, spend, impressions, clicks, reach, results')
       .eq('account_id', accountId)
-      .like('month_year', `${month1}%`);
+      .gte('month_year', `${month1}-01`)
+      .lt('month_year', `${month1}-32`);
 
     const { data: month2Data } = await supabase
       .from('meta_monthly_insights')
       .select('adset_id, adset_name, spend, impressions, clicks, reach, results')
       .eq('account_id', accountId)
-      .like('month_year', `${month2}%`);
+      .gte('month_year', `${month2}-01`)
+      .lt('month_year', `${month2}-32`);
 
     const adsetMap = new Map<string, AdSetComparison>();
 
@@ -289,13 +295,15 @@ export default function MonthlyComparison({ accountId }: Props) {
       .from('meta_monthly_demographics')
       .select('*')
       .eq('account_id', accountId)
-      .like('month_year', `${month1}%`);
+      .gte('month_year', `${month1}-01`)
+      .lt('month_year', `${month1}-32`);
 
     const { data: month2Data } = await supabase
       .from('meta_monthly_demographics')
       .select('*')
       .eq('account_id', accountId)
-      .like('month_year', `${month2}%`);
+      .gte('month_year', `${month2}-01`)
+      .lt('month_year', `${month2}-32`);
 
     const demoMap = new Map<string, DemographicComparison>();
 
@@ -353,13 +361,15 @@ export default function MonthlyComparison({ accountId }: Props) {
       .from('meta_platform_insights')
       .select('*')
       .eq('account_id', accountId)
-      .like('month_year', `${month1}%`);
+      .gte('month_year', `${month1}-01`)
+      .lt('month_year', `${month1}-32`);
 
     const { data: month2Data } = await supabase
       .from('meta_platform_insights')
       .select('*')
       .eq('account_id', accountId)
-      .like('month_year', `${month2}%`);
+      .gte('month_year', `${month2}-01`)
+      .lt('month_year', `${month2}-32`);
 
     const platformMap = new Map<string, PlatformComparison>();
 
