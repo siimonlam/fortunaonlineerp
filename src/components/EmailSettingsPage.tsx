@@ -29,6 +29,8 @@ export function EmailSettingsPage() {
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<EmailAccount | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [staffList, setStaffList] = useState<{ id: string; full_name: string; email: string }[]>([]);
   const [formData, setFormData] = useState({
     account_name: '',
     smtp_host: '',
@@ -39,10 +41,16 @@ export function EmailSettingsPage() {
     smtp_from_email: '',
     smtp_from_name: 'Your Company',
     is_active: true,
+    user_id: '',
   });
 
   useEffect(() => {
-    loadAccounts();
+    const init = async () => {
+      await checkAdminStatus();
+      await loadAccounts();
+    };
+
+    init();
 
     const channel = supabase
       .channel('email_accounts_changes')
@@ -60,14 +68,51 @@ export function EmailSettingsPage() {
     };
   }, []);
 
+  const checkAdminStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (data?.role === 'admin') {
+        setIsAdmin(true);
+        const { data: staffData } = await supabase
+          .from('staff')
+          .select('id, full_name, email')
+          .order('full_name', { ascending: true });
+        setStaffList(staffData || []);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error checking admin status:', err);
+      return false;
+    }
+  };
+
   const loadAccounts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('email_accounts')
-        .select('*')
+
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
         .eq('user_id', user?.id)
-        .order('account_name', { ascending: true });
+        .single();
+
+      const userIsAdmin = roleData?.role === 'admin';
+
+      let query = supabase
+        .from('email_accounts')
+        .select('*');
+
+      if (!userIsAdmin) {
+        query = query.eq('user_id', user?.id);
+      }
+
+      const { data, error } = await query.order('account_name', { ascending: true });
 
       if (error) throw error;
       setAccounts(data || []);
@@ -90,6 +135,7 @@ export function EmailSettingsPage() {
       smtp_from_email: '',
       smtp_from_name: 'Your Company',
       is_active: true,
+      user_id: user?.id || '',
     });
     setEditingAccount(null);
     setShowModal(false);
@@ -133,6 +179,7 @@ export function EmailSettingsPage() {
       smtp_from_email: account.smtp_from_email,
       smtp_from_name: account.smtp_from_name,
       is_active: account.is_active,
+      user_id: account.user_id,
     });
     setShowModal(true);
   };
@@ -144,6 +191,11 @@ export function EmailSettingsPage() {
 
       if (!formData.account_name || !formData.smtp_host || !formData.smtp_user || !formData.smtp_password || !formData.smtp_from_email) {
         setMessage({ type: 'error', text: 'Please fill in all required fields' });
+        return;
+      }
+
+      if (isAdmin && !formData.user_id) {
+        setMessage({ type: 'error', text: 'Please select a user for this email account' });
         return;
       }
 
@@ -160,6 +212,7 @@ export function EmailSettingsPage() {
             smtp_from_email: formData.smtp_from_email,
             smtp_from_name: formData.smtp_from_name,
             is_active: formData.is_active,
+            user_id: formData.user_id,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingAccount.id);
@@ -170,7 +223,16 @@ export function EmailSettingsPage() {
         const { error } = await supabase
           .from('email_accounts')
           .insert({
-            ...formData,
+            account_name: formData.account_name,
+            smtp_host: formData.smtp_host,
+            smtp_port: formData.smtp_port,
+            smtp_secure: formData.smtp_secure,
+            smtp_user: formData.smtp_user,
+            smtp_password: formData.smtp_password,
+            smtp_from_email: formData.smtp_from_email,
+            smtp_from_name: formData.smtp_from_name,
+            is_active: formData.is_active,
+            user_id: formData.user_id,
             created_by: user?.id,
           });
 
@@ -273,8 +335,12 @@ export function EmailSettingsPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">My Email Accounts (SMTP)</h3>
-              <p className="text-slate-600 text-sm">Manage your SMTP accounts for sending emails</p>
+              <h3 className="text-lg font-semibold text-slate-900">
+                {isAdmin ? 'All Email Accounts (SMTP)' : 'My Email Accounts (SMTP)'}
+              </h3>
+              <p className="text-slate-600 text-sm">
+                {isAdmin ? 'Manage all SMTP accounts for sending emails' : 'Manage your SMTP accounts for sending emails'}
+              </p>
             </div>
             <button
               onClick={openCreateModal}
@@ -319,38 +385,45 @@ export function EmailSettingsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {accounts.map(account => (
-            <div key={account.id} className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Mail className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                    <h3 className="text-lg font-semibold text-slate-900">{account.account_name}</h3>
-                    {!account.is_active && (
-                      <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">
-                        Inactive
-                      </span>
-                    )}
+          {accounts.map(account => {
+            const accountOwner = staffList.find(s => s.id === account.user_id);
+            return (
+              <div key={account.id} className="bg-white rounded-lg border border-slate-200 p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Mail className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                      <h3 className="text-lg font-semibold text-slate-900">{account.account_name}</h3>
+                      {!account.is_active && (
+                        <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">
+                          Inactive
+                        </span>
+                      )}
+                      {isAdmin && accountOwner && (
+                        <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
+                          {accountOwner.full_name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-slate-500">From:</span>{' '}
+                        <span className="text-slate-700 font-medium">{account.smtp_from_name} &lt;{account.smtp_from_email}&gt;</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">SMTP Host:</span>{' '}
+                        <span className="text-slate-700">{account.smtp_host}:{account.smtp_port}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Username:</span>{' '}
+                        <span className="text-slate-700">{account.smtp_user}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Security:</span>{' '}
+                        <span className="text-slate-700">{account.smtp_secure ? 'TLS/SSL Enabled' : 'No Encryption'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-slate-500">From:</span>{' '}
-                      <span className="text-slate-700 font-medium">{account.smtp_from_name} &lt;{account.smtp_from_email}&gt;</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">SMTP Host:</span>{' '}
-                      <span className="text-slate-700">{account.smtp_host}:{account.smtp_port}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Username:</span>{' '}
-                      <span className="text-slate-700">{account.smtp_user}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Security:</span>{' '}
-                      <span className="text-slate-700">{account.smtp_secure ? 'TLS/SSL Enabled' : 'No Encryption'}</span>
-                    </div>
-                  </div>
-                </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={() => toggleActive(account.id, account.is_active)}
@@ -379,7 +452,8 @@ export function EmailSettingsPage() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -433,6 +507,27 @@ export function EmailSettingsPage() {
                   />
                   <p className="mt-1 text-xs text-slate-500">A descriptive name for this account</p>
                 </div>
+
+                {isAdmin && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Assign to User <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.user_id}
+                      onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value="">Select a user</option>
+                      {staffList.map((staff) => (
+                        <option key={staff.id} value={staff.id}>
+                          {staff.full_name} ({staff.email})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-slate-500">Select which user this email account belongs to</p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
