@@ -491,8 +491,8 @@ export function MarketingProjectPermissions() {
         </div>
 
         {activeTab === 'buttons' && (
-          <div className="bg-white rounded-lg border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-4">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <Layers className="w-5 h-5 text-purple-600" />
@@ -512,89 +512,115 @@ export function MarketingProjectPermissions() {
               </button>
             </div>
 
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
             {globalButtons.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <Layers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                 <p>No global buttons found</p>
               </div>
             ) : (
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">
-                        User
-                      </th>
-                      {globalButtons.map(button => (
-                        <th key={button.id} className="px-4 py-3 text-center text-sm font-medium text-slate-700">
-                          {button.name}
+              <div className="space-y-4">
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-sm font-medium text-slate-700 w-1/4">
+                          Button Name
                         </th>
-                      ))}
-                      <th className="px-4 py-3 text-center text-sm font-medium text-slate-700">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {filteredUsers.map(user => {
-                      return (
-                        <tr key={user.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3 text-sm text-slate-900">
-                            {getUserName(user)}
-                            <div className="text-xs text-slate-500">{user.email}</div>
-                          </td>
-                          {globalButtons.map(button => (
-                            <td key={button.id} className="px-4 py-3 text-center">
-                              <input
-                                type="checkbox"
-                                checked={getGlobalButtonAccess(user.id, button.id)}
-                                onChange={() => toggleGlobalButtonAccess(user.id, button.id)}
-                                className="w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
-                              />
+                        <th className="px-6 py-3 text-left text-sm font-medium text-slate-700">
+                          Visible to Users
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-medium text-slate-700 w-64">
+                          Assign Access
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {globalButtons.map(button => {
+                        const usersWithAccess = users.filter(user =>
+                          getGlobalButtonAccess(user.id, button.id)
+                        );
+
+                        return (
+                          <tr key={button.id} className="hover:bg-slate-50">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                                <span className="font-medium text-slate-900">{button.name}</span>
+                              </div>
                             </td>
-                          ))}
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex gap-2 justify-center">
-                              <button
-                                onClick={() => toggleAllGlobalButtons(user.id, true)}
-                                className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-                              >
-                                All
-                              </button>
-                              <button
-                                onClick={() => toggleAllGlobalButtons(user.id, false)}
-                                className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                              >
-                                None
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            <td className="px-6 py-4">
+                              {usersWithAccess.length === 0 ? (
+                                <span className="text-sm text-slate-500 italic">All users (no restrictions)</span>
+                              ) : (
+                                <div className="flex flex-wrap gap-2">
+                                  {usersWithAccess.map(user => (
+                                    <span
+                                      key={user.id}
+                                      className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full"
+                                    >
+                                      {getUserName(user)}
+                                      <button
+                                        onClick={() => toggleGlobalButtonAccess(user.id, button.id)}
+                                        className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <select
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      toggleGlobalButtonAccess(e.target.value, button.id);
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                  className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                                  defaultValue=""
+                                >
+                                  <option value="">Add user...</option>
+                                  {users
+                                    .filter(user => !getGlobalButtonAccess(user.id, button.id))
+                                    .map(user => (
+                                      <option key={user.id} value={user.id}>
+                                        {getUserName(user)}
+                                      </option>
+                                    ))
+                                  }
+                                </select>
+                                {usersWithAccess.length > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      usersWithAccess.forEach(user => {
+                                        toggleGlobalButtonAccess(user.id, button.id);
+                                      });
+                                    }}
+                                    className="px-3 py-2 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors whitespace-nowrap"
+                                    title="Remove all users"
+                                  >
+                                    Clear All
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <p className="text-sm text-slate-700">
+                    <span className="font-medium">Note:</span> If no users are selected for a button, it will be visible to all users. Once you add specific users, only those users will see the button in the Marketing sidebar.
+                  </p>
+                </div>
               </div>
             )}
-
-            <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <p className="text-sm text-slate-700">
-                <span className="font-medium">Note:</span> If no users are selected for a button, it will be visible to all users. Once you add specific users, only those users will see the button in the Marketing sidebar.
-              </p>
-            </div>
           </div>
         )}
 
