@@ -14,6 +14,7 @@ import { CreateProjectModal } from './CreateProjectModal';
 import { ComSecPage } from './ComSecPage';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { FundingDashboard } from './FundingDashboard';
+import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import { MeetingsPage } from './MeetingsPage';
@@ -193,6 +194,7 @@ export function ProjectBoard() {
   const [invoiceSortColumn, setInvoiceSortColumn] = useState<'invoice_number' | 'project' | 'client' | 'amount' | 'issued_company' | 'category' | 'issue_date' | 'payment_date' | 'payment_method' | 'payment_type' | 'payment_status'>('issue_date');
   const [invoiceSortDirection, setInvoiceSortDirection] = useState<'asc' | 'desc'>('desc');
   const [invoicePaymentStatusFilter, setInvoicePaymentStatusFilter] = useState<'all' | 'paid' | 'unpaid' | 'void' | 'overdue'>('all');
+  const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
@@ -2180,6 +2182,19 @@ export function ProjectBoard() {
                     </span>
                   </button>
                   <button
+                    onClick={() => setFundingProjectTab('invoices')}
+                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                      fundingProjectTab === 'invoices'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Invoices
+                    </span>
+                  </button>
+                  <button
                     onClick={() => setFundingProjectTab('meetings')}
                     className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
                       fundingProjectTab === 'meetings'
@@ -2247,9 +2262,10 @@ export function ProjectBoard() {
                     )}
                   </>
                 )}
-                {!selectedMarketingProject && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab !== 'projects' && fundingProjectTab !== 'invoices' && (
+                {!selectedMarketingProject && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab !== 'projects' && (
                   <h2 className="text-2xl font-bold text-slate-900">
                     {fundingProjectTab === 'dashboard' && 'Dashboard'}
+                    {fundingProjectTab === 'invoices' && 'Invoices'}
                     {fundingProjectTab === 'emails' && 'Scheduled Emails'}
                     {fundingProjectTab === 'meetings' && 'Meetings'}
                     {fundingProjectTab === 'resources' && 'Share Resources'}
@@ -3165,6 +3181,16 @@ export function ProjectBoard() {
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          setSelectedProject(null);
+                          setShowCreateInvoice(true);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Create Invoice
+                      </button>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                         <input
@@ -5133,6 +5159,58 @@ function AddClientModal({ onClose, onSuccess, clientType = 'company' }: AddClien
       {showTaskNotification && (
         <TaskNotificationModal
           onClose={() => setShowTaskNotification(false)}
+        />
+      )}
+
+      {showCreateInvoice && (
+        <CreateInvoiceModal
+          project={selectedProject || {
+            id: '',
+            title: '',
+            project_reference: '',
+            company_name: '',
+            client_number: '',
+            deposit_amount: 0
+          }}
+          onClose={() => {
+            setShowCreateInvoice(false);
+            setSelectedProject(null);
+          }}
+          onSuccess={() => {
+            setShowCreateInvoice(false);
+            setSelectedProject(null);
+            loadProjectsViewData();
+          }}
+        />
+      )}
+
+      {showGenerateReceipt && selectedInvoiceForReceipt && (
+        <GenerateReceiptModal
+          invoice={selectedInvoiceForReceipt}
+          onClose={() => {
+            setShowGenerateReceipt(false);
+            setSelectedInvoiceForReceipt(null);
+          }}
+          onSuccess={() => {
+            setShowGenerateReceipt(false);
+            setSelectedInvoiceForReceipt(null);
+            loadProjectsViewData();
+          }}
+        />
+      )}
+
+      {showMarkPaid && selectedInvoiceForMarkPaid && (
+        <MarkInvoicePaidModal
+          invoice={selectedInvoiceForMarkPaid}
+          onClose={() => {
+            setShowMarkPaid(false);
+            setSelectedInvoiceForMarkPaid(null);
+          }}
+          onSuccess={() => {
+            setShowMarkPaid(false);
+            setSelectedInvoiceForMarkPaid(null);
+            loadProjectsViewData();
+          }}
         />
       )}
     </div>
