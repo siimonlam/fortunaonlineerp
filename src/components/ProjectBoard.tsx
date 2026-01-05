@@ -516,7 +516,9 @@ export function ProjectBoard() {
 
   async function loadMarketingProjectButtons() {
     try {
-      const { data, error } = await supabase
+      if (!user) return;
+
+      const { data: allButtons, error } = await supabase
         .from('marketing_project_buttons')
         .select(`
           *,
@@ -532,8 +534,63 @@ export function ProjectBoard() {
         .order('display_order');
 
       if (error) throw error;
-      console.log('[loadMarketingProjectButtons] Loaded buttons:', data?.length || 0);
-      setMarketingProjectButtons(data || []);
+
+      if (!allButtons || allButtons.length === 0) {
+        setMarketingProjectButtons([]);
+        return;
+      }
+
+      const { data: userRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (userRole?.role === 'admin') {
+        console.log('[loadMarketingProjectButtons] Admin user - showing all buttons');
+        setMarketingProjectButtons(allButtons);
+        return;
+      }
+
+      const buttonIds = allButtons.map(b => b.id);
+      const { data: permissions, error: permError } = await supabase
+        .from('marketing_button_staff')
+        .select('button_id')
+        .in('button_id', buttonIds);
+
+      if (permError) {
+        console.error('[loadMarketingProjectButtons] Permission error:', permError);
+        setMarketingProjectButtons(allButtons);
+        return;
+      }
+
+      const buttonsWithPermissions = new Set(permissions?.map(p => p.button_id) || []);
+
+      const visibleButtons = allButtons.filter(button => {
+        if (!buttonsWithPermissions.has(button.id)) {
+          return true;
+        }
+
+        return permissions?.some(p => p.button_id === button.id);
+      });
+
+      const { data: userPermissions } = await supabase
+        .from('marketing_button_staff')
+        .select('button_id')
+        .eq('user_id', user.id)
+        .in('button_id', buttonIds);
+
+      const userButtonIds = new Set(userPermissions?.map(p => p.button_id) || []);
+
+      const finalButtons = allButtons.filter(button => {
+        if (!buttonsWithPermissions.has(button.id)) {
+          return true;
+        }
+        return userButtonIds.has(button.id);
+      });
+
+      console.log('[loadMarketingProjectButtons] Loaded buttons:', finalButtons.length || 0);
+      setMarketingProjectButtons(finalButtons);
     } catch (error: any) {
       console.error('[loadMarketingProjectButtons] Error:', error.message);
     }

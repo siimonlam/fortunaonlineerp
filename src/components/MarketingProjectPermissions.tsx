@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, Shield, Eye, Edit, Save, X, Search } from 'lucide-react';
+import { Users, Shield, Eye, Edit, Save, X, Search, Layers } from 'lucide-react';
 
 interface User {
   id: string;
@@ -34,6 +34,17 @@ interface MarketingSection {
   category: string;
 }
 
+interface MarketingButton {
+  id: string;
+  name: string;
+  display_order: number;
+}
+
+interface ButtonPermission {
+  button_id: string;
+  user_id: string;
+}
+
 export function MarketingProjectPermissions() {
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<MarketingProject[]>([]);
@@ -43,6 +54,9 @@ export function MarketingProjectPermissions() {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [buttons, setButtons] = useState<MarketingButton[]>([]);
+  const [buttonPermissions, setButtonPermissions] = useState<ButtonPermission[]>([]);
+  const [selectedButtonUser, setSelectedButtonUser] = useState<string | null>(null);
 
   const availableSections: MarketingSection[] = [
     { id: 'summary', label: 'Summary', category: 'A. Summary' },
@@ -69,8 +83,19 @@ export function MarketingProjectPermissions() {
   useEffect(() => {
     if (selectedProject) {
       loadPermissions();
+      loadButtonsAndPermissions();
     }
   }, [selectedProject]);
+
+  const loadButtonsAndPermissions = async () => {
+    await loadButtons();
+  };
+
+  useEffect(() => {
+    if (buttons.length > 0) {
+      loadButtonPermissions();
+    }
+  }, [buttons]);
 
   const loadUsers = async () => {
     const { data: authUsers, error } = await supabase.auth.admin.listUsers();
@@ -94,6 +119,33 @@ export function MarketingProjectPermissions() {
       setProjects(data || []);
     }
     setLoading(false);
+  };
+
+  const loadButtons = async () => {
+    const { data, error } = await supabase
+      .from('marketing_project_buttons')
+      .select('id, name, display_order')
+      .eq('source_project_id', selectedProject)
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.error('Error loading buttons:', error);
+    } else {
+      setButtons(data || []);
+    }
+  };
+
+  const loadButtonPermissions = async () => {
+    const { data, error } = await supabase
+      .from('marketing_button_staff')
+      .select('button_id, user_id')
+      .in('button_id', buttons.map(b => b.id));
+
+    if (error) {
+      console.error('Error loading button permissions:', error);
+    } else {
+      setButtonPermissions(data || []);
+    }
   };
 
   const loadPermissions = async () => {
@@ -183,6 +235,67 @@ export function MarketingProjectPermissions() {
         }];
       }
     });
+  };
+
+  const getUserButtonAccess = (userId: string, buttonId: string): boolean => {
+    return buttonPermissions.some(bp => bp.button_id === buttonId && bp.user_id === userId);
+  };
+
+  const toggleButtonAccess = (userId: string, buttonId: string) => {
+    setButtonPermissions(prev => {
+      const exists = prev.some(bp => bp.button_id === buttonId && bp.user_id === userId);
+      if (exists) {
+        return prev.filter(bp => !(bp.button_id === buttonId && bp.user_id === userId));
+      } else {
+        return [...prev, { button_id: buttonId, user_id: userId }];
+      }
+    });
+  };
+
+  const toggleAllButtons = (userId: string, enable: boolean) => {
+    setButtonPermissions(prev => {
+      const filtered = prev.filter(bp => bp.user_id !== userId);
+      if (enable) {
+        const newPermissions = buttons.map(b => ({ button_id: b.id, user_id: userId }));
+        return [...filtered, ...newPermissions];
+      }
+      return filtered;
+    });
+  };
+
+  const saveButtonPermissions = async () => {
+    if (!selectedProject) return;
+
+    setSaving(true);
+    try {
+      const buttonIds = buttons.map(b => b.id);
+
+      const { error: deleteError } = await supabase
+        .from('marketing_button_staff')
+        .delete()
+        .in('button_id', buttonIds);
+
+      if (deleteError) throw deleteError;
+
+      if (buttonPermissions.length > 0) {
+        const { error: insertError } = await supabase
+          .from('marketing_button_staff')
+          .insert(buttonPermissions.map(bp => ({
+            button_id: bp.button_id,
+            user_id: bp.user_id
+          })));
+
+        if (insertError) throw insertError;
+      }
+
+      alert('Button permissions saved successfully');
+      await loadButtonPermissions();
+    } catch (error: any) {
+      console.error('Error saving button permissions:', error);
+      alert('Error saving button permissions: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const savePermissions = async () => {
@@ -458,6 +571,96 @@ export function MarketingProjectPermissions() {
                 </div>
               </div>
             </div>
+
+            {buttons.length > 0 && (
+              <div className="mt-6 bg-white rounded-lg border border-slate-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Layers className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-900">Custom Button Visibility</h4>
+                      <p className="text-sm text-slate-600">Control which users can see custom marketing buttons</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={saveButtonPermissions}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                  >
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Saving...' : 'Save Button Access'}
+                  </button>
+                </div>
+
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">
+                          User
+                        </th>
+                        {buttons.map(button => (
+                          <th key={button.id} className="px-4 py-3 text-center text-sm font-medium text-slate-700">
+                            {button.name}
+                          </th>
+                        ))}
+                        <th className="px-4 py-3 text-center text-sm font-medium text-slate-700">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {filteredUsers.map(user => {
+                        const accessCount = buttons.filter(b => getUserButtonAccess(user.id, b.id)).length;
+
+                        return (
+                          <tr key={user.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3 text-sm text-slate-900">
+                              {getUserName(user)}
+                              <div className="text-xs text-slate-500">{user.email}</div>
+                            </td>
+                            {buttons.map(button => (
+                              <td key={button.id} className="px-4 py-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={getUserButtonAccess(user.id, button.id)}
+                                  onChange={() => toggleButtonAccess(user.id, button.id)}
+                                  className="w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                                />
+                              </td>
+                            ))}
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex gap-2 justify-center">
+                                <button
+                                  onClick={() => toggleAllButtons(user.id, true)}
+                                  className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                                >
+                                  All
+                                </button>
+                                <button
+                                  onClick={() => toggleAllButtons(user.id, false)}
+                                  className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                >
+                                  None
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <p className="text-sm text-slate-700">
+                    <span className="font-medium">Note:</span> If no users are selected for a button, it will be visible to all users. Once you add specific users, only those users will see the button.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
