@@ -11,8 +11,9 @@ import { WhatsAppSettingsPage } from './WhatsAppSettingsPage';
 import InstagramAccountsPage from './InstagramAccountsPage';
 import FacebookAccountsPage from './FacebookAccountsPage';
 import MetaAdsSettingsPage from './MetaAdsSettingsPage';
+import { MarketingProjectPermissions } from './MarketingProjectPermissions';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'finance-auth' | 'labels' | 'automation' | 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'meta-ads';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'marketing-projects' | 'finance-auth' | 'labels' | 'automation' | 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'meta-ads';
 
 interface User {
   id: string;
@@ -144,6 +145,7 @@ export function AdminPage() {
     { id: 'funding-auth', label: 'Funding Authorization', icon: Lock },
     { id: 'comsec-auth', label: 'Com Sec Authorization', icon: Lock },
     { id: 'marketing-auth', label: 'Marketing Authorization', icon: Lock },
+    { id: 'marketing-projects', label: 'Marketing Project Access', icon: Shield },
     { id: 'finance-auth', label: 'Finance Authorization', icon: DollarSign },
     { id: 'labels', label: 'Labels', icon: Tag },
     { id: 'automation', label: 'Automation', icon: Zap },
@@ -387,6 +389,16 @@ export function AdminPage() {
                 title="Marketing User Access Control"
                 description="Grant or revoke access to the Marketing module for users"
               />
+            </div>
+          )}
+
+          {currentView === 'marketing-projects' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Marketing Project Permissions</h2>
+                <p className="text-slate-600">Manage view and edit access for individual marketing projects</p>
+              </div>
+              <MarketingProjectPermissions />
             </div>
           )}
 
