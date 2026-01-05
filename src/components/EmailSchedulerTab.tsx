@@ -157,7 +157,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
 
   const openScheduleModal = () => {
     if (emailAccounts.length === 0) {
-      showErrorPopup('No email accounts configured. Please ask your administrator to set up an email account in Admin → Email Settings.');
+      showErrorPopup('No email accounts configured. Please go to Admin → Email Settings to add your email account.');
       return;
     }
     setShowModal(true);

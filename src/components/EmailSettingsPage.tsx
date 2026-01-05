@@ -95,6 +95,27 @@ export function EmailSettingsPage() {
     setShowModal(false);
   };
 
+  const applyProviderPreset = (provider: string) => {
+    const presets: { [key: string]: { host: string; port: number; secure: boolean } } = {
+      gmail: { host: 'smtp.gmail.com', port: 587, secure: true },
+      outlook: { host: 'smtp-mail.outlook.com', port: 587, secure: true },
+      office365: { host: 'smtp.office365.com', port: 587, secure: true },
+      sendgrid: { host: 'smtp.sendgrid.net', port: 587, secure: true },
+      mailgun: { host: 'smtp.mailgun.org', port: 587, secure: true },
+      custom: { host: '', port: 587, secure: true },
+    };
+
+    const preset = presets[provider];
+    if (preset) {
+      setFormData({
+        ...formData,
+        smtp_host: preset.host,
+        smtp_port: preset.port,
+        smtp_secure: preset.secure,
+      });
+    }
+  };
+
   const openCreateModal = () => {
     resetForm();
     setShowModal(true);
@@ -378,21 +399,27 @@ export function EmailSettingsPage() {
                 </button>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">Common SMTP Providers</p>
-                    <ul className="space-y-1 text-blue-700 list-disc list-inside">
-                      <li><strong>Gmail:</strong> smtp.gmail.com (port 587, TLS enabled)</li>
-                      <li><strong>Outlook:</strong> smtp-mail.outlook.com (port 587, TLS enabled)</li>
-                      <li><strong>SendGrid:</strong> smtp.sendgrid.net (port 587, TLS enabled)</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
               <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Email Provider Preset
+                  </label>
+                  <select
+                    onChange={(e) => applyProviderPreset(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    defaultValue=""
+                  >
+                    <option value="">Select a provider (or enter custom settings below)</option>
+                    <option value="gmail">Gmail (smtp.gmail.com)</option>
+                    <option value="outlook">Outlook (smtp-mail.outlook.com)</option>
+                    <option value="office365">Office 365 (smtp.office365.com)</option>
+                    <option value="sendgrid">SendGrid (smtp.sendgrid.net)</option>
+                    <option value="mailgun">Mailgun (smtp.mailgun.org)</option>
+                    <option value="custom">Custom SMTP Server</option>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">Select a provider to auto-fill SMTP settings</p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Account Name <span className="text-red-500">*</span>
@@ -401,7 +428,7 @@ export function EmailSettingsPage() {
                     type="text"
                     value={formData.account_name}
                     onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
-                    placeholder="e.g., Marketing Team Gmail"
+                    placeholder="e.g., Jason@hkfund.org"
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p className="mt-1 text-xs text-slate-500">A descriptive name for this account</p>
@@ -483,6 +510,11 @@ export function EmailSettingsPage() {
                         {showPassword.modal ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    {formData.smtp_host === 'smtp.gmail.com' && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        For Gmail, use an App Password (not your regular password). Generate one at: myaccount.google.com/apppasswords
+                      </p>
+                    )}
                   </div>
                 </div>
 
