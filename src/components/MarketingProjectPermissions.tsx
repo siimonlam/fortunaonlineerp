@@ -25,6 +25,13 @@ interface ProjectPermission {
   user_id: string;
   can_view: boolean;
   can_edit: boolean;
+  visible_sections?: string[];
+}
+
+interface MarketingSection {
+  id: string;
+  label: string;
+  category: string;
 }
 
 export function MarketingProjectPermissions() {
@@ -35,6 +42,24 @@ export function MarketingProjectPermissions() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+
+  const availableSections: MarketingSection[] = [
+    { id: 'summary', label: 'Summary', category: 'A. Summary' },
+    { id: 'amazon-sales', label: 'Amazon Sales', category: 'B. Reports' },
+    { id: 'amazon-ad', label: 'Amazon Ad', category: 'B. Reports' },
+    { id: 'website', label: 'Website', category: 'B. Reports' },
+    { id: 'meta-ad', label: 'Meta Ad', category: 'B. Reports' },
+    { id: 'instagram-post', label: 'Instagram Post', category: 'B. Reports' },
+    { id: 'facebook-post', label: 'Facebook Post', category: 'B. Reports' },
+    { id: 'google-ad', label: 'Google Ad', category: 'B. Reports' },
+    { id: 'influencer-collab', label: 'Influencer Collab', category: 'B. Reports' },
+    { id: 'influencer-management', label: 'Influencer Management', category: 'C. Project Management' },
+    { id: 'social-media', label: 'Social Media Management', category: 'C. Project Management' },
+    { id: 'tasks', label: 'Tasks', category: 'C. Project Management' },
+    { id: 'meetings', label: 'Meeting Record', category: 'C. Project Management' },
+    { id: 'files', label: 'Files', category: 'C. Project Management' }
+  ];
 
   useEffect(() => {
     loadUsers();
@@ -81,7 +106,11 @@ export function MarketingProjectPermissions() {
     if (error) {
       console.error('Error loading permissions:', error);
     } else {
-      setPermissions(data || []);
+      const formattedData = (data || []).map(p => ({
+        ...p,
+        visible_sections: Array.isArray(p.visible_sections) ? p.visible_sections : []
+      }));
+      setPermissions(formattedData);
     }
     setLoading(false);
   };
@@ -92,7 +121,8 @@ export function MarketingProjectPermissions() {
       project_id: selectedProject,
       user_id: userId,
       can_view: false,
-      can_edit: false
+      can_edit: false,
+      visible_sections: []
     };
   };
 
@@ -106,7 +136,50 @@ export function MarketingProjectPermissions() {
           project_id: selectedProject,
           user_id: userId,
           can_view: field === 'can_view' ? value : false,
-          can_edit: field === 'can_edit' ? value : false
+          can_edit: field === 'can_edit' ? value : false,
+          visible_sections: []
+        }];
+      }
+    });
+  };
+
+  const toggleSection = (userId: string, sectionId: string) => {
+    setPermissions(prev => {
+      const existing = prev.find(p => p.user_id === userId);
+      const currentSections = existing?.visible_sections || [];
+      const newSections = currentSections.includes(sectionId)
+        ? currentSections.filter(s => s !== sectionId)
+        : [...currentSections, sectionId];
+
+      if (existing) {
+        return prev.map(p => p.user_id === userId ? { ...p, visible_sections: newSections } : p);
+      } else {
+        return [...prev, {
+          project_id: selectedProject,
+          user_id: userId,
+          can_view: false,
+          can_edit: false,
+          visible_sections: newSections
+        }];
+      }
+    });
+  };
+
+  const toggleAllSections = (userId: string, enable: boolean) => {
+    const allSectionIds = availableSections.map(s => s.id);
+    setPermissions(prev => {
+      const existing = prev.find(p => p.user_id === userId);
+      const newSections = enable ? allSectionIds : [];
+
+      if (existing) {
+        return prev.map(p => p.user_id === userId ? { ...p, visible_sections: newSections } : p);
+      } else {
+        return [...prev, {
+          project_id: selectedProject,
+          user_id: userId,
+          can_view: false,
+          can_edit: false,
+          visible_sections: newSections
         }];
       }
     });
@@ -133,7 +206,8 @@ export function MarketingProjectPermissions() {
             project_id: p.project_id,
             user_id: p.user_id,
             can_view: p.can_view,
-            can_edit: p.can_edit
+            can_edit: p.can_edit,
+            visible_sections: p.visible_sections || []
           })));
 
         if (insertError) throw insertError;
@@ -247,12 +321,16 @@ export function MarketingProjectPermissions() {
                         Edit
                       </div>
                     </th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-slate-700">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {filteredUsers.map(user => {
                     const permission = getUserPermission(user.id);
                     const isSpecialRole = isCreatorOrSales(user.id);
+                    const visibleSectionCount = permission.visible_sections?.length || 0;
 
                     return (
                       <tr key={user.id} className="hover:bg-slate-50">
@@ -292,12 +370,78 @@ export function MarketingProjectPermissions() {
                             <div className="text-xs text-slate-500 mt-1">Auto</div>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => setSelectedUser(selectedUser === user.id ? null : user.id)}
+                            className="px-3 py-1 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                          >
+                            {visibleSectionCount > 0 ? `${visibleSectionCount} sections` : 'Set sections'}
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+
+{selectedUser && (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-slate-900">
+                    Visible Sections for {getUserName(users.find(u => u.id === selectedUser)!)}
+                  </h4>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => toggleAllSections(selectedUser, true)}
+                      className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => toggleAllSections(selectedUser, false)}
+                      className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                    <button
+                      onClick={() => setSelectedUser(null)}
+                      className="px-3 py-1 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {['A. Summary', 'B. Reports', 'C. Project Management'].map(category => (
+                    <div key={category}>
+                      <h5 className="font-medium text-slate-700 mb-2">{category}</h5>
+                      <div className="grid grid-cols-2 gap-2">
+                        {availableSections
+                          .filter(s => s.category === category)
+                          .map(section => {
+                            const permission = getUserPermission(selectedUser);
+                            const isChecked = permission.visible_sections?.includes(section.id) || false;
+
+                            return (
+                              <label key={section.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-100 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleSection(selectedUser, section.id)}
+                                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-slate-700">{section.label}</span>
+                              </label>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex gap-3">
@@ -306,9 +450,10 @@ export function MarketingProjectPermissions() {
                   <p className="font-medium mb-1">Permission Notes:</p>
                   <ul className="list-disc list-inside space-y-1 text-slate-600">
                     <li>All authenticated users can view all marketing projects by default</li>
+                    <li>Click "Set sections" to control which tabs/buttons users can access</li>
+                    <li>Empty sections = user can access all sections</li>
                     <li>Project creators and sales persons automatically have edit access</li>
                     <li>Admins always have full access to all projects</li>
-                    <li>You can grant additional users edit access using the checkboxes above</li>
                   </ul>
                 </div>
               </div>

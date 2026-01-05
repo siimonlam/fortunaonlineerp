@@ -74,9 +74,12 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['summary', 'reports', 'project-management']));
   const [creatingFolders, setCreatingFolders] = useState(false);
   const [folderError, setFolderError] = useState<string | null>(null);
+  const [visibleSections, setVisibleSections] = useState<string[]>([]);
+  const [hasFullAccess, setHasFullAccess] = useState(false);
 
   useEffect(() => {
     fetchProject();
+    fetchPermissions();
   }, [projectId]);
 
   const fetchProject = async () => {
@@ -93,6 +96,49 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       console.error('Error fetching project:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPermissions = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (roleData?.role === 'admin') {
+        setHasFullAccess(true);
+        return;
+      }
+
+      const { data: permissionData } = await supabase
+        .from('marketing_project_staff')
+        .select('visible_sections, can_edit')
+        .eq('project_id', projectId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (permissionData) {
+        const sections = Array.isArray(permissionData.visible_sections)
+          ? permissionData.visible_sections
+          : [];
+
+        if (sections.length === 0) {
+          setHasFullAccess(true);
+        } else {
+          setVisibleSections(sections);
+          setHasFullAccess(false);
+        }
+      } else {
+        setHasFullAccess(true);
+      }
+    } catch (err: any) {
+      console.error('Error fetching permissions:', err);
+      setHasFullAccess(true);
     }
   };
 
@@ -150,7 +196,12 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
     }
   };
 
-  const navigationGroups = [
+  const isSectionVisible = (sectionId: string): boolean => {
+    if (hasFullAccess) return true;
+    return visibleSections.includes(sectionId);
+  };
+
+  const allNavigationGroups = [
     {
       id: 'summary',
       title: 'A. Summary',
@@ -184,6 +235,11 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       ]
     }
   ];
+
+  const navigationGroups = allNavigationGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => isSectionVisible(item.id))
+  })).filter(group => group.items.length > 0);
 
   const renderSectionContent = () => {
     switch (activeSection) {
