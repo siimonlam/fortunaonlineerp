@@ -5,9 +5,7 @@ import { Users, Shield, Eye, Edit, Save, X, Search, Layers } from 'lucide-react'
 interface User {
   id: string;
   email: string;
-  raw_user_meta_data?: {
-    full_name?: string;
-  };
+  full_name?: string;
 }
 
 interface MarketingProject {
@@ -108,12 +106,16 @@ export function MarketingProjectPermissions() {
   }, [globalButtons]);
 
   const loadUsers = async () => {
-    const { data: authUsers, error } = await supabase.auth.admin.listUsers();
+    const { data, error } = await supabase
+      .from('staff')
+      .select('id, email, full_name')
+      .order('full_name', { ascending: true });
+
     if (error) {
       console.error('Error loading users:', error);
       return;
     }
-    setUsers(authUsers.users || []);
+    setUsers(data || []);
   };
 
   const loadProjects = async () => {
@@ -433,7 +435,7 @@ export function MarketingProjectPermissions() {
   };
 
   const getUserName = (user: User) => {
-    return user.raw_user_meta_data?.full_name || user.email;
+    return user.full_name || user.email;
   };
 
   const selectedProjectData = projects.find(p => p.id === selectedProject);
