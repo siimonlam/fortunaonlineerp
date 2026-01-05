@@ -57,6 +57,9 @@ export function MarketingProjectPermissions() {
   const [buttons, setButtons] = useState<MarketingButton[]>([]);
   const [buttonPermissions, setButtonPermissions] = useState<ButtonPermission[]>([]);
   const [selectedButtonUser, setSelectedButtonUser] = useState<string | null>(null);
+  const [globalButtons, setGlobalButtons] = useState<MarketingButton[]>([]);
+  const [globalButtonPermissions, setGlobalButtonPermissions] = useState<ButtonPermission[]>([]);
+  const [activeTab, setActiveTab] = useState<'projects' | 'buttons'>('projects');
 
   const availableSections: MarketingSection[] = [
     { id: 'summary', label: 'Summary', category: 'A. Summary' },
@@ -78,6 +81,7 @@ export function MarketingProjectPermissions() {
   useEffect(() => {
     loadUsers();
     loadProjects();
+    loadGlobalButtons();
   }, []);
 
   useEffect(() => {
@@ -96,6 +100,12 @@ export function MarketingProjectPermissions() {
       loadButtonPermissions();
     }
   }, [buttons]);
+
+  useEffect(() => {
+    if (globalButtons.length > 0) {
+      loadGlobalButtonPermissions();
+    }
+  }, [globalButtons]);
 
   const loadUsers = async () => {
     const { data: authUsers, error } = await supabase.auth.admin.listUsers();
@@ -145,6 +155,33 @@ export function MarketingProjectPermissions() {
       console.error('Error loading button permissions:', error);
     } else {
       setButtonPermissions(data || []);
+    }
+  };
+
+  const loadGlobalButtons = async () => {
+    const { data, error } = await supabase
+      .from('marketing_project_buttons')
+      .select('id, name, display_order')
+      .is('source_project_id', null)
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.error('Error loading global buttons:', error);
+    } else {
+      setGlobalButtons(data || []);
+    }
+  };
+
+  const loadGlobalButtonPermissions = async () => {
+    const { data, error } = await supabase
+      .from('marketing_button_staff')
+      .select('button_id, user_id')
+      .in('button_id', globalButtons.map(b => b.id));
+
+    if (error) {
+      console.error('Error loading global button permissions:', error);
+    } else {
+      setGlobalButtonPermissions(data || []);
     }
   };
 
@@ -298,6 +335,65 @@ export function MarketingProjectPermissions() {
     }
   };
 
+  const getGlobalButtonAccess = (userId: string, buttonId: string): boolean => {
+    return globalButtonPermissions.some(bp => bp.button_id === buttonId && bp.user_id === userId);
+  };
+
+  const toggleGlobalButtonAccess = (userId: string, buttonId: string) => {
+    setGlobalButtonPermissions(prev => {
+      const exists = prev.some(bp => bp.button_id === buttonId && bp.user_id === userId);
+      if (exists) {
+        return prev.filter(bp => !(bp.button_id === buttonId && bp.user_id === userId));
+      } else {
+        return [...prev, { button_id: buttonId, user_id: userId }];
+      }
+    });
+  };
+
+  const toggleAllGlobalButtons = (userId: string, enable: boolean) => {
+    setGlobalButtonPermissions(prev => {
+      const filtered = prev.filter(bp => bp.user_id !== userId);
+      if (enable) {
+        const newPermissions = globalButtons.map(b => ({ button_id: b.id, user_id: userId }));
+        return [...filtered, ...newPermissions];
+      }
+      return filtered;
+    });
+  };
+
+  const saveGlobalButtonPermissions = async () => {
+    setSaving(true);
+    try {
+      const buttonIds = globalButtons.map(b => b.id);
+
+      const { error: deleteError } = await supabase
+        .from('marketing_button_staff')
+        .delete()
+        .in('button_id', buttonIds);
+
+      if (deleteError) throw deleteError;
+
+      if (globalButtonPermissions.length > 0) {
+        const { error: insertError } = await supabase
+          .from('marketing_button_staff')
+          .insert(globalButtonPermissions.map(bp => ({
+            button_id: bp.button_id,
+            user_id: bp.user_id
+          })));
+
+        if (insertError) throw insertError;
+      }
+
+      alert('Global button permissions saved successfully');
+      await loadGlobalButtonPermissions();
+    } catch (error: any) {
+      console.error('Error saving global button permissions:', error);
+      alert('Error saving global button permissions: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const savePermissions = async () => {
     if (!selectedProject) return;
 
@@ -371,10 +467,143 @@ export function MarketingProjectPermissions() {
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Select Marketing Project
-          </label>
+        <div className="flex gap-2 mb-6 border-b border-slate-200">
+          <button
+            onClick={() => setActiveTab('projects')}
+            className={`px-6 py-3 font-medium transition-colors ${
+              activeTab === 'projects'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Project Permissions
+          </button>
+          <button
+            onClick={() => setActiveTab('buttons')}
+            className={`px-6 py-3 font-medium transition-colors ${
+              activeTab === 'buttons'
+                ? 'text-purple-600 border-b-2 border-purple-600'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Button Visibility
+          </button>
+        </div>
+
+        {activeTab === 'buttons' && (
+          <div className="bg-white rounded-lg border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Layers className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-slate-900">Global Button Visibility</h4>
+                  <p className="text-sm text-slate-600">Control which users can see custom marketing buttons (G-NiIB, DJT, Fortuna, 乞龷)</p>
+                </div>
+              </div>
+              <button
+                onClick={saveGlobalButtonPermissions}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving...' : 'Save Button Access'}
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {globalButtons.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <Layers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p>No global buttons found</p>
+              </div>
+            ) : (
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">
+                        User
+                      </th>
+                      {globalButtons.map(button => (
+                        <th key={button.id} className="px-4 py-3 text-center text-sm font-medium text-slate-700">
+                          {button.name}
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-center text-sm font-medium text-slate-700">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredUsers.map(user => {
+                      return (
+                        <tr key={user.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 text-sm text-slate-900">
+                            {getUserName(user)}
+                            <div className="text-xs text-slate-500">{user.email}</div>
+                          </td>
+                          {globalButtons.map(button => (
+                            <td key={button.id} className="px-4 py-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={getGlobalButtonAccess(user.id, button.id)}
+                                onChange={() => toggleGlobalButtonAccess(user.id, button.id)}
+                                className="w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                              />
+                            </td>
+                          ))}
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                onClick={() => toggleAllGlobalButtons(user.id, true)}
+                                className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                              >
+                                All
+                              </button>
+                              <button
+                                onClick={() => toggleAllGlobalButtons(user.id, false)}
+                                className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                              >
+                                None
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <p className="text-sm text-slate-700">
+                <span className="font-medium">Note:</span> If no users are selected for a button, it will be visible to all users. Once you add specific users, only those users will see the button in the Marketing sidebar.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'projects' && (
+          <>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Select Marketing Project
+              </label>
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
@@ -664,11 +893,13 @@ export function MarketingProjectPermissions() {
           </div>
         )}
 
-        {!selectedProject && (
+        {activeTab === 'projects' && !selectedProject && (
           <div className="text-center py-12 text-slate-500">
             <Shield className="w-16 h-16 mx-auto mb-4 text-slate-300" />
             <p>Select a marketing project to manage permissions</p>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>
