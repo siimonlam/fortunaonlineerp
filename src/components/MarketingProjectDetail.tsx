@@ -18,7 +18,9 @@ import {
   ChevronRight,
   FolderPlus,
   ExternalLink,
-  Loader2
+  Loader2,
+  Menu,
+  X
 } from 'lucide-react';
 import MarketingInstagramSection from './MarketingInstagramSection';
 import MarketingFacebookSection from './MarketingFacebookSection';
@@ -78,6 +80,7 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   const [folderError, setFolderError] = useState<string | null>(null);
   const [visibleSections, setVisibleSections] = useState<string[]>([]);
   const [hasFullAccess, setHasFullAccess] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   useEffect(() => {
     fetchProject();
@@ -442,62 +445,85 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
   return (
     <div className="flex h-full">
-      <div className="w-64 bg-gray-50 border-r border-gray-200 overflow-y-auto">
-        <div className="pt-2 px-4 pb-4">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-2"
-          >
-            <ArrowLeft size={16} />
-            Back to Marketing
-          </button>
+      {sidebarVisible && (
+        <div className="w-64 bg-gray-50 border-r border-gray-200 overflow-y-auto relative">
+          <div className="pt-2 px-4 pb-4">
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={onBack}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                <ArrowLeft size={16} />
+                Back to Marketing
+              </button>
+              <button
+                onClick={() => setSidebarVisible(false)}
+                className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded transition-colors"
+                title="Hide sidebar"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-          <div className="mb-3">
-            <h3 className="font-bold text-gray-900">{project.brand_name}</h3>
-            <p className="text-xs text-gray-600">{project.project_reference}</p>
-          </div>
+            <div className="mb-3">
+              <h3 className="font-bold text-gray-900">{project.brand_name}</h3>
+              <p className="text-xs text-gray-600">{project.project_reference}</p>
+            </div>
 
-          <nav className="space-y-1">
-            {navigationGroups.map((group) => (
-              <div key={group.id}>
-                <button
-                  onClick={() => toggleGroup(group.id)}
-                  className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <span>{group.title}</span>
-                  {expandedGroups.has(group.id) ? (
-                    <ChevronDown size={16} />
-                  ) : (
-                    <ChevronRight size={16} />
+            <nav className="space-y-1">
+              {navigationGroups.map((group) => (
+                <div key={group.id}>
+                  <button
+                    onClick={() => toggleGroup(group.id)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <span>{group.title}</span>
+                    {expandedGroups.has(group.id) ? (
+                      <ChevronDown size={16} />
+                    ) : (
+                      <ChevronRight size={16} />
+                    )}
+                  </button>
+
+                  {expandedGroups.has(group.id) && (
+                    <div className="ml-2 mt-1 space-y-1">
+                      {group.items.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => setActiveSection(item.id)}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                              activeSection === item.id
+                                ? 'bg-blue-100 text-blue-700 font-medium'
+                                : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            <Icon size={16} />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-                </button>
-
-                {expandedGroups.has(group.id) && (
-                  <div className="ml-2 mt-1 space-y-1">
-                    {group.items.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => setActiveSection(item.id)}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
-                            activeSection === item.id
-                              ? 'bg-blue-100 text-blue-700 font-medium'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          <Icon size={16} />
-                          <span>{item.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
-          </nav>
+                </div>
+              ))}
+            </nav>
+          </div>
         </div>
-      </div>
+      )}
+
+      {!sidebarVisible && (
+        <div className="w-12 bg-gray-50 border-r border-gray-200 flex flex-col items-center pt-2">
+          <button
+            onClick={() => setSidebarVisible(true)}
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
+            title="Show sidebar"
+          >
+            <Menu size={20} />
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         <div className="pt-4 px-6 pb-6">
