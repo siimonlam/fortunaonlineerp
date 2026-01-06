@@ -430,18 +430,33 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
   const loadAdSets = async (monthlyData: any[]) => {
     try {
-      // Aggregate by adset
+      const adsetIds = [...new Set(monthlyData.map(d => d.adset_id).filter(Boolean))];
+
+      if (adsetIds.length === 0) {
+        setAdSets([]);
+        return;
+      }
+
+      const { data: adsetsData } = await supabase
+        .from('meta_adsets')
+        .select('adset_id, name, status')
+        .in('adset_id', adsetIds);
+
+      const adsetInfoMap = new Map((adsetsData || []).map(a => [a.adset_id, a]));
+
       const adsetMap = new Map<string, any>();
 
       monthlyData.forEach((insight) => {
         if (!insight.adset_id) return;
 
+        const adsetInfo = adsetInfoMap.get(insight.adset_id);
+
         if (!adsetMap.has(insight.adset_id)) {
           adsetMap.set(insight.adset_id, {
             adset_id: insight.adset_id,
-            name: insight.adset_name,
+            name: adsetInfo?.name || `Ad Set ${insight.adset_id.slice(-6)}`,
             campaign_id: insight.campaign_id,
-            status: 'ACTIVE',
+            status: adsetInfo?.status || 'ACTIVE',
             total_spend: 0,
             total_impressions: 0,
             total_clicks: 0,
@@ -465,11 +480,46 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
   const loadCreatives = async (accountId: string) => {
     try {
-      // Get all ads for this account
+      let monthStart: string;
+      let monthEnd: string;
+
+      if (selectedMonth === 'last_6_months') {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        monthStart = sixMonthsAgo.toISOString().split('T')[0];
+        monthEnd = new Date().toISOString().split('T')[0];
+      } else if (selectedMonth === 'last_12_months') {
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+        monthStart = twelveMonthsAgo.toISOString().split('T')[0];
+        monthEnd = new Date().toISOString().split('T')[0];
+      } else {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        monthStart = new Date(year, month - 1, 1).toISOString().split('T')[0];
+        monthEnd = new Date(year, month, 0).toISOString().split('T')[0];
+      }
+
+      // Get all insights for this account in the selected period
+      const { data: insightsData } = await supabase
+        .from('meta_ad_insights')
+        .select('ad_id, spend, impressions, clicks, results, ctr, cpc, conversions')
+        .eq('account_id', accountId)
+        .gte('date', monthStart)
+        .lte('date', monthEnd);
+
+      if (!insightsData || insightsData.length === 0) {
+        setCreatives([]);
+        return;
+      }
+
+      // Get unique ad IDs
+      const adIds = [...new Set(insightsData.map(i => i.ad_id))];
+
+      // Get ads with their creative IDs
       const { data: adsData } = await supabase
         .from('meta_ads')
-        .select('ad_id, creative_id, campaign_id')
-        .eq('account_id', accountId);
+        .select('ad_id, creative_id')
+        .in('ad_id', adIds);
 
       if (!adsData || adsData.length === 0) {
         setCreatives([]);
@@ -491,61 +541,48 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .in('creative_id', creativeIds);
 
       const creativeMap = new Map((creativesData || []).map(c => [c.creative_id, c]));
+      const adToCreativeMap = new Map(adsData.map(a => [a.ad_id, a.creative_id]));
 
       // Aggregate metrics by creative
       const creativeMetricsMap = new Map<string, any>();
 
-      for (const ad of adsData) {
-        if (!ad.creative_id) continue;
+      insightsData.forEach(insight => {
+        const creativeId = adToCreativeMap.get(insight.ad_id);
+        if (!creativeId) return;
 
-        const { data: insights } = await supabase
-          .from('meta_ad_insights')
-          .select('spend, impressions, clicks, results, ctr, cpc')
-          .eq('ad_id', ad.ad_id);
-
-        const totals = (insights || []).reduce((acc, insight) => ({
-          spend: acc.spend + (Number(insight.spend) || 0),
-          impressions: acc.impressions + (Number(insight.impressions) || 0),
-          clicks: acc.clicks + (Number(insight.clicks) || 0),
-          results: acc.results + (Number(insight.results) || 0),
-          ctr: acc.ctr + (Number(insight.ctr) || 0),
-          cpc: acc.cpc + (Number(insight.cpc) || 0),
-          count: acc.count + 1
-        }), { spend: 0, impressions: 0, clicks: 0, results: 0, ctr: 0, cpc: 0, count: 0 });
-
-        if (!creativeMetricsMap.has(ad.creative_id)) {
-          const creativeInfo = creativeMap.get(ad.creative_id);
-          creativeMetricsMap.set(ad.creative_id, {
-            creative_id: ad.creative_id,
-            name: creativeInfo?.name || 'Unknown',
+        if (!creativeMetricsMap.has(creativeId)) {
+          const creativeInfo = creativeMap.get(creativeId);
+          creativeMetricsMap.set(creativeId, {
+            creative_id: creativeId,
+            name: creativeInfo?.name || `Creative ${creativeId.slice(-6)}`,
             title: creativeInfo?.title || '',
             total_spend: 0,
             total_impressions: 0,
             total_clicks: 0,
             total_results: 0,
-            avg_ctr: 0,
-            avg_cpc: 0,
+            total_conversions: 0,
             ctr_sum: 0,
             cpc_sum: 0,
             count: 0
           });
         }
 
-        const creativeMetrics = creativeMetricsMap.get(ad.creative_id);
-        creativeMetrics.total_spend += totals.spend;
-        creativeMetrics.total_impressions += totals.impressions;
-        creativeMetrics.total_clicks += totals.clicks;
-        creativeMetrics.total_results += totals.results;
-        creativeMetrics.ctr_sum += totals.ctr;
-        creativeMetrics.cpc_sum += totals.cpc;
-        creativeMetrics.count += totals.count;
-      }
+        const creative = creativeMetricsMap.get(creativeId);
+        creative.total_spend += Number(insight.spend) || 0;
+        creative.total_impressions += Number(insight.impressions) || 0;
+        creative.total_clicks += Number(insight.clicks) || 0;
+        creative.total_results += Number(insight.results) || 0;
+        creative.total_conversions += Number(insight.conversions) || 0;
+        creative.ctr_sum += Number(insight.ctr) || 0;
+        creative.cpc_sum += Number(insight.cpc) || 0;
+        creative.count += 1;
+      });
 
       // Calculate averages and ROI
       const metrics: CreativeMetrics[] = Array.from(creativeMetricsMap.values()).map(creative => {
         const avgCtr = creative.count > 0 ? creative.ctr_sum / creative.count : 0;
         const avgCpc = creative.count > 0 ? creative.cpc_sum / creative.count : 0;
-        const roi = creative.total_spend > 0 ? ((creative.total_results * 100 - creative.total_spend) / creative.total_spend) : 0;
+        const roi = creative.total_spend > 0 ? ((creative.total_conversions * 100 - creative.total_spend) / creative.total_spend) : 0;
 
         return {
           creative_id: creative.creative_id,
