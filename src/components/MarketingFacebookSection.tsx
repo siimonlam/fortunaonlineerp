@@ -510,59 +510,95 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
     );
   }
 
-  const calculateInsights = () => {
-    const totalPosts = posts.length;
-    let totalReactions = 0;
-    let totalComments = 0;
-    let totalShares = 0;
-    let totalEngagement = 0;
+  const calculateMonthlyComparison = () => {
+    if (pageInsights.length === 0) return null;
 
-    posts.forEach(post => {
-      totalReactions += post.likes_count || 0;
-      totalComments += post.comments_count || 0;
-      totalShares += post.shares_count || 0;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-      const postMetrics = metrics[post.post_id];
-      if (postMetrics) {
-        totalEngagement += postMetrics.engagement || 0;
-      }
+    const currentMonthData = pageInsights.filter(insight => {
+      const date = new Date(insight.date);
+      return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
     });
 
-    const avgEngagementPerPost = totalPosts > 0
-      ? (totalEngagement / totalPosts).toFixed(0)
-      : '0';
+    const lastMonthData = pageInsights.filter(insight => {
+      const date = new Date(insight.date);
+      return date.getFullYear() === lastMonthYear && date.getMonth() === lastMonth;
+    });
+
+    const getLatestOrAverage = (data: PageInsights[], field: keyof PageInsights) => {
+      if (data.length === 0) return 0;
+      const latest = data[0];
+      return latest[field] as number || 0;
+    };
+
+    const getSum = (data: PageInsights[], field: keyof PageInsights) => {
+      return data.reduce((sum, item) => sum + ((item[field] as number) || 0), 0);
+    };
+
+    const currentPageFans = getLatestOrAverage(currentMonthData, 'page_fans');
+    const lastPageFans = getLatestOrAverage(lastMonthData, 'page_fans');
+
+    const currentReach = getSum(currentMonthData, 'page_impressions_unique');
+    const lastReach = getSum(lastMonthData, 'page_impressions_unique');
+
+    const currentEngagement = getSum(currentMonthData, 'page_post_engagements');
+    const lastEngagement = getSum(lastMonthData, 'page_post_engagements');
+
+    const currentEngagementRate = currentMonthData.length > 0
+      ? currentMonthData.reduce((sum, item) => sum + (item.engagement_rate || 0), 0) / currentMonthData.length
+      : 0;
+    const lastEngagementRate = lastMonthData.length > 0
+      ? lastMonthData.reduce((sum, item) => sum + (item.engagement_rate || 0), 0) / lastMonthData.length
+      : 0;
+
+    const calculateChange = (current: number, last: number) => {
+      if (last === 0) return current > 0 ? 100 : 0;
+      return ((current - last) / last) * 100;
+    };
 
     return {
-      totalPosts,
-      totalReactions,
-      totalComments,
-      totalShares,
-      totalEngagement,
-      avgEngagementPerPost
+      current: {
+        pageFans: currentPageFans,
+        reach: currentReach,
+        engagement: currentEngagement,
+        engagementRate: currentEngagementRate,
+        posts: posts.filter(p => {
+          const date = new Date(p.date);
+          return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+        }).length,
+        reactions: posts.filter(p => {
+          const date = new Date(p.date);
+          return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+        }).reduce((sum, p) => sum + (p.likes_count || 0), 0),
+        comments: posts.filter(p => {
+          const date = new Date(p.date);
+          return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+        }).reduce((sum, p) => sum + (p.comments_count || 0), 0),
+        shares: posts.filter(p => {
+          const date = new Date(p.date);
+          return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+        }).reduce((sum, p) => sum + (p.shares_count || 0), 0)
+      },
+      last: {
+        pageFans: lastPageFans,
+        reach: lastReach,
+        engagement: lastEngagement,
+        engagementRate: lastEngagementRate
+      },
+      changes: {
+        pageFans: calculateChange(currentPageFans, lastPageFans),
+        reach: calculateChange(currentReach, lastReach),
+        engagement: calculateChange(currentEngagement, lastEngagement),
+        engagementRate: calculateChange(currentEngagementRate, lastEngagementRate)
+      }
     };
   };
 
-  const handleSyncAllInsights = async () => {
-    if (accounts.length === 0) return;
-
-    setSyncing(true);
-    setError(null);
-    setSuccessMessage(null);
-
-    try {
-      for (const account of accounts) {
-        await handleSyncPosts(account.page_id);
-      }
-      setSuccessMessage('All insights synced successfully');
-    } catch (err: any) {
-      console.error('Sync all error:', err);
-      setError(err.message);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const insights = calculateInsights();
+  const monthlyComparison = calculateMonthlyComparison();
 
   return (
     <div className="space-y-6">
@@ -578,15 +614,8 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
         </div>
       )}
 
-      {selectedAccount && pageInsights.length > 0 && (() => {
-        const latestInsights = pageInsights[0];
+      {selectedAccount && monthlyComparison && (() => {
         const selectedAcc = accounts.find(a => a.page_id === selectedAccount);
-
-        const last7DaysInsights = pageInsights.slice(0, 7);
-        const totalReach7d = last7DaysInsights.reduce((sum, day) => sum + (day.page_impressions_unique || 0), 0);
-        const totalEngagement7d = last7DaysInsights.reduce((sum, day) => sum + (day.page_post_engagements || 0), 0);
-        const organicReach = latestInsights.page_impressions_organic || 0;
-        const paidReach = latestInsights.page_impressions_paid || 0;
 
         const topPosts = [...posts]
           .filter(p => p.page_id === selectedAccount)
@@ -599,75 +628,114 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
           })
           .slice(0, 5);
 
+        const MetricCard = ({ title, icon: Icon, currentValue, change, bgClass, iconClass, format = 'number' }: any) => {
+          const isPositive = change >= 0;
+          const formattedValue = format === 'percent'
+            ? `${currentValue.toFixed(1)}%`
+            : currentValue.toLocaleString();
+
+          return (
+            <div className={bgClass}>
+              <div className="flex items-center gap-2 mb-2">
+                <Icon className={iconClass} />
+                <span className="text-sm font-medium text-gray-700">{title}</span>
+              </div>
+              <div className="flex items-end justify-between">
+                <p className="text-2xl font-bold text-gray-900">{formattedValue}</p>
+                <div className={`flex items-center gap-1 text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                  <TrendingUp className={`w-4 h-4 ${!isPositive ? 'rotate-180' : ''}`} />
+                  <span>{isPositive ? '+' : ''}{change.toFixed(1)}%</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-600 mt-1">vs last month</p>
+            </div>
+          );
+        };
+
         return (
           <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-blue-600" />
-                Page Insights - {selectedAcc?.name}
-              </h3>
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-blue-600" />
+                  Facebook Insights - {selectedAcc?.name}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">Current month vs last month comparison</p>
+              </div>
             </div>
 
             <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-blue-600 mb-2">
-                    <Users className="w-5 h-5" />
-                    <span className="text-sm font-medium">Total Page Likes</span>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">{latestInsights.page_fans.toLocaleString()}</p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <MetricCard
+                  title="Page Followers"
+                  icon={Users}
+                  currentValue={monthlyComparison.current.pageFans}
+                  change={monthlyComparison.changes.pageFans}
+                  bgClass="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4"
+                  iconClass="w-5 h-5 text-blue-600"
+                />
 
-                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-green-600 mb-2">
-                    <TrendingUp className="w-5 h-5" />
-                    <span className="text-sm font-medium">Net Growth (7d)</span>
-                  </div>
-                  <p className={`text-2xl font-bold ${selectedAcc?.net_growth_7d && selectedAcc.net_growth_7d >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {selectedAcc?.net_growth_7d >= 0 ? '+' : ''}{selectedAcc?.net_growth_7d || 0}
-                  </p>
-                </div>
+                <MetricCard
+                  title="Total Reach"
+                  icon={Eye}
+                  currentValue={monthlyComparison.current.reach}
+                  change={monthlyComparison.changes.reach}
+                  bgClass="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4"
+                  iconClass="w-5 h-5 text-purple-600"
+                />
 
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-purple-600 mb-2">
-                    <Eye className="w-5 h-5" />
-                    <span className="text-sm font-medium">Total Reach (7d)</span>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">{totalReach7d.toLocaleString()}</p>
-                </div>
+                <MetricCard
+                  title="Total Engagement"
+                  icon={Heart}
+                  currentValue={monthlyComparison.current.engagement}
+                  change={monthlyComparison.changes.engagement}
+                  bgClass="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-4"
+                  iconClass="w-5 h-5 text-pink-600"
+                />
 
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-orange-600 mb-2">
-                    <TrendingUp className="w-5 h-5" />
-                    <span className="text-sm font-medium">Engagement Rate</span>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">{latestInsights.engagement_rate}%</p>
-                </div>
+                <MetricCard
+                  title="Engagement Rate"
+                  icon={TrendingUp}
+                  currentValue={monthlyComparison.current.engagementRate}
+                  change={monthlyComparison.changes.engagementRate}
+                  bgClass="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4"
+                  iconClass="w-5 h-5 text-orange-600"
+                  format="percent"
+                />
 
                 <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-cyan-600 mb-2">
-                    <Heart className="w-5 h-5" />
-                    <span className="text-sm font-medium">Total Engagement (7d)</span>
+                    <Image className="w-5 h-5" />
+                    <span className="text-sm font-medium">Posts This Month</span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{totalEngagement7d.toLocaleString()}</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-emerald-600 mb-2">
-                    <Eye className="w-5 h-5" />
-                    <span className="text-sm font-medium">Organic Reach</span>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">{organicReach.toLocaleString()}</p>
-                  <p className="text-xs text-gray-600 mt-1">Yesterday</p>
+                  <p className="text-2xl font-bold text-gray-900">{monthlyComparison.current.posts}</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-pink-600 mb-2">
-                    <Eye className="w-5 h-5" />
-                    <span className="text-sm font-medium">Paid Reach</span>
+                    <Heart className="w-5 h-5" />
+                    <span className="text-sm font-medium">Reactions</span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{paidReach.toLocaleString()}</p>
-                  <p className="text-xs text-gray-600 mt-1">Yesterday</p>
+                  <p className="text-2xl font-bold text-gray-900">{monthlyComparison.current.reactions.toLocaleString()}</p>
+                  <p className="text-xs text-gray-600 mt-1">This month</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-indigo-600 mb-2">
+                    <MessageCircle className="w-5 h-5" />
+                    <span className="text-sm font-medium">Comments</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{monthlyComparison.current.comments.toLocaleString()}</p>
+                  <p className="text-xs text-gray-600 mt-1">This month</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-green-600 mb-2">
+                    <Share2 className="w-5 h-5" />
+                    <span className="text-sm font-medium">Shares</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{monthlyComparison.current.shares.toLocaleString()}</p>
+                  <p className="text-xs text-gray-600 mt-1">This month</p>
                 </div>
               </div>
 
@@ -776,76 +844,6 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
           </div>
         );
       })()}
-
-      {accounts.length > 0 && posts.length > 0 && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-              Facebook Insights
-            </h3>
-            <button
-              onClick={handleSyncAllInsights}
-              disabled={syncing}
-              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync Insights'}
-            </button>
-          </div>
-
-          <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-blue-600 mb-2">
-                <Image className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Posts</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalPosts}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-pink-600 mb-2">
-                <Heart className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Reactions</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalReactions.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-purple-600 mb-2">
-                <MessageCircle className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Comments</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalComments.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-green-600 mb-2">
-                <Share2 className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Shares</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalShares.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-orange-600 mb-2">
-                <TrendingUp className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Engagement</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalEngagement.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-cyan-600 mb-2">
-                <TrendingUp className="w-5 h-5" />
-                <span className="text-sm font-medium">Avg Engagement</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.avgEngagementPerPost}</p>
-              <p className="text-xs text-gray-600 mt-1">per post</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
