@@ -170,12 +170,12 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
       if (marketingProject?.parent_client_id) {
         const { data: igAccounts } = await supabase
           .from('instagram_accounts')
-          .select('id, account_name, username')
+          .select('id, name, username')
           .eq('client_number', marketingProject.parent_client_id);
 
         const { data: fbAccounts } = await supabase
           .from('facebook_accounts')
-          .select('id, account_name, page_name')
+          .select('id, name, username')
           .eq('client_number', marketingProject.parent_client_id);
 
         setInstagramAccounts(igAccounts || []);
@@ -669,7 +669,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                           className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                         />
                         <span className="text-sm text-slate-900">
-                          {account.account_name} {account.username && `(@${account.username})`}
+                          {account.name} {account.username && `(@${account.username})`}
                         </span>
                       </label>
                     ))}
@@ -705,7 +705,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                           className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                         />
                         <span className="text-sm text-slate-900">
-                          {account.account_name} {account.page_name && `(${account.page_name})`}
+                          {account.name} {account.username && `(@${account.username})`}
                         </span>
                       </label>
                     ))}
