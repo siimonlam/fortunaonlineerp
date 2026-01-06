@@ -93,7 +93,14 @@ async function getServiceAccountToken(): Promise<string> {
     new TextEncoder().encode(signatureInput)
   );
 
-  const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
+  const signatureBytes = new Uint8Array(signatureBuffer);
+  let signatureBinary = '';
+  const sigChunkSize = 8192;
+  for (let i = 0; i < signatureBytes.length; i += sigChunkSize) {
+    const chunk = signatureBytes.subarray(i, Math.min(i + sigChunkSize, signatureBytes.length));
+    signatureBinary += String.fromCharCode(...chunk);
+  }
+  const signature = btoa(signatureBinary)
     .replace(/=/g, "")
     .replace(/\+/g, "-")
     .replace(/\//g, "_");
@@ -208,6 +215,14 @@ async function uploadFile(fileName: string, parentId: string, fileData: Uint8Arr
   const delimiter = `\r\n--${boundary}\r\n`;
   const closeDelimiter = `\r\n--${boundary}--`;
 
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < fileData.length; i += chunkSize) {
+    const chunk = fileData.subarray(i, Math.min(i + chunkSize, fileData.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  const base64Data = btoa(binary);
+
   const multipartRequestBody =
     delimiter +
     "Content-Type: application/json\r\n\r\n" +
@@ -215,7 +230,7 @@ async function uploadFile(fileName: string, parentId: string, fileData: Uint8Arr
     delimiter +
     `Content-Type: ${mimeType}\r\n` +
     "Content-Transfer-Encoding: base64\r\n\r\n" +
-    btoa(String.fromCharCode(...fileData)) +
+    base64Data +
     closeDelimiter;
 
   const url = `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true`;
