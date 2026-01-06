@@ -1139,6 +1139,12 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                           {stepNum === 2 && step.status !== 'completed' && (
                                             <>
                                               <button
+                                                onClick={() => openStepModal(post, stepNum)}
+                                                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                              >
+                                                Edit Step
+                                              </button>
+                                              <button
                                                 onClick={() => handleApproveStep(post, step)}
                                                 className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
                                               >
