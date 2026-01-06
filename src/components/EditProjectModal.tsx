@@ -215,6 +215,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     hkpcOfficerPhone: project.hkpc_officer_phone || '',
     parentClientId: project.parent_client_id || '',
     parentCompanyName: project.parent_company_name || '',
+    extension: (project as any).extension || false,
+    kickoffDateWithFirstPayment: (project as any).kickoff_date_with_first_payment || '',
   });
 
   const [originalData, setOriginalData] = useState({
@@ -264,6 +266,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     hkpcOfficerPhone: project.hkpc_officer_phone || '',
     parentClientId: project.parent_client_id || '',
     parentCompanyName: project.parent_company_name || '',
+    extension: (project as any).extension || false,
+    kickoffDateWithFirstPayment: (project as any).kickoff_date_with_first_payment || '',
   });
 
   const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
@@ -988,6 +992,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         hkpc_officer_phone: formData.hkpcOfficerPhone.trim() || null,
         parent_client_id: formData.parentClientId.trim() || null,
         parent_company_name: formData.parentCompanyName.trim() || null,
+        extension: formData.extension,
+        kickoff_date_with_first_payment: formData.kickoffDateWithFirstPayment || null,
       } : {};
 
       const { error } = await supabase
@@ -2398,6 +2404,28 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   onChange={(e) => setFormData({ ...formData, nextHkpcDueDate: fromLocalDateTimeString(e.target.value) })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Kickoff Date with First Payment</label>
+                <input
+                  type="datetime-local"
+                  disabled={!canEdit}
+                  value={toLocalDateTimeString(formData.kickoffDateWithFirstPayment)}
+                  onChange={(e) => setFormData({ ...formData, kickoffDateWithFirstPayment: fromLocalDateTimeString(e.target.value) })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                />
+              </div>
+              <div>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    disabled={!canEdit}
+                    checked={formData.extension}
+                    onChange={(e) => setFormData({ ...formData, extension: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                  />
+                  <span className="text-sm font-medium text-slate-700">Extension</span>
+                </label>
               </div>
             </div>
             </div>
