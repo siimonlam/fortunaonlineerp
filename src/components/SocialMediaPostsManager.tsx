@@ -713,6 +713,19 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                 </div>
               )}
 
+              {instagramAccounts.length === 0 && facebookAccounts.length === 0 && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-900">
+                    <strong>Note:</strong> No social media accounts found. To select accounts for posting:
+                  </p>
+                  <ul className="text-sm text-blue-800 mt-2 ml-4 list-disc space-y-1">
+                    <li>Make sure this marketing project is linked to a client</li>
+                    <li>Add Instagram or Facebook accounts to the client in their respective sections</li>
+                    <li>Then you'll be able to select which accounts to post to</li>
+                  </ul>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
