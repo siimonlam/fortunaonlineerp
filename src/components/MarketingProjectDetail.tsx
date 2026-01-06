@@ -20,7 +20,9 @@ import {
   ExternalLink,
   Loader2,
   Menu,
-  X
+  X,
+  AlertCircle,
+  Bell
 } from 'lucide-react';
 import MarketingInstagramSection from './MarketingInstagramSection';
 import MarketingFacebookSection from './MarketingFacebookSection';
@@ -81,10 +83,34 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   const [visibleSections, setVisibleSections] = useState<string[]>([]);
   const [hasFullAccess, setHasFullAccess] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [socialMediaTaskCounts, setSocialMediaTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
 
   useEffect(() => {
     fetchProject();
     fetchPermissions();
+    fetchSocialMediaTaskCounts();
+
+    const channel = supabase
+      .channel(`marketing-project-${projectId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'marketing_social_post_steps' },
+        () => {
+          fetchSocialMediaTaskCounts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'marketing_social_posts' },
+        () => {
+          fetchSocialMediaTaskCounts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [projectId]);
 
   const fetchProject = async () => {
@@ -144,6 +170,50 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
     } catch (err: any) {
       console.error('Error fetching permissions:', err);
       setHasFullAccess(true);
+    }
+  };
+
+  const fetchSocialMediaTaskCounts = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: socialPostSteps, error } = await supabase
+        .from('marketing_social_post_steps')
+        .select(`
+          id,
+          due_date,
+          status,
+          post:marketing_social_posts!inner(id, marketing_project_id)
+        `)
+        .eq('post.marketing_project_id', projectId)
+        .eq('assigned_to', user.id)
+        .neq('status', 'completed')
+        .not('due_date', 'is', null);
+
+      if (error) throw error;
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const pastDue = (socialPostSteps || []).filter(step => {
+        const deadline = new Date(step.due_date);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline < now;
+      }).length;
+
+      const upcoming = (socialPostSteps || []).filter(step => {
+        const deadline = new Date(step.due_date);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline >= tomorrow;
+      }).length;
+
+      setSocialMediaTaskCounts({ pastDue, upcoming });
+    } catch (err: any) {
+      console.error('Error fetching social media task counts:', err);
     }
   };
 
@@ -489,18 +559,40 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
                     <div className="ml-2 mt-1 space-y-1">
                       {group.items.map((item) => {
                         const Icon = item.icon;
+                        const isSocialMedia = item.id === 'social-media';
+                        const hasPastDue = isSocialMedia && socialMediaTaskCounts.pastDue > 0;
+                        const hasUpcoming = isSocialMedia && socialMediaTaskCounts.upcoming > 0;
+
                         return (
                           <button
                             key={item.id}
                             onClick={() => setActiveSection(item.id)}
-                            className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                            className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
                               activeSection === item.id
                                 ? 'bg-blue-100 text-blue-700 font-medium'
                                 : 'text-gray-700 hover:bg-gray-100'
                             }`}
                           >
-                            <Icon size={16} />
-                            <span>{item.label}</span>
+                            <span className="flex items-center gap-2">
+                              <Icon size={16} />
+                              <span>{item.label}</span>
+                            </span>
+                            {(hasPastDue || hasUpcoming) && (
+                              <span className="flex items-center gap-1">
+                                {hasPastDue && (
+                                  <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
+                                    <AlertCircle className="w-3 h-3" />
+                                    {socialMediaTaskCounts.pastDue}
+                                  </span>
+                                )}
+                                {hasUpcoming && (
+                                  <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
+                                    <Bell className="w-3 h-3" />
+                                    {socialMediaTaskCounts.upcoming}
+                                  </span>
+                                )}
+                              </span>
+                            )}
                           </button>
                         );
                       })}

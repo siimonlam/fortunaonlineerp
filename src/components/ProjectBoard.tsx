@@ -246,6 +246,7 @@ export function ProjectBoard() {
   const [selectedMarketingProjectButton, setSelectedMarketingProjectButton] = useState<string | null>(null);
   const [showAddMarketingProjectButtonModal, setShowAddMarketingProjectButtonModal] = useState(false);
   const [marketingButtonSourceProjectId, setMarketingButtonSourceProjectId] = useState<string | undefined>(undefined);
+  const [marketingTaskCounts, setMarketingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
 
   useEffect(() => {
     if (fundingProjectTab !== 'meetings') {
@@ -269,6 +270,7 @@ export function ProjectBoard() {
     });
 
     loadAllLabels();
+    loadMarketingTaskCounts();
 
     // Set up a single real-time channel with multiple table listeners
     // Using broadcast channel to work around RLS limitations with SECURITY DEFINER functions
@@ -327,6 +329,7 @@ export function ProjectBoard() {
         (payload) => {
           console.log('✅ Marketing tasks changed:', payload.eventType);
           if (selectedView === 'projects') loadProjectsViewData();
+          loadMarketingTaskCounts();
         }
       )
       .on(
@@ -594,6 +597,43 @@ export function ProjectBoard() {
       setMarketingProjectButtons(finalButtons);
     } catch (error: any) {
       console.error('[loadMarketingProjectButtons] Error:', error.message);
+    }
+  }
+
+  async function loadMarketingTaskCounts() {
+    if (!user) return;
+
+    try {
+      const { data: marketingTasks, error } = await supabase
+        .from('marketing_tasks')
+        .select('id, deadline, completed')
+        .eq('assigned_to', user.id)
+        .eq('completed', false)
+        .not('deadline', 'is', null);
+
+      if (error) throw error;
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const pastDue = (marketingTasks || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline < now;
+      }).length;
+
+      const upcoming = (marketingTasks || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline >= tomorrow;
+      }).length;
+
+      setMarketingTaskCounts({ pastDue, upcoming });
+    } catch (error: any) {
+      console.error('[loadMarketingTaskCounts] Error:', error.message);
     }
   }
 
@@ -1918,6 +1958,10 @@ export function ProjectBoard() {
                   return <LayoutGrid className="w-4 h-4" />;
                 };
 
+                const isMarketing = type.name === 'Marketing';
+                const hasPastDue = isMarketing && marketingTaskCounts.pastDue > 0;
+                const hasUpcoming = isMarketing && marketingTaskCounts.upcoming > 0;
+
                 return (
                   <button
                     key={type.id}
@@ -1929,7 +1973,23 @@ export function ProjectBoard() {
                     }`}
                   >
                     {getIcon()}
-                    {type.name}
+                    <span>{type.name}</span>
+                    {(hasPastDue || hasUpcoming) && (
+                      <span className="flex items-center gap-1">
+                        {hasPastDue && (
+                          <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
+                            <AlertCircle className="w-3 h-3" />
+                            {marketingTaskCounts.pastDue}
+                          </span>
+                        )}
+                        {hasUpcoming && (
+                          <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
+                            <Bell className="w-3 h-3" />
+                            {marketingTaskCounts.upcoming}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </button>
                 );
               })}
