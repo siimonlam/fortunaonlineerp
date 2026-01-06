@@ -163,23 +163,46 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     try {
       const { data: marketingProject } = await supabase
         .from('marketing_projects')
-        .select('parent_client_id')
+        .select('project_reference')
         .eq('id', marketingProjectId)
         .single();
 
-      if (marketingProject?.parent_client_id) {
+      if (!marketingProject) return;
+
+      // Load Instagram accounts linked to this marketing project
+      const { data: linkedIgAccounts } = await supabase
+        .from('marketing_project_instagram_accounts')
+        .select('account_id')
+        .eq('marketing_project_id', marketingProjectId);
+
+      if (linkedIgAccounts && linkedIgAccounts.length > 0) {
+        const accountIds = linkedIgAccounts.map(link => link.account_id);
         const { data: igAccounts } = await supabase
           .from('instagram_accounts')
-          .select('id, name, username')
-          .eq('client_number', marketingProject.parent_client_id);
-
-        const { data: fbAccounts } = await supabase
-          .from('facebook_accounts')
-          .select('id, name, username')
-          .eq('client_number', marketingProject.parent_client_id);
+          .select('id, name, username, account_id')
+          .in('account_id', accountIds);
 
         setInstagramAccounts(igAccounts || []);
+      } else {
+        setInstagramAccounts([]);
+      }
+
+      // Load Facebook accounts linked to this marketing project
+      const { data: linkedFbAccounts } = await supabase
+        .from('marketing_facebook_accounts')
+        .select('page_id')
+        .eq('marketing_reference', marketingProject.project_reference);
+
+      if (linkedFbAccounts && linkedFbAccounts.length > 0) {
+        const pageIds = linkedFbAccounts.map(link => link.page_id);
+        const { data: fbAccounts } = await supabase
+          .from('facebook_accounts')
+          .select('id, name, username, page_id')
+          .in('page_id', pageIds);
+
         setFacebookAccounts(fbAccounts || []);
+      } else {
+        setFacebookAccounts([]);
       }
     } catch (error) {
       console.error('Error loading accounts:', error);
