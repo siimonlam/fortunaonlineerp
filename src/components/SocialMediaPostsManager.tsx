@@ -237,18 +237,6 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
       if (postError) throw postError;
 
-      const { error: stepError } = await supabase
-        .from('marketing_social_post_steps')
-        .insert({
-          post_id: newPost.id,
-          step_number: 1,
-          step_name: 'Content Drafting',
-          assigned_to: staffData?.id,
-          status: 'in_progress',
-        });
-
-      if (stepError) throw stepError;
-
       setShowCreateModal(false);
       setFormData({
         title: '',
