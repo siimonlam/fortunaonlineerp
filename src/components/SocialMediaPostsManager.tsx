@@ -220,7 +220,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
         .eq('id', user.id)
         .single();
 
-      const { error } = await supabase
+      const { data: newPost, error: postError } = await supabase
         .from('marketing_social_posts')
         .insert({
           marketing_project_id: marketingProjectId,
@@ -231,9 +231,23 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
           instagram_account_ids: formData.instagram_account_ids,
           facebook_account_ids: formData.facebook_account_ids,
           created_by: staffData?.id,
+        })
+        .select()
+        .single();
+
+      if (postError) throw postError;
+
+      const { error: stepError } = await supabase
+        .from('marketing_social_post_steps')
+        .insert({
+          post_id: newPost.id,
+          step_number: 1,
+          step_name: 'Content Drafting',
+          assigned_to: staffData?.id,
+          status: 'in_progress',
         });
 
-      if (error) throw error;
+      if (stepError) throw stepError;
 
       setShowCreateModal(false);
       setFormData({
