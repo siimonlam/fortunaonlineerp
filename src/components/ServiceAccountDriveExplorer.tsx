@@ -235,7 +235,14 @@ export function ServiceAccountDriveExplorer({
             try {
               const arrayBuffer = e.target?.result as ArrayBuffer;
               const bytes = new Uint8Array(arrayBuffer);
-              const base64 = btoa(String.fromCharCode(...bytes));
+
+              let binary = '';
+              const chunkSize = 8192;
+              for (let i = 0; i < bytes.length; i += chunkSize) {
+                const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+                binary += String.fromCharCode(...chunk);
+              }
+              const base64 = btoa(binary);
 
               const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
               const response = await fetch(`${apiUrl}?action=upload`, {
