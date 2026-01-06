@@ -23,6 +23,7 @@ import {
 import MarketingInstagramSection from './MarketingInstagramSection';
 import MarketingFacebookSection from './MarketingFacebookSection';
 import MarketingMetaAdSection from './MarketingMetaAdSection';
+import { SocialMediaPostsManager } from './SocialMediaPostsManager';
 import { createMarketingProjectFolders } from '../utils/googleDriveUtils';
 
 interface MarketingProject {
@@ -300,6 +301,13 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
       case 'meta-ad':
         return <MarketingMetaAdSection projectId={projectId} clientNumber={project?.parent_client_id || null} />;
+
+      case 'social-media':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <SocialMediaPostsManager marketingProjectId={projectId} />
+          </div>
+        );
 
       case 'files':
         return (
