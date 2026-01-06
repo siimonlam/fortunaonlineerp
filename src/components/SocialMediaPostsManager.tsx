@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, CheckCircle, Circle, Clock, Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save } from 'lucide-react';
+import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save } from 'lucide-react';
 
 interface SocialPost {
   id: string;
