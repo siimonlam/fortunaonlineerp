@@ -136,22 +136,40 @@ Deno.serve(async (req: Request) => {
 
     const fileBuffer = await file.arrayBuffer();
     const boundary = '-------314159265358979323846';
-    const delimiter = `\r\n--${boundary}\r\n`;
-    const closeDelimiter = `\r\n--${boundary}--`;
 
     const metadata = {
       name: fileName,
       parents: [IMAGES_FOLDER_ID],
     };
 
-    const multipartRequestBody =
-      delimiter +
+    const metadataPart = new TextEncoder().encode(
+      `--${boundary}\r\n` +
       'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
       JSON.stringify(metadata) +
-      delimiter +
-      `Content-Type: ${file.type}\r\n\r\n` +
-      new TextDecoder().decode(fileBuffer) +
-      closeDelimiter;
+      '\r\n'
+    );
+
+    const filePart = new TextEncoder().encode(
+      `--${boundary}\r\n` +
+      `Content-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`
+    );
+
+    const endBoundary = new TextEncoder().encode(
+      `\r\n--${boundary}--`
+    );
+
+    const multipartBody = new Uint8Array(
+      metadataPart.length + filePart.length + fileBuffer.byteLength + endBoundary.length
+    );
+
+    let offset = 0;
+    multipartBody.set(metadataPart, offset);
+    offset += metadataPart.length;
+    multipartBody.set(filePart, offset);
+    offset += filePart.length;
+    multipartBody.set(new Uint8Array(fileBuffer), offset);
+    offset += fileBuffer.byteLength;
+    multipartBody.set(endBoundary, offset);
 
     const uploadResponse = await fetch(
       'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,thumbnailLink&supportsAllDrives=true',
@@ -161,7 +179,7 @@ Deno.serve(async (req: Request) => {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': `multipart/related; boundary=${boundary}`,
         },
-        body: multipartRequestBody,
+        body: multipartBody,
       }
     );
 
