@@ -6,6 +6,7 @@ import { APP_VERSION } from '../version';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
 import { EditClientModal } from './EditClientModal';
+import { AddClientModal } from './AddClientModal';
 import { EditProjectModal } from './EditProjectModal';
 import { ClientTableView } from './ClientTableView';
 import { ProjectListView } from './ProjectListView';
