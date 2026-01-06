@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertCircle, Clock, Calendar, Download } from 'lucide-react';
 
 interface Status {
   id: string;
@@ -97,6 +97,43 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   useEffect(() => {
     filterAgingProjects();
   }, [filterAgingProjects]);
+
+  const exportEndingSoonProjects = () => {
+    if (endingSoonProjects.length === 0) return;
+
+    const headers = ['Project Title', 'End Date', 'Days Remaining', 'Extension'];
+    const rows = endingSoonProjects.map(project => {
+      const daysRemaining = project.project_end_date
+        ? Math.ceil((new Date(project.project_end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      const endDateFormatted = project.project_end_date
+        ? new Date(project.project_end_date).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })
+        : 'No end date';
+
+      return [
+        `"${project.title.replace(/"/g, '""')}"`,
+        endDateFormatted,
+        daysRemaining,
+        project.extension ? 'Yes' : 'No'
+      ].join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `projects-ending-soon-${endingSoonMonths}-months-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -486,11 +523,22 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
           </div>
 
           <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-blue-600 rounded-lg p-2">
-                <Calendar className="w-5 h-5 text-white" />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-600 rounded-lg p-2">
+                  <Calendar className="w-5 h-5 text-white" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-800">Project List</h2>
               </div>
-              <h2 className="text-lg font-bold text-slate-800">Project List</h2>
+              <button
+                onClick={exportEndingSoonProjects}
+                disabled={endingSoonProjects.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Export to CSV"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
             </div>
 
             <div className="space-y-2 max-h-96 overflow-y-auto">
