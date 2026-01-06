@@ -342,12 +342,14 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
         .eq('id', user.id)
         .single();
 
+      const completedAt = new Date().toISOString();
+
       // Mark step 2 as completed
       await supabase
         .from('marketing_social_post_steps')
         .update({
           status: 'completed',
-          completed_at: new Date().toISOString(),
+          completed_at: completedAt,
           completed_by: staffData?.id,
           notes: (step.notes || '') + '\n✓ Approved',
         })
@@ -360,7 +362,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
       ];
       const designerId = allAccountIds.length > 0 ? accountDesigners[allAccountIds[0]] : post.created_by;
 
-      // Create step 3
+      // Create step 3 with due_date set to step 2 approval date
       await supabase
         .from('marketing_social_post_steps')
         .insert({
@@ -368,7 +370,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
           step_number: 3,
           step_name: 'Content Posted',
           assigned_to: designerId || post.created_by,
-          due_date: post.scheduled_post_date,
+          due_date: completedAt,
           status: 'pending',
         });
 
@@ -459,12 +461,14 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
       if (!currentStep) return;
 
+      const completedAt = new Date().toISOString();
+
       // Mark current step as completed
       await supabase
         .from('marketing_social_post_steps')
         .update({
           status: 'completed',
-          completed_at: new Date().toISOString(),
+          completed_at: completedAt,
           completed_by: staffData?.id,
         })
         .eq('id', currentStep.id);
@@ -477,7 +481,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
         ];
         const approverId = allAccountIds.length > 0 ? accountApprovers[allAccountIds[0]] : null;
 
-        // Create step 2
+        // Create step 2 with due_date set to step 1 completion date
         await supabase
           .from('marketing_social_post_steps')
           .insert({
@@ -485,6 +489,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
             step_number: 2,
             step_name: 'Approval',
             assigned_to: approverId,
+            due_date: completedAt,
             status: 'pending',
           });
 
@@ -521,14 +526,30 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
       if (!step) return;
 
+      // Build update object with only changed fields
+      const updateData: any = {};
+
+      if (stepFormData.assigned_to !== step.assigned_to) {
+        updateData.assigned_to = stepFormData.assigned_to || null;
+      }
+
+      if (stepFormData.due_date) {
+        updateData.due_date = stepFormData.due_date;
+      }
+
+      if (stepFormData.notes !== step.notes) {
+        updateData.notes = stepFormData.notes;
+      }
+
+      // Only update if there are changes
+      if (Object.keys(updateData).length === 0) {
+        setShowStepModal(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('marketing_social_post_steps')
-        .update({
-          assigned_to: stepFormData.assigned_to || null,
-          due_date: stepFormData.due_date || null,
-          notes: stepFormData.notes,
-          status: stepFormData.assigned_to ? 'in_progress' : step.status,
-        })
+        .update(updateData)
         .eq('id', step.id);
 
       if (error) throw error;
