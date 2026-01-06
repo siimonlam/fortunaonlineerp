@@ -69,6 +69,7 @@ interface Project {
   next_due_date?: string;
   project_reference?: string;
   deposit_paid_date?: string;
+  extension?: boolean;
 }
 
 interface ProjectType {
@@ -223,6 +224,11 @@ export function ProjectCard({
               {isFundingProject && project.invoice_number && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200" title="Invoice issued">
                   <FileText className="w-3.5 h-3.5" />
+                </span>
+              )}
+              {isFundingProject && project.extension && (
+                <span className="inline-flex items-center text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded shadow-sm">
+                  Extension
                 </span>
               )}
             </div>

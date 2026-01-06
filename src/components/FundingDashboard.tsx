@@ -31,6 +31,7 @@ interface Project {
   project_end_date: string | null;
   status_id: string;
   submission_date: string | null;
+  extension?: boolean;
 }
 
 interface FundingDashboardProps {
@@ -45,6 +46,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const [totalProjects, setTotalProjects] = useState(0);
   const [activeTab, setActiveTab] = useState<'summary' | 'progress'>('summary');
   const [endingSoonProjects, setEndingSoonProjects] = useState<Project[]>([]);
+  const [endingSoonMonths, setEndingSoonMonths] = useState(3);
   const [selectedMonths, setSelectedMonths] = useState(4);
   const [agingProjects, setAgingProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
       const { data: projects, error } = await supabase
         .from('projects')
-        .select('id, title, submission_date, status_id, project_end_date')
+        .select('id, title, submission_date, status_id, project_end_date, extension')
         .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696')
         .in('status_id', qaSubstatusIds);
 
@@ -90,7 +92,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [endingSoonMonths, filterQAAttention]);
 
   useEffect(() => {
     filterAgingProjects();
@@ -113,7 +115,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
       let projectQuery = supabase
         .from('projects')
-        .select('id, status_id, project_type_id, title, project_end_date, submission_date')
+        .select('id, status_id, project_type_id, title, project_end_date, submission_date, extension')
         .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696');
 
       const { data: projects, error: projectError } = await projectQuery;
@@ -168,15 +170,21 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
       setDashboardData(dashboardItems);
 
-      const threeMonthsFromNow = new Date();
-      threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+      const targetMonthsFromNow = new Date();
+      targetMonthsFromNow.setMonth(targetMonthsFromNow.getMonth() + endingSoonMonths);
 
       const projectsEndingSoon = filteredProjects?.filter(p => {
         if (!p.project_end_date) return false;
         const endDate = new Date(p.project_end_date);
         const now = new Date();
-        return endDate >= now && endDate <= threeMonthsFromNow;
+        return endDate >= now && endDate <= targetMonthsFromNow;
       }) || [];
+
+      projectsEndingSoon.sort((a, b) => {
+        if (!a.project_end_date) return 1;
+        if (!b.project_end_date) return -1;
+        return new Date(a.project_end_date).getTime() - new Date(b.project_end_date).getTime();
+      });
 
       setEndingSoonProjects(projectsEndingSoon as Project[]);
       setError(null);
@@ -419,14 +427,26 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-orange-600 rounded-lg p-2">
-                  <Clock className="w-5 h-5 text-white" />
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="bg-orange-600 rounded-lg p-2">
+                    <Clock className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-800">Projects Ending Soon</h2>
+                    <p className="text-sm text-slate-600">Within {endingSoonMonths} months</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800">Projects Ending Soon</h2>
-                  <p className="text-sm text-slate-600">Within 3 months</p>
-                </div>
+                <select
+                  value={endingSoonMonths}
+                  onChange={(e) => setEndingSoonMonths(Number(e.target.value))}
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  <option value={3}>Within 3 months</option>
+                  <option value={4}>Within 4 months</option>
+                  <option value={5}>Within 5 months</option>
+                  <option value={6}>Within 6 months</option>
+                </select>
               </div>
 
             <div className="flex items-center justify-center py-8">
@@ -483,7 +503,14 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate hover:text-blue-600">{project.title}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium text-slate-800 truncate hover:text-blue-600">{project.title}</p>
+                          {project.extension && (
+                            <span className="inline-flex items-center text-xs font-semibold text-white bg-red-600 px-2 py-0.5 rounded shadow-sm flex-shrink-0">
+                              Extension
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 mt-1">
                           <Calendar className="w-3 h-3 text-slate-400" />
                           <p className="text-xs text-slate-600">
@@ -514,7 +541,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
               ) : (
                 <div className="text-center py-12">
                   <Clock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-500">No projects ending within 3 months</p>
+                  <p className="text-slate-500">No projects ending within {endingSoonMonths} months</p>
                 </div>
               )}
             </div>
