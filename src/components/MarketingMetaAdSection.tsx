@@ -61,13 +61,20 @@ interface CreativeMetrics {
   creative_id: string;
   name: string;
   title: string;
+  ad_format: string;
+  link_url: string | null;
+  effective_object_url: string | null;
+  image_url: string | null;
+  video_id: string | null;
   total_spend: number;
   total_impressions: number;
   total_clicks: number;
   total_results: number;
+  total_reach: number;
   avg_ctr: number;
   avg_cpc: number;
   roi: number;
+  roas: number;
 }
 
 interface PlatformMetrics {
@@ -486,7 +493,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       // Get all insights for this account in the selected period
       const { data: insightsData } = await supabase
         .from('meta_ad_insights')
-        .select('ad_id, spend, impressions, clicks, results, ctr, cpc, conversions')
+        .select('ad_id, spend, impressions, clicks, results, reach, ctr, cpc, conversions, conversion_values')
         .eq('account_id', accountId)
         .gte('date', monthStart)
         .lte('date', monthEnd);
@@ -518,10 +525,10 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         return;
       }
 
-      // Fetch creative details
+      // Fetch creative details with all fields
       const { data: creativesData } = await supabase
         .from('meta_ad_creatives')
-        .select('creative_id, name, title')
+        .select('creative_id, name, title, ad_format, link_url, effective_object_url, image_url, video_id')
         .in('creative_id', creativeIds);
 
       const creativeMap = new Map((creativesData || []).map(c => [c.creative_id, c]));
@@ -540,11 +547,18 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             creative_id: creativeId,
             name: creativeInfo?.name || `Creative ${creativeId.slice(-6)}`,
             title: creativeInfo?.title || '',
+            ad_format: creativeInfo?.ad_format || 'unknown',
+            link_url: creativeInfo?.link_url || null,
+            effective_object_url: creativeInfo?.effective_object_url || null,
+            image_url: creativeInfo?.image_url || null,
+            video_id: creativeInfo?.video_id || null,
             total_spend: 0,
             total_impressions: 0,
             total_clicks: 0,
             total_results: 0,
+            total_reach: 0,
             total_conversions: 0,
+            total_conversion_values: 0,
             ctr_sum: 0,
             cpc_sum: 0,
             count: 0
@@ -556,29 +570,39 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         creative.total_impressions += Number(insight.impressions) || 0;
         creative.total_clicks += Number(insight.clicks) || 0;
         creative.total_results += Number(insight.results) || 0;
+        creative.total_reach += Number(insight.reach) || 0;
         creative.total_conversions += Number(insight.conversions) || 0;
+        creative.total_conversion_values += Number(insight.conversion_values) || 0;
         creative.ctr_sum += Number(insight.ctr) || 0;
         creative.cpc_sum += Number(insight.cpc) || 0;
         creative.count += 1;
       });
 
-      // Calculate averages and ROI
+      // Calculate averages, ROI, and ROAS
       const metrics: CreativeMetrics[] = Array.from(creativeMetricsMap.values()).map(creative => {
         const avgCtr = creative.count > 0 ? creative.ctr_sum / creative.count : 0;
         const avgCpc = creative.count > 0 ? creative.cpc_sum / creative.count : 0;
         const roi = creative.total_spend > 0 ? ((creative.total_conversions * 100 - creative.total_spend) / creative.total_spend) : 0;
+        const roas = creative.total_spend > 0 ? (creative.total_conversion_values / creative.total_spend) : 0;
 
         return {
           creative_id: creative.creative_id,
           name: creative.name,
           title: creative.title,
+          ad_format: creative.ad_format,
+          link_url: creative.link_url,
+          effective_object_url: creative.effective_object_url,
+          image_url: creative.image_url,
+          video_id: creative.video_id,
           total_spend: creative.total_spend,
           total_impressions: creative.total_impressions,
           total_clicks: creative.total_clicks,
           total_results: creative.total_results,
+          total_reach: creative.total_reach,
           avg_ctr: avgCtr,
           avg_cpc: avgCpc,
-          roi: roi
+          roi: roi,
+          roas: roas
         };
       });
 
@@ -1744,9 +1768,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                 </th>
                                 <th
                                   className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('title')}
+                                  onClick={() => handleSort('ad_format')}
                                 >
-                                  Title {sortConfig?.key === 'title' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                  Format {sortConfig?.key === 'ad_format' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium text-gray-700">
+                                  Link
                                 </th>
                                 <th
                                   className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
@@ -1759,6 +1786,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                   onClick={() => handleSort('total_impressions')}
                                 >
                                   Impressions {sortConfig?.key === 'total_impressions' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_reach')}
+                                >
+                                  Reach {sortConfig?.key === 'total_reach' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                 </th>
                                 <th
                                   className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
@@ -1786,26 +1819,58 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                 </th>
                                 <th
                                   className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('roi')}
+                                  onClick={() => handleSort('roas')}
                                 >
-                                  ROI {sortConfig?.key === 'roi' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                  ROAS {sortConfig?.key === 'roas' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                 </th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                               {(getSortedData(creatives) as CreativeMetrics[]).map((creative) => (
                                 <tr key={creative.creative_id} className="hover:bg-gray-50">
-                                  <td className="px-4 py-3 text-gray-900 font-medium">{creative.name}</td>
-                                  <td className="px-4 py-3 text-gray-700">{creative.title || '-'}</td>
+                                  <td className="px-4 py-3 text-gray-900 font-medium max-w-xs truncate" title={creative.name}>
+                                    {creative.name}
+                                  </td>
+                                  <td className="px-4 py-3 text-gray-700">
+                                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                      creative.ad_format === 'video' ? 'bg-purple-100 text-purple-800' :
+                                      creative.ad_format === 'image' ? 'bg-blue-100 text-blue-800' :
+                                      creative.ad_format === 'carousel' ? 'bg-green-100 text-green-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {creative.ad_format === 'video' && '🎥 '}
+                                      {creative.ad_format === 'image' && '📷 '}
+                                      {creative.ad_format === 'carousel' && '🎠 '}
+                                      {creative.ad_format.charAt(0).toUpperCase() + creative.ad_format.slice(1)}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-gray-700 max-w-xs">
+                                    {(creative.effective_object_url || creative.link_url) ? (
+                                      <a
+                                        href={creative.effective_object_url || creative.link_url || '#'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                                        title={creative.effective_object_url || creative.link_url || undefined}
+                                      >
+                                        {(creative.effective_object_url || creative.link_url || '').length > 30
+                                          ? `${(creative.effective_object_url || creative.link_url || '').substring(0, 30)}...`
+                                          : (creative.effective_object_url || creative.link_url)}
+                                      </a>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
+                                  </td>
                                   <td className="px-4 py-3 text-right text-gray-900 font-medium">${creative.total_spend.toFixed(2)}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">{creative.total_impressions.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-gray-700">{creative.total_reach.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">{creative.total_clicks.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">{creative.total_results.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">{creative.avg_ctr.toFixed(2)}%</td>
                                   <td className="px-4 py-3 text-right text-gray-700">${creative.avg_cpc.toFixed(2)}</td>
                                   <td className="px-4 py-3 text-right">
-                                    <span className={`font-medium ${creative.roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {creative.roi.toFixed(2)}%
+                                    <span className={`font-medium ${creative.roas >= 2 ? 'text-green-600' : creative.roas >= 1 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                      {creative.roas.toFixed(2)}x
                                     </span>
                                   </td>
                                 </tr>

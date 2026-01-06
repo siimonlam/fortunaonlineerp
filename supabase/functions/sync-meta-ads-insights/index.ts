@@ -182,7 +182,7 @@ Deno.serve(async (req: Request) => {
       // Now fetch ads for each adset
       for (const adset of adsets) {
         console.log(`  Fetching ads for adset: ${adset.name} (${adset.id})`);
-        const adsUrl = `https://graph.facebook.com/v21.0/${adset.id}/ads?fields=id,name,status,creative{id}&access_token=${accessToken}`;
+        const adsUrl = `https://graph.facebook.com/v21.0/${adset.id}/ads?fields=id,name,status,creative{id,name,title,body,image_url,video_id,thumbnail_url,object_story_spec,effective_object_story_id,link_url,call_to_action_type,effective_object_url}&access_token=${accessToken}`;
         const adsResponse = await fetchWithRateLimit(adsUrl);
 
         if (!adsResponse.ok) {
@@ -218,14 +218,42 @@ Deno.serve(async (req: Request) => {
               onConflict: 'ad_id'
             });
 
-          // Optionally save creative details if available
+          // Save complete creative details if available
           if (ad.creative?.id) {
+            // Determine ad format
+            let adFormat = 'unknown';
+            if (ad.creative.video_id) {
+              adFormat = 'video';
+            } else if (ad.creative.image_url) {
+              adFormat = 'image';
+            } else if (ad.creative.object_story_spec) {
+              const spec = ad.creative.object_story_spec;
+              if (spec.link_data?.child_attachments) {
+                adFormat = 'carousel';
+              } else if (spec.video_data) {
+                adFormat = 'video';
+              } else if (spec.photo_data) {
+                adFormat = 'image';
+              }
+            }
+
             await supabase
               .from('meta_ad_creatives')
               .upsert({
                 creative_id: ad.creative.id,
                 ad_id: ad.id,
                 account_id: accountId,
+                name: ad.creative.name || null,
+                title: ad.creative.title || null,
+                body: ad.creative.body || null,
+                image_url: ad.creative.image_url || null,
+                video_id: ad.creative.video_id || null,
+                thumbnail_url: ad.creative.thumbnail_url || null,
+                link_url: ad.creative.link_url || null,
+                effective_object_url: ad.creative.effective_object_url || null,
+                call_to_action_type: ad.creative.call_to_action_type || null,
+                object_story_spec: ad.creative.object_story_spec ? JSON.stringify(ad.creative.object_story_spec) : null,
+                ad_format: adFormat,
                 client_number: campaign.client_number,
                 marketing_reference: campaign.marketing_reference,
                 updated_at: new Date().toISOString()
