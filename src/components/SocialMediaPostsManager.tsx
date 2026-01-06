@@ -1202,10 +1202,15 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
                                     {step && (
                                       <div className="mt-2 text-sm text-slate-600 space-y-1">
-                                        {step.assignee && (
+                                        {step.assignee ? (
                                           <p className="flex items-center gap-1">
                                             <User className="w-3 h-3" />
                                             Assigned to: {step.assignee.full_name}
+                                          </p>
+                                        ) : (
+                                          <p className="flex items-center gap-1 text-orange-600">
+                                            <User className="w-3 h-3" />
+                                            Unassigned (Click "Edit Step" to assign)
                                           </p>
                                         )}
                                         {step.due_date && (
