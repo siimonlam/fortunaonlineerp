@@ -50,7 +50,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   const { user } = useAuth();
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [filteredPosts, setFilteredPosts] = useState<SocialPost[]>([]);
-  const [accountFilter, setAccountFilter] = useState<'all' | 'instagram' | 'facebook'>('all');
+  const [accountFilter, setAccountFilter] = useState<string>('all');
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showStepModal, setShowStepModal] = useState(false);
@@ -64,6 +64,10 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   const [loading, setLoading] = useState(true);
   const [accountDesigners, setAccountDesigners] = useState<Record<string, string>>({});
   const [accountApprovers, setAccountApprovers] = useState<Record<string, string>>({});
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<{ type: string; id: string } | null>(null);
+  const [tempDesigner, setTempDesigner] = useState('');
+  const [tempApprover, setTempApprover] = useState('');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -120,6 +124,14 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
       setFilteredPosts(posts.filter(p => p.instagram_account_ids && p.instagram_account_ids.length > 0));
     } else if (accountFilter === 'facebook') {
       setFilteredPosts(posts.filter(p => p.facebook_account_ids && p.facebook_account_ids.length > 0));
+    } else if (accountFilter.startsWith('ig-')) {
+      const accountId = accountFilter.substring(3);
+      setFilteredPosts(posts.filter(p => p.instagram_account_ids && p.instagram_account_ids.includes(accountId)));
+    } else if (accountFilter.startsWith('fb-')) {
+      const accountId = accountFilter.substring(3);
+      setFilteredPosts(posts.filter(p => p.facebook_account_ids && p.facebook_account_ids.includes(accountId)));
+    } else {
+      setFilteredPosts(posts);
     }
   };
 
@@ -628,49 +640,71 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     }
   };
 
+  const handleUpdateAccountAssignments = async (type: 'instagram' | 'facebook', accountId: string) => {
+    try {
+      if (type === 'instagram') {
+        const { error } = await supabase
+          .from('marketing_project_instagram_accounts')
+          .update({
+            designer_id: tempDesigner || null,
+            approver_id: tempApprover || null,
+          })
+          .eq('marketing_project_id', marketingProjectId)
+          .eq('account_id', accountId);
+
+        if (error) throw error;
+      } else {
+        const { data: marketingProject } = await supabase
+          .from('marketing_projects')
+          .select('project_reference')
+          .eq('id', marketingProjectId)
+          .single();
+
+        if (!marketingProject) throw new Error('Marketing project not found');
+
+        const { error } = await supabase
+          .from('marketing_facebook_accounts')
+          .update({
+            designer_id: tempDesigner || null,
+            approver_id: tempApprover || null,
+          })
+          .eq('marketing_reference', marketingProject.project_reference)
+          .eq('page_id', accountId);
+
+        if (error) throw error;
+      }
+
+      setAccountDesigners(prev => ({
+        ...prev,
+        [accountId]: tempDesigner || ''
+      }));
+      setAccountApprovers(prev => ({
+        ...prev,
+        [accountId]: tempApprover || ''
+      }));
+      setEditingAccount(null);
+      loadAccounts();
+    } catch (error) {
+      console.error('Error updating account assignments:', error);
+      alert('Failed to update account assignments');
+    }
+  };
+
+  const startEditingAccount = (type: string, accountId: string) => {
+    setEditingAccount({ type, id: accountId });
+    setTempDesigner(accountDesigners[accountId] || '');
+    setTempApprover(accountApprovers[accountId] || '');
+  };
+
   if (loading) {
     return <div className="text-center py-8 text-slate-600">Loading posts...</div>;
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-slate-900">Social Media Posts</h3>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-            <button
-              onClick={() => setAccountFilter('all')}
-              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-                accountFilter === 'all'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setAccountFilter('instagram')}
-              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center gap-1 ${
-                accountFilter === 'instagram'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Instagram className="w-4 h-4" />
-              Instagram
-            </button>
-            <button
-              onClick={() => setAccountFilter('facebook')}
-              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center gap-1 ${
-                accountFilter === 'facebook'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Facebook className="w-4 h-4" />
-              Facebook
-            </button>
-          </div>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-900">Social Media Posts</h3>
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -679,7 +713,257 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
             New Post
           </button>
         </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setAccountFilter('all')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              accountFilter === 'all'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setAccountFilter('instagram')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+              accountFilter === 'instagram'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <Instagram className="w-4 h-4" />
+            All Instagram
+          </button>
+          <button
+            onClick={() => setAccountFilter('facebook')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+              accountFilter === 'facebook'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <Facebook className="w-4 h-4" />
+            All Facebook
+          </button>
+
+          {instagramAccounts.length > 0 && (
+            <div className="flex items-center gap-1 ml-2">
+              <span className="text-xs text-slate-500 mr-1">|</span>
+              {instagramAccounts.map((account) => (
+                <button
+                  key={account.id}
+                  onClick={() => setAccountFilter(`ig-${account.id}`)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                    accountFilter === `ig-${account.id}`
+                      ? 'bg-pink-600 text-white shadow-sm'
+                      : 'bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200'
+                  }`}
+                >
+                  <Instagram className="w-3.5 h-3.5" />
+                  {account.name || account.username}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {facebookAccounts.length > 0 && (
+            <div className="flex items-center gap-1 ml-2">
+              <span className="text-xs text-slate-500 mr-1">|</span>
+              {facebookAccounts.map((account) => (
+                <button
+                  key={account.id}
+                  onClick={() => setAccountFilter(`fb-${account.id}`)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                    accountFilter === `fb-${account.id}`
+                      ? 'bg-blue-700 text-white shadow-sm'
+                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                  }`}
+                >
+                  <Facebook className="w-3.5 h-3.5" />
+                  {account.name || account.username}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {(instagramAccounts.length > 0 || facebookAccounts.length > 0) && (
+        <div className="bg-white rounded-lg border border-slate-200">
+          <button
+            onClick={() => setShowAccountSettings(!showAccountSettings)}
+            className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-slate-600" />
+              <span className="font-medium text-slate-900">Account Settings (Designer & Approver)</span>
+            </div>
+            {showAccountSettings ? <ChevronDown className="w-5 h-5 text-slate-400" /> : <ChevronRight className="w-5 h-5 text-slate-400" />}
+          </button>
+
+          {showAccountSettings && (
+            <div className="p-4 border-t border-slate-200 space-y-4">
+              {instagramAccounts.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1">
+                    <Instagram className="w-4 h-4" />
+                    Instagram Accounts
+                  </h4>
+                  <div className="space-y-2">
+                    {instagramAccounts.map((account) => {
+                      const isEditing = editingAccount?.type === 'instagram' && editingAccount?.id === account.id;
+                      const designerName = staff.find(s => s.id === accountDesigners[account.id])?.full_name || 'Not assigned';
+                      const approverName = staff.find(s => s.id === accountApprovers[account.id])?.full_name || 'Not assigned';
+
+                      return (
+                        <div key={account.id} className="flex items-center justify-between p-3 bg-pink-50 rounded-lg border border-pink-200">
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900">{account.name || account.username}</div>
+                            {!isEditing ? (
+                              <div className="text-sm text-slate-600 mt-1">
+                                <div>Designer: <span className="font-medium">{designerName}</span></div>
+                                <div>Approver: <span className="font-medium">{approverName}</span></div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2 mt-2">
+                                <select
+                                  value={tempDesigner}
+                                  onChange={(e) => setTempDesigner(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Select Designer</option>
+                                  {staff.map(s => (
+                                    <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={tempApprover}
+                                  onChange={(e) => setTempApprover(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Select Approver</option>
+                                  {staff.map(s => (
+                                    <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            {!isEditing ? (
+                              <button
+                                onClick={() => startEditingAccount('instagram', account.id)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handleUpdateAccountAssignments('instagram', account.id)}
+                                  className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setEditingAccount(null)}
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <XIcon className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {facebookAccounts.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1">
+                    <Facebook className="w-4 h-4" />
+                    Facebook Accounts
+                  </h4>
+                  <div className="space-y-2">
+                    {facebookAccounts.map((account) => {
+                      const isEditing = editingAccount?.type === 'facebook' && editingAccount?.id === account.id;
+                      const designerName = staff.find(s => s.id === accountDesigners[account.id])?.full_name || 'Not assigned';
+                      const approverName = staff.find(s => s.id === accountApprovers[account.id])?.full_name || 'Not assigned';
+
+                      return (
+                        <div key={account.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900">{account.name || account.username}</div>
+                            {!isEditing ? (
+                              <div className="text-sm text-slate-600 mt-1">
+                                <div>Designer: <span className="font-medium">{designerName}</span></div>
+                                <div>Approver: <span className="font-medium">{approverName}</span></div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2 mt-2">
+                                <select
+                                  value={tempDesigner}
+                                  onChange={(e) => setTempDesigner(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Select Designer</option>
+                                  {staff.map(s => (
+                                    <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={tempApprover}
+                                  onChange={(e) => setTempApprover(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Select Approver</option>
+                                  {staff.map(s => (
+                                    <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            {!isEditing ? (
+                              <button
+                                onClick={() => startEditingAccount('facebook', account.id)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handleUpdateAccountAssignments('facebook', account.id)}
+                                  className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setEditingAccount(null)}
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <XIcon className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {filteredPosts.length === 0 ? (
         <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
