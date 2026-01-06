@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Mail, Plus, Trash2, Clock, Send, X, AlertCircle, CheckCircle, Paperclip, FileText, Folder, Settings } from 'lucide-react';
+import { Mail, Plus, Trash2, Clock, Send, X, AlertCircle, CheckCircle, Paperclip, FileText, Folder, Settings, FileSpreadsheet, File, FileImage, FileVideo, FileArchive, FolderOpen } from 'lucide-react';
 import { EmailTemplateManager } from './EmailTemplateManager';
 
 interface ScheduledEmail {
@@ -59,6 +59,41 @@ interface ShareResource {
   size?: number;
   webViewLink?: string;
 }
+
+const getFileIcon = (file: { name: string; mimeType?: string }) => {
+  const fileName = file.name.toLowerCase();
+  const mimeType = file.mimeType?.toLowerCase() || '';
+
+  if (mimeType.includes('folder') || mimeType === 'application/vnd.google-apps.folder') {
+    return { Icon: FolderOpen, color: 'text-yellow-600', bgColor: 'bg-yellow-50' };
+  }
+
+  if (fileName.endsWith('.doc') || fileName.endsWith('.docx') || mimeType.includes('word') || mimeType.includes('document')) {
+    return { Icon: FileText, color: 'text-blue-600', bgColor: 'bg-blue-50' };
+  }
+
+  if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx') || mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
+    return { Icon: FileSpreadsheet, color: 'text-green-600', bgColor: 'bg-green-50' };
+  }
+
+  if (fileName.endsWith('.pdf') || mimeType.includes('pdf')) {
+    return { Icon: FileText, color: 'text-red-600', bgColor: 'bg-red-50' };
+  }
+
+  if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.png') || fileName.endsWith('.gif') || fileName.endsWith('.svg') || mimeType.includes('image')) {
+    return { Icon: FileImage, color: 'text-purple-600', bgColor: 'bg-purple-50' };
+  }
+
+  if (fileName.endsWith('.mp4') || fileName.endsWith('.mov') || fileName.endsWith('.avi') || fileName.endsWith('.mkv') || mimeType.includes('video')) {
+    return { Icon: FileVideo, color: 'text-pink-600', bgColor: 'bg-pink-50' };
+  }
+
+  if (fileName.endsWith('.zip') || fileName.endsWith('.rar') || fileName.endsWith('.7z') || fileName.endsWith('.tar') || fileName.endsWith('.gz') || mimeType.includes('zip') || mimeType.includes('compressed')) {
+    return { Icon: FileArchive, color: 'text-orange-600', bgColor: 'bg-orange-50' };
+  }
+
+  return { Icon: File, color: 'text-gray-600', bgColor: 'bg-gray-50' };
+};
 
 export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googleDriveFolderId }: EmailSchedulerTabProps) {
   const { user } = useAuth();
@@ -772,26 +807,31 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {driveFiles.map((file) => (
-                      <label
-                        key={file.id}
-                        className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedAttachments.some(a => a.id === file.id)}
-                          onChange={() => toggleAttachment(file)}
-                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                        />
-                        <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900 truncate">{file.name}</p>
-                          {file.size && (
-                            <p className="text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                          )}
-                        </div>
-                      </label>
-                    ))}
+                    {driveFiles.map((file) => {
+                      const { Icon, color, bgColor } = getFileIcon(file);
+                      return (
+                        <label
+                          key={file.id}
+                          className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedAttachments.some(a => a.id === file.id)}
+                            onChange={() => toggleAttachment(file)}
+                            className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                          />
+                          <div className={`p-2 rounded-lg ${bgColor} flex-shrink-0`}>
+                            <Icon className={`w-5 h-5 ${color}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-slate-900 truncate">{file.name}</p>
+                            {file.size && (
+                              <p className="text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
                 )
               ) : (
@@ -802,26 +842,31 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {shareResources.map((resource) => (
-                      <label
-                        key={resource.id}
-                        className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedAttachments.some(a => a.id === resource.id)}
-                          onChange={() => toggleAttachment(resource)}
-                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                        />
-                        <FileText className="w-5 h-5 text-green-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900 truncate">{resource.name}</p>
-                          {resource.size && (
-                            <p className="text-xs text-slate-500">{(resource.size / 1024 / 1024).toFixed(2)} MB</p>
-                          )}
-                        </div>
-                      </label>
-                    ))}
+                    {shareResources.map((resource) => {
+                      const { Icon, color, bgColor } = getFileIcon(resource);
+                      return (
+                        <label
+                          key={resource.id}
+                          className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedAttachments.some(a => a.id === resource.id)}
+                            onChange={() => toggleAttachment(resource)}
+                            className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                          />
+                          <div className={`p-2 rounded-lg ${bgColor} flex-shrink-0`}>
+                            <Icon className={`w-5 h-5 ${color}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-slate-900 truncate">{resource.name}</p>
+                            {resource.size && (
+                              <p className="text-xs text-slate-500">{(resource.size / 1024 / 1024).toFixed(2)} MB</p>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
                 )
               )}
