@@ -526,22 +526,22 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
       if (!step) return;
 
-      // Build update object with only changed fields
+      const originalDueDate = step.due_date ? new Date(step.due_date).toISOString().split('T')[0] : '';
+
       const updateData: any = {};
 
-      if (stepFormData.assigned_to !== step.assigned_to) {
+      if (stepFormData.assigned_to !== (step.assigned_to || '')) {
         updateData.assigned_to = stepFormData.assigned_to || null;
       }
 
-      if (stepFormData.due_date) {
-        updateData.due_date = stepFormData.due_date;
+      if (stepFormData.due_date !== originalDueDate) {
+        updateData.due_date = stepFormData.due_date || null;
       }
 
-      if (stepFormData.notes !== step.notes) {
-        updateData.notes = stepFormData.notes;
+      if (stepFormData.notes !== (step.notes || '')) {
+        updateData.notes = stepFormData.notes || null;
       }
 
-      // Only update if there are changes
       if (Object.keys(updateData).length === 0) {
         setShowStepModal(false);
         return;

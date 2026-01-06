@@ -36,6 +36,7 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
   const [allClients, setAllClients] = useState<Client[]>([]);
   const [channelPartners, setChannelPartners] = useState<ChannelPartner[]>([]);
   const [nextClientNumber, setNextClientNumber] = useState<number | null>(null);
+  const [nextChannelPartnerNumber, setNextChannelPartnerNumber] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     companyNameChinese: '',
@@ -62,8 +63,12 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
     loadStaff();
     loadAllClients();
     loadChannelPartners();
-    loadNextClientNumber();
-  }, []);
+    if (clientType === 'company') {
+      loadNextClientNumber();
+    } else {
+      loadNextChannelPartnerNumber();
+    }
+  }, [clientType]);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
@@ -105,6 +110,22 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
     }
   }
 
+  async function loadNextChannelPartnerNumber() {
+    const { data, error } = await supabase.rpc('get_next_channel_partner_number');
+
+    if (error) {
+      console.error('Error getting next channel partner number:', error);
+      setNextChannelPartnerNumber(null);
+      return;
+    }
+
+    if (data) {
+      setNextChannelPartnerNumber(data);
+    } else {
+      setNextChannelPartnerNumber(null);
+    }
+  }
+
   const handleScanData = (scannedData: any) => {
     setFormData(prev => ({
       ...prev,
@@ -135,11 +156,17 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
         const { error } = await supabase.from('channel_partners').insert({
           name: formData.name,
           company_name_chinese: formData.companyNameChinese || null,
+          brand_name: formData.brandName || null,
           contact_person: formData.contactPerson || null,
           email: formData.email || null,
           phone: formData.phone || null,
           address: formData.address || null,
           notes: formData.notes || null,
+          sales_source: formData.salesSource || null,
+          sales_source_detail: formData.salesSourceDetail || null,
+          industry: formData.industry || null,
+          abbreviation: formData.abbreviation || null,
+          sales_person_id: formData.salesPersonId || null,
           commission_rate: formData.commissionRate ? parseFloat(formData.commissionRate) : null,
           created_by: user?.id,
         });
@@ -190,17 +217,25 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                   <Building2 className="w-7 h-7" />
                   {clientType === 'channel' ? 'Add Channel Partner' : 'Add Company Client'}
                 </h2>
-                {nextClientNumber !== null && (
-                  <span className={`text-sm font-semibold px-3 py-1 rounded ${
-                    clientType === 'channel' ? 'text-emerald-100 bg-emerald-600' : 'text-blue-100 bg-blue-800'
-                  }`}>
-                    {clientType === 'channel' ? '#CP' : '#'}{String(nextClientNumber).padStart(4, '0')}
+                {clientType === 'company' && nextClientNumber !== null && (
+                  <span className="text-sm font-semibold px-3 py-1 rounded text-blue-100 bg-blue-800">
+                    #{String(nextClientNumber).padStart(4, '0')}
+                  </span>
+                )}
+                {clientType === 'channel' && nextChannelPartnerNumber !== null && (
+                  <span className="text-sm font-semibold px-3 py-1 rounded text-emerald-100 bg-emerald-600">
+                    {nextChannelPartnerNumber}
                   </span>
                 )}
               </div>
-              {nextClientNumber !== null && (
+              {clientType === 'company' && nextClientNumber !== null && (
                 <p className="text-sm text-blue-100 mt-1">
                   New client will be assigned number {String(nextClientNumber).padStart(4, '0')}
+                </p>
+              )}
+              {clientType === 'channel' && nextChannelPartnerNumber !== null && (
+                <p className="text-sm text-emerald-100 mt-1">
+                  New channel partner will be assigned number {nextChannelPartnerNumber}
                 </p>
               )}
             </div>
@@ -340,14 +375,35 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="">Select Industry</option>
-                    <option value="Technology">Technology</option>
-                    <option value="Manufacturing">Manufacturing</option>
-                    <option value="Retail">Retail</option>
-                    <option value="Healthcare">Healthcare</option>
-                    <option value="Finance">Finance</option>
+                    <option value="">Select an industry</option>
+                    <option value="Accounting">Accounting</option>
+                    <option value="Advertising & Marketing">Advertising & Marketing</option>
+                    <option value="Agriculture">Agriculture</option>
+                    <option value="Automotive">Automotive</option>
+                    <option value="Aviation / Aerospace">Aviation / Aerospace</option>
+                    <option value="Banking & Financial Services">Banking & Financial Services</option>
+                    <option value="Biotechnology">Biotechnology</option>
+                    <option value="Construction">Construction</option>
+                    <option value="Consulting">Consulting</option>
                     <option value="Education">Education</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Energy / Utilities">Energy / Utilities</option>
+                    <option value="Entertainment / Media">Entertainment / Media</option>
+                    <option value="Fashion & Apparel">Fashion & Apparel</option>
                     <option value="Food & Beverage">Food & Beverage</option>
+                    <option value="Government">Government</option>
+                    <option value="Healthcare / Pharmaceuticals">Healthcare / Pharmaceuticals</option>
+                    <option value="Hospitality / Tourism">Hospitality / Tourism</option>
+                    <option value="Insurance">Insurance</option>
+                    <option value="Legal Services">Legal Services</option>
+                    <option value="Logistics / Supply Chain">Logistics / Supply Chain</option>
+                    <option value="Manufacturing">Manufacturing</option>
+                    <option value="Non-Profit / NGO">Non-Profit / NGO</option>
+                    <option value="Real Estate">Real Estate</option>
+                    <option value="Retail">Retail</option>
+                    <option value="Software / SaaS">Software / SaaS</option>
+                    <option value="Telecommunications">Telecommunications</option>
+                    <option value="Transportation">Transportation</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -387,23 +443,40 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                   <select
                     name="salesSource"
                     value={formData.salesSource}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const selectedPartner = channelPartners.find(cp => cp.reference_number === value);
+                      if (selectedPartner) {
+                        setFormData({ ...formData, salesSource: value, channelPartnerId: selectedPartner.id, salesSourceDetail: '' });
+                      } else {
+                        setFormData({ ...formData, salesSource: value, channelPartnerId: '', salesSourceDetail: '' });
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="">Select Source</option>
-                    <option value="Cold Call">Cold Call</option>
+                    <option value="">-- Select Sales Source --</option>
+                    <option value="Direct">Direct</option>
                     <option value="Referral">Referral</option>
                     <option value="Website">Website</option>
+                    <option value="Seminar">Seminar</option>
+                    <option value="Exhibition">Exhibition</option>
+                    <option value="Marketing">Marketing</option>
                     <option value="Social Media">Social Media</option>
-                    <option value="Event">Event</option>
-                    <option value="Other">Other</option>
+                    <option value="Others">Others</option>
+                    <optgroup label="Channel Partners">
+                      {channelPartners.map(partner => (
+                        <option key={partner.id} value={partner.reference_number}>
+                          {partner.reference_number} - {partner.name}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
 
-                {formData.salesSource && (
+                {(formData.salesSource === 'Seminar' || formData.salesSource === 'Exhibition') && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Sales Source Detail
+                      {formData.salesSource === 'Seminar' ? 'Which Seminar?' : 'Which Exhibition?'}
                     </label>
                     <input
                       type="text"
@@ -411,6 +484,23 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                       value={formData.salesSourceDetail}
                       onChange={handleChange}
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={`Enter ${formData.salesSource.toLowerCase()} name`}
+                    />
+                  </div>
+                )}
+
+                {formData.salesSource === 'Others' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Specify Other Source
+                    </label>
+                    <input
+                      type="text"
+                      name="salesSourceDetail"
+                      value={formData.salesSourceDetail}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter source detail"
                     />
                   </div>
                 )}
@@ -429,25 +519,6 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                     {staff.map(s => (
                       <option key={s.id} value={s.id}>
                         {s.full_name || s.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Channel Partner
-                  </label>
-                  <select
-                    name="channelPartnerId"
-                    value={formData.channelPartnerId}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">None</option>
-                    {channelPartners.map(cp => (
-                      <option key={cp.id} value={cp.id}>
-                        {cp.reference_number} - {cp.name}
                       </option>
                     ))}
                   </select>
@@ -482,22 +553,122 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
             )}
 
             {clientType === 'channel' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  <Percent className="w-4 h-4 inline mr-2" />
-                  Commission Rate (%)
-                </label>
-                <input
-                  type="number"
-                  name="commissionRate"
-                  value={formData.commissionRate}
-                  onChange={handleChange}
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <Percent className="w-4 h-4 inline mr-2" />
+                    Commission Rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    name="commissionRate"
+                    value={formData.commissionRate}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Sales Source
+                  </label>
+                  <select
+                    name="salesSource"
+                    value={formData.salesSource}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">-- Select Sales Source --</option>
+                    <option value="Direct">Direct</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Website">Website</option>
+                    <option value="Seminar">Seminar</option>
+                    <option value="Exhibition">Exhibition</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="Others">Others</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <Briefcase className="w-4 h-4 inline mr-2" />
+                    Industry
+                  </label>
+                  <select
+                    name="industry"
+                    value={formData.industry}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select an industry</option>
+                    <option value="Accounting">Accounting</option>
+                    <option value="Advertising & Marketing">Advertising & Marketing</option>
+                    <option value="Agriculture">Agriculture</option>
+                    <option value="Automotive">Automotive</option>
+                    <option value="Aviation / Aerospace">Aviation / Aerospace</option>
+                    <option value="Banking & Financial Services">Banking & Financial Services</option>
+                    <option value="Biotechnology">Biotechnology</option>
+                    <option value="Construction">Construction</option>
+                    <option value="Consulting">Consulting</option>
+                    <option value="Education">Education</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Energy / Utilities">Energy / Utilities</option>
+                    <option value="Entertainment / Media">Entertainment / Media</option>
+                    <option value="Fashion & Apparel">Fashion & Apparel</option>
+                    <option value="Food & Beverage">Food & Beverage</option>
+                    <option value="Government">Government</option>
+                    <option value="Healthcare / Pharmaceuticals">Healthcare / Pharmaceuticals</option>
+                    <option value="Hospitality / Tourism">Hospitality / Tourism</option>
+                    <option value="Insurance">Insurance</option>
+                    <option value="Legal Services">Legal Services</option>
+                    <option value="Logistics / Supply Chain">Logistics / Supply Chain</option>
+                    <option value="Manufacturing">Manufacturing</option>
+                    <option value="Non-Profit / NGO">Non-Profit / NGO</option>
+                    <option value="Real Estate">Real Estate</option>
+                    <option value="Retail">Retail</option>
+                    <option value="Software / SaaS">Software / SaaS</option>
+                    <option value="Telecommunications">Telecommunications</option>
+                    <option value="Transportation">Transportation</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Abbreviation
+                  </label>
+                  <input
+                    type="text"
+                    name="abbreviation"
+                    value={formData.abbreviation}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Sales Person
+                  </label>
+                  <select
+                    name="salesPersonId"
+                    value={formData.salesPersonId}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select Sales Person</option>
+                    {staff.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name || s.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
             )}
           </div>
 
