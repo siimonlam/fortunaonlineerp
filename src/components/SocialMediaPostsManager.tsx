@@ -890,6 +890,30 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                           )}
                                         </div>
                                       )}
+                                      {!step && stepNum === post.current_step && stepNum === 2 && (
+                                        <button
+                                          onClick={async () => {
+                                            const allAccountIds = [
+                                              ...(post.instagram_account_ids || []),
+                                              ...(post.facebook_account_ids || [])
+                                            ];
+                                            const approverId = allAccountIds.length > 0 ? accountApprovers[allAccountIds[0]] : null;
+                                            await supabase
+                                              .from('marketing_social_post_steps')
+                                              .insert({
+                                                post_id: post.id,
+                                                step_number: 2,
+                                                step_name: 'Approval',
+                                                assigned_to: approverId,
+                                                status: 'pending',
+                                              });
+                                            loadPosts();
+                                          }}
+                                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                        >
+                                          Create Step 2
+                                        </button>
+                                      )}
                                     </div>
 
                                     {step && (

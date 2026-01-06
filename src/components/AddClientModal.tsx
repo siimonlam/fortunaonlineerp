@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Building2, User, Mail, Phone, MapPin, Briefcase, Percent } from 'lucide-react';
+import { X, Building2, User, Mail, Phone, MapPin, Briefcase, Percent, Scan } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { BusinessCardScanner } from './BusinessCardScanner';
 
 interface Staff {
   id: string;
@@ -15,6 +16,12 @@ interface Client {
   client_number: string;
 }
 
+interface ChannelPartner {
+  id: string;
+  name: string;
+  reference_number: string;
+}
+
 interface AddClientModalProps {
   clientType: 'company' | 'channel';
   onClose: () => void;
@@ -24,8 +31,11 @@ interface AddClientModalProps {
 export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [allClients, setAllClients] = useState<Client[]>([]);
+  const [channelPartners, setChannelPartners] = useState<ChannelPartner[]>([]);
+  const [nextClientNumber, setNextClientNumber] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     companyNameChinese: '',
@@ -45,11 +55,14 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
     commissionRate: '',
     parentClientId: '',
     parentCompanyName: '',
+    channelPartnerId: '',
   });
 
   useEffect(() => {
     loadStaff();
     loadAllClients();
+    loadChannelPartners();
+    loadNextClientNumber();
   }, []);
 
   async function loadStaff() {
@@ -63,6 +76,45 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
       .select('id, name, client_number')
       .order('client_number');
     if (data) setAllClients(data as Client[]);
+  }
+
+  async function loadChannelPartners() {
+    const { data } = await supabase
+      .from('channel_partners')
+      .select('id, name, reference_number')
+      .order('reference_number');
+    if (data) setChannelPartners(data);
+  }
+
+  async function loadNextClientNumber() {
+    const { data, error } = await supabase.rpc('get_next_client_number');
+
+    if (error) {
+      console.error('Error getting next client number:', error);
+      setNextClientNumber(null);
+      return;
+    }
+
+    if (data) {
+      const numericPart = typeof data === 'string'
+        ? parseInt(data.replace(/\D/g, ''), 10)
+        : data;
+      setNextClientNumber(numericPart);
+    } else {
+      setNextClientNumber(null);
+    }
+  }
+
+  const handleScanData = (scannedData: any) => {
+    setFormData(prev => ({
+      ...prev,
+      ...(scannedData.company_name && { name: scannedData.company_name }),
+      ...(scannedData.contact_name && { contactPerson: scannedData.contact_name }),
+      ...(scannedData.email && { email: scannedData.email }),
+      ...(scannedData.phone && { phone: scannedData.phone }),
+      ...(scannedData.address && { address: scannedData.address }),
+    }));
+    setShowScanner(false);
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -112,6 +164,7 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
           p_sales_person_id: formData.salesPersonId || null,
           p_parent_client_id: formData.parentClientId || null,
           p_parent_company_name: formData.parentCompanyName || null,
+          p_channel_partner_id: formData.channelPartnerId || null,
         });
 
         if (error) throw error;
@@ -129,20 +182,50 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
   return (
     <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 p-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Building2 className="w-7 h-7" />
-            {clientType === 'channel' ? 'Add Channel Partner' : 'Add Company Client'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/10 p-2 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <Building2 className="w-7 h-7" />
+                  {clientType === 'channel' ? 'Add Channel Partner' : 'Add Company Client'}
+                </h2>
+                {nextClientNumber !== null && (
+                  <span className={`text-sm font-semibold px-3 py-1 rounded ${
+                    clientType === 'channel' ? 'text-emerald-100 bg-emerald-600' : 'text-blue-100 bg-blue-800'
+                  }`}>
+                    {clientType === 'channel' ? '#CP' : '#'}{String(nextClientNumber).padStart(4, '0')}
+                  </span>
+                )}
+              </div>
+              {nextClientNumber !== null && (
+                <p className="text-sm text-blue-100 mt-1">
+                  New client will be assigned number {String(nextClientNumber).padStart(4, '0')}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-white/10 p-2 rounded-lg transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {clientType === 'company' && (
+            <div className="flex items-center justify-center pb-2">
+              <button
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
+              >
+                <Scan className="w-5 h-5" />
+                Scan Business Card
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -353,6 +436,25 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Channel Partner
+                  </label>
+                  <select
+                    name="channelPartnerId"
+                    value={formData.channelPartnerId}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">None</option>
+                    {channelPartners.map(cp => (
+                      <option key={cp.id} value={cp.id}>
+                        {cp.reference_number} - {cp.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
                     Parent Company
                   </label>
                   <select
@@ -444,6 +546,13 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
           </div>
         </form>
       </div>
+
+      {showScanner && (
+        <BusinessCardScanner
+          onDataExtracted={handleScanData}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 }
