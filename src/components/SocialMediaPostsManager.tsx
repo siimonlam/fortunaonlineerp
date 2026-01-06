@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, CheckCircle, Circle, Clock, Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, CheckCircle, Circle, Clock, Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook } from 'lucide-react';
 
 interface SocialPost {
   id: string;
@@ -16,6 +16,8 @@ interface SocialPost {
   status: string;
   created_by: string;
   created_at: string;
+  instagram_account_ids: string[];
+  facebook_account_ids: string[];
   creator?: {
     full_name: string;
   };
@@ -54,6 +56,8 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   const [selectedStep, setSelectedStep] = useState<number>(0);
   const [postSteps, setPostSteps] = useState<Record<string, PostStep[]>>({});
   const [staff, setStaff] = useState<any[]>([]);
+  const [instagramAccounts, setInstagramAccounts] = useState<any[]>([]);
+  const [facebookAccounts, setFacebookAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
@@ -61,6 +65,8 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     content: '',
     design_link: '',
     scheduled_post_date: '',
+    instagram_account_ids: [] as string[],
+    facebook_account_ids: [] as string[],
   });
 
   const [stepFormData, setStepFormData] = useState({
@@ -72,6 +78,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   useEffect(() => {
     loadPosts();
     loadStaff();
+    loadAccounts();
     subscribeToChanges();
   }, [marketingProjectId]);
 
@@ -152,6 +159,33 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     }
   };
 
+  const loadAccounts = async () => {
+    try {
+      const { data: marketingProject } = await supabase
+        .from('marketing_projects')
+        .select('parent_client_id')
+        .eq('id', marketingProjectId)
+        .single();
+
+      if (marketingProject?.parent_client_id) {
+        const { data: igAccounts } = await supabase
+          .from('instagram_accounts')
+          .select('id, account_name, username')
+          .eq('client_number', marketingProject.parent_client_id);
+
+        const { data: fbAccounts } = await supabase
+          .from('facebook_accounts')
+          .select('id, account_name, page_name')
+          .eq('client_number', marketingProject.parent_client_id);
+
+        setInstagramAccounts(igAccounts || []);
+        setFacebookAccounts(fbAccounts || []);
+      }
+    } catch (error) {
+      console.error('Error loading accounts:', error);
+    }
+  };
+
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -171,13 +205,22 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
           content: formData.content,
           design_link: formData.design_link,
           scheduled_post_date: formData.scheduled_post_date || null,
+          instagram_account_ids: formData.instagram_account_ids,
+          facebook_account_ids: formData.facebook_account_ids,
           created_by: staffData?.id,
         });
 
       if (error) throw error;
 
       setShowCreateModal(false);
-      setFormData({ title: '', content: '', design_link: '', scheduled_post_date: '' });
+      setFormData({
+        title: '',
+        content: '',
+        design_link: '',
+        scheduled_post_date: '',
+        instagram_account_ids: [],
+        facebook_account_ids: []
+      });
       loadPosts();
     } catch (error) {
       console.error('Error creating post:', error);
@@ -597,6 +640,78 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
+
+              {instagramAccounts.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <Instagram className="w-4 h-4 inline mr-1" />
+                    Instagram Accounts
+                  </label>
+                  <div className="space-y-2 p-3 bg-slate-50 rounded-lg max-h-32 overflow-y-auto">
+                    {instagramAccounts.map((account) => (
+                      <label key={account.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.instagram_account_ids.includes(account.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                instagram_account_ids: [...formData.instagram_account_ids, account.id]
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                instagram_account_ids: formData.instagram_account_ids.filter(id => id !== account.id)
+                              });
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-slate-900">
+                          {account.account_name} {account.username && `(@${account.username})`}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {facebookAccounts.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <Facebook className="w-4 h-4 inline mr-1" />
+                    Facebook Accounts
+                  </label>
+                  <div className="space-y-2 p-3 bg-slate-50 rounded-lg max-h-32 overflow-y-auto">
+                    {facebookAccounts.map((account) => (
+                      <label key={account.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.facebook_account_ids.includes(account.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                facebook_account_ids: [...formData.facebook_account_ids, account.id]
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                facebook_account_ids: formData.facebook_account_ids.filter(id => id !== account.id)
+                              });
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-slate-900">
+                          {account.account_name} {account.page_name && `(${account.page_name})`}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4">
                 <button

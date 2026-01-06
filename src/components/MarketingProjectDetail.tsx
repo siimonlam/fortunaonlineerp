@@ -24,6 +24,7 @@ import MarketingInstagramSection from './MarketingInstagramSection';
 import MarketingFacebookSection from './MarketingFacebookSection';
 import MarketingMetaAdSection from './MarketingMetaAdSection';
 import { SocialMediaPostsManager } from './SocialMediaPostsManager';
+import { InfluencerCollaboration } from './InfluencerCollaboration';
 import { createMarketingProjectFolders } from '../utils/googleDriveUtils';
 
 interface MarketingProject {
@@ -301,6 +302,13 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
       case 'meta-ad':
         return <MarketingMetaAdSection projectId={projectId} clientNumber={project?.parent_client_id || null} />;
+
+      case 'influencer-collab':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <InfluencerCollaboration marketingProjectId={projectId} />
+          </div>
+        );
 
       case 'social-media':
         return (
