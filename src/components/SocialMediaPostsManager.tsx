@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, CheckCircle, Circle, Clock, Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook } from 'lucide-react';
+import { Plus, CheckCircle, Circle, Clock, Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save } from 'lucide-react';
 
 interface SocialPost {
   id: string;
@@ -49,16 +49,21 @@ interface SocialMediaPostsManagerProps {
 export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPostsManagerProps) {
   const { user } = useAuth();
   const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [filteredPosts, setFilteredPosts] = useState<SocialPost[]>([]);
+  const [accountFilter, setAccountFilter] = useState<'all' | 'instagram' | 'facebook'>('all');
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showStepModal, setShowStepModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
   const [selectedStep, setSelectedStep] = useState<number>(0);
+  const [editingPost, setEditingPost] = useState<string | null>(null);
   const [postSteps, setPostSteps] = useState<Record<string, PostStep[]>>({});
   const [staff, setStaff] = useState<any[]>([]);
   const [instagramAccounts, setInstagramAccounts] = useState<any[]>([]);
   const [facebookAccounts, setFacebookAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accountDesigners, setAccountDesigners] = useState<Record<string, string>>({});
+  const [accountApprovers, setAccountApprovers] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState({
     title: '',
@@ -67,6 +72,12 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     scheduled_post_date: '',
     instagram_account_ids: [] as string[],
     facebook_account_ids: [] as string[],
+  });
+
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    content: '',
+    design_link: '',
   });
 
   const [stepFormData, setStepFormData] = useState({
@@ -82,6 +93,10 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     subscribeToChanges();
   }, [marketingProjectId]);
 
+  useEffect(() => {
+    filterPosts();
+  }, [posts, accountFilter]);
+
   const subscribeToChanges = () => {
     const postsChannel = supabase
       .channel('marketing_social_posts_changes')
@@ -96,6 +111,16 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     return () => {
       supabase.removeChannel(postsChannel);
     };
+  };
+
+  const filterPosts = () => {
+    if (accountFilter === 'all') {
+      setFilteredPosts(posts);
+    } else if (accountFilter === 'instagram') {
+      setFilteredPosts(posts.filter(p => p.instagram_account_ids && p.instagram_account_ids.length > 0));
+    } else if (accountFilter === 'facebook') {
+      setFilteredPosts(posts.filter(p => p.facebook_account_ids && p.facebook_account_ids.length > 0));
+    }
   };
 
   const loadPosts = async () => {
@@ -169,10 +194,10 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
       if (!marketingProject) return;
 
-      // Load Instagram accounts linked to this marketing project
+      // Load Instagram accounts with designer/approver
       const { data: linkedIgAccounts } = await supabase
         .from('marketing_project_instagram_accounts')
-        .select('account_id')
+        .select('account_id, designer_id, approver_id')
         .eq('marketing_project_id', marketingProjectId);
 
       if (linkedIgAccounts && linkedIgAccounts.length > 0) {
@@ -183,14 +208,24 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
           .in('account_id', accountIds);
 
         setInstagramAccounts(igAccounts || []);
+
+        // Store designer/approver mappings
+        const designers: Record<string, string> = {};
+        const approvers: Record<string, string> = {};
+        linkedIgAccounts.forEach(link => {
+          if (link.designer_id) designers[link.account_id] = link.designer_id;
+          if (link.approver_id) approvers[link.account_id] = link.approver_id;
+        });
+        setAccountDesigners(prev => ({ ...prev, ...designers }));
+        setAccountApprovers(prev => ({ ...prev, ...approvers }));
       } else {
         setInstagramAccounts([]);
       }
 
-      // Load Facebook accounts linked to this marketing project
+      // Load Facebook accounts with designer/approver
       const { data: linkedFbAccounts } = await supabase
         .from('marketing_facebook_accounts')
-        .select('page_id')
+        .select('page_id, designer_id, approver_id')
         .eq('marketing_reference', marketingProject.project_reference);
 
       if (linkedFbAccounts && linkedFbAccounts.length > 0) {
@@ -201,6 +236,16 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
           .in('page_id', pageIds);
 
         setFacebookAccounts(fbAccounts || []);
+
+        // Store designer/approver mappings
+        const designers: Record<string, string> = {};
+        const approvers: Record<string, string> = {};
+        linkedFbAccounts.forEach(link => {
+          if (link.designer_id) designers[link.page_id] = link.designer_id;
+          if (link.approver_id) approvers[link.page_id] = link.approver_id;
+        });
+        setAccountDesigners(prev => ({ ...prev, ...designers }));
+        setAccountApprovers(prev => ({ ...prev, ...approvers }));
       } else {
         setFacebookAccounts([]);
       }
@@ -253,22 +298,149 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     }
   };
 
-  const handleUpdatePost = async (postId: string, updates: Partial<SocialPost>) => {
+  const handleUpdatePost = async (postId: string) => {
     try {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+
       const { error } = await supabase
         .from('marketing_social_posts')
         .update({
-          ...updates,
+          title: editFormData.title,
+          content: editFormData.content,
+          design_link: editFormData.design_link,
           draft_edit_date: new Date().toISOString(),
-          version: updates.version ? updates.version + 1 : undefined,
+          version: post.version + 1,
         })
         .eq('id', postId);
 
       if (error) throw error;
+      setEditingPost(null);
       loadPosts();
     } catch (error) {
       console.error('Error updating post:', error);
       alert('Failed to update post');
+    }
+  };
+
+  const startEditing = (post: SocialPost) => {
+    setEditingPost(post.id);
+    setEditFormData({
+      title: post.title,
+      content: post.content,
+      design_link: post.design_link,
+    });
+  };
+
+  const handleApproveStep = async (post: SocialPost, step: PostStep) => {
+    if (!user) return;
+
+    try {
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      // Mark step 2 as completed
+      await supabase
+        .from('marketing_social_post_steps')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completed_by: staffData?.id,
+          notes: (step.notes || '') + '\n✓ Approved',
+        })
+        .eq('id', step.id);
+
+      // Get designer for step 3
+      const allAccountIds = [
+        ...(post.instagram_account_ids || []),
+        ...(post.facebook_account_ids || [])
+      ];
+      const designerId = allAccountIds.length > 0 ? accountDesigners[allAccountIds[0]] : post.created_by;
+
+      // Create step 3
+      await supabase
+        .from('marketing_social_post_steps')
+        .insert({
+          post_id: post.id,
+          step_number: 3,
+          step_name: 'Content Posted',
+          assigned_to: designerId || post.created_by,
+          due_date: post.scheduled_post_date,
+          status: 'pending',
+        });
+
+      // Update post status
+      await supabase
+        .from('marketing_social_posts')
+        .update({
+          current_step: 3,
+          status: 'approved',
+        })
+        .eq('id', post.id);
+
+      loadPosts();
+    } catch (error) {
+      console.error('Error approving step:', error);
+      alert('Failed to approve');
+    }
+  };
+
+  const handleDisapproveStep = async (post: SocialPost, step: PostStep) => {
+    if (!user) return;
+
+    const reason = prompt('Reason for disapproval:');
+    if (!reason) return;
+
+    try {
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      // Update step 2 notes with disapproval
+      await supabase
+        .from('marketing_social_post_steps')
+        .update({
+          notes: (step.notes || '') + `\n✗ Disapproved: ${reason}`,
+        })
+        .eq('id', step.id);
+
+      // Mark step 1 as incomplete
+      const step1 = (postSteps[post.id] || []).find(s => s.step_number === 1);
+      if (step1) {
+        await supabase
+          .from('marketing_social_post_steps')
+          .update({
+            status: 'in_progress',
+            completed_at: null,
+            completed_by: null,
+          })
+          .eq('id', step1.id);
+      }
+
+      // Delete step 2
+      await supabase
+        .from('marketing_social_post_steps')
+        .delete()
+        .eq('id', step.id);
+
+      // Update post back to draft
+      await supabase
+        .from('marketing_social_posts')
+        .update({
+          current_step: 1,
+          status: 'draft',
+        })
+        .eq('id', post.id);
+
+      loadPosts();
+    } catch (error) {
+      console.error('Error disapproving step:', error);
+      alert('Failed to disapprove');
     }
   };
 
@@ -287,6 +459,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
       if (!currentStep) return;
 
+      // Mark current step as completed
       await supabase
         .from('marketing_social_post_steps')
         .update({
@@ -296,30 +469,34 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
         })
         .eq('id', currentStep.id);
 
-      if (stepNumber < 3) {
-        const nextStepNumber = stepNumber + 1;
-        const nextStepNames = ['', 'Content Drafting', 'Approval', 'Content Posted'];
-        const nextStepStatuses = ['', 'draft', 'in_approval', 'approved'];
+      if (stepNumber === 1) {
+        // Get approver for step 2
+        const allAccountIds = [
+          ...(post.instagram_account_ids || []),
+          ...(post.facebook_account_ids || [])
+        ];
+        const approverId = allAccountIds.length > 0 ? accountApprovers[allAccountIds[0]] : null;
 
+        // Create step 2
         await supabase
           .from('marketing_social_post_steps')
           .insert({
             post_id: post.id,
-            step_number: nextStepNumber,
-            step_name: nextStepNames[nextStepNumber],
-            assigned_to: nextStepNumber === 3 ? post.created_by : null,
-            due_date: nextStepNumber === 3 ? post.scheduled_post_date : null,
+            step_number: 2,
+            step_name: 'Approval',
+            assigned_to: approverId,
             status: 'pending',
           });
 
         await supabase
           .from('marketing_social_posts')
           .update({
-            current_step: nextStepNumber,
-            status: nextStepStatuses[nextStepNumber],
+            current_step: 2,
+            status: 'in_approval',
           })
           .eq('id', post.id);
-      } else {
+      } else if (stepNumber === 3) {
+        // Mark post as posted
         await supabase
           .from('marketing_social_posts')
           .update({
@@ -438,16 +615,52 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-slate-900">Social Media Posts</h3>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          New Post
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => setAccountFilter('all')}
+              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                accountFilter === 'all'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setAccountFilter('instagram')}
+              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center gap-1 ${
+                accountFilter === 'instagram'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Instagram className="w-4 h-4" />
+              Instagram
+            </button>
+            <button
+              onClick={() => setAccountFilter('facebook')}
+              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center gap-1 ${
+                accountFilter === 'facebook'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Facebook className="w-4 h-4" />
+              Facebook
+            </button>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Post
+          </button>
+        </div>
       </div>
 
-      {posts.length === 0 ? (
+      {filteredPosts.length === 0 ? (
         <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
           <p className="text-slate-600 mb-4">No social media posts yet</p>
           <button
@@ -459,9 +672,11 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
         </div>
       ) : (
         <div className="space-y-3">
-          {posts.map((post) => {
+          {filteredPosts.map((post) => {
             const steps = postSteps[post.id] || [];
             const isExpanded = expandedPosts.has(post.id);
+            const isEditing = editingPost === post.id;
+            const canEdit = post.current_step === 1 && post.status === 'draft';
 
             return (
               <div key={post.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
@@ -477,39 +692,106 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-slate-900">{post.title}</h4>
-                          <div className="flex items-center gap-3 mt-1 text-sm text-slate-600">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(post.status)}`}>
-                              {post.status}
-                            </span>
-                            <span>Step {post.current_step} of 3</span>
-                            <span>v{post.version}</span>
-                            {post.creator && (
-                              <span className="flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                {post.creator.full_name}
-                              </span>
-                            )}
-                          </div>
+                          {isEditing && canEdit ? (
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={editFormData.title}
+                                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm font-semibold"
+                              />
+                              <textarea
+                                value={editFormData.content}
+                                onChange={(e) => setEditFormData({ ...editFormData, content: e.target.value })}
+                                rows={3}
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
+                                placeholder="Content..."
+                              />
+                              <input
+                                type="url"
+                                value={editFormData.design_link}
+                                onChange={(e) => setEditFormData({ ...editFormData, design_link: e.target.value })}
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
+                                placeholder="Design link..."
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleUpdatePost(post.id)}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                                >
+                                  <Save className="w-3 h-3" />
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setEditingPost(null)}
+                                  className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded text-sm hover:bg-slate-200"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-slate-900">{post.title}</h4>
+                                {canEdit && !isEditing && (
+                                  <button
+                                    onClick={() => startEditing(post)}
+                                    className="text-blue-600 hover:text-blue-700"
+                                    title="Edit post"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-sm text-slate-600 flex-wrap">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(post.status)}`}>
+                                  {post.status}
+                                </span>
+                                <span>Step {post.current_step} of 3</span>
+                                <span>v{post.version}</span>
+                                {post.instagram_account_ids && post.instagram_account_ids.length > 0 && (
+                                  <span className="flex items-center gap-1 text-pink-600">
+                                    <Instagram className="w-3 h-3" />
+                                    {post.instagram_account_ids.length}
+                                  </span>
+                                )}
+                                {post.facebook_account_ids && post.facebook_account_ids.length > 0 && (
+                                  <span className="flex items-center gap-1 text-blue-600">
+                                    <Facebook className="w-3 h-3" />
+                                    {post.facebook_account_ids.length}
+                                  </span>
+                                )}
+                                {post.creator && (
+                                  <span className="flex items-center gap-1">
+                                    <User className="w-3 h-3" />
+                                    {post.creator.full_name}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
 
-                        <button
-                          onClick={() => handleDeletePost(post.id)}
-                          className="text-slate-400 hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {!isEditing && (
+                          <button
+                            onClick={() => handleDeletePost(post.id)}
+                            className="text-slate-400 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
 
-                      {isExpanded && (
+                      {isExpanded && !isEditing && (
                         <div className="mt-4 space-y-4">
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                              <label className="text-slate-600">Content:</label>
+                              <label className="text-slate-600 font-medium">Content:</label>
                               <p className="text-slate-900 mt-1">{post.content || 'No content yet'}</p>
                             </div>
                             <div>
-                              <label className="text-slate-600">Design Link:</label>
+                              <label className="text-slate-600 font-medium">Design Link:</label>
                               {post.design_link ? (
                                 <a href={post.design_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 mt-1">
                                   View Design <ExternalLink className="w-3 h-3" />
@@ -519,13 +801,13 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                               )}
                             </div>
                             <div>
-                              <label className="text-slate-600">Scheduled Date:</label>
+                              <label className="text-slate-600 font-medium">Scheduled Date:</label>
                               <p className="text-slate-900 mt-1">
                                 {post.scheduled_post_date ? new Date(post.scheduled_post_date).toLocaleString() : 'Not scheduled'}
                               </p>
                             </div>
                             <div>
-                              <label className="text-slate-600">Last Edited:</label>
+                              <label className="text-slate-600 font-medium">Last Edited:</label>
                               <p className="text-slate-900 mt-1">
                                 {new Date(post.draft_edit_date).toLocaleString()}
                               </p>
@@ -547,21 +829,43 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                   <div className="flex-1">
                                     <div className="flex items-center justify-between">
                                       <h6 className="font-medium text-slate-900">{stepNames[stepNum]}</h6>
-                                      {step && step.status !== 'completed' && (
+                                      {step && (
                                         <div className="flex items-center gap-2">
-                                          <button
-                                            onClick={() => openStepModal(post, stepNum)}
-                                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                                          >
-                                            Edit Step
-                                          </button>
-                                          {step.status === 'in_progress' && (
-                                            <button
-                                              onClick={() => handleCompleteStep(post, stepNum)}
-                                              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                                            >
-                                              Complete
-                                            </button>
+                                          {stepNum === 2 && step.status !== 'completed' && (
+                                            <>
+                                              <button
+                                                onClick={() => handleApproveStep(post, step)}
+                                                className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                              >
+                                                <Check className="w-3 h-3" />
+                                                Approve
+                                              </button>
+                                              <button
+                                                onClick={() => handleDisapproveStep(post, step)}
+                                                className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                                              >
+                                                <XIcon className="w-3 h-3" />
+                                                Disapprove
+                                              </button>
+                                            </>
+                                          )}
+                                          {step.status !== 'completed' && stepNum !== 2 && (
+                                            <>
+                                              <button
+                                                onClick={() => openStepModal(post, stepNum)}
+                                                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                              >
+                                                Edit Step
+                                              </button>
+                                              {step.status === 'in_progress' && (
+                                                <button
+                                                  onClick={() => handleCompleteStep(post, stepNum)}
+                                                  className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                                >
+                                                  Complete
+                                                </button>
+                                              )}
+                                            </>
                                           )}
                                         </div>
                                       )}
@@ -588,7 +892,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                           </p>
                                         )}
                                         {step.notes && (
-                                          <p className="text-slate-700 mt-1">Note: {step.notes}</p>
+                                          <p className="text-slate-700 mt-1 whitespace-pre-line">Note: {step.notes}</p>
                                         )}
                                       </div>
                                     )}
