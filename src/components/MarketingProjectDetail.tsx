@@ -73,7 +73,7 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   const [project, setProject] = useState<MarketingProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<MarketingSection>('summary');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['summary', 'reports', 'project-management']));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['summary']));
   const [creatingFolders, setCreatingFolders] = useState(false);
   const [folderError, setFolderError] = useState<string | null>(null);
   const [visibleSections, setVisibleSections] = useState<string[]>([]);

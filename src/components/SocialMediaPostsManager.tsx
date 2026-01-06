@@ -1162,7 +1162,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                               >
                                                 Edit Step
                                               </button>
-                                              {step.status === 'in_progress' && (
+                                              {(step.status === 'in_progress' || step.status === 'pending') && (
                                                 <button
                                                   onClick={() => handleCompleteStep(post, stepNum)}
                                                   className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
