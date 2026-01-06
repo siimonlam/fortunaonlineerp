@@ -306,7 +306,22 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       case 'influencer-collab':
         return (
           <div className="bg-white rounded-lg shadow p-6">
-            <InfluencerCollaboration marketingProjectId={projectId} />
+            <div className="text-center py-12">
+              <div className="text-blue-600 mb-4">
+                <Users size={64} className="mx-auto" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">Influencer Collaboration</h3>
+              <p className="text-slate-600 mb-4">
+                View and analyze influencer collaboration performance metrics here.
+              </p>
+              <button
+                onClick={() => setActiveSection('influencer-management')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Manage Influencers
+                <ArrowLeft className="w-4 h-4 rotate-180" />
+              </button>
+            </div>
           </div>
         );
 
@@ -374,6 +389,13 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
                 )}
               </div>
             )}
+          </div>
+        );
+
+      case 'influencer-management':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <InfluencerCollaboration marketingProjectId={projectId} />
           </div>
         );
 
