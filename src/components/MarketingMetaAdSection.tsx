@@ -430,33 +430,17 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
   const loadAdSets = async (monthlyData: any[]) => {
     try {
-      const adsetIds = [...new Set(monthlyData.map(d => d.adset_id).filter(Boolean))];
-
-      if (adsetIds.length === 0) {
-        setAdSets([]);
-        return;
-      }
-
-      const { data: adsetsData } = await supabase
-        .from('meta_adsets')
-        .select('adset_id, name, status')
-        .in('adset_id', adsetIds);
-
-      const adsetInfoMap = new Map((adsetsData || []).map(a => [a.adset_id, a]));
-
       const adsetMap = new Map<string, any>();
 
       monthlyData.forEach((insight) => {
         if (!insight.adset_id) return;
 
-        const adsetInfo = adsetInfoMap.get(insight.adset_id);
-
         if (!adsetMap.has(insight.adset_id)) {
           adsetMap.set(insight.adset_id, {
             adset_id: insight.adset_id,
-            name: adsetInfo?.name || `Ad Set ${insight.adset_id.slice(-6)}`,
+            name: insight.adset_name || `Ad Set ${insight.adset_id.slice(-6)}`,
             campaign_id: insight.campaign_id,
-            status: adsetInfo?.status || 'ACTIVE',
+            status: 'ACTIVE',
             total_spend: 0,
             total_impressions: 0,
             total_clicks: 0,
