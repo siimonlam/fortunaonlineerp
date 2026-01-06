@@ -440,21 +440,24 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Sales Source
                   </label>
-                  <select
+                  <input
+                    type="text"
                     name="salesSource"
+                    list="sales-source-options"
                     value={formData.salesSource}
                     onChange={(e) => {
                       const value = e.target.value;
-                      const selectedPartner = channelPartners.find(cp => cp.reference_number === value);
+                      const selectedPartner = channelPartners.find(cp => cp.reference_number === value || `${cp.reference_number} - ${cp.name}` === value);
                       if (selectedPartner) {
-                        setFormData({ ...formData, salesSource: value, channelPartnerId: selectedPartner.id, salesSourceDetail: '' });
+                        setFormData({ ...formData, salesSource: selectedPartner.reference_number, channelPartnerId: selectedPartner.id, salesSourceDetail: '' });
                       } else {
                         setFormData({ ...formData, salesSource: value, channelPartnerId: '', salesSourceDetail: '' });
                       }
                     }}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">-- Select Sales Source --</option>
+                    placeholder="Type to search or select..."
+                  />
+                  <datalist id="sales-source-options">
                     <option value="Direct">Direct</option>
                     <option value="Referral">Referral</option>
                     <option value="Website">Website</option>
@@ -463,17 +466,15 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                     <option value="Marketing">Marketing</option>
                     <option value="Social Media">Social Media</option>
                     <option value="Others">Others</option>
-                    <optgroup label="Channel Partners">
-                      {channelPartners.map(partner => (
-                        <option key={partner.id} value={partner.reference_number}>
-                          {partner.reference_number} - {partner.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
+                    {channelPartners.map(partner => (
+                      <option key={partner.id} value={`${partner.reference_number} - ${partner.name}`}>
+                        {partner.reference_number} - {partner.name}
+                      </option>
+                    ))}
+                  </datalist>
                 </div>
 
-                {(formData.salesSource === 'Seminar' || formData.salesSource === 'Exhibition') && (
+                {(formData.salesSource && (formData.salesSource === 'Seminar' || formData.salesSource === 'Exhibition')) && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       {formData.salesSource === 'Seminar' ? 'Which Seminar?' : 'Which Exhibition?'}
@@ -489,7 +490,7 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                   </div>
                 )}
 
-                {formData.salesSource === 'Others' && (
+                {(formData.salesSource && formData.salesSource === 'Others') && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Specify Other Source
@@ -541,7 +542,7 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                     }}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="">None (New Parent Account)</option>
+                    <option value="">Self (This Client)</option>
                     {allClients.map(c => (
                       <option key={c.id} value={c.client_number}>
                         {c.client_number} - {c.name}
