@@ -1771,7 +1771,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
                     {reportView === 'creatives' && (
                       <CreativePerformanceGallery
-                        accountId={selectedAccountId}
+                        accountId={selectedAccountForView}
                         dateRange={selectedMonth === 'last_6_months' ? {
                           since: new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString().split('T')[0],
                           until: new Date().toISOString().split('T')[0]
