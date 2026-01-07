@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X, User, Clock } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X, User, Clock, AlertCircle } from 'lucide-react';
 import { toLocalDateTimeString, fromLocalDateTimeString } from '../utils/dateTimeUtils';
 
 interface Meeting {
@@ -56,7 +56,7 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
     location: '',
     attendees: [] as string[],
     attendeeInput: '',
-    tasks: [] as { title: string; description: string; assigned_to: string | null; deadline: string | null }[]
+    tasks: [] as { id?: string; title: string; description: string; assigned_to: string | null; deadline: string | null }[]
   });
 
   useEffect(() => {
@@ -124,6 +124,7 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
         .eq('id', editingMeeting.id);
 
       if (!error) {
+        await updateTasks(editingMeeting.id);
         fetchMeetings();
         resetForm();
       }
@@ -159,6 +160,54 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
     await supabase.from('tasks').insert(tasks);
   };
 
+  const updateTasks = async (meetingId: string) => {
+    const tasksWithContent = formData.tasks.filter(task => task.title.trim());
+
+    const existingTaskIds = tasksWithContent.filter(t => t.id).map(t => t.id!);
+    const newTasks = tasksWithContent.filter(t => !t.id);
+
+    const { data: currentTasks } = await supabase
+      .from('tasks')
+      .select('id')
+      .eq('meeting_id', meetingId);
+
+    const currentTaskIds = currentTasks?.map(t => t.id) || [];
+    const tasksToDelete = currentTaskIds.filter(id => !existingTaskIds.includes(id));
+
+    if (tasksToDelete.length > 0) {
+      await supabase
+        .from('tasks')
+        .delete()
+        .in('id', tasksToDelete);
+    }
+
+    for (const task of tasksWithContent.filter(t => t.id)) {
+      await supabase
+        .from('tasks')
+        .update({
+          title: task.title,
+          description: task.description,
+          assigned_to: task.assigned_to,
+          deadline: task.deadline ? new Date(task.deadline).toISOString() : null
+        })
+        .eq('id', task.id!);
+    }
+
+    if (newTasks.length > 0) {
+      const tasks = newTasks.map(task => ({
+        meeting_id: meetingId,
+        marketing_project_id: marketingProjectId,
+        title: task.title,
+        description: task.description,
+        assigned_to: task.assigned_to,
+        deadline: task.deadline ? new Date(task.deadline).toISOString() : null,
+        completed: false
+      }));
+
+      await supabase.from('tasks').insert(tasks);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       title: '',
@@ -173,8 +222,15 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
     setEditingMeeting(null);
   };
 
-  const handleEdit = (meeting: Meeting) => {
+  const handleEdit = async (meeting: Meeting) => {
     setEditingMeeting(meeting);
+
+    const { data: existingTasks } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('meeting_id', meeting.id)
+      .order('created_at', { ascending: true });
+
     setFormData({
       title: meeting.title,
       description: meeting.description,
@@ -182,7 +238,13 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
       location: meeting.location,
       attendees: meeting.attendees,
       attendeeInput: '',
-      tasks: []
+      tasks: existingTasks?.map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        assigned_to: task.assigned_to,
+        deadline: task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : null
+      })) || []
     });
     setShowModal(true);
   };
@@ -271,6 +333,25 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
     setFormData({ ...formData, tasks: newTasks });
   };
 
+  const getTaskReminders = () => {
+    const allTasks: MeetingTask[] = Object.values(meetingTasks).flat();
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const overdueTasks = allTasks.filter(
+      task => !task.completed && task.deadline && new Date(task.deadline) < now
+    );
+
+    const upcomingTasks = allTasks.filter(
+      task => !task.completed && task.deadline &&
+      new Date(task.deadline) >= now && new Date(task.deadline) <= sevenDaysFromNow
+    );
+
+    return { overdueTasks, upcomingTasks };
+  };
+
+  const { overdueTasks, upcomingTasks } = getTaskReminders();
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -283,6 +364,66 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
           Add Meeting
         </button>
       </div>
+
+      {(overdueTasks.length > 0 || upcomingTasks.length > 0) && (
+        <div className="space-y-3">
+          {overdueTasks.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h4 className="font-medium text-red-900 mb-3 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                Overdue Tasks ({overdueTasks.length})
+              </h4>
+              <div className="space-y-2">
+                {overdueTasks.map((task) => (
+                  <div key={task.id} className="flex items-start gap-2 text-sm">
+                    <button
+                      onClick={() => toggleTaskComplete(task)}
+                      className="mt-0.5 flex-shrink-0"
+                    >
+                      <Square className="w-4 h-4 text-red-600" />
+                    </button>
+                    <div className="flex-1">
+                      <p className="text-red-900 font-medium">{task.title}</p>
+                      <p className="text-red-700 text-xs mt-1">
+                        Due: {new Date(task.deadline!).toLocaleDateString()}
+                        {task.staff && ` • ${task.staff.full_name}`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {upcomingTasks.length > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h4 className="font-medium text-yellow-900 mb-3 flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Upcoming Tasks ({upcomingTasks.length})
+              </h4>
+              <div className="space-y-2">
+                {upcomingTasks.map((task) => (
+                  <div key={task.id} className="flex items-start gap-2 text-sm">
+                    <button
+                      onClick={() => toggleTaskComplete(task)}
+                      className="mt-0.5 flex-shrink-0"
+                    >
+                      <Square className="w-4 h-4 text-yellow-600" />
+                    </button>
+                    <div className="flex-1">
+                      <p className="text-yellow-900 font-medium">{task.title}</p>
+                      <p className="text-yellow-700 text-xs mt-1">
+                        Due: {new Date(task.deadline!).toLocaleDateString()}
+                        {task.staff && ` • ${task.staff.full_name}`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {meetings.length === 0 ? (
         <div className="bg-gray-50 rounded-lg p-8 text-center">
@@ -548,21 +689,20 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
                 </div>
               </div>
 
-              {!editingMeeting && (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Tasks
-                    </label>
-                    <button
-                      type="button"
-                      onClick={addTask}
-                      className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Task
-                    </button>
-                  </div>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Tasks
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addTask}
+                    className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Task
+                  </button>
+                </div>
                   <div className="space-y-3">
                     {formData.tasks.map((task, index) => (
                       <div key={index} className="p-4 bg-gray-50 rounded-lg space-y-3">
@@ -613,7 +753,6 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
                     ))}
                   </div>
                 </div>
-              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button

@@ -631,9 +631,16 @@ export function ProjectBoard() {
         return;
       }
 
-      const [tasksResult, socialStepsResult] = await Promise.all([
+      const [tasksResult, meetingTasksResult, socialStepsResult] = await Promise.all([
         supabase
           .from('marketing_tasks')
+          .select('id, deadline, completed, marketing_project_id')
+          .in('marketing_project_id', projectIds)
+          .eq('assigned_to', user.id)
+          .eq('completed', false)
+          .not('deadline', 'is', null),
+        supabase
+          .from('tasks')
           .select('id, deadline, completed, marketing_project_id')
           .in('marketing_project_id', projectIds)
           .eq('assigned_to', user.id)
@@ -654,6 +661,7 @@ export function ProjectBoard() {
       ]);
 
       if (tasksResult.error) throw tasksResult.error;
+      if (meetingTasksResult.error) throw meetingTasksResult.error;
       if (socialStepsResult.error) throw socialStepsResult.error;
 
       const now = new Date();
@@ -666,6 +674,18 @@ export function ProjectBoard() {
       }).length;
 
       const tasksUpcoming = (tasksResult.data || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline >= now;
+      }).length;
+
+      const meetingTasksPastDue = (meetingTasksResult.data || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline < now;
+      }).length;
+
+      const meetingTasksUpcoming = (meetingTasksResult.data || []).filter(task => {
         const deadline = new Date(task.deadline);
         deadline.setHours(0, 0, 0, 0);
         return deadline >= now;
@@ -684,8 +704,8 @@ export function ProjectBoard() {
       }).length;
 
       setMarketingTaskCounts({
-        pastDue: tasksPastDue + socialPastDue,
-        upcoming: tasksUpcoming + socialUpcoming
+        pastDue: tasksPastDue + meetingTasksPastDue + socialPastDue,
+        upcoming: tasksUpcoming + meetingTasksUpcoming + socialUpcoming
       });
 
       const statusCounts: Record<string, { pastDue: number; upcoming: number }> = {};
@@ -693,6 +713,7 @@ export function ProjectBoard() {
 
       marketingProjectsData.forEach(project => {
         const projectTasks = (tasksResult.data || []).filter(t => t.marketing_project_id === project.id);
+        const projectMeetingTasks = (meetingTasksResult.data || []).filter(t => t.marketing_project_id === project.id);
         const projectSocialSteps = (socialStepsResult.data || []).filter(s => s.post.marketing_project_id === project.id);
 
         const projTasksPastDue = projectTasks.filter(task => {
@@ -702,6 +723,18 @@ export function ProjectBoard() {
         }).length;
 
         const projTasksUpcoming = projectTasks.filter(task => {
+          const deadline = new Date(task.deadline);
+          deadline.setHours(0, 0, 0, 0);
+          return deadline >= now;
+        }).length;
+
+        const projMeetingTasksPastDue = projectMeetingTasks.filter(task => {
+          const deadline = new Date(task.deadline);
+          deadline.setHours(0, 0, 0, 0);
+          return deadline < now;
+        }).length;
+
+        const projMeetingTasksUpcoming = projectMeetingTasks.filter(task => {
           const deadline = new Date(task.deadline);
           deadline.setHours(0, 0, 0, 0);
           return deadline >= now;
@@ -720,15 +753,15 @@ export function ProjectBoard() {
         }).length;
 
         projectCounts[project.id] = {
-          pastDue: projTasksPastDue + projSocialPastDue,
-          upcoming: projTasksUpcoming + projSocialUpcoming
+          pastDue: projTasksPastDue + projMeetingTasksPastDue + projSocialPastDue,
+          upcoming: projTasksUpcoming + projMeetingTasksUpcoming + projSocialUpcoming
         };
 
         if (!statusCounts[project.status_id]) {
           statusCounts[project.status_id] = { pastDue: 0, upcoming: 0 };
         }
-        statusCounts[project.status_id].pastDue += projTasksPastDue + projSocialPastDue;
-        statusCounts[project.status_id].upcoming += projTasksUpcoming + projSocialUpcoming;
+        statusCounts[project.status_id].pastDue += projTasksPastDue + projMeetingTasksPastDue + projSocialPastDue;
+        statusCounts[project.status_id].upcoming += projTasksUpcoming + projMeetingTasksUpcoming + projSocialUpcoming;
       });
 
       setMarketingStatusTaskCounts(statusCounts);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X, User } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X, User, Clock, AlertCircle } from 'lucide-react';
 import { toLocalDateTimeString, fromLocalDateTimeString } from '../utils/dateTimeUtils';
 
 interface Meeting {
@@ -381,6 +381,25 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
     return projects.find(p => p.id === meeting.project_id);
   };
 
+  const getTaskReminders = () => {
+    const allTasks: MeetingTask[] = Object.values(meetingTasks).flat();
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const overdueTasks = allTasks.filter(
+      task => !task.completed && task.deadline && new Date(task.deadline) < now
+    );
+
+    const upcomingTasks = allTasks.filter(
+      task => !task.completed && task.deadline &&
+      new Date(task.deadline) >= now && new Date(task.deadline) <= sevenDaysFromNow
+    );
+
+    return { overdueTasks, upcomingTasks };
+  };
+
+  const { overdueTasks, upcomingTasks } = getTaskReminders();
+
   return (
     <div className="flex h-full">
       {/* Sidebar with meetings list */}
@@ -394,6 +413,87 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
             Add Meeting
           </button>
         </div>
+
+        {(overdueTasks.length > 0 || upcomingTasks.length > 0) && (
+          <div className="p-4 space-y-3 border-b border-slate-200">
+            {overdueTasks.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <h4 className="text-xs font-semibold text-red-900 mb-2 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4" />
+                  Overdue Tasks ({overdueTasks.length})
+                </h4>
+                <div className="space-y-2">
+                  {overdueTasks.slice(0, 3).map((task) => (
+                    <div key={task.id} className="flex items-start gap-2 text-xs">
+                      <button
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from('tasks')
+                            .update({ completed: true })
+                            .eq('id', task.id);
+                          if (!error && task.meeting_id) {
+                            fetchMeetingTasks(task.meeting_id);
+                          }
+                        }}
+                        className="mt-0.5 flex-shrink-0"
+                      >
+                        <Square className="w-3.5 h-3.5 text-red-600" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-red-900 font-medium truncate">{task.title}</p>
+                        <p className="text-red-700 text-xs">
+                          {new Date(task.deadline!).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {overdueTasks.length > 3 && (
+                    <p className="text-xs text-red-700 font-medium">+{overdueTasks.length - 3} more</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {upcomingTasks.length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <h4 className="text-xs font-semibold text-yellow-900 mb-2 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
+                  Upcoming Tasks ({upcomingTasks.length})
+                </h4>
+                <div className="space-y-2">
+                  {upcomingTasks.slice(0, 3).map((task) => (
+                    <div key={task.id} className="flex items-start gap-2 text-xs">
+                      <button
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from('tasks')
+                            .update({ completed: true })
+                            .eq('id', task.id);
+                          if (!error && task.meeting_id) {
+                            fetchMeetingTasks(task.meeting_id);
+                          }
+                        }}
+                        className="mt-0.5 flex-shrink-0"
+                      >
+                        <Square className="w-3.5 h-3.5 text-yellow-600" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-yellow-900 font-medium truncate">{task.title}</p>
+                        <p className="text-yellow-700 text-xs">
+                          {new Date(task.deadline!).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {upcomingTasks.length > 3 && (
+                    <p className="text-xs text-yellow-700 font-medium">+{upcomingTasks.length - 3} more</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <nav className="p-4">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
             Meetings
