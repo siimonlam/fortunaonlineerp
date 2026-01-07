@@ -1271,93 +1271,111 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                       </div>
                     )}
 
-                    {reportView === 'campaigns' && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                              <th
-                                className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                onClick={() => handleSort('name')}
-                              >
-                                Campaign Name {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                              </th>
-                              <th
-                                className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                onClick={() => handleSort('objective')}
-                              >
-                                Objective {sortConfig?.key === 'objective' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                              </th>
-                              <th
-                                className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                onClick={() => handleSort('status')}
-                              >
-                                Status {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                              </th>
-                              <th
-                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                onClick={() => handleSort('total_spend')}
-                              >
-                                Spend {sortConfig?.key === 'total_spend' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                              </th>
-                              <th
-                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                onClick={() => handleSort('total_impressions')}
-                              >
-                                Impressions {sortConfig?.key === 'total_impressions' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                              </th>
-                              <th
-                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                onClick={() => handleSort('total_clicks')}
-                              >
-                                Clicks {sortConfig?.key === 'total_clicks' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                              </th>
-                              <th
-                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                onClick={() => handleSort('total_results')}
-                              >
-                                Results {sortConfig?.key === 'total_results' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                              </th>
-                              <th
-                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                onClick={() => handleSort('avg_ctr')}
-                              >
-                                CTR {sortConfig?.key === 'avg_ctr' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                              </th>
-                              <th
-                                className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                onClick={() => handleSort('avg_cpc')}
-                              >
-                                CPC {sortConfig?.key === 'avg_cpc' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {getSortedCampaigns(campaigns.filter(c => c.account_id === link.account_id)).map((campaign) => (
-                              <tr key={campaign.campaign_id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 text-gray-900 font-medium">{campaign.name}</td>
-                                <td className="px-4 py-3 text-gray-700">{campaign.objective}</td>
-                                <td className="px-4 py-3">
-                                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                                    campaign.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                                    campaign.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {campaign.status}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-right text-gray-900 font-medium">${campaign.total_spend.toFixed(2)}</td>
-                                <td className="px-4 py-3 text-right text-gray-700">{campaign.total_impressions.toLocaleString()}</td>
-                                <td className="px-4 py-3 text-right text-gray-700">{campaign.total_clicks.toLocaleString()}</td>
-                                <td className="px-4 py-3 text-right text-gray-700">{campaign.total_results.toLocaleString()}</td>
-                                <td className="px-4 py-3 text-right text-gray-700">{campaign.avg_ctr.toFixed(2)}%</td>
-                                <td className="px-4 py-3 text-right text-gray-700">${campaign.avg_cpc.toFixed(2)}</td>
+                    {reportView === 'campaigns' && (() => {
+                      const accountCampaigns = campaigns.filter(c => c.account_id === link.account_id);
+
+                      const groupedByObjective = accountCampaigns.reduce((acc, campaign) => {
+                        const objective = campaign.objective || 'Unknown';
+                        if (!acc[objective]) {
+                          acc[objective] = [];
+                        }
+                        acc[objective].push(campaign);
+                        return acc;
+                      }, {} as Record<string, typeof accountCampaigns>);
+
+                      const objectiveTotals = Object.entries(groupedByObjective).map(([objective, campaigns]) => ({
+                        objective,
+                        total_spend: campaigns.reduce((sum, c) => sum + c.total_spend, 0),
+                        total_impressions: campaigns.reduce((sum, c) => sum + c.total_impressions, 0),
+                        total_clicks: campaigns.reduce((sum, c) => sum + c.total_clicks, 0),
+                        total_results: campaigns.reduce((sum, c) => sum + c.total_results, 0),
+                        campaigns: campaigns.sort((a, b) => b.total_spend - a.total_spend)
+                      })).sort((a, b) => b.total_spend - a.total_spend);
+
+                      return (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th className="px-4 py-3 text-left font-medium text-gray-700">
+                                  Campaign / Objective
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium text-gray-700">
+                                  Status
+                                </th>
+                                <th className="px-4 py-3 text-right font-medium text-gray-700">
+                                  Spend
+                                </th>
+                                <th className="px-4 py-3 text-right font-medium text-gray-700">
+                                  Impressions
+                                </th>
+                                <th className="px-4 py-3 text-right font-medium text-gray-700">
+                                  Clicks
+                                </th>
+                                <th className="px-4 py-3 text-right font-medium text-gray-700">
+                                  Results
+                                </th>
+                                <th className="px-4 py-3 text-right font-medium text-gray-700">
+                                  CTR
+                                </th>
+                                <th className="px-4 py-3 text-right font-medium text-gray-700">
+                                  CPC
+                                </th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                            </thead>
+                            <tbody className="bg-white">
+                              {objectiveTotals.map(({ objective, total_spend, total_impressions, total_clicks, total_results, campaigns }) => (
+                                <>
+                                  <tr key={`objective-${objective}`} className="bg-blue-50 border-t-2 border-blue-200">
+                                    <td className="px-4 py-3 font-bold text-blue-900 capitalize" colSpan={2}>
+                                      {objective.replace(/_/g, ' ')}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-bold text-blue-900">
+                                      ${total_spend.toFixed(2)}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-bold text-blue-900">
+                                      {total_impressions.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-bold text-blue-900">
+                                      {total_clicks.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-bold text-blue-900">
+                                      {total_results.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-bold text-blue-900">
+                                      {total_impressions > 0 ? ((total_clicks / total_impressions) * 100).toFixed(2) : '0.00'}%
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-bold text-blue-900">
+                                      ${total_clicks > 0 ? (total_spend / total_clicks).toFixed(2) : '0.00'}
+                                    </td>
+                                  </tr>
+                                  {campaigns.map((campaign) => (
+                                    <tr key={campaign.campaign_id} className="hover:bg-gray-50 border-b border-gray-100">
+                                      <td className="px-4 py-2 text-gray-900 pl-8">{campaign.name}</td>
+                                      <td className="px-4 py-2">
+                                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                                          campaign.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                                          campaign.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-800' :
+                                          'bg-gray-100 text-gray-800'
+                                        }`}>
+                                          {campaign.status}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2 text-right text-gray-700">${campaign.total_spend.toFixed(2)}</td>
+                                      <td className="px-4 py-2 text-right text-gray-700">{campaign.total_impressions.toLocaleString()}</td>
+                                      <td className="px-4 py-2 text-right text-gray-700">{campaign.total_clicks.toLocaleString()}</td>
+                                      <td className="px-4 py-2 text-right text-gray-700">{campaign.total_results.toLocaleString()}</td>
+                                      <td className="px-4 py-2 text-right text-gray-700">{campaign.avg_ctr.toFixed(2)}%</td>
+                                      <td className="px-4 py-2 text-right text-gray-700">${campaign.avg_cpc.toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
 
                     {reportView === 'demographics' && (
                       <div>
