@@ -206,9 +206,6 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       const now = new Date();
       now.setHours(0, 0, 0, 0);
 
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
       const pastDue = (socialPostSteps || []).filter(step => {
         const deadline = new Date(step.due_date);
         deadline.setHours(0, 0, 0, 0);
@@ -218,7 +215,7 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       const upcoming = (socialPostSteps || []).filter(step => {
         const deadline = new Date(step.due_date);
         deadline.setHours(0, 0, 0, 0);
-        return deadline >= tomorrow;
+        return deadline >= now;
       }).length;
 
       setSocialMediaTaskCounts({ pastDue, upcoming });
@@ -245,9 +242,6 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       const now = new Date();
       now.setHours(0, 0, 0, 0);
 
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
       const pastDue = (marketingTasks || []).filter(task => {
         const deadline = new Date(task.deadline);
         deadline.setHours(0, 0, 0, 0);
@@ -257,7 +251,7 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       const upcoming = (marketingTasks || []).filter(task => {
         const deadline = new Date(task.deadline);
         deadline.setHours(0, 0, 0, 0);
-        return deadline >= tomorrow;
+        return deadline >= now;
       }).length;
 
       setMarketingTaskCounts({ pastDue, upcoming });

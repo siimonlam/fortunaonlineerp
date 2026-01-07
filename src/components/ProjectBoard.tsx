@@ -247,6 +247,8 @@ export function ProjectBoard() {
   const [showAddMarketingProjectButtonModal, setShowAddMarketingProjectButtonModal] = useState(false);
   const [marketingButtonSourceProjectId, setMarketingButtonSourceProjectId] = useState<string | undefined>(undefined);
   const [marketingTaskCounts, setMarketingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
+  const [marketingStatusTaskCounts, setMarketingStatusTaskCounts] = useState<Record<string, { pastDue: number; upcoming: number }>>({});
+  const [marketingProjectTaskCounts, setMarketingProjectTaskCounts] = useState<Record<string, { pastDue: number; upcoming: number }>>({});
 
   useEffect(() => {
     if (fundingProjectTab !== 'meetings') {
@@ -604,34 +606,130 @@ export function ProjectBoard() {
     if (!user) return;
 
     try {
-      const { data: marketingTasks, error } = await supabase
-        .from('marketing_tasks')
-        .select('id, deadline, completed')
-        .eq('assigned_to', user.id)
-        .eq('completed', false)
-        .not('deadline', 'is', null);
+      const marketingType = projectTypes.find(pt => pt.name === 'Marketing');
+      if (!marketingType) return;
 
-      if (error) throw error;
+      const marketingStatuses = statuses.filter(s => s.project_type_id === marketingType.id);
+      const statusIds = marketingStatuses.map(s => s.id);
+
+      const { data: marketingProjectsData, error: projectsError } = await supabase
+        .from('marketing_projects')
+        .select('id, status_id')
+        .in('status_id', statusIds);
+
+      if (projectsError) throw projectsError;
+
+      const projectIds = (marketingProjectsData || []).map(p => p.id);
+
+      if (projectIds.length === 0) {
+        setMarketingTaskCounts({ pastDue: 0, upcoming: 0 });
+        setMarketingStatusTaskCounts({});
+        setMarketingProjectTaskCounts({});
+        return;
+      }
+
+      const [tasksResult, socialStepsResult] = await Promise.all([
+        supabase
+          .from('marketing_tasks')
+          .select('id, deadline, completed, marketing_project_id')
+          .in('marketing_project_id', projectIds)
+          .eq('assigned_to', user.id)
+          .eq('completed', false)
+          .not('deadline', 'is', null),
+        supabase
+          .from('marketing_social_post_steps')
+          .select(`
+            id,
+            due_date,
+            status,
+            post:marketing_social_posts!inner(id, marketing_project_id)
+          `)
+          .in('post.marketing_project_id', projectIds)
+          .eq('assigned_to', user.id)
+          .neq('status', 'completed')
+          .not('due_date', 'is', null)
+      ]);
+
+      if (tasksResult.error) throw tasksResult.error;
+      if (socialStepsResult.error) throw socialStepsResult.error;
 
       const now = new Date();
       now.setHours(0, 0, 0, 0);
 
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const pastDue = (marketingTasks || []).filter(task => {
+      const tasksPastDue = (tasksResult.data || []).filter(task => {
         const deadline = new Date(task.deadline);
         deadline.setHours(0, 0, 0, 0);
         return deadline < now;
       }).length;
 
-      const upcoming = (marketingTasks || []).filter(task => {
+      const tasksUpcoming = (tasksResult.data || []).filter(task => {
         const deadline = new Date(task.deadline);
         deadline.setHours(0, 0, 0, 0);
-        return deadline >= tomorrow;
+        return deadline >= now;
       }).length;
 
-      setMarketingTaskCounts({ pastDue, upcoming });
+      const socialPastDue = (socialStepsResult.data || []).filter(step => {
+        const deadline = new Date(step.due_date);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline < now;
+      }).length;
+
+      const socialUpcoming = (socialStepsResult.data || []).filter(step => {
+        const deadline = new Date(step.due_date);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline >= now;
+      }).length;
+
+      setMarketingTaskCounts({
+        pastDue: tasksPastDue + socialPastDue,
+        upcoming: tasksUpcoming + socialUpcoming
+      });
+
+      const statusCounts: Record<string, { pastDue: number; upcoming: number }> = {};
+      const projectCounts: Record<string, { pastDue: number; upcoming: number }> = {};
+
+      marketingProjectsData.forEach(project => {
+        const projectTasks = (tasksResult.data || []).filter(t => t.marketing_project_id === project.id);
+        const projectSocialSteps = (socialStepsResult.data || []).filter(s => s.post.marketing_project_id === project.id);
+
+        const projTasksPastDue = projectTasks.filter(task => {
+          const deadline = new Date(task.deadline);
+          deadline.setHours(0, 0, 0, 0);
+          return deadline < now;
+        }).length;
+
+        const projTasksUpcoming = projectTasks.filter(task => {
+          const deadline = new Date(task.deadline);
+          deadline.setHours(0, 0, 0, 0);
+          return deadline >= now;
+        }).length;
+
+        const projSocialPastDue = projectSocialSteps.filter(step => {
+          const deadline = new Date(step.due_date);
+          deadline.setHours(0, 0, 0, 0);
+          return deadline < now;
+        }).length;
+
+        const projSocialUpcoming = projectSocialSteps.filter(step => {
+          const deadline = new Date(step.due_date);
+          deadline.setHours(0, 0, 0, 0);
+          return deadline >= now;
+        }).length;
+
+        projectCounts[project.id] = {
+          pastDue: projTasksPastDue + projSocialPastDue,
+          upcoming: projTasksUpcoming + projSocialUpcoming
+        };
+
+        if (!statusCounts[project.status_id]) {
+          statusCounts[project.status_id] = { pastDue: 0, upcoming: 0 };
+        }
+        statusCounts[project.status_id].pastDue += projTasksPastDue + projSocialPastDue;
+        statusCounts[project.status_id].upcoming += projTasksUpcoming + projSocialUpcoming;
+      });
+
+      setMarketingStatusTaskCounts(statusCounts);
+      setMarketingProjectTaskCounts(projectCounts);
     } catch (error: any) {
       console.error('[loadMarketingTaskCounts] Error:', error.message);
     }
@@ -2213,16 +2311,16 @@ export function ProjectBoard() {
                           <span className="flex items-center justify-between">
                             <span>{status.name}</span>
                             <span className="flex items-center gap-1.5">
-                              {getStatusPastDueCount(status.id) > 0 && (
+                              {(isMarketingProjectType ? (marketingStatusTaskCounts[status.id]?.pastDue || 0) : getStatusPastDueCount(status.id)) > 0 && (
                                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-red-600 px-2 py-0.5 rounded-md shadow-sm">
                                   <AlertCircle className="w-3 h-3" />
-                                  {getStatusPastDueCount(status.id)}
+                                  {isMarketingProjectType ? (marketingStatusTaskCounts[status.id]?.pastDue || 0) : getStatusPastDueCount(status.id)}
                                 </span>
                               )}
-                              {getStatusUpcomingCount(status.id) > 0 && (
+                              {(isMarketingProjectType ? (marketingStatusTaskCounts[status.id]?.upcoming || 0) : getStatusUpcomingCount(status.id)) > 0 && (
                                 <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-800 bg-orange-100 px-2 py-0.5 rounded-md border border-orange-300">
                                   <Bell className="w-3 h-3" />
-                                  {getStatusUpcomingCount(status.id)}
+                                  {isMarketingProjectType ? (marketingStatusTaskCounts[status.id]?.upcoming || 0) : getStatusUpcomingCount(status.id)}
                                 </span>
                               )}
                             </span>
@@ -2244,28 +2342,50 @@ export function ProjectBoard() {
                           <span>New Project</span>
                         </button>
 
-                        {marketingProjectButtons.map((button) => (
-                          <button
-                            key={button.id}
-                            onClick={() => {
-                              console.log('Marketing button clicked:', button.name, 'Project ID:', button.marketing_project_id);
-                              if (selectedMarketingProjectButton === button.id) {
-                                setSelectedMarketingProjectButton(null);
-                                setSelectedMarketingProject(null);
-                              } else {
-                                setSelectedMarketingProjectButton(button.id);
-                                setSelectedMarketingProject(button.marketing_project_id);
-                              }
-                            }}
-                            className={`w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 flex items-center gap-2 mt-2 ${
-                              selectedMarketingProjectButton === button.id
-                                ? 'bg-blue-600 text-white'
-                                : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
-                            }`}
-                          >
-                            <span>{button.name}</span>
-                          </button>
-                        ))}
+                        {marketingProjectButtons.map((button) => {
+                          const projectTaskCount = marketingProjectTaskCounts[button.marketing_project_id];
+                          const hasPastDue = projectTaskCount && projectTaskCount.pastDue > 0;
+                          const hasUpcoming = projectTaskCount && projectTaskCount.upcoming > 0;
+
+                          return (
+                            <button
+                              key={button.id}
+                              onClick={() => {
+                                console.log('Marketing button clicked:', button.name, 'Project ID:', button.marketing_project_id);
+                                if (selectedMarketingProjectButton === button.id) {
+                                  setSelectedMarketingProjectButton(null);
+                                  setSelectedMarketingProject(null);
+                                } else {
+                                  setSelectedMarketingProjectButton(button.id);
+                                  setSelectedMarketingProject(button.marketing_project_id);
+                                }
+                              }}
+                              className={`w-full text-left pl-4 pr-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 flex items-center justify-between gap-2 mt-2 ${
+                                selectedMarketingProjectButton === button.id
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-slate-700 hover:bg-slate-100 border border-slate-200'
+                              }`}
+                            >
+                              <span>{button.name}</span>
+                              {(hasPastDue || hasUpcoming) && (
+                                <span className="flex items-center gap-1">
+                                  {hasPastDue && (
+                                    <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
+                                      <AlertCircle className="w-3 h-3" />
+                                      {projectTaskCount.pastDue}
+                                    </span>
+                                  )}
+                                  {hasUpcoming && (
+                                    <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
+                                      <Bell className="w-3 h-3" />
+                                      {projectTaskCount.upcoming}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </>
                     )}
                   </div>
