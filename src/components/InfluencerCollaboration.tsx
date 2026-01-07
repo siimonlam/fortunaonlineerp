@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, X, ExternalLink, TrendingUp, DollarSign } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, ExternalLink, TrendingUp, DollarSign, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface InfluencerCollab {
   id: string;
@@ -25,6 +25,7 @@ interface InfluencerCollab {
   post_link: string;
   post_likes: number;
   post_comments: number;
+  post_date: string;
   sales: number;
   created_at: string;
 }
@@ -33,12 +34,21 @@ interface InfluencerCollaborationProps {
   marketingProjectId: string;
 }
 
+type SortField = 'outreach_date' | 'collaborator_name' | 'platform' | 'follower_count' | 'engagement' | 'suggested_price' | 'status' | 'post_likes' | 'post_comments' | 'sales' | 'post_date';
+type SortDirection = 'asc' | 'desc';
+
 export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollaborationProps) {
   const { user } = useAuth();
   const [collaborations, setCollaborations] = useState<InfluencerCollab[]>([]);
+  const [filteredCollaborations, setFilteredCollaborations] = useState<InfluencerCollab[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingCollab, setEditingCollab] = useState<InfluencerCollab | null>(null);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [platformFilter, setPlatformFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [sortField, setSortField] = useState<SortField>('outreach_date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const [formData, setFormData] = useState({
     item: '',
@@ -60,6 +70,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     post_link: '',
     post_likes: '',
     post_comments: '',
+    post_date: '',
     sales: '',
   });
 
@@ -67,6 +78,10 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     loadCollaborations();
     subscribeToChanges();
   }, [marketingProjectId]);
+
+  useEffect(() => {
+    filterAndSortCollaborations();
+  }, [collaborations, searchQuery, platformFilter, statusFilter, sortField, sortDirection]);
 
   const subscribeToChanges = () => {
     const channel = supabase
@@ -87,8 +102,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       const { data, error } = await supabase
         .from('marketing_influencer_collaborations')
         .select('*')
-        .eq('marketing_project_id', marketingProjectId)
-        .order('created_at', { ascending: false });
+        .eq('marketing_project_id', marketingProjectId);
 
       if (error) throw error;
       setCollaborations(data || []);
@@ -98,6 +112,68 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       setLoading(false);
     }
   };
+
+  const filterAndSortCollaborations = () => {
+    let filtered = [...collaborations];
+
+    if (searchQuery) {
+      filtered = filtered.filter(collab =>
+        collab.collaborator_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        collab.item?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        collab.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        collab.primary_market?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    if (platformFilter) {
+      filtered = filtered.filter(collab => collab.platform === platformFilter);
+    }
+
+    if (statusFilter) {
+      filtered = filtered.filter(collab => collab.status === statusFilter);
+    }
+
+    filtered.sort((a, b) => {
+      let aValue: any = a[sortField];
+      let bValue: any = b[sortField];
+
+      if (aValue === null || aValue === undefined) aValue = '';
+      if (bValue === null || bValue === undefined) bValue = '';
+
+      if (sortField === 'outreach_date' || sortField === 'post_date') {
+        aValue = aValue ? new Date(aValue).getTime() : 0;
+        bValue = bValue ? new Date(bValue).getTime() : 0;
+      }
+
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredCollaborations(filtered);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
+    return sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
+  };
+
+  const uniquePlatforms = Array.from(new Set(collaborations.map(c => c.platform).filter(Boolean)));
+  const uniqueStatuses = Array.from(new Set(collaborations.map(c => c.status)));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +207,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         post_link: formData.post_link || null,
         post_likes: formData.post_likes ? parseInt(formData.post_likes) : 0,
         post_comments: formData.post_comments ? parseInt(formData.post_comments) : 0,
+        post_date: formData.post_date || null,
         sales: formData.sales ? parseFloat(formData.sales) : 0,
         created_by: staffData?.id,
       };
@@ -180,6 +257,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       post_link: collab.post_link || '',
       post_likes: collab.post_likes?.toString() || '',
       post_comments: collab.post_comments?.toString() || '',
+      post_date: collab.post_date || '',
       sales: collab.sales?.toString() || '',
     });
     setShowModal(true);
@@ -225,6 +303,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       post_link: '',
       post_likes: '',
       post_comments: '',
+      post_date: '',
       sales: '',
     });
   };
@@ -256,42 +335,179 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         </button>
       </div>
 
-      {collaborations.length === 0 ? (
-        <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-          <p className="text-slate-600 mb-4">No influencer collaborations yet</p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="text-blue-600 hover:text-blue-700 font-medium"
+      <div className="bg-white rounded-lg shadow p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by name, item, category, market..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Filter className="w-4 h-4 text-slate-600" />
+          <select
+            value={platformFilter}
+            onChange={(e) => setPlatformFilter(e.target.value)}
+            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            Add your first collaboration
-          </button>
+            <option value="">All Platforms</option>
+            {uniquePlatforms.map((platform) => (
+              <option key={platform} value={platform}>{platform}</option>
+            ))}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">All Statuses</option>
+            {uniqueStatuses.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+
+          {(searchQuery || platformFilter || statusFilter) && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setPlatformFilter('');
+                setStatusFilter('');
+              }}
+              className="text-sm text-slate-600 hover:text-slate-900"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {filteredCollaborations.length === 0 ? (
+        <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+          <p className="text-slate-600 mb-4">
+            {collaborations.length === 0 ? 'No influencer collaborations yet' : 'No collaborations match your filters'}
+          </p>
+          {collaborations.length === 0 && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Add your first collaboration
+            </button>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse bg-white rounded-lg overflow-hidden shadow">
             <thead className="bg-slate-100">
               <tr>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('outreach_date')}
+                >
+                  <div className="flex items-center gap-1">
+                    Outreach Date {getSortIcon('outreach_date')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('collaborator_name')}
+                >
+                  <div className="flex items-center gap-1">
+                    Collaborator {getSortIcon('collaborator_name')}
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Item</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Collaborator</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Platform</th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('platform')}
+                >
+                  <div className="flex items-center gap-1">
+                    Platform {getSortIcon('platform')}
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Category</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Market</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Followers</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Engagement</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Price</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Outreach</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Status</th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('follower_count')}
+                >
+                  <div className="flex items-center gap-1">
+                    Followers {getSortIcon('follower_count')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('engagement')}
+                >
+                  <div className="flex items-center gap-1">
+                    Engagement {getSortIcon('engagement')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('suggested_price')}
+                >
+                  <div className="flex items-center gap-1">
+                    Price {getSortIcon('suggested_price')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center gap-1">
+                    Status {getSortIcon('status')}
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Post Likes</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Post Comments</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Sales</th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('post_date')}
+                >
+                  <div className="flex items-center gap-1">
+                    Post Date {getSortIcon('post_date')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('post_likes')}
+                >
+                  <div className="flex items-center gap-1">
+                    Likes {getSortIcon('post_likes')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('post_comments')}
+                >
+                  <div className="flex items-center gap-1">
+                    Comments {getSortIcon('post_comments')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('sales')}
+                >
+                  <div className="flex items-center gap-1">
+                    Sales {getSortIcon('sales')}
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-slate-700 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {collaborations.map((collab) => (
+              {filteredCollaborations.map((collab) => (
                 <tr key={collab.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 text-sm text-slate-900">{collab.item || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-slate-900">
+                    {collab.outreach_date ? new Date(collab.outreach_date).toLocaleDateString() : '-'}
+                  </td>
                   <td className="px-4 py-3 text-sm">
                     <div className="font-medium text-slate-900">{collab.collaborator_name}</div>
                     {collab.page_link && (
@@ -300,6 +516,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                       </a>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-sm text-slate-900">{collab.item || '-'}</td>
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.platform || '-'}</td>
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.category || '-'}</td>
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.primary_market || '-'}</td>
@@ -312,15 +529,15 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   <td className="px-4 py-3 text-sm text-slate-900">
                     {collab.suggested_price ? `$${collab.suggested_price.toLocaleString()}` : '-'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-900">
-                    {collab.outreach_date ? new Date(collab.outreach_date).toLocaleDateString() : '-'}
-                  </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(collab.status)}`}>
                       {collab.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.collaboration_type || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-slate-900">
+                    {collab.post_date ? new Date(collab.post_date).toLocaleDateString() : '-'}
+                  </td>
                   <td className="px-4 py-3 text-sm text-slate-900">
                     {collab.post_link ? (
                       <a href={collab.post_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
@@ -567,7 +784,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
 
               <div className="space-y-4">
                 <h4 className="font-semibold text-slate-900">Post Performance</h4>
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Post Link</label>
                     <input
@@ -576,6 +793,16 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                       onChange={(e) => setFormData({ ...formData, post_link: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="https://..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Post Date</label>
+                    <input
+                      type="date"
+                      value={formData.post_date}
+                      onChange={(e) => setFormData({ ...formData, post_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
 
