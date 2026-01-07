@@ -88,7 +88,6 @@ Deno.serve(async (req: Request) => {
       const timeRangeObj = JSON.stringify({ since: customDateRange.since, until: customDateRange.until });
       timeRangeParam = `time_range=${encodeURIComponent(timeRangeObj)}`;
     } else if (datePreset === 'last_6_months') {
-      // Calculate explicit date range for better reliability
       const today = new Date();
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(today.getMonth() - 6);
@@ -99,7 +98,6 @@ Deno.serve(async (req: Request) => {
       const timeRangeObj = JSON.stringify({ since, until });
       timeRangeParam = `time_range=${encodeURIComponent(timeRangeObj)}`;
     } else if (datePreset === 'last_12_months') {
-      // Calculate explicit date range for 12 months
       const today = new Date();
       const twelveMonthsAgo = new Date();
       twelveMonthsAgo.setMonth(today.getMonth() - 12);
@@ -136,7 +134,6 @@ Deno.serve(async (req: Request) => {
     let totalAdSetsProcessed = 0;
     const errors: string[] = [];
 
-    // Fetch all metadata upfront to avoid repeated database calls
     console.log('Fetching metadata for account...');
     const { data: allAdsets } = await supabase
       .from('meta_adsets')
@@ -154,7 +151,6 @@ Deno.serve(async (req: Request) => {
       .eq('account_id', accountId)
       .maybeSingle();
 
-    // Create lookup maps for O(1) access
     const adsetMap = new Map((allAdsets || []).map(a => [a.adset_id, a]));
     const campaignMap = new Map((allCampaigns || []).map(c => [c.campaign_id, c]));
     console.log(`Loaded ${adsetMap.size} adsets, ${campaignMap.size} campaigns\n`);
@@ -234,7 +230,6 @@ Deno.serve(async (req: Request) => {
               }
             }
 
-            // Use lookup maps instead of database queries
             const adsetData = adsetMap.get(adsetId);
 
             const record = {
@@ -286,7 +281,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Bulk upsert all insights
     if (insightsToUpsert.length > 0) {
       console.log(`\nUpserting ${insightsToUpsert.length} insights to database...`);
       const { error: bulkUpsertError } = await supabase
@@ -307,7 +301,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('\n=== FETCHING DEMOGRAPHIC BREAKDOWNS ===\n');
 
-    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,campaign_id,impressions,reach,spend,clicks,conversions,date_start,date_stop&breakdowns=age,gender&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,campaign_id,impressions,reach,spend,clicks,conversions,actions,date_start,date_stop&breakdowns=age,gender&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
 
     const demographicsToUpsert: any[] = [];
     pageCount = 0;
@@ -346,7 +340,6 @@ Deno.serve(async (req: Request) => {
             const ageGroup = demo.age || 'unknown';
             const gender = demo.gender || 'unknown';
 
-            // Use lookup map instead of database query
             const adsetData = adsetMap.get(adsetId);
 
             let results = 0;
@@ -403,7 +396,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Bulk upsert all demographics
     if (demographicsToUpsert.length > 0) {
       console.log(`\nUpserting ${demographicsToUpsert.length} demographics to database...`);
       const { error: bulkUpsertError } = await supabase
@@ -425,7 +417,7 @@ Deno.serve(async (req: Request) => {
     console.log('\n=== FETCHING PLATFORM BREAKDOWNS ===\n');
 
     let totalPlatformUpserted = 0;
-    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,campaign_id,impressions,reach,spend,clicks,conversions,ctr,cpc,cpm,date_start,date_stop&breakdowns=publisher_platform&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,campaign_id,impressions,reach,spend,clicks,conversions,actions,ctr,cpc,cpm,date_start,date_stop&breakdowns=publisher_platform&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
 
     const platformsToUpsert: any[] = [];
     pageCount = 0;
