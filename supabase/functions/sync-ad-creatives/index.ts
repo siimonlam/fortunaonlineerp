@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
 
     let totalSynced = 0;
     const errors: string[] = [];
-    let nextUrl: string | null = `https://graph.facebook.com/v21.0/${formattedAccountId}/adcreatives?fields=id,name,title,body,image_url,thumbnail_url,object_story_spec,video_id,effective_object_story_id,call_to_action_type,link_url&limit=50&access_token=${accessToken}`;
+    let nextUrl: string | null = `https://graph.facebook.com/v21.0/${formattedAccountId}/adcreatives?fields=id,name,title,body,image_url,thumbnail_url,object_story_spec,video_id,effective_object_story_id,call_to_action_type,link_url,asset_feed_spec&limit=50&access_token=${accessToken}`;
 
     while (nextUrl) {
       console.log(`Fetching creatives page...`);
@@ -97,6 +97,17 @@ Deno.serve(async (req: Request) => {
           let imageUrl = creative.image_url || '';
           let linkUrl = creative.link_url || '';
           let effectiveObjectUrl = '';
+          let adFormat = '';
+
+          if (creative.asset_feed_spec) {
+            if (creative.asset_feed_spec.videos && creative.asset_feed_spec.videos.length > 0) {
+              adFormat = 'VIDEO';
+            } else if (creative.asset_feed_spec.images && creative.asset_feed_spec.images.length > 0) {
+              adFormat = 'IMAGE';
+            } else if (creative.asset_feed_spec.bodies || creative.asset_feed_spec.titles) {
+              adFormat = 'DYNAMIC';
+            }
+          }
 
           if (creative.object_story_spec) {
             const linkData = creative.object_story_spec.link_data || {};
@@ -124,6 +135,18 @@ Deno.serve(async (req: Request) => {
             if (!imageUrl && videoData.image_url) {
               imageUrl = videoData.image_url;
             }
+
+            if (videoData && Object.keys(videoData).length > 0) {
+              adFormat = adFormat || 'VIDEO';
+            } else if (linkData && Object.keys(linkData).length > 0) {
+              adFormat = adFormat || 'LINK';
+            }
+          }
+
+          if (!adFormat && creative.video_id) {
+            adFormat = 'VIDEO';
+          } else if (!adFormat && imageUrl) {
+            adFormat = 'IMAGE';
           }
 
           const { error: upsertError } = await supabase
@@ -141,6 +164,7 @@ Deno.serve(async (req: Request) => {
               call_to_action_type: creative.call_to_action_type || null,
               object_story_spec: creative.object_story_spec || null,
               effective_object_url: effectiveObjectUrl || null,
+              ad_format: adFormat || null,
               updated_at: new Date().toISOString(),
             }, {
               onConflict: 'creative_id',

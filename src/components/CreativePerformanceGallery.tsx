@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, TrendingUp, MousePointer, Eye, DollarSign, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { RefreshCw, TrendingUp, MousePointer, Eye, DollarSign, Image as ImageIcon, Loader2, Grid3x3, Table as TableIcon, Video, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface CreativePerformance {
   creative_id: string;
@@ -10,6 +10,7 @@ interface CreativePerformance {
   image_url: string;
   thumbnail_url: string;
   video_id: string;
+  ad_format: string;
   ad_count: number;
   spend: number;
   impressions: number;
@@ -29,11 +30,17 @@ interface Props {
   };
 }
 
+type SortField = 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'roas' | 'conversions';
+type SortDirection = 'asc' | 'desc';
+
 export default function CreativePerformanceGallery({ accountId, dateRange }: Props) {
   const [creatives, setCreatives] = useState<CreativePerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'gallery' | 'table'>('gallery');
+  const [sortField, setSortField] = useState<SortField>('spend');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   useEffect(() => {
     fetchCreativePerformance();
@@ -96,6 +103,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           image_url: creative.image_url || '',
           thumbnail_url: creative.thumbnail_url || '',
           video_id: creative.video_id || '',
+          ad_format: creative.ad_format || '',
           ad_count: 0,
           spend: 0,
           impressions: 0,
@@ -137,7 +145,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         metrics.roas = metrics.spend > 0 ? metrics.conversion_values / metrics.spend : 0;
       });
 
-      const sortedCreatives = Array.from(creativeMetrics.values()).sort((a, b) => b.spend - a.spend);
+      const sortedCreatives = sortCreatives(Array.from(creativeMetrics.values()), sortField, sortDirection);
 
       setCreatives(sortedCreatives);
     } catch (err: any) {
@@ -146,6 +154,29 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
     } finally {
       setLoading(false);
     }
+  };
+
+  const sortCreatives = (items: CreativePerformance[], field: SortField, direction: SortDirection) => {
+    return [...items].sort((a, b) => {
+      const aValue = a[field];
+      const bValue = b[field];
+
+      if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const handleSort = (field: SortField) => {
+    const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortField(field);
+    setSortDirection(newDirection);
+    setCreatives(sortCreatives(creatives, field, newDirection));
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
+    return sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
   };
 
   const handleSyncCreatives = async () => {
@@ -238,23 +269,41 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
             View ad creatives with performance metrics for the selected time period
           </p>
         </div>
-        <button
-          onClick={handleSyncCreatives}
-          disabled={syncing}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-        >
-          {syncing ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Syncing...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-4 h-4" />
-              Sync Creatives
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('gallery')}
+              className={`p-2 rounded ${viewMode === 'gallery' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
+              title="Gallery View"
+            >
+              <Grid3x3 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-2 rounded ${viewMode === 'table' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
+              title="Table View"
+            >
+              <TableIcon className="w-4 h-4" />
+            </button>
+          </div>
+          <button
+            onClick={handleSyncCreatives}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            {syncing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                Sync Creatives
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {creatives.length === 0 ? (
@@ -265,7 +314,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
             Click "Sync Creatives" to fetch ad creatives from your Meta account
           </p>
         </div>
-      ) : (
+      ) : viewMode === 'gallery' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {creatives.map((creative) => (
             <div
@@ -288,9 +337,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
                   {creative.video_id ? (
                     <div className="text-center">
                       <div className="w-16 h-16 mx-auto mb-2 bg-blue-100 rounded-full flex items-center justify-center">
-                        <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                        </svg>
+                        <Video className="w-8 h-8 text-blue-600" />
                       </div>
                       <p className="text-sm text-gray-600">Video Creative</p>
                     </div>
@@ -301,11 +348,24 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
                     </div>
                   )}
                 </div>
-                {creative.ad_count > 0 && (
-                  <div className="absolute top-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
-                    {creative.ad_count} {creative.ad_count === 1 ? 'Ad' : 'Ads'}
-                  </div>
-                )}
+                <div className="absolute top-2 left-2 flex flex-col gap-1">
+                  {creative.ad_count > 0 && (
+                    <div className="bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
+                      {creative.ad_count} {creative.ad_count === 1 ? 'Ad' : 'Ads'}
+                    </div>
+                  )}
+                  {creative.video_id && (
+                    <div className="bg-blue-600 bg-opacity-90 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                      <Video className="w-3 h-3" />
+                      Video
+                    </div>
+                  )}
+                  {creative.ad_format && (
+                    <div className="bg-purple-600 bg-opacity-90 text-white text-xs px-2 py-1 rounded">
+                      {creative.ad_format}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="p-4">
@@ -378,6 +438,144 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
               </div>
             </div>
           ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Preview</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Format</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Type</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Ads</th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('spend')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Spend {getSortIcon('spend')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('impressions')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Impressions {getSortIcon('impressions')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('clicks')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Clicks {getSortIcon('clicks')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('ctr')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    CTR {getSortIcon('ctr')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('cpc')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    CPC {getSortIcon('cpc')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('conversions')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Conversions {getSortIcon('conversions')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('roas')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    ROAS {getSortIcon('roas')}
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {creatives.map((creative) => (
+                <tr key={creative.creative_id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex items-center justify-center">
+                      {creative.thumbnail_url || creative.image_url ? (
+                        <img
+                          src={creative.thumbnail_url || creative.image_url}
+                          alt={creative.title || creative.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : creative.video_id ? (
+                        <Video className="w-6 h-6 text-blue-600" />
+                      ) : (
+                        <ImageIcon className="w-6 h-6 text-gray-400" />
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 max-w-xs">
+                    <div className="font-medium text-gray-900 truncate">
+                      {creative.title || creative.name}
+                    </div>
+                    {creative.body && (
+                      <div className="text-sm text-gray-600 truncate">
+                        {creative.body}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {creative.ad_format || '-'}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {creative.video_id ? (
+                      <span className="inline-flex items-center gap-1 text-blue-600">
+                        <Video className="w-4 h-4" />
+                        Video
+                      </span>
+                    ) : (
+                      <span className="text-gray-600">Image</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-900">
+                    {creative.ad_count}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                    HK${creative.spend.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-900">
+                    {creative.impressions.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-900">
+                    {creative.clicks.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-900">
+                    {creative.ctr.toFixed(2)}%
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-900">
+                    HK${creative.cpc.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-900">
+                    {creative.conversions.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-green-600">
+                    {creative.roas > 0 ? `${creative.roas.toFixed(2)}x` : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
