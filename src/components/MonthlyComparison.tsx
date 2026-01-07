@@ -850,61 +850,118 @@ export default function MonthlyComparison({ accountId }: Props) {
         </>
       )}
 
-      {comparisonType === 'campaigns' && (
-        <>
-          {campaignComparisons.length === 0 ? (
+      {comparisonType === 'campaigns' && (() => {
+        if (campaignComparisons.length === 0) {
+          return (
             <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
               <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
               <p className="text-gray-600 font-medium mb-2">No campaign data available</p>
               <p className="text-sm text-gray-500">Use "Sync Monthly Reports" to fetch campaign comparison data</p>
             </div>
-          ) : (
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Campaign</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Month</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Spend</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">CPC</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {campaignComparisons.map((campaign) => (
-                  <>
-                    <tr key={`${campaign.campaign_id}-m1`} className="hover:bg-gray-50">
-                      <td rowSpan={2} className="px-4 py-3 font-medium text-gray-900 border-r border-gray-200">{campaign.name}</td>
-                      <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month1)}</td>
-                      <td className="px-4 py-2 text-right text-gray-900">HK${campaign.month1.spend.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{campaign.month1.impressions.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{campaign.month1.clicks.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{campaign.month1.results.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{campaign.month1.ctr.toFixed(2)}%</td>
-                      <td className="px-4 py-2 text-right text-gray-700">HK${campaign.month1.cpc.toFixed(2)}</td>
-                    </tr>
-                    <tr key={`${campaign.campaign_id}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
-                      <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month2)}</td>
-                      <td className="px-4 py-2 text-right text-gray-900 font-medium">HK${campaign.month2.spend.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{campaign.month2.impressions.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{campaign.month2.clicks.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{campaign.month2.results.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{campaign.month2.ctr.toFixed(2)}%</td>
-                      <td className="px-4 py-2 text-right text-gray-700">HK${campaign.month2.cpc.toFixed(2)}</td>
-                    </tr>
-                  </>
-                ))}
-              </tbody>
-            </table>
+          );
+        }
+
+        const groupedByObjective = campaignComparisons.reduce((acc, campaign) => {
+          const objective = campaign.objective || 'Unknown';
+          if (!acc[objective]) {
+            acc[objective] = [];
+          }
+          acc[objective].push(campaign);
+          return acc;
+        }, {} as Record<string, typeof campaignComparisons>);
+
+        const objectiveTotals = Object.entries(groupedByObjective).map(([objective, campaigns]) => ({
+          objective,
+          month1_total_spend: campaigns.reduce((sum, c) => sum + c.month1.spend, 0),
+          month2_total_spend: campaigns.reduce((sum, c) => sum + c.month2.spend, 0),
+          month1_total_impressions: campaigns.reduce((sum, c) => sum + c.month1.impressions, 0),
+          month2_total_impressions: campaigns.reduce((sum, c) => sum + c.month2.impressions, 0),
+          month1_total_clicks: campaigns.reduce((sum, c) => sum + c.month1.clicks, 0),
+          month2_total_clicks: campaigns.reduce((sum, c) => sum + c.month2.clicks, 0),
+          month1_total_results: campaigns.reduce((sum, c) => sum + c.month1.results, 0),
+          month2_total_results: campaigns.reduce((sum, c) => sum + c.month2.results, 0),
+          campaigns: campaigns.sort((a, b) => (b.month1.spend + b.month2.spend) - (a.month1.spend + a.month2.spend))
+        })).sort((a, b) => (b.month1_total_spend + b.month2_total_spend) - (a.month1_total_spend + a.month2_total_spend));
+
+        return (
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Campaign / Objective</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">Month</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">Spend</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">CPC</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white">
+                  {objectiveTotals.map(({ objective, month1_total_spend, month2_total_spend, month1_total_impressions, month2_total_impressions, month1_total_clicks, month2_total_clicks, month1_total_results, month2_total_results, campaigns }) => (
+                    <>
+                      <tr key={`objective-${objective}-m1`} className="bg-blue-50 border-t-2 border-blue-200">
+                        <td rowSpan={2} className="px-4 py-3 font-bold text-blue-900 capitalize border-r border-blue-200">
+                          {objective.replace(/_/g, ' ')}
+                        </td>
+                        <td className="px-4 py-2 text-right text-xs font-semibold text-blue-800">{formatMonthDisplay(month1)}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">HK${month1_total_spend.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">{month1_total_impressions.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">{month1_total_clicks.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">{month1_total_results.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">
+                          {month1_total_impressions > 0 ? ((month1_total_clicks / month1_total_impressions) * 100).toFixed(2) : '0.00'}%
+                        </td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">
+                          HK${month1_total_clicks > 0 ? (month1_total_spend / month1_total_clicks).toFixed(2) : '0.00'}
+                        </td>
+                      </tr>
+                      <tr key={`objective-${objective}-m2`} className="bg-blue-50 border-b-2 border-blue-300">
+                        <td className="px-4 py-2 text-right text-xs font-semibold text-blue-800">{formatMonthDisplay(month2)}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">HK${month2_total_spend.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">{month2_total_impressions.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">{month2_total_clicks.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">{month2_total_results.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">
+                          {month2_total_impressions > 0 ? ((month2_total_clicks / month2_total_impressions) * 100).toFixed(2) : '0.00'}%
+                        </td>
+                        <td className="px-4 py-2 text-right font-bold text-blue-900">
+                          HK${month2_total_clicks > 0 ? (month2_total_spend / month2_total_clicks).toFixed(2) : '0.00'}
+                        </td>
+                      </tr>
+                      {campaigns.map((campaign) => (
+                        <>
+                          <tr key={`${campaign.campaign_id}-m1`} className="hover:bg-gray-50 border-b border-gray-100">
+                            <td rowSpan={2} className="px-4 py-2 text-gray-900 pl-8 border-r border-gray-200">{campaign.name}</td>
+                            <td className="px-4 py-1.5 text-right text-xs text-gray-500">{formatMonthDisplay(month1)}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">HK${campaign.month1.spend.toFixed(2)}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">{campaign.month1.impressions.toLocaleString()}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">{campaign.month1.clicks.toLocaleString()}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">{campaign.month1.results.toLocaleString()}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">{campaign.month1.ctr.toFixed(2)}%</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">HK${campaign.month1.cpc.toFixed(2)}</td>
+                          </tr>
+                          <tr key={`${campaign.campaign_id}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-200">
+                            <td className="px-4 py-1.5 text-right text-xs text-gray-500">{formatMonthDisplay(month2)}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">HK${campaign.month2.spend.toFixed(2)}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">{campaign.month2.impressions.toLocaleString()}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">{campaign.month2.clicks.toLocaleString()}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">{campaign.month2.results.toLocaleString()}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">{campaign.month2.ctr.toFixed(2)}%</td>
+                            <td className="px-4 py-1.5 text-right text-gray-700">HK${campaign.month2.cpc.toFixed(2)}</td>
+                          </tr>
+                        </>
+                      ))}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-          )}
-        </>
-      )}
+        );
+      })()}
 
       {comparisonType === 'adsets' && (
         <>
