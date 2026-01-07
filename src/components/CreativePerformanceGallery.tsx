@@ -150,6 +150,11 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
 
   const handleSyncCreatives = async () => {
     try {
+      if (!accountId) {
+        alert('Please select an account first');
+        return;
+      }
+
       setSyncing(true);
       setError(null);
 
@@ -187,6 +192,18 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
     }
   };
 
+  if (!accountId) {
+    return (
+      <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+        <ImageIcon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+        <p className="text-gray-600 font-medium mb-2">No account selected</p>
+        <p className="text-sm text-gray-500">
+          Please select a Meta ad account from the dropdown above to view creatives
+        </p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -217,7 +234,9 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Creative Performance Gallery</h3>
-          <p className="text-sm text-gray-600">View ad creatives with their performance metrics</p>
+          <p className="text-sm text-gray-600">
+            View ad creatives with performance metrics for the selected time period
+          </p>
         </div>
         <button
           onClick={handleSyncCreatives}
