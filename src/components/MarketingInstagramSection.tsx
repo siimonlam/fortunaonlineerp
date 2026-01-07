@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Instagram, RefreshCw, Users, Image, ExternalLink, Calendar, Heart, MessageCircle, Eye, TrendingUp, Bookmark, Grid, List, Plus, X, Trash2, BarChart3 } from 'lucide-react';
+import { Instagram, RefreshCw, Users, Image, ExternalLink, Calendar, Heart, MessageCircle, Eye, TrendingUp, Bookmark, Grid, List, Plus, X, Trash2, BarChart3, Share2 } from 'lucide-react';
 
 interface InstagramAccount {
   id: string;
@@ -101,8 +101,8 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'marketing_project_instagram_accounts',
-        filter: `marketing_project_id=eq.${projectId}`
+        table: 'marketing_instagram_accounts',
+        filter: `marketing_reference=eq.${marketingReference}`
       }, () => {
         fetchAccounts();
       })
@@ -147,9 +147,9 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
   const fetchAccounts = async () => {
     try {
       const { data: junctionData, error: junctionError } = await supabase
-        .from('marketing_project_instagram_accounts')
+        .from('marketing_instagram_accounts')
         .select('account_id')
-        .eq('marketing_project_id', projectId);
+        .eq('marketing_reference', marketingReference);
 
       if (junctionError) throw junctionError;
 
@@ -191,7 +191,7 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
       if (accountsError) throw accountsError;
 
       const { data: usedAccounts, error: junctionError } = await supabase
-        .from('marketing_project_instagram_accounts')
+        .from('marketing_instagram_accounts')
         .select('account_id');
 
       if (junctionError) throw junctionError;
@@ -218,10 +218,8 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
       if (selectedAccount) {
         query = query.eq('account_id', selectedAccount);
       } else if (marketingReference) {
-        // Filter by marketing_reference (MP0xxx) for this marketing project
         query = query.eq('marketing_reference', marketingReference);
       } else {
-        // No marketing reference yet, return empty
         setPosts([]);
         return;
       }
@@ -246,10 +244,8 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
       if (selectedAccount) {
         query = query.eq('account_id', selectedAccount);
       } else if (marketingReference) {
-        // Filter by marketing_reference (MP0xxx) for this marketing project
         query = query.eq('marketing_reference', marketingReference);
       } else {
-        // No marketing reference yet, return empty
         setMetrics({});
         return;
       }
@@ -351,11 +347,10 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
   const handleAddAccount = async (accountId: string) => {
     try {
       const { error: junctionError } = await supabase
-        .from('marketing_project_instagram_accounts')
+        .from('marketing_instagram_accounts')
         .insert({
-          marketing_project_id: projectId,
-          account_id: accountId,
-          created_by: user?.id
+          marketing_reference: marketingReference,
+          account_id: accountId
         });
 
       if (junctionError) throw junctionError;
@@ -376,9 +371,9 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
 
     try {
       const { error: deleteError } = await supabase
-        .from('marketing_project_instagram_accounts')
+        .from('marketing_instagram_accounts')
         .delete()
-        .eq('marketing_project_id', projectId)
+        .eq('marketing_reference', marketingReference)
         .eq('account_id', accountId);
 
       if (deleteError) throw deleteError;
@@ -405,6 +400,8 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
   }
 
   const calculateInsights = () => {
+    if (!selectedAccount || posts.length === 0) return null;
+
     const totalPosts = posts.length;
     let totalLikes = 0;
     let totalComments = 0;
@@ -427,8 +424,8 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
     });
 
     const avgEngagementRate = totalReach > 0
-      ? ((totalLikes + totalComments) / totalReach * 100).toFixed(2)
-      : '0.00';
+      ? ((totalLikes + totalComments) / totalReach * 100)
+      : 0;
 
     return {
       totalPosts,
@@ -442,27 +439,19 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
     };
   };
 
-  const handleSyncAllInsights = async () => {
-    if (accounts.length === 0) return;
-
-    setSyncing(true);
-    setError(null);
-    setSuccessMessage(null);
-
-    try {
-      for (const account of accounts) {
-        await handleSyncPosts(account.account_id);
-      }
-      setSuccessMessage('All insights synced successfully');
-    } catch (err: any) {
-      console.error('Sync all error:', err);
-      setError(err.message);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const insights = calculateInsights();
+  const selectedAcc = accounts.find(a => a.account_id === selectedAccount);
+
+  const topPosts = [...posts]
+    .filter(p => p.account_id === selectedAccount)
+    .sort((a, b) => {
+      const aMetrics = metrics[a.media_id];
+      const bMetrics = metrics[b.media_id];
+      const aEngagement = (aMetrics?.engagement || 0) + (a.likes_count || 0) + (a.comments_count || 0);
+      const bEngagement = (bMetrics?.engagement || 0) + (b.likes_count || 0) + (b.comments_count || 0);
+      return bEngagement - aEngagement;
+    })
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -478,87 +467,146 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
         </div>
       )}
 
-      {accounts.length > 0 && posts.length > 0 && (
+      {selectedAccount && insights && (
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-              Instagram Insights
-            </h3>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-blue-600" />
+                Instagram Insights - {selectedAcc?.username}
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Showing metrics for all tracked posts
+              </p>
+            </div>
             <button
-              onClick={handleSyncAllInsights}
+              onClick={() => handleSyncAccount(selectedAccount)}
               disabled={syncing}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync Insights'}
+              {syncing ? 'Syncing...' : 'Sync Data'}
             </button>
           </div>
 
-          <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-blue-600 mb-2">
-                <Image className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Posts</span>
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Image className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-medium text-gray-700">Total Posts</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{insights.totalPosts}</p>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalPosts}</p>
+
+              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Heart className="w-5 h-5 text-pink-600" />
+                  <span className="text-sm font-medium text-gray-700">Total Likes</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{insights.totalLikes.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageCircle className="w-5 h-5 text-purple-600" />
+                  <span className="text-sm font-medium text-gray-700">Total Comments</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{insights.totalComments.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <span className="text-sm font-medium text-gray-700">Engagement Rate</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{insights.avgEngagementRate.toFixed(1)}%</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Eye className="w-5 h-5 text-indigo-600" />
+                  <span className="text-sm font-medium text-gray-700">Total Impressions</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{insights.totalImpressions.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-5 h-5 text-cyan-600" />
+                  <span className="text-sm font-medium text-gray-700">Total Reach</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{insights.totalReach.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-5 h-5 text-orange-600" />
+                  <span className="text-sm font-medium text-gray-700">Total Engagement</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{insights.totalEngagement.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Bookmark className="w-5 h-5 text-yellow-600" />
+                  <span className="text-sm font-medium text-gray-700">Total Saved</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{insights.totalSaved.toLocaleString()}</p>
+              </div>
             </div>
 
-            <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-pink-600 mb-2">
-                <Heart className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Likes</span>
+            {topPosts.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-gray-600" />
+                  Top Performing Posts
+                </h4>
+                <div className="space-y-3">
+                  {topPosts.map((post, index) => {
+                    const postMetrics = metrics[post.media_id];
+                    const totalEngagement = (postMetrics?.engagement || 0) + (post.likes_count || 0) + (post.comments_count || 0);
+                    return (
+                      <div key={post.id} className="flex items-center gap-3 bg-white rounded-lg p-3">
+                        <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-bold text-blue-600">#{index + 1}</span>
+                        </div>
+                        <div className="w-12 h-12 rounded overflow-hidden bg-gray-100">
+                          {post.media_type === 'VIDEO' ? (
+                            <video
+                              src={post.media_url}
+                              poster={post.thumbnail_url}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <img src={post.media_url || post.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-700 line-clamp-1">{post.caption || 'No caption'}</p>
+                          <div className="flex items-center gap-3 text-xs text-gray-600 mt-1">
+                            <span>{post.likes_count} likes</span>
+                            <span>{post.comments_count} comments</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-gray-900">{totalEngagement.toLocaleString()}</p>
+                          <p className="text-xs text-gray-600">engagement</p>
+                        </div>
+                        <a
+                          href={post.permalink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 hover:bg-gray-100 rounded-full"
+                        >
+                          <ExternalLink className="w-4 h-4 text-gray-600" />
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalLikes.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-purple-600 mb-2">
-                <MessageCircle className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Comments</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalComments.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-green-600 mb-2">
-                <TrendingUp className="w-5 h-5" />
-                <span className="text-sm font-medium">Engagement Rate</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.avgEngagementRate}%</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-indigo-600 mb-2">
-                <Eye className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Impressions</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalImpressions.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-cyan-600 mb-2">
-                <Users className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Reach</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalReach.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-orange-600 mb-2">
-                <TrendingUp className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Engagement</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalEngagement.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-yellow-600 mb-2">
-                <Bookmark className="w-5 h-5" />
-                <span className="text-sm font-medium">Total Saved</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{insights.totalSaved.toLocaleString()}</p>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -645,7 +693,7 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
                   className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                  {syncing ? 'Syncing...' : 'Sync Account'}
+                  {syncing ? 'Syncing...' : 'Sync Data'}
                 </button>
               </div>
             ))}
@@ -759,6 +807,7 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Comments</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Impressions</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Reach</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Engagement</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Saved</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Link</th>
                   </tr>
@@ -809,6 +858,9 @@ export default function MarketingInstagramSection({ projectId, clientNumber: ini
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
                           {postMetrics ? postMetrics.reach.toLocaleString() : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
+                          {postMetrics ? postMetrics.engagement.toLocaleString() : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
                           {postMetrics ? postMetrics.saved.toLocaleString() : '-'}
