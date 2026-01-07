@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, X, ExternalLink, TrendingUp, DollarSign, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, ExternalLink, TrendingUp, DollarSign, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eye } from 'lucide-react';
 
 interface InfluencerCollab {
   id: string;
@@ -25,6 +25,7 @@ interface InfluencerCollab {
   post_link: string;
   post_likes: number;
   post_comments: number;
+  post_views: number;
   post_date: string;
   sales: number;
   created_at: string;
@@ -34,7 +35,7 @@ interface InfluencerCollaborationProps {
   marketingProjectId: string;
 }
 
-type SortField = 'outreach_date' | 'collaborator_name' | 'platform' | 'follower_count' | 'engagement' | 'suggested_price' | 'status' | 'post_likes' | 'post_comments' | 'sales' | 'post_date';
+type SortField = 'outreach_date' | 'collaborator_name' | 'platform' | 'follower_count' | 'engagement' | 'suggested_price' | 'status' | 'post_likes' | 'post_comments' | 'post_views' | 'sales' | 'post_date';
 type SortDirection = 'asc' | 'desc';
 
 export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollaborationProps) {
@@ -44,6 +45,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
   const [showModal, setShowModal] = useState(false);
   const [editingCollab, setEditingCollab] = useState<InfluencerCollab | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingMetrics, setUpdatingMetrics] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -70,6 +72,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     post_link: '',
     post_likes: '',
     post_comments: '',
+    post_views: '',
     post_date: '',
     sales: '',
   });
@@ -207,6 +210,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         post_link: formData.post_link || null,
         post_likes: formData.post_likes ? parseInt(formData.post_likes) : 0,
         post_comments: formData.post_comments ? parseInt(formData.post_comments) : 0,
+        post_views: formData.post_views ? parseInt(formData.post_views) : 0,
         post_date: formData.post_date || null,
         sales: formData.sales ? parseFloat(formData.sales) : 0,
         created_by: staffData?.id,
@@ -257,6 +261,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       post_link: collab.post_link || '',
       post_likes: collab.post_likes?.toString() || '',
       post_comments: collab.post_comments?.toString() || '',
+      post_views: collab.post_views?.toString() || '',
       post_date: collab.post_date || '',
       sales: collab.sales?.toString() || '',
     });
@@ -277,6 +282,51 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     } catch (error) {
       console.error('Error deleting collaboration:', error);
       alert('Failed to delete collaboration');
+    }
+  };
+
+  const handleUpdateMetrics = async (collab: InfluencerCollab) => {
+    if (!collab.post_link) {
+      alert('No post link available');
+      return;
+    }
+
+    try {
+      setUpdatingMetrics(collab.id);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-influencer-post-metrics`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            postUrl: collab.post_link,
+            collaborationId: collab.id,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch metrics');
+      }
+
+      alert(`Successfully updated metrics!\nViews: ${result.metrics.views.toLocaleString()}\nLikes: ${result.metrics.likes.toLocaleString()}\nComments: ${result.metrics.comments.toLocaleString()}`);
+      await loadCollaborations();
+    } catch (error: any) {
+      console.error('Error updating metrics:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setUpdatingMetrics(null);
     }
   };
 
@@ -303,6 +353,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       post_link: '',
       post_likes: '',
       post_comments: '',
+      post_views: '',
       post_date: '',
       sales: '',
     });
@@ -477,6 +528,14 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                 </th>
                 <th
                   className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
+                  onClick={() => handleSort('post_views')}
+                >
+                  <div className="flex items-center gap-1">
+                    Views {getSortIcon('post_views')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
                   onClick={() => handleSort('post_likes')}
                 >
                   <div className="flex items-center gap-1">
@@ -539,6 +598,9 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                     {collab.post_date ? new Date(collab.post_date).toLocaleDateString() : '-'}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-900">
+                    {collab.post_views?.toLocaleString() || '-'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-900">
                     {collab.post_link ? (
                       <a href={collab.post_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         {collab.post_likes?.toLocaleString() || 0}
@@ -555,6 +617,20 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {collab.post_link && (
+                        <button
+                          onClick={() => handleUpdateMetrics(collab)}
+                          disabled={updatingMetrics === collab.id}
+                          className="text-green-600 hover:text-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Update post metrics"
+                        >
+                          {updatingMetrics === collab.id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                       <button
                         onClick={() => handleEdit(collab)}
                         className="text-blue-600 hover:text-blue-700 transition-colors"
@@ -785,7 +861,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
               <div className="space-y-4">
                 <h4 className="font-semibold text-slate-900">Post Performance</h4>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Post Link</label>
                     <input
                       type="url"
@@ -794,6 +870,9 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="https://..."
                     />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Supports YouTube and Instagram. Use the Update button in the table to fetch metrics automatically.
+                    </p>
                   </div>
 
                   <div>
@@ -803,6 +882,17 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                       value={formData.post_date}
                       onChange={(e) => setFormData({ ...formData, post_date: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Post Views</label>
+                    <input
+                      type="number"
+                      value={formData.post_views}
+                      onChange={(e) => setFormData({ ...formData, post_views: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      min="0"
                     />
                   </div>
 
