@@ -573,69 +573,63 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
       return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
     });
 
-    const lastDayOfCurrentMonth = currentMonthInsights.length > 0 ? currentMonthInsights[0] : null;
-    if (!lastDayOfCurrentMonth) return null;
+    if (currentMonthInsights.length === 0) return null;
 
-    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const previousMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    const sortedCurrentMonth = [...currentMonthInsights].sort((a, b) =>
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
 
-    const lastMonthInsights = sortedInsights.filter(insight => {
-      const date = new Date(insight.date);
-      return date.getFullYear() === previousMonthYear && date.getMonth() === previousMonth;
-    });
-
-    const lastDayOfLastMonth = lastMonthInsights.length > 0 ? lastMonthInsights[0] : null;
+    const firstDayOfMonth = sortedCurrentMonth[0];
+    const lastDayOfMonth = sortedCurrentMonth[sortedCurrentMonth.length - 1];
 
     const currentMonthPosts = posts.filter(p => {
       const date = new Date(p.date);
       return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
     });
 
-    const lastMonthPosts = posts.filter(p => {
-      const date = new Date(p.date);
-      return date.getFullYear() === previousMonthYear && date.getMonth() === previousMonth;
-    });
-
     const getSum = (data: PageInsights[], field: keyof PageInsights) => {
       return data.reduce((sum, item) => sum + ((item[field] as number) || 0), 0);
     };
 
-    const currentReach = getSum(currentMonthInsights, 'page_impressions_unique');
-    const lastReach = getSum(lastMonthInsights, 'page_impressions_unique');
+    const monthlyReach = getSum(currentMonthInsights, 'page_impressions_unique');
+    const monthlyEngagement = getSum(currentMonthInsights, 'page_post_engagements');
 
-    const currentEngagement = getSum(currentMonthInsights, 'page_post_engagements');
-    const lastEngagement = getSum(lastMonthInsights, 'page_post_engagements');
-
-    const currentEngagementRate = currentMonthInsights.length > 0
+    const averageEngagementRate = currentMonthInsights.length > 0
       ? currentMonthInsights.reduce((sum, item) => sum + (item.engagement_rate || 0), 0) / currentMonthInsights.length
       : 0;
-    const lastEngagementRate = lastMonthInsights.length > 0
-      ? lastMonthInsights.reduce((sum, item) => sum + (item.engagement_rate || 0), 0) / lastMonthInsights.length
-      : 0;
 
-    const calculateChange = (current: number, last: number) => {
-      if (last === 0) return current > 0 ? 100 : 0;
-      return ((current - last) / last) * 100;
+    const calculateChange = (current: number, first: number) => {
+      if (first === 0) return current > 0 ? 100 : 0;
+      return ((current - first) / first) * 100;
     };
 
-    const currentPageFans = lastDayOfCurrentMonth.page_fans || 0;
-    const lastPageFans = lastDayOfLastMonth ? lastDayOfLastMonth.page_fans || 0 : 0;
+    const lastDayPageFans = lastDayOfMonth.page_fans || 0;
+    const firstDayPageFans = firstDayOfMonth.page_fans || 0;
 
-    const currentMonthReactions = currentMonthPosts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
-    const currentMonthComments = currentMonthPosts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
-    const currentMonthShares = currentMonthPosts.reduce((sum, p) => sum + (p.shares_count || 0), 0);
+    const lastDayReach = lastDayOfMonth.page_impressions_unique || 0;
+    const firstDayReach = firstDayOfMonth.page_impressions_unique || 0;
+
+    const lastDayEngagement = lastDayOfMonth.page_post_engagements || 0;
+    const firstDayEngagement = firstDayOfMonth.page_post_engagements || 0;
+
+    const lastDayEngagementRate = lastDayOfMonth.engagement_rate || 0;
+    const firstDayEngagementRate = firstDayOfMonth.engagement_rate || 0;
+
+    const monthReactions = currentMonthPosts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
+    const monthComments = currentMonthPosts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
+    const monthShares = currentMonthPosts.reduce((sum, p) => sum + (p.shares_count || 0), 0);
 
     return {
       current: {
-        pageFans: currentPageFans,
-        reach: currentReach,
-        engagement: currentEngagement,
-        engagementRate: currentEngagementRate,
+        pageFans: lastDayPageFans,
+        reach: monthlyReach,
+        engagement: monthlyEngagement,
+        engagementRate: averageEngagementRate,
         posts: currentMonthPosts.length,
-        reactions: currentMonthReactions,
-        comments: currentMonthComments,
-        shares: currentMonthShares,
-        lastUpdate: new Date(lastDayOfCurrentMonth.date).toLocaleDateString('en-US', {
+        reactions: monthReactions,
+        comments: monthComments,
+        shares: monthShares,
+        lastUpdate: new Date(lastDayOfMonth.date).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
           day: 'numeric'
@@ -645,26 +639,22 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
           month: 'long'
         })
       },
-      last: {
-        pageFans: lastPageFans,
-        reach: lastReach,
-        engagement: lastEngagement,
-        engagementRate: lastEngagementRate,
-        lastUpdate: lastDayOfLastMonth ? new Date(lastDayOfLastMonth.date).toLocaleDateString('en-US', {
+      first: {
+        pageFans: firstDayPageFans,
+        reach: firstDayReach,
+        engagement: firstDayEngagement,
+        engagementRate: firstDayEngagementRate,
+        lastUpdate: new Date(firstDayOfMonth.date).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
           day: 'numeric'
-        }) : 'N/A',
-        monthName: new Date(previousMonthYear, previousMonth, 1).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long'
         })
       },
       changes: {
-        pageFans: calculateChange(currentPageFans, lastPageFans),
-        reach: calculateChange(currentReach, lastReach),
-        engagement: calculateChange(currentEngagement, lastEngagement),
-        engagementRate: calculateChange(currentEngagementRate, lastEngagementRate)
+        pageFans: calculateChange(lastDayPageFans, firstDayPageFans),
+        reach: calculateChange(lastDayReach, firstDayReach),
+        engagement: calculateChange(lastDayEngagement, firstDayEngagement),
+        engagementRate: calculateChange(lastDayEngagementRate, firstDayEngagementRate)
       }
     };
   };
@@ -718,7 +708,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
                   <span>{isPositive ? '+' : ''}{change.toFixed(1)}%</span>
                 </div>
               </div>
-              <p className="text-xs text-gray-600 mt-1">vs last month</p>
+              <p className="text-xs text-gray-600 mt-1">from start of month</p>
             </div>
           );
         };
@@ -732,7 +722,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
                   Facebook Insights - {selectedAcc?.name}
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  {monthlyComparison.current.monthName} (as of {monthlyComparison.current.lastUpdate}) vs {monthlyComparison.last.monthName} (as of {monthlyComparison.last.lastUpdate})
+                  {monthlyComparison.current.monthName} (as of {monthlyComparison.current.lastUpdate}) - Changes from {monthlyComparison.first.lastUpdate}
                 </p>
               </div>
               <button

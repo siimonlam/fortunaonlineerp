@@ -30,6 +30,7 @@ import MarketingMetaAdSection from './MarketingMetaAdSection';
 import { SocialMediaPostsManager } from './SocialMediaPostsManager';
 import { InfluencerCollaboration } from './InfluencerCollaboration';
 import { MarketingTasksSection } from './MarketingTasksSection';
+import MarketingMeetingsSection from './MarketingMeetingsSection';
 import { createMarketingProjectFolders } from '../utils/googleDriveUtils';
 
 interface MarketingProject {
@@ -519,6 +520,13 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
         return (
           <div className="bg-white rounded-lg shadow p-6">
             <MarketingTasksSection projectId={projectId} project={project} onTasksChange={fetchMarketingTaskCounts} />
+          </div>
+        );
+
+      case 'meetings':
+        return (
+          <div className="bg-white rounded-lg shadow p-6">
+            <MarketingMeetingsSection marketingProjectId={projectId} />
           </div>
         );
 
