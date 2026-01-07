@@ -31,6 +31,7 @@ import { SocialMediaPostsManager } from './SocialMediaPostsManager';
 import { InfluencerCollaboration } from './InfluencerCollaboration';
 import { MarketingTasksSection } from './MarketingTasksSection';
 import MarketingMeetingsSection from './MarketingMeetingsSection';
+import { MarketingShareResourcesSection } from './MarketingShareResourcesSection';
 import { createMarketingProjectFolders } from '../utils/googleDriveUtils';
 
 interface MarketingProject {
@@ -517,61 +518,11 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
       case 'files':
         return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Google Drive Files</h3>
-
-            {project?.google_drive_folder_id ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <Folder className="text-green-600" size={24} />
-                  <div className="flex-1">
-                    <p className="font-medium text-green-900">Folder Created</p>
-                    <p className="text-sm text-green-700">Project files are stored in Google Drive</p>
-                  </div>
-                  <a
-                    href={`https://drive.google.com/drive/folders/${project.google_drive_folder_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <ExternalLink size={16} />
-                    Open Folder
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                  <p className="text-gray-600 mb-4">
-                    No Google Drive folder has been created for this project yet. Click the button below to create a folder structure.
-                  </p>
-                  <button
-                    onClick={handleCreateFolders}
-                    disabled={creatingFolders}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {creatingFolders ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Creating Folders...
-                      </>
-                    ) : (
-                      <>
-                        <FolderPlus size={16} />
-                        Create Folder Structure
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {folderError && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-900 font-medium mb-1">Error Creating Folders</p>
-                    <p className="text-red-700 text-sm">{folderError}</p>
-                  </div>
-                )}
-              </div>
-            )}
+          <div className="h-[calc(100vh-12rem)]">
+            <MarketingShareResourcesSection
+              marketingProjectId={projectId}
+              driveFolderId={project?.google_drive_folder_id}
+            />
           </div>
         );
 
