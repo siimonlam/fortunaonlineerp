@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { BarChart3, Plus, RefreshCw, Trash2, ExternalLink, TrendingUp, DollarSign, Eye, MousePointer, Filter, ChevronDown, Calendar } from 'lucide-react';
 import MonthlyPerformanceChart from './MonthlyPerformanceChart';
 import MonthlyComparison from './MonthlyComparison';
+import CreativePerformanceGallery from './CreativePerformanceGallery';
 
 interface MarketingMetaAdSectionProps {
   projectId: string;
@@ -1769,134 +1770,16 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                     )}
 
                     {reportView === 'creatives' && (
-                      <div className="overflow-x-auto">
-                        {creatives.length === 0 ? (
-                          <p className="text-sm text-gray-500 text-center py-4">
-                            No creatives found.
-                          </p>
-                        ) : (
-                          <table className="w-full text-sm">
-                            <thead className="bg-gray-50 border-b border-gray-200">
-                              <tr>
-                                <th
-                                  className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('name')}
-                                >
-                                  Creative Name {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th
-                                  className="px-4 py-3 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('ad_format')}
-                                >
-                                  Format {sortConfig?.key === 'ad_format' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th className="px-4 py-3 text-left font-medium text-gray-700">
-                                  Link
-                                </th>
-                                <th
-                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('total_spend')}
-                                >
-                                  Spend {sortConfig?.key === 'total_spend' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th
-                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('total_impressions')}
-                                >
-                                  Impressions {sortConfig?.key === 'total_impressions' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th
-                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('total_reach')}
-                                >
-                                  Reach {sortConfig?.key === 'total_reach' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th
-                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('total_clicks')}
-                                >
-                                  Clicks {sortConfig?.key === 'total_clicks' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th
-                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('total_results')}
-                                >
-                                  Results {sortConfig?.key === 'total_results' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th
-                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('avg_ctr')}
-                                >
-                                  CTR {sortConfig?.key === 'avg_ctr' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th
-                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('avg_cpc')}
-                                >
-                                  CPC {sortConfig?.key === 'avg_cpc' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                                <th
-                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => handleSort('roas')}
-                                >
-                                  ROAS {sortConfig?.key === 'roas' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {(getSortedData(creatives) as CreativeMetrics[]).map((creative) => (
-                                <tr key={creative.creative_id} className="hover:bg-gray-50">
-                                  <td className="px-4 py-3 text-gray-900 font-medium max-w-xs truncate" title={creative.name}>
-                                    {creative.name}
-                                  </td>
-                                  <td className="px-4 py-3 text-gray-700">
-                                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                                      creative.ad_format === 'video' ? 'bg-purple-100 text-purple-800' :
-                                      creative.ad_format === 'image' ? 'bg-blue-100 text-blue-800' :
-                                      creative.ad_format === 'carousel' ? 'bg-green-100 text-green-800' :
-                                      'bg-gray-100 text-gray-800'
-                                    }`}>
-                                      {creative.ad_format === 'video' && '🎥 '}
-                                      {creative.ad_format === 'image' && '📷 '}
-                                      {creative.ad_format === 'carousel' && '🎠 '}
-                                      {creative.ad_format.charAt(0).toUpperCase() + creative.ad_format.slice(1)}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-gray-700 max-w-xs">
-                                    {(creative.effective_object_url || creative.link_url) ? (
-                                      <a
-                                        href={creative.effective_object_url || creative.link_url || '#'}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 hover:underline truncate block"
-                                        title={creative.effective_object_url || creative.link_url || undefined}
-                                      >
-                                        {(creative.effective_object_url || creative.link_url || '').length > 30
-                                          ? `${(creative.effective_object_url || creative.link_url || '').substring(0, 30)}...`
-                                          : (creative.effective_object_url || creative.link_url)}
-                                      </a>
-                                    ) : (
-                                      <span className="text-gray-400">-</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-right text-gray-900 font-medium">${creative.total_spend.toFixed(2)}</td>
-                                  <td className="px-4 py-3 text-right text-gray-700">{creative.total_impressions.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right text-gray-700">{creative.total_reach.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right text-gray-700">{creative.total_clicks.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right text-gray-700">{creative.total_results.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right text-gray-700">{creative.avg_ctr.toFixed(2)}%</td>
-                                  <td className="px-4 py-3 text-right text-gray-700">${creative.avg_cpc.toFixed(2)}</td>
-                                  <td className="px-4 py-3 text-right">
-                                    <span className={`font-medium ${creative.roas >= 2 ? 'text-green-600' : creative.roas >= 1 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                      {creative.roas.toFixed(2)}x
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
+                      <CreativePerformanceGallery
+                        accountId={selectedAccountId}
+                        dateRange={selectedMonth === 'last_6_months' ? {
+                          since: new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString().split('T')[0],
+                          until: new Date().toISOString().split('T')[0]
+                        } : selectedMonth === 'last_3_months' ? {
+                          since: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0],
+                          until: new Date().toISOString().split('T')[0]
+                        } : undefined}
+                      />
                     )}
 
                     {reportView === 'platform' && (
