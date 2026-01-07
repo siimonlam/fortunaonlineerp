@@ -249,6 +249,7 @@ export function ProjectBoard() {
   const [marketingTaskCounts, setMarketingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
   const [marketingStatusTaskCounts, setMarketingStatusTaskCounts] = useState<Record<string, { pastDue: number; upcoming: number }>>({});
   const [marketingProjectTaskCounts, setMarketingProjectTaskCounts] = useState<Record<string, { pastDue: number; upcoming: number }>>({});
+  const [fundingTaskCounts, setFundingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
 
   useEffect(() => {
     if (fundingProjectTab !== 'meetings') {
@@ -273,6 +274,7 @@ export function ProjectBoard() {
 
     loadAllLabels();
     loadMarketingTaskCounts();
+    loadFundingTaskCounts();
 
     // Set up a single real-time channel with multiple table listeners
     // Using broadcast channel to work around RLS limitations with SECURITY DEFINER functions
@@ -323,6 +325,7 @@ export function ProjectBoard() {
         (payload) => {
           console.log('✅ Tasks changed:', payload.eventType);
           if (selectedView === 'projects') loadProjectsViewData();
+          loadFundingTaskCounts();
         }
       )
       .on(
@@ -732,6 +735,61 @@ export function ProjectBoard() {
       setMarketingProjectTaskCounts(projectCounts);
     } catch (error: any) {
       console.error('[loadMarketingTaskCounts] Error:', error.message);
+    }
+  }
+
+  async function loadFundingTaskCounts() {
+    if (!user) return;
+
+    try {
+      const fundingType = projectTypes.find(pt => pt.name === 'Funding Project');
+      if (!fundingType) return;
+
+      const fundingStatuses = statuses.filter(s => s.project_type_id === fundingType.id);
+      const statusIds = fundingStatuses.map(s => s.id);
+
+      const { data: fundingProjectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('id')
+        .in('status_id', statusIds);
+
+      if (projectsError) throw projectsError;
+
+      const projectIds = (fundingProjectsData || []).map(p => p.id);
+
+      if (projectIds.length === 0) {
+        setFundingTaskCounts({ pastDue: 0, upcoming: 0 });
+        return;
+      }
+
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('id, deadline, completed')
+        .in('project_id', projectIds)
+        .eq('assigned_to', user.id)
+        .eq('completed', false)
+        .not('deadline', 'is', null);
+
+      if (tasksError) throw tasksError;
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      const pastDue = (tasksData || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline < now;
+      }).length;
+
+      const upcoming = (tasksData || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline >= now;
+      }).length;
+
+      setFundingTaskCounts({ pastDue, upcoming });
+    } catch (error: any) {
+      console.error('[loadFundingTaskCounts] Error:', error.message);
     }
   }
 
@@ -2057,8 +2115,10 @@ export function ProjectBoard() {
                 };
 
                 const isMarketing = type.name === 'Marketing';
-                const hasPastDue = isMarketing && marketingTaskCounts.pastDue > 0;
-                const hasUpcoming = isMarketing && marketingTaskCounts.upcoming > 0;
+                const isFunding = type.name === 'Funding Project';
+                const taskCounts = isMarketing ? marketingTaskCounts : (isFunding ? fundingTaskCounts : { pastDue: 0, upcoming: 0 });
+                const hasPastDue = (isMarketing || isFunding) && taskCounts.pastDue > 0;
+                const hasUpcoming = (isMarketing || isFunding) && taskCounts.upcoming > 0;
 
                 return (
                   <button
@@ -2077,13 +2137,13 @@ export function ProjectBoard() {
                         {hasPastDue && (
                           <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
                             <AlertCircle className="w-3 h-3" />
-                            {marketingTaskCounts.pastDue}
+                            {taskCounts.pastDue}
                           </span>
                         )}
                         {hasUpcoming && (
                           <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
                             <Bell className="w-3 h-3" />
-                            {marketingTaskCounts.upcoming}
+                            {taskCounts.upcoming}
                           </span>
                         )}
                       </span>
