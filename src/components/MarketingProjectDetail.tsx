@@ -87,12 +87,14 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [socialMediaTaskCounts, setSocialMediaTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
   const [marketingTaskCounts, setMarketingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
+  const [meetingTaskCounts, setMeetingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
 
   useEffect(() => {
     fetchProject();
     fetchPermissions();
     fetchSocialMediaTaskCounts();
     fetchMarketingTaskCounts();
+    fetchMeetingTaskCounts();
 
     const channel = supabase
       .channel(`marketing-project-${projectId}`)
@@ -115,6 +117,20 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
         { event: '*', schema: 'public', table: 'marketing_tasks' },
         () => {
           fetchMarketingTaskCounts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        () => {
+          fetchMeetingTaskCounts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'marketing_meetings' },
+        () => {
+          fetchMeetingTaskCounts();
         }
       )
       .subscribe();
@@ -258,6 +274,56 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       setMarketingTaskCounts({ pastDue, upcoming });
     } catch (err: any) {
       console.error('Error fetching marketing task counts:', err);
+    }
+  };
+
+  const fetchMeetingTaskCounts = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: meetings, error: meetingsError } = await supabase
+        .from('marketing_meetings')
+        .select('id')
+        .eq('marketing_project_id', projectId);
+
+      if (meetingsError) throw meetingsError;
+
+      const meetingIds = (meetings || []).map(m => m.id);
+
+      if (meetingIds.length === 0) {
+        setMeetingTaskCounts({ pastDue: 0, upcoming: 0 });
+        return;
+      }
+
+      const { data: meetingTasks, error } = await supabase
+        .from('tasks')
+        .select('id, deadline, completed')
+        .in('meeting_id', meetingIds)
+        .eq('assigned_to', user.id)
+        .eq('completed', false)
+        .not('deadline', 'is', null);
+
+      if (error) throw error;
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      const pastDue = (meetingTasks || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline < now;
+      }).length;
+
+      const upcoming = (meetingTasks || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline >= now;
+      }).length;
+
+      setMeetingTaskCounts({ pastDue, upcoming });
+    } catch (err: any) {
+      console.error('Error fetching meeting task counts:', err);
     }
   };
 
@@ -619,6 +685,7 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
                         const Icon = item.icon;
                         const isSocialMedia = item.id === 'social-media';
                         const isTasks = item.id === 'tasks';
+                        const isMeetings = item.id === 'meetings';
 
                         const socialPastDue = isSocialMedia && socialMediaTaskCounts.pastDue > 0;
                         const socialUpcoming = isSocialMedia && socialMediaTaskCounts.upcoming > 0;
@@ -626,8 +693,11 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
                         const tasksPastDue = isTasks && marketingTaskCounts.pastDue > 0;
                         const tasksUpcoming = isTasks && marketingTaskCounts.upcoming > 0;
 
-                        const hasPastDue = socialPastDue || tasksPastDue;
-                        const hasUpcoming = socialUpcoming || tasksUpcoming;
+                        const meetingsPastDue = isMeetings && meetingTaskCounts.pastDue > 0;
+                        const meetingsUpcoming = isMeetings && meetingTaskCounts.upcoming > 0;
+
+                        const hasPastDue = socialPastDue || tasksPastDue || meetingsPastDue;
+                        const hasUpcoming = socialUpcoming || tasksUpcoming || meetingsUpcoming;
 
                         return (
                           <button
@@ -648,13 +718,13 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
                                 {hasPastDue && (
                                   <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
                                     <AlertCircle className="w-3 h-3" />
-                                    {isSocialMedia ? socialMediaTaskCounts.pastDue : marketingTaskCounts.pastDue}
+                                    {isSocialMedia ? socialMediaTaskCounts.pastDue : isTasks ? marketingTaskCounts.pastDue : meetingTaskCounts.pastDue}
                                   </span>
                                 )}
                                 {hasUpcoming && (
                                   <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
                                     <Bell className="w-3 h-3" />
-                                    {isSocialMedia ? socialMediaTaskCounts.upcoming : marketingTaskCounts.upcoming}
+                                    {isSocialMedia ? socialMediaTaskCounts.upcoming : isTasks ? marketingTaskCounts.upcoming : meetingTaskCounts.upcoming}
                                   </span>
                                 )}
                               </span>

@@ -790,18 +790,36 @@ export function ProjectBoard() {
 
       const projectIds = (fundingProjectsData || []).map(p => p.id);
 
-      if (projectIds.length === 0) {
+      const { data: meetingsData, error: meetingsError } = await supabase
+        .from('meetings')
+        .select('id')
+        .in('project_id', projectIds);
+
+      if (meetingsError) throw meetingsError;
+
+      const meetingIds = (meetingsData || []).map(m => m.id);
+
+      if (projectIds.length === 0 && meetingIds.length === 0) {
         setFundingTaskCounts({ pastDue: 0, upcoming: 0 });
         return;
       }
 
-      const { data: tasksData, error: tasksError } = await supabase
+      let query = supabase
         .from('tasks')
         .select('id, deadline, completed')
-        .in('project_id', projectIds)
         .eq('assigned_to', user.id)
         .eq('completed', false)
         .not('deadline', 'is', null);
+
+      if (projectIds.length > 0 && meetingIds.length > 0) {
+        query = query.or(`project_id.in.(${projectIds.join(',')}),meeting_id.in.(${meetingIds.join(',')})`);
+      } else if (projectIds.length > 0) {
+        query = query.in('project_id', projectIds);
+      } else if (meetingIds.length > 0) {
+        query = query.in('meeting_id', meetingIds);
+      }
+
+      const { data: tasksData, error: tasksError } = await query;
 
       if (tasksError) throw tasksError;
 
@@ -2533,9 +2551,27 @@ export function ProjectBoard() {
                         : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
                     }`}
                   >
-                    <span className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      Meetings
+                    <span className="flex items-center justify-between w-full">
+                      <span className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        Meetings
+                      </span>
+                      {(fundingTaskCounts.pastDue > 0 || fundingTaskCounts.upcoming > 0) && (
+                        <span className="flex items-center gap-1">
+                          {fundingTaskCounts.pastDue > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
+                              <AlertCircle className="w-3 h-3" />
+                              {fundingTaskCounts.pastDue}
+                            </span>
+                          )}
+                          {fundingTaskCounts.upcoming > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
+                              <Bell className="w-3 h-3" />
+                              {fundingTaskCounts.upcoming}
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </span>
                   </button>
                   <button
