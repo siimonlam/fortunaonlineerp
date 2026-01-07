@@ -533,13 +533,12 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
     const lastDayOfCurrentMonth = currentMonthInsights.length > 0 ? currentMonthInsights[0] : null;
     if (!lastDayOfCurrentMonth) return null;
 
-    const lastMonthDate = new Date(currentYear, currentMonth, 0);
-    const lastMonth = lastMonthDate.getMonth();
-    const lastMonthYear = lastMonthDate.getFullYear();
+    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const previousMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
     const lastMonthInsights = sortedInsights.filter(insight => {
       const date = new Date(insight.date);
-      return date.getFullYear() === lastMonthYear && date.getMonth() === lastMonth;
+      return date.getFullYear() === previousMonthYear && date.getMonth() === previousMonth;
     });
 
     const lastDayOfLastMonth = lastMonthInsights.length > 0 ? lastMonthInsights[0] : null;
@@ -551,7 +550,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
 
     const lastMonthPosts = posts.filter(p => {
       const date = new Date(p.date);
-      return date.getFullYear() === lastMonthYear && date.getMonth() === lastMonth;
+      return date.getFullYear() === previousMonthYear && date.getMonth() === previousMonth;
     });
 
     const getSum = (data: PageInsights[], field: keyof PageInsights) => {
@@ -593,10 +592,14 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
         reactions: currentMonthReactions,
         comments: currentMonthComments,
         shares: currentMonthShares,
-        lastUpdate: mostRecentDate.toLocaleDateString('en-US', {
+        lastUpdate: new Date(lastDayOfCurrentMonth.date).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
           day: 'numeric'
+        }),
+        monthName: new Date(currentYear, currentMonth, 1).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long'
         })
       },
       last: {
@@ -608,7 +611,11 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
           year: 'numeric',
           month: 'short',
           day: 'numeric'
-        }) : 'N/A'
+        }) : 'N/A',
+        monthName: new Date(previousMonthYear, previousMonth, 1).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long'
+        })
       },
       changes: {
         pageFans: calculateChange(currentPageFans, lastPageFans),
@@ -682,8 +689,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
                   Facebook Insights - {selectedAcc?.name}
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Last updated: {monthlyComparison.current.lastUpdate} |
-                  Comparing to: {monthlyComparison.last.lastUpdate}
+                  {monthlyComparison.current.monthName} (as of {monthlyComparison.current.lastUpdate}) vs {monthlyComparison.last.monthName} (as of {monthlyComparison.last.lastUpdate})
                 </p>
               </div>
               <button
