@@ -161,7 +161,9 @@ Deno.serve(async (req: Request) => {
 
     const baseFields = [
       'adset_id',
+      'adset_name',
       'campaign_id',
+      'campaign_name',
       'impressions',
       'reach',
       'spend',
@@ -234,15 +236,14 @@ Deno.serve(async (req: Request) => {
 
             // Use lookup maps instead of database queries
             const adsetData = adsetMap.get(adsetId);
-            const campaignData = campaignMap.get(insight.campaign_id);
 
             const record = {
               account_id: accountId,
               campaign_id: insight.campaign_id || null,
               adset_id: adsetId,
               month_year: monthYear,
-              adset_name: adsetData?.name || null,
-              campaign_name: campaignData?.name || null,
+              adset_name: insight.adset_name || adsetData?.name || null,
+              campaign_name: insight.campaign_name || null,
               account_name: accountData?.account_name || null,
               spend: parseFloat(insight.spend || '0'),
               impressions: parseInt(insight.impressions || '0'),

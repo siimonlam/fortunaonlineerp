@@ -16,6 +16,13 @@ interface ComparisonMetrics {
 interface CampaignComparison {
   campaign_id: string;
   name: string;
+  objective?: string;
+  month1: ComparisonMetrics;
+  month2: ComparisonMetrics;
+}
+
+interface ObjectiveComparison {
+  objective: string;
   month1: ComparisonMetrics;
   month2: ComparisonMetrics;
 }
@@ -57,10 +64,11 @@ export default function MonthlyComparison({ accountId }: Props) {
     return `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
   };
   const [loading, setLoading] = useState(true);
-  const [comparisonType, setComparisonType] = useState<'overall' | 'campaigns' | 'adsets' | 'demographics' | 'platform'>('overall');
+  const [comparisonType, setComparisonType] = useState<'overall' | 'objectives' | 'campaigns' | 'adsets' | 'demographics' | 'platform'>('overall');
 
   const [overallMonth1, setOverallMonth1] = useState<ComparisonMetrics | null>(null);
   const [overallMonth2, setOverallMonth2] = useState<ComparisonMetrics | null>(null);
+  const [objectiveComparisons, setObjectiveComparisons] = useState<ObjectiveComparison[]>([]);
   const [campaignComparisons, setCampaignComparisons] = useState<CampaignComparison[]>([]);
   const [adSetComparisons, setAdSetComparisons] = useState<AdSetComparison[]>([]);
   const [demographicComparisons, setDemographicComparisons] = useState<DemographicComparison[]>([]);
@@ -127,6 +135,7 @@ export default function MonthlyComparison({ accountId }: Props) {
     try {
       await Promise.all([
         fetchOverallComparison(),
+        fetchObjectiveComparison(),
         fetchCampaignComparison(),
         fetchAdSetComparison(),
         fetchDemographicComparison(),
@@ -183,7 +192,133 @@ export default function MonthlyComparison({ accountId }: Props) {
     setOverallMonth2(aggregateMetrics(month2Data || []));
   };
 
+  const fetchObjectiveComparison = async () => {
+    const { data: month1Campaigns } = await supabase
+      .from('meta_monthly_insights')
+      .select('campaign_id')
+      .eq('account_id', accountId)
+      .gte('month_year', `${month1}-01`)
+      .lt('month_year', getNextMonthStart(month1));
+
+    const { data: month2Campaigns } = await supabase
+      .from('meta_monthly_insights')
+      .select('campaign_id')
+      .eq('account_id', accountId)
+      .gte('month_year', `${month2}-01`)
+      .lt('month_year', getNextMonthStart(month2));
+
+    const allCampaignIds = [...new Set([
+      ...(month1Campaigns || []).map(c => c.campaign_id),
+      ...(month2Campaigns || []).map(c => c.campaign_id)
+    ].filter(Boolean))];
+
+    if (allCampaignIds.length === 0) {
+      setObjectiveComparisons([]);
+      return;
+    }
+
+    const { data: campaignMeta } = await supabase
+      .from('meta_campaigns')
+      .select('campaign_id, objective')
+      .in('campaign_id', allCampaignIds);
+
+    const campaignObjectiveMap = new Map((campaignMeta || []).map(c => [c.campaign_id, c.objective]));
+
+    const { data: month1Data } = await supabase
+      .from('meta_monthly_insights')
+      .select('campaign_id, spend, impressions, clicks, reach, results')
+      .eq('account_id', accountId)
+      .gte('month_year', `${month1}-01`)
+      .lt('month_year', getNextMonthStart(month1));
+
+    const { data: month2Data } = await supabase
+      .from('meta_monthly_insights')
+      .select('campaign_id, spend, impressions, clicks, reach, results')
+      .eq('account_id', accountId)
+      .gte('month_year', `${month2}-01`)
+      .lt('month_year', getNextMonthStart(month2));
+
+    const objectiveMap = new Map<string, ObjectiveComparison>();
+
+    (month1Data || []).forEach(row => {
+      const objective = campaignObjectiveMap.get(row.campaign_id) || 'Unknown';
+      if (!objectiveMap.has(objective)) {
+        objectiveMap.set(objective, {
+          objective,
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+        });
+      }
+      const obj = objectiveMap.get(objective)!;
+      obj.month1.spend += Number(row.spend) || 0;
+      obj.month1.impressions += Number(row.impressions) || 0;
+      obj.month1.clicks += Number(row.clicks) || 0;
+      obj.month1.reach += Number(row.reach) || 0;
+      obj.month1.results += Number(row.results) || 0;
+    });
+
+    (month2Data || []).forEach(row => {
+      const objective = campaignObjectiveMap.get(row.campaign_id) || 'Unknown';
+      if (!objectiveMap.has(objective)) {
+        objectiveMap.set(objective, {
+          objective,
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+        });
+      }
+      const obj = objectiveMap.get(objective)!;
+      obj.month2.spend += Number(row.spend) || 0;
+      obj.month2.impressions += Number(row.impressions) || 0;
+      obj.month2.clicks += Number(row.clicks) || 0;
+      obj.month2.reach += Number(row.reach) || 0;
+      obj.month2.results += Number(row.results) || 0;
+    });
+
+    objectiveMap.forEach(obj => {
+      obj.month1.ctr = obj.month1.impressions > 0 ? (obj.month1.clicks / obj.month1.impressions) * 100 : 0;
+      obj.month1.cpc = obj.month1.clicks > 0 ? obj.month1.spend / obj.month1.clicks : 0;
+      obj.month1.cpm = obj.month1.impressions > 0 ? (obj.month1.spend / obj.month1.impressions) * 1000 : 0;
+
+      obj.month2.ctr = obj.month2.impressions > 0 ? (obj.month2.clicks / obj.month2.impressions) * 100 : 0;
+      obj.month2.cpc = obj.month2.clicks > 0 ? obj.month2.spend / obj.month2.clicks : 0;
+      obj.month2.cpm = obj.month2.impressions > 0 ? (obj.month2.spend / obj.month2.impressions) * 1000 : 0;
+    });
+
+    setObjectiveComparisons(Array.from(objectiveMap.values()));
+  };
+
   const fetchCampaignComparison = async () => {
+    const { data: month1Campaigns } = await supabase
+      .from('meta_monthly_insights')
+      .select('campaign_id')
+      .eq('account_id', accountId)
+      .gte('month_year', `${month1}-01`)
+      .lt('month_year', getNextMonthStart(month1));
+
+    const { data: month2Campaigns } = await supabase
+      .from('meta_monthly_insights')
+      .select('campaign_id')
+      .eq('account_id', accountId)
+      .gte('month_year', `${month2}-01`)
+      .lt('month_year', getNextMonthStart(month2));
+
+    const allCampaignIds = [...new Set([
+      ...(month1Campaigns || []).map(c => c.campaign_id),
+      ...(month2Campaigns || []).map(c => c.campaign_id)
+    ].filter(Boolean))];
+
+    if (allCampaignIds.length === 0) {
+      setCampaignComparisons([]);
+      return;
+    }
+
+    const { data: campaignMeta } = await supabase
+      .from('meta_campaigns')
+      .select('campaign_id, objective')
+      .in('campaign_id', allCampaignIds);
+
+    const campaignObjectiveMap = new Map((campaignMeta || []).map(c => [c.campaign_id, c.objective]));
+
     const { data: month1Data } = await supabase
       .from('meta_monthly_insights')
       .select('campaign_id, campaign_name, spend, impressions, clicks, reach, results, ctr, cpc, cpm')
@@ -205,6 +340,7 @@ export default function MonthlyComparison({ accountId }: Props) {
         campaignMap.set(row.campaign_id, {
           campaign_id: row.campaign_id,
           name: row.campaign_name || 'Unknown',
+          objective: campaignObjectiveMap.get(row.campaign_id) || 'Unknown',
           month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
           month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
         });
@@ -222,6 +358,7 @@ export default function MonthlyComparison({ accountId }: Props) {
         campaignMap.set(row.campaign_id, {
           campaign_id: row.campaign_id,
           name: row.campaign_name || 'Unknown',
+          objective: campaignObjectiveMap.get(row.campaign_id) || 'Unknown',
           month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
           month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
         });
@@ -574,6 +711,16 @@ export default function MonthlyComparison({ accountId }: Props) {
           Overall
         </button>
         <button
+          onClick={() => setComparisonType('objectives')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            comparisonType === 'objectives'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          By Objective
+        </button>
+        <button
           onClick={() => setComparisonType('campaigns')}
           className={`px-4 py-2 text-sm font-medium transition-colors ${
             comparisonType === 'campaigns'
@@ -641,6 +788,64 @@ export default function MonthlyComparison({ accountId }: Props) {
               {renderMetricCard('CPM', DollarSign, overallMonth1.cpm, overallMonth2.cpm, 'decimal')}
               {renderMetricCard('Reach', Eye, overallMonth1.reach, overallMonth2.reach, 'number')}
             </div>
+          )}
+        </>
+      )}
+
+      {comparisonType === 'objectives' && (
+        <>
+          {objectiveComparisons.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+              <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600 font-medium mb-2">No objective data available</p>
+              <p className="text-sm text-gray-500">Use "Sync Monthly Reports" to fetch objective comparison data</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Campaign Objective</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Month</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Spend</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">CPC</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {objectiveComparisons.map((objective) => (
+                  <>
+                    <tr key={`${objective.objective}-m1`} className="hover:bg-gray-50">
+                      <td rowSpan={2} className="px-4 py-3 font-medium text-gray-900 border-r border-gray-200 capitalize">
+                        {objective.objective.replace(/_/g, ' ')}
+                      </td>
+                      <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month1)}</td>
+                      <td className="px-4 py-2 text-right text-gray-900">HK${objective.month1.spend.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{objective.month1.impressions.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{objective.month1.clicks.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{objective.month1.results.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{objective.month1.ctr.toFixed(2)}%</td>
+                      <td className="px-4 py-2 text-right text-gray-700">HK${objective.month1.cpc.toFixed(2)}</td>
+                    </tr>
+                    <tr key={`${objective.objective}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
+                      <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month2)}</td>
+                      <td className="px-4 py-2 text-right text-gray-900 font-medium">HK${objective.month2.spend.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{objective.month2.impressions.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{objective.month2.clicks.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{objective.month2.results.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{objective.month2.ctr.toFixed(2)}%</td>
+                      <td className="px-4 py-2 text-right text-gray-700">HK${objective.month2.cpc.toFixed(2)}</td>
+                    </tr>
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
           )}
         </>
       )}
