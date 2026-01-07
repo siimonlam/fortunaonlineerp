@@ -1004,7 +1004,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
                   className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                  {syncing ? 'Syncing...' : 'Sync Posts'}
+                  {syncing ? 'Syncing...' : 'Sync Data'}
                 </button>
               </div>
             ))}
