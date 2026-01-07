@@ -250,6 +250,7 @@ export function ProjectBoard() {
   const [marketingStatusTaskCounts, setMarketingStatusTaskCounts] = useState<Record<string, { pastDue: number; upcoming: number }>>({});
   const [marketingProjectTaskCounts, setMarketingProjectTaskCounts] = useState<Record<string, { pastDue: number; upcoming: number }>>({});
   const [fundingTaskCounts, setFundingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
+  const [meetingTaskCounts, setMeetingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
 
   useEffect(() => {
     if (fundingProjectTab !== 'meetings') {
@@ -275,6 +276,7 @@ export function ProjectBoard() {
     loadAllLabels();
     loadMarketingTaskCounts();
     loadFundingTaskCounts();
+    loadMeetingTaskCounts();
 
     // Set up a single real-time channel with multiple table listeners
     // Using broadcast channel to work around RLS limitations with SECURITY DEFINER functions
@@ -326,6 +328,15 @@ export function ProjectBoard() {
           console.log('✅ Tasks changed:', payload.eventType);
           if (selectedView === 'projects') loadProjectsViewData();
           loadFundingTaskCounts();
+          loadMeetingTaskCounts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'meetings' },
+        (payload) => {
+          console.log('✅ Meetings changed:', payload.eventType);
+          loadMeetingTaskCounts();
         }
       )
       .on(
@@ -841,6 +852,70 @@ export function ProjectBoard() {
       setFundingTaskCounts({ pastDue, upcoming });
     } catch (error: any) {
       console.error('[loadFundingTaskCounts] Error:', error.message);
+    }
+  }
+
+  async function loadMeetingTaskCounts() {
+    if (!user) return;
+
+    try {
+      const fundingType = projectTypes.find(pt => pt.name === 'Funding Project');
+      if (!fundingType) return;
+
+      const fundingStatuses = statuses.filter(s => s.project_type_id === fundingType.id);
+      const statusIds = fundingStatuses.map(s => s.id);
+
+      const { data: fundingProjectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('id')
+        .in('status_id', statusIds);
+
+      if (projectsError) throw projectsError;
+
+      const projectIds = (fundingProjectsData || []).map(p => p.id);
+
+      const { data: meetingsData, error: meetingsError } = await supabase
+        .from('meetings')
+        .select('id')
+        .in('project_id', projectIds);
+
+      if (meetingsError) throw meetingsError;
+
+      const meetingIds = (meetingsData || []).map(m => m.id);
+
+      if (meetingIds.length === 0) {
+        setMeetingTaskCounts({ pastDue: 0, upcoming: 0 });
+        return;
+      }
+
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('id, deadline, completed')
+        .in('meeting_id', meetingIds)
+        .eq('assigned_to', user.id)
+        .eq('completed', false)
+        .not('deadline', 'is', null);
+
+      if (tasksError) throw tasksError;
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      const pastDue = (tasksData || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline < now;
+      }).length;
+
+      const upcoming = (tasksData || []).filter(task => {
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline >= now;
+      }).length;
+
+      setMeetingTaskCounts({ pastDue, upcoming });
+    } catch (error: any) {
+      console.error('[loadMeetingTaskCounts] Error:', error.message);
     }
   }
 
@@ -2556,18 +2631,18 @@ export function ProjectBoard() {
                         <Calendar className="w-4 h-4" />
                         Meetings
                       </span>
-                      {(fundingTaskCounts.pastDue > 0 || fundingTaskCounts.upcoming > 0) && (
+                      {(meetingTaskCounts.pastDue > 0 || meetingTaskCounts.upcoming > 0) && (
                         <span className="flex items-center gap-1">
-                          {fundingTaskCounts.pastDue > 0 && (
+                          {meetingTaskCounts.pastDue > 0 && (
                             <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
                               <AlertCircle className="w-3 h-3" />
-                              {fundingTaskCounts.pastDue}
+                              {meetingTaskCounts.pastDue}
                             </span>
                           )}
-                          {fundingTaskCounts.upcoming > 0 && (
+                          {meetingTaskCounts.upcoming > 0 && (
                             <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
                               <Bell className="w-3 h-3" />
-                              {fundingTaskCounts.upcoming}
+                              {meetingTaskCounts.upcoming}
                             </span>
                           )}
                         </span>
