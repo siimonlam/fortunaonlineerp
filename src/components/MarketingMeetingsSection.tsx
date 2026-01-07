@@ -66,7 +66,7 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
 
   const fetchMeetings = async () => {
     const { data, error } = await supabase
-      .from('meetings')
+      .from('marketing_meetings')
       .select('*')
       .eq('marketing_project_id', marketingProjectId)
       .order('meeting_date', { ascending: false });
@@ -119,7 +119,7 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
 
     if (editingMeeting) {
       const { error } = await supabase
-        .from('meetings')
+        .from('marketing_meetings')
         .update(meetingData)
         .eq('id', editingMeeting.id);
 
@@ -130,7 +130,7 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
       }
     } else {
       const { data: meeting, error } = await supabase
-        .from('meetings')
+        .from('marketing_meetings')
         .insert(meetingData)
         .select()
         .single();
@@ -252,7 +252,7 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this meeting? All associated tasks will also be deleted.')) {
       const { error } = await supabase
-        .from('meetings')
+        .from('marketing_meetings')
         .delete()
         .eq('id', id);
 
