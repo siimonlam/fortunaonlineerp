@@ -409,6 +409,7 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
       setSuccessMessage(result.message);
 
       await handleSyncPosts(pageId);
+      await handleSyncPageInsights(pageId);
     } catch (err: any) {
       console.error('Sync error:', err);
       setError(err.message);
@@ -448,10 +449,52 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
       }
 
       const result = await response.json();
-      setSuccessMessage(`${result.message}`);
+      console.log('Posts synced:', result.message);
     } catch (err: any) {
       console.error('Sync posts error:', err);
       setError(`Failed to fetch posts: ${err.message}`);
+    }
+  };
+
+  const handleSyncPageInsights = async (pageId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-facebook-page-insights`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            pageId,
+            since: thirtyDaysAgo.toISOString().split('T')[0],
+            until: yesterday.toISOString().split('T')[0]
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Page insights sync error:', errorData);
+        throw new Error(errorData.details || errorData.error || 'Failed to sync insights');
+      }
+
+      const result = await response.json();
+      setSuccessMessage(`Synced posts and insights successfully`);
+    } catch (err: any) {
+      console.error('Sync insights error:', err);
+      setError(`Failed to fetch insights: ${err.message}`);
     }
   };
 
@@ -519,11 +562,11 @@ export default function MarketingFacebookSection({ projectId, clientNumber: init
 
     if (sortedInsights.length === 0) return null;
 
-    const mostRecentInsight = sortedInsights[0];
-    const mostRecentDate = new Date(mostRecentInsight.date);
+    const today = new Date();
+    const lastCompleteMonth = new Date(today.getFullYear(), today.getMonth(), 0);
 
-    const currentYear = mostRecentDate.getFullYear();
-    const currentMonth = mostRecentDate.getMonth();
+    const currentYear = lastCompleteMonth.getFullYear();
+    const currentMonth = lastCompleteMonth.getMonth();
 
     const currentMonthInsights = sortedInsights.filter(insight => {
       const date = new Date(insight.date);
