@@ -962,6 +962,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         channel_partner_id: formData.channelPartnerId || null,
         parent_client_id: formData.parentClientId.trim() || null,
         parent_company_name: formData.parentCompanyName.trim() || null,
+        google_drive_folder_id: formData.googleDriveFolderId.trim() || null,
+        brand_name: formData.brandName.trim() || null,
       } : {};
 
       const projectFields = tableName === 'projects' ? {

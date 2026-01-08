@@ -116,6 +116,13 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
       .channel(`marketing-project-${projectId}`)
       .on(
         'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'marketing_projects', filter: `id=eq.${projectId}` },
+        () => {
+          fetchProject();
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'marketing_social_post_steps' },
         () => {
           fetchSocialMediaTaskCounts();
