@@ -84,6 +84,8 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     title: '',
     content: '',
     design_link: '',
+    instagram_account_ids: [] as string[],
+    facebook_account_ids: [] as string[],
   });
 
   const [stepFormData, setStepFormData] = useState({
@@ -349,6 +351,8 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
           title: editFormData.title,
           content: editFormData.content,
           design_link: editFormData.design_link,
+          instagram_account_ids: editFormData.instagram_account_ids,
+          facebook_account_ids: editFormData.facebook_account_ids,
           draft_edit_date: new Date().toISOString(),
           version: post.version + 1,
         })
@@ -369,6 +373,8 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
       title: post.title,
       content: post.content,
       design_link: post.design_link,
+      instagram_account_ids: post.instagram_account_ids || [],
+      facebook_account_ids: post.facebook_account_ids || [],
     });
   };
 
@@ -1043,7 +1049,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
             const steps = postSteps[post.id] || [];
             const isExpanded = expandedPosts.has(post.id);
             const isEditing = editingPost === post.id;
-            const canEdit = post.current_step === 1 && post.status === 'draft';
+            const canEdit = true;
 
             return (
               <div key={post.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
@@ -1081,6 +1087,71 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
                                 placeholder="Design link..."
                               />
+
+                              {instagramAccounts.length > 0 && (
+                                <div>
+                                  <label className="text-xs font-medium text-slate-600 mb-1 block">Instagram Accounts</label>
+                                  <div className="space-y-1 max-h-32 overflow-y-auto border border-slate-200 rounded p-2">
+                                    {instagramAccounts.map((account) => (
+                                      <label key={account.id} className="flex items-center gap-2 text-sm">
+                                        <input
+                                          type="checkbox"
+                                          checked={editFormData.instagram_account_ids.includes(account.account_id)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setEditFormData({
+                                                ...editFormData,
+                                                instagram_account_ids: [...editFormData.instagram_account_ids, account.account_id]
+                                              });
+                                            } else {
+                                              setEditFormData({
+                                                ...editFormData,
+                                                instagram_account_ids: editFormData.instagram_account_ids.filter(id => id !== account.account_id)
+                                              });
+                                            }
+                                          }}
+                                          className="rounded border-slate-300"
+                                        />
+                                        <Instagram className="w-3.5 h-3.5 text-pink-600" />
+                                        <span>{account.name || account.username}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {facebookAccounts.length > 0 && (
+                                <div>
+                                  <label className="text-xs font-medium text-slate-600 mb-1 block">Facebook Accounts</label>
+                                  <div className="space-y-1 max-h-32 overflow-y-auto border border-slate-200 rounded p-2">
+                                    {facebookAccounts.map((account) => (
+                                      <label key={account.id} className="flex items-center gap-2 text-sm">
+                                        <input
+                                          type="checkbox"
+                                          checked={editFormData.facebook_account_ids.includes(account.page_id)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setEditFormData({
+                                                ...editFormData,
+                                                facebook_account_ids: [...editFormData.facebook_account_ids, account.page_id]
+                                              });
+                                            } else {
+                                              setEditFormData({
+                                                ...editFormData,
+                                                facebook_account_ids: editFormData.facebook_account_ids.filter(id => id !== account.page_id)
+                                              });
+                                            }
+                                          }}
+                                          className="rounded border-slate-300"
+                                        />
+                                        <Facebook className="w-3.5 h-3.5 text-blue-600" />
+                                        <span>{account.name || account.username}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleUpdatePost(post.id)}
