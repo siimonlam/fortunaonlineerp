@@ -224,57 +224,95 @@ export function ServiceAccountDriveExplorer({
   async function handleFileUpload(uploadFiles: FileList | null) {
     if (!uploadFiles || uploadFiles.length === 0) return;
 
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+    const oversizedFiles = Array.from(uploadFiles).filter(file => file.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      const fileNames = oversizedFiles.map(f => f.name).join(', ');
+      alert(`The following files exceed the 10MB limit and cannot be uploaded:\n${fileNames}\n\nPlease upload smaller files or use Google Drive directly for large files.`);
+
+      const validFiles = Array.from(uploadFiles).filter(file => file.size <= MAX_FILE_SIZE);
+      if (validFiles.length === 0) {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
+      const dataTransfer = new DataTransfer();
+      validFiles.forEach(file => dataTransfer.items.add(file));
+      uploadFiles = dataTransfer.files;
+    }
+
     setUploading(true);
+    const errors: string[] = [];
+    let successCount = 0;
+
     try {
       for (let i = 0; i < uploadFiles.length; i++) {
         const file = uploadFiles[i];
         const reader = new FileReader();
 
-        await new Promise((resolve, reject) => {
-          reader.onload = async (e) => {
-            try {
-              const arrayBuffer = e.target?.result as ArrayBuffer;
-              const bytes = new Uint8Array(arrayBuffer);
+        try {
+          await new Promise((resolve, reject) => {
+            reader.onload = async (e) => {
+              try {
+                const arrayBuffer = e.target?.result as ArrayBuffer;
+                const bytes = new Uint8Array(arrayBuffer);
 
-              let binary = '';
-              const chunkSize = 8192;
-              for (let i = 0; i < bytes.length; i += chunkSize) {
-                const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-                binary += String.fromCharCode(...chunk);
+                let binary = '';
+                const chunkSize = 8192;
+                for (let i = 0; i < bytes.length; i += chunkSize) {
+                  const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+                  binary += String.fromCharCode(...chunk);
+                }
+                const base64 = btoa(binary);
+
+                const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
+                const response = await fetch(`${apiUrl}?action=upload`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    fileName: file.name,
+                    parentId: currentFolderId,
+                    fileData: base64,
+                    mimeType: file.type || 'application/octet-stream',
+                  }),
+                });
+
+                if (!response.ok) {
+                  const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                  throw new Error(errorData.error || `Failed to upload ${file.name}`);
+                }
+
+                successCount++;
+                resolve(null);
+              } catch (error) {
+                reject(error);
               }
-              const base64 = btoa(binary);
+            };
 
-              const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
-              const response = await fetch(`${apiUrl}?action=upload`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  fileName: file.name,
-                  parentId: currentFolderId,
-                  fileData: base64,
-                  mimeType: file.type || 'application/octet-stream',
-                }),
-              });
-
-              if (!response.ok) {
-                throw new Error(`Failed to upload ${file.name}`);
-              }
-
-              resolve(null);
-            } catch (error) {
-              reject(error);
-            }
-          };
-
-          reader.onerror = reject;
-          reader.readAsArrayBuffer(file);
-        });
+            reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+            reader.readAsArrayBuffer(file);
+          });
+        } catch (fileError: any) {
+          console.error(`Error uploading ${file.name}:`, fileError);
+          errors.push(`${file.name}: ${fileError.message}`);
+        }
       }
 
       await loadFiles(currentFolderId);
+
+      if (successCount > 0 && errors.length === 0) {
+        alert(`Successfully uploaded ${successCount} file(s)`);
+      } else if (successCount > 0 && errors.length > 0) {
+        alert(`Uploaded ${successCount} file(s) successfully.\n\nFailed uploads:\n${errors.join('\n')}`);
+      } else if (errors.length > 0) {
+        alert(`Failed to upload files:\n${errors.join('\n')}`);
+      }
     } catch (err: any) {
       console.error('Error uploading files:', err);
       alert(`Failed to upload files: ${err.message}`);
@@ -496,6 +534,9 @@ export function ServiceAccountDriveExplorer({
               className="hidden"
             />
           </div>
+          <p className="text-xs text-slate-500 italic">
+            💡 Tip: Drag and drop files anywhere to upload (max 10MB per file)
+          </p>
         </div>
 
         {dragActive && (
@@ -522,9 +563,18 @@ export function ServiceAccountDriveExplorer({
             <p className="text-slate-500 mt-4">Loading files...</p>
           </div>
         ) : files.length === 0 ? (
-          <div className="text-center py-12 bg-slate-50 rounded-lg">
-            <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-            <p className="text-slate-600">No files in this folder</p>
+          <div className="text-center py-16 bg-slate-50 rounded-lg border-2 border-dashed border-slate-300">
+            <Upload className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+            <p className="text-slate-600 font-medium mb-2">No files in this folder</p>
+            <p className="text-sm text-slate-500 mb-4">Drag and drop files here or click Upload Files button</p>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm text-green-600 bg-white border border-green-300 rounded-lg hover:bg-green-50 transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              Upload Files
+            </button>
+            <p className="text-xs text-slate-400 mt-3">Maximum file size: 10MB</p>
           </div>
         ) : (
           <div className="space-y-2">

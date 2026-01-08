@@ -375,24 +375,41 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "upload" && req.method === "POST") {
-      const body = await req.json();
-      const { fileName, parentId, fileData, mimeType } = body;
-      
-      if (!fileName || !parentId || !fileData || !mimeType) {
-        return new Response(
-          JSON.stringify({ error: "fileName, parentId, fileData, and mimeType are required" }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
+      try {
+        const body = await req.json();
+        const { fileName, parentId, fileData, mimeType } = body;
 
-      const fileDataBytes = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
-      const file = await uploadFile(fileName, parentId, fileDataBytes, mimeType, accessToken);
-      return new Response(JSON.stringify({ file }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        console.log(`Upload request for file: ${fileName}, size: ${fileData?.length || 0} bytes (base64)`);
+
+        if (!fileName || !parentId || !fileData || !mimeType) {
+          console.error("Missing required parameters:", { fileName: !!fileName, parentId: !!parentId, fileData: !!fileData, mimeType: !!mimeType });
+          return new Response(
+            JSON.stringify({ error: "fileName, parentId, fileData, and mimeType are required" }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+
+        let fileDataBytes: Uint8Array;
+        try {
+          fileDataBytes = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
+          console.log(`Decoded file data: ${fileDataBytes.length} bytes`);
+        } catch (decodeError) {
+          console.error("Failed to decode base64 file data:", decodeError);
+          throw new Error(`Failed to decode file data: ${decodeError.message}`);
+        }
+
+        const file = await uploadFile(fileName, parentId, fileDataBytes, mimeType, accessToken);
+        console.log(`Successfully uploaded file: ${fileName}`);
+        return new Response(JSON.stringify({ file }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
     }
 
     if (action === "delete" && req.method === "DELETE" && fileId) {
