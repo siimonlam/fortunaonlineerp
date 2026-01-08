@@ -22,7 +22,9 @@ import {
   Menu,
   X,
   AlertCircle,
-  Bell
+  Bell,
+  Edit,
+  Save
 } from 'lucide-react';
 import MarketingInstagramSection from './MarketingInstagramSection';
 import MarketingFacebookSection from './MarketingFacebookSection';
@@ -89,6 +91,19 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   const [socialMediaTaskCounts, setSocialMediaTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
   const [marketingTaskCounts, setMarketingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
   const [meetingTaskCounts, setMeetingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    brand_name: '',
+    company_name: '',
+    company_name_chinese: '',
+    contact_name: '',
+    contact_number: '',
+    email: '',
+    address: '',
+    description: '',
+    google_drive_folder_id: ''
+  });
 
   useEffect(() => {
     fetchProject();
@@ -382,6 +397,75 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
     }
   };
 
+  const handleEdit = () => {
+    if (!project) return;
+    setEditFormData({
+      brand_name: project.brand_name || '',
+      company_name: project.company_name || '',
+      company_name_chinese: project.company_name_chinese || '',
+      contact_name: project.contact_name || '',
+      contact_number: project.contact_number || '',
+      email: project.email || '',
+      address: project.address || '',
+      description: project.description || '',
+      google_drive_folder_id: project.google_drive_folder_id || ''
+    });
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditFormData({
+      brand_name: '',
+      company_name: '',
+      company_name_chinese: '',
+      contact_name: '',
+      contact_number: '',
+      email: '',
+      address: '',
+      description: '',
+      google_drive_folder_id: ''
+    });
+  };
+
+  const handleSave = async () => {
+    if (!project) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('marketing_projects')
+        .update({
+          brand_name: editFormData.brand_name,
+          company_name: editFormData.company_name,
+          company_name_chinese: editFormData.company_name_chinese,
+          contact_name: editFormData.contact_name,
+          contact_number: editFormData.contact_number,
+          email: editFormData.email,
+          address: editFormData.address,
+          description: editFormData.description,
+          google_drive_folder_id: editFormData.google_drive_folder_id || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', project.id);
+
+      if (error) throw error;
+
+      setProject(prev => prev ? {
+        ...prev,
+        ...editFormData,
+        google_drive_folder_id: editFormData.google_drive_folder_id || null
+      } : null);
+
+      setIsEditing(false);
+      alert('Project updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating project:', error);
+      alert(`Failed to update project: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const isSectionVisible = (sectionId: string): boolean => {
     if (hasFullAccess) return true;
     return visibleSections.includes(sectionId);
@@ -433,47 +517,164 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">Project Overview</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Project Overview</h3>
+                {!isEditing ? (
+                  <button
+                    onClick={handleEdit}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCancelEdit}
+                      disabled={saving}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-gray-600">Project Reference</label>
                   <p className="font-medium">{project?.project_reference}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600">Brand Name</label>
-                  <p className="font-medium">{project?.brand_name}</p>
+                  <label className="text-sm text-gray-600 block mb-1">Brand Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editFormData.brand_name}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, brand_name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="font-medium">{project?.brand_name}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600">Company Name</label>
-                  <p className="font-medium">{project?.company_name}</p>
+                  <label className="text-sm text-gray-600 block mb-1">Company Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editFormData.company_name}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, company_name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="font-medium">{project?.company_name}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600">Company Name (Chinese)</label>
-                  <p className="font-medium">{project?.company_name_chinese || '-'}</p>
+                  <label className="text-sm text-gray-600 block mb-1">Company Name (Chinese)</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editFormData.company_name_chinese}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, company_name_chinese: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="font-medium">{project?.company_name_chinese || '-'}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600">Contact Name</label>
-                  <p className="font-medium">{project?.contact_name || '-'}</p>
+                  <label className="text-sm text-gray-600 block mb-1">Contact Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editFormData.contact_name}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, contact_name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="font-medium">{project?.contact_name || '-'}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600">Contact Number</label>
-                  <p className="font-medium">{project?.contact_number || '-'}</p>
+                  <label className="text-sm text-gray-600 block mb-1">Contact Number</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editFormData.contact_number}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, contact_number: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="font-medium">{project?.contact_number || '-'}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600">Email</label>
-                  <p className="font-medium">{project?.email || '-'}</p>
+                  <label className="text-sm text-gray-600 block mb-1">Email</label>
+                  {isEditing ? (
+                    <input
+                      type="email"
+                      value={editFormData.email}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="font-medium">{project?.email || '-'}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600">Address</label>
-                  <p className="font-medium">{project?.address || '-'}</p>
+                  <label className="text-sm text-gray-600 block mb-1">Address</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editFormData.address}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="font-medium">{project?.address || '-'}</p>
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm text-gray-600 block mb-1">Google Drive Folder ID</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editFormData.google_drive_folder_id}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, google_drive_folder_id: e.target.value }))}
+                      placeholder="Enter Google Drive folder ID (e.g., 1ABC...xyz)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="font-medium">{project?.google_drive_folder_id || '-'}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Find the folder ID in the Google Drive URL: drive.google.com/drive/folders/<span className="font-semibold">[FOLDER_ID]</span>
+                  </p>
                 </div>
               </div>
-              {project?.description && (
-                <div className="mt-4">
-                  <label className="text-sm text-gray-600">Description</label>
-                  <p className="mt-1">{project.description}</p>
-                </div>
-              )}
+              <div className="mt-4">
+                <label className="text-sm text-gray-600 block mb-1">Description</label>
+                {isEditing ? (
+                  <textarea
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="mt-1">{project?.description || '-'}</p>
+                )}
+              </div>
             </div>
           </div>
         );
