@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle, Loader2, Check } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
@@ -1196,6 +1196,468 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Send Email</h3>
+                <button
+                  onClick={() => {
+                    setShowEmailModal(false);
+                    setSelectedResource(null);
+                    setSelectedDriveFiles([]);
+                  }}
+                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    From Account *
+                  </label>
+                  <select
+                    value={emailForm.from_account_id}
+                    onChange={(e) => setEmailForm({ ...emailForm, from_account_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    {emailAccounts.map(account => (
+                      <option key={account.id} value={account.id}>
+                        {account.email} - {account.smtp_host}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Recipients *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        searchClients(e.target.value);
+                      }}
+                      placeholder="Search clients to add email..."
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-2"
+                    />
+                    {showClientDropdown && clients.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {clients.map((client, index) => (
+                          <button
+                            key={index}
+                            onClick={() => selectClient(client)}
+                            className="w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-b-0"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-medium text-slate-900">
+                                  {client.company_name || client.brand_name}
+                                  {client.company_name_chinese && ` (${client.company_name_chinese})`}
+                                </div>
+                                <div className="text-sm text-slate-600">
+                                  {client.contact_person && `${client.contact_person} - `}
+                                  {client.contact_email}
+                                </div>
+                              </div>
+                              <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                {client.source}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <textarea
+                    value={emailForm.recipient_emails}
+                    onChange={(e) => setEmailForm({ ...emailForm, recipient_emails: e.target.value })}
+                    placeholder="email1@example.com, email2@example.com"
+                    rows={2}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Separate multiple emails with commas</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Subject *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailForm.subject}
+                    onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Message *
+                  </label>
+                  <textarea
+                    value={emailForm.body}
+                    onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                    rows={8}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={emailForm.send_immediately}
+                      onChange={(e) => setEmailForm({ ...emailForm, send_immediately: e.target.checked })}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">Send immediately</span>
+                  </label>
+                </div>
+
+                {!emailForm.send_immediately && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Scheduled Date & Time *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={emailForm.scheduled_date}
+                      onChange={(e) => setEmailForm({ ...emailForm, scheduled_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">
+                      Attachments from Google Drive
+                    </label>
+                    <button
+                      type="button"
+                      onClick={openAttachmentModal}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Browse Files
+                    </button>
+                  </div>
+                  {selectedDriveFiles.length > 0 && (
+                    <div className="space-y-1">
+                      {selectedDriveFiles.map(file => (
+                        <div key={file.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-200">
+                          <span className="text-sm text-slate-700">{file.name}</span>
+                          <button
+                            onClick={() => toggleDriveFileSelection(file)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEmailModal(false);
+                      setSelectedResource(null);
+                      setSelectedDriveFiles([]);
+                    }}
+                    className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendEmail}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    {emailForm.send_immediately ? 'Send Now' : 'Schedule Email'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showWhatsAppModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Send WhatsApp Message</h3>
+                <button
+                  onClick={() => {
+                    setShowWhatsAppModal(false);
+                    setSelectedResource(null);
+                    setSelectedDriveFiles([]);
+                  }}
+                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    WhatsApp Account *
+                  </label>
+                  <select
+                    value={whatsappForm.account_id}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, account_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    required
+                  >
+                    {whatsappAccounts.map(account => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} - {account.phone_number}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={whatsappForm.is_group}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, is_group: e.target.checked, recipient_phone: '' })}
+                      className="rounded border-slate-300 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="text-sm text-slate-700">Send to Group</span>
+                  </label>
+                </div>
+
+                {whatsappForm.is_group ? (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Select Group *
+                    </label>
+                    <select
+                      value={whatsappForm.recipient_phone}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, recipient_phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      required
+                    >
+                      <option value="">Select a group...</option>
+                      {whatsappGroups.map(group => (
+                        <option key={group.id} value={group.group_id}>
+                          {group.group_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Recipient Phone Number *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          searchClientsForWhatsApp(e.target.value);
+                        }}
+                        placeholder="Search clients..."
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 mb-2"
+                      />
+                      {showClientDropdown && clients.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {clients.map((client, index) => (
+                            <button
+                              key={index}
+                              onClick={() => selectClientForWhatsApp(client)}
+                              className="w-full px-4 py-2 text-left hover:bg-green-50 transition-colors border-b border-slate-100 last:border-b-0"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-slate-900">
+                                    {client.company_name || client.brand_name}
+                                    {client.company_name_chinese && ` (${client.company_name_chinese})`}
+                                  </div>
+                                  <div className="text-sm text-slate-600">
+                                    {client.contact_person && `${client.contact_person} - `}
+                                    {client.phone}
+                                  </div>
+                                </div>
+                                <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                  {client.source}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="tel"
+                      value={whatsappForm.recipient_phone}
+                      onChange={(e) => setWhatsappForm({ ...whatsappForm, recipient_phone: e.target.value })}
+                      placeholder="+852 1234 5678"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      required
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Include country code (e.g., +852)</p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Message
+                  </label>
+                  <textarea
+                    value={whatsappForm.message}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, message: e.target.value })}
+                    rows={6}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    placeholder="Type your message here..."
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">
+                      Attachments from Google Drive
+                    </label>
+                    <button
+                      type="button"
+                      onClick={openAttachmentModal}
+                      className="text-sm text-green-600 hover:text-green-700 font-medium"
+                    >
+                      Browse Files
+                    </button>
+                  </div>
+                  {selectedDriveFiles.length > 0 && (
+                    <div className="space-y-1">
+                      {selectedDriveFiles.map(file => (
+                        <div key={file.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-200">
+                          <span className="text-sm text-slate-700">{file.name}</span>
+                          <button
+                            onClick={() => toggleDriveFileSelection(file)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowWhatsAppModal(false);
+                      setSelectedResource(null);
+                      setSelectedDriveFiles([]);
+                    }}
+                    className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendWhatsApp}
+                    disabled={sendingWhatsApp}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {sendingWhatsApp ? 'Sending...' : 'Send Message'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAttachmentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Select Files from Google Drive</h3>
+                <button
+                  onClick={() => setShowAttachmentModal(false)}
+                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {loadingFiles ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                </div>
+              ) : driveFiles.length === 0 ? (
+                <div className="text-center py-12">
+                  <Folder className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-600">No files found</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {driveFiles.map(file => {
+                    const isSelected = selectedDriveFiles.find(f => f.id === file.id);
+                    return (
+                      <button
+                        key={file.id}
+                        onClick={() => toggleDriveFileSelection(file)}
+                        className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-colors ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Paperclip className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+                          <div className="text-left">
+                            <div className="font-medium text-slate-900">{file.name}</div>
+                            <div className="text-sm text-slate-500">
+                              {file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Folder'}
+                            </div>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-6">
+                <button
+                  onClick={() => setShowAttachmentModal(false)}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Done ({selectedDriveFiles.length} selected)
+                </button>
+              </div>
             </div>
           </div>
         </div>
