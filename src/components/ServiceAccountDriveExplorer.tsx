@@ -285,7 +285,20 @@ export function ServiceAccountDriveExplorer({
 
                 if (!response.ok) {
                   const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                  throw new Error(errorData.error || `Failed to upload ${file.name}`);
+                  const errorMsg = errorData.error || `Failed to upload ${file.name}`;
+
+                  if (errorMsg.includes('storage quota') || errorMsg.includes('Service Accounts')) {
+                    throw new Error(
+                      `Cannot upload: This folder is not on a Google Shared Drive.\n\n` +
+                      `Service accounts can only upload to Shared Drives (Team Drives).\n\n` +
+                      `To fix this:\n` +
+                      `1. Move this folder to a Google Shared Drive\n` +
+                      `2. Add the service account as a member of that Shared Drive\n\n` +
+                      `Please contact your administrator for assistance.`
+                    );
+                  }
+
+                  throw new Error(errorMsg);
                 }
 
                 successCount++;
@@ -534,9 +547,14 @@ export function ServiceAccountDriveExplorer({
               className="hidden"
             />
           </div>
-          <p className="text-xs text-slate-500 italic">
-            💡 Tip: Drag and drop files anywhere to upload (max 10MB per file)
-          </p>
+          <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="text-amber-600 mt-0.5">⚠️</div>
+            <div className="flex-1">
+              <p className="text-xs text-amber-800">
+                <strong>Note:</strong> File uploads require this folder to be on a Google Shared Drive. If uploads fail, contact your administrator to move the folder to a Shared Drive.
+              </p>
+            </div>
+          </div>
         </div>
 
         {dragActive && (
