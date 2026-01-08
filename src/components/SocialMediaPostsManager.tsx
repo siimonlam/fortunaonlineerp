@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save } from 'lucide-react';
+import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save, Copy } from 'lucide-react';
 
 interface SocialPost {
   id: string;
@@ -646,6 +646,59 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     }
   };
 
+  const handleDuplicatePost = async (postId: string) => {
+    if (!user) return;
+
+    try {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+
+      const { data: newPost, error } = await supabase
+        .from('marketing_social_posts')
+        .insert({
+          marketing_project_id: post.marketing_project_id,
+          title: `${post.title} (Copy)`,
+          content: post.content,
+          design_link: post.design_link,
+          scheduled_post_date: post.scheduled_post_date,
+          instagram_account_ids: post.instagram_account_ids,
+          facebook_account_ids: post.facebook_account_ids,
+          current_step: 1,
+          version: 1,
+          status: 'draft',
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (newPost) {
+        const allAccountIds = [
+          ...(newPost.instagram_account_ids || []),
+          ...(newPost.facebook_account_ids || [])
+        ];
+        const designerId = allAccountIds.length > 0 ? accountDesigners[allAccountIds[0]] : user.id;
+
+        await supabase
+          .from('marketing_social_post_steps')
+          .insert({
+            post_id: newPost.id,
+            step_number: 1,
+            step_name: 'Content Drafting',
+            assigned_to: designerId,
+            status: 'pending',
+          });
+      }
+
+      loadPosts();
+      alert('Post duplicated successfully!');
+    } catch (error) {
+      console.error('Error duplicating post:', error);
+      alert('Failed to duplicate post');
+    }
+  };
+
   const togglePostExpand = (postId: string) => {
     const newExpanded = new Set(expandedPosts);
     if (newExpanded.has(postId)) {
@@ -1188,15 +1241,6 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                             <>
                               <div className="flex items-center gap-2">
                                 <h4 className="font-semibold text-slate-900">{post.title}</h4>
-                                {!isEditing && (
-                                  <button
-                                    onClick={() => startEditing(post)}
-                                    className="text-blue-600 hover:text-blue-700"
-                                    title="Edit post"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </button>
-                                )}
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-sm text-slate-600 flex-wrap">
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(post.status)}`}>
@@ -1234,12 +1278,29 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                         </div>
 
                         {!isEditing && (
-                          <button
-                            onClick={() => handleDeletePost(post.id)}
-                            className="text-slate-400 hover:text-red-600 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => startEditing(post)}
+                              className="text-slate-400 hover:text-blue-600 transition-colors"
+                              title="Edit post"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDuplicatePost(post.id)}
+                              className="text-slate-400 hover:text-green-600 transition-colors"
+                              title="Duplicate post"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePost(post.id)}
+                              className="text-slate-400 hover:text-red-600 transition-colors"
+                              title="Delete post"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
 
