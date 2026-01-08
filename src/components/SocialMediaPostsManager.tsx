@@ -84,6 +84,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     title: '',
     content: '',
     design_link: '',
+    scheduled_post_date: '',
     instagram_account_ids: [] as string[],
     facebook_account_ids: [] as string[],
   });
@@ -351,6 +352,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
           title: editFormData.title,
           content: editFormData.content,
           design_link: editFormData.design_link,
+          scheduled_post_date: editFormData.scheduled_post_date || null,
           instagram_account_ids: editFormData.instagram_account_ids,
           facebook_account_ids: editFormData.facebook_account_ids,
           draft_edit_date: new Date().toISOString(),
@@ -373,6 +375,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
       title: post.title,
       content: post.content,
       design_link: post.design_link,
+      scheduled_post_date: post.scheduled_post_date ? new Date(post.scheduled_post_date).toISOString().slice(0, 16) : '',
       instagram_account_ids: post.instagram_account_ids || [],
       facebook_account_ids: post.facebook_account_ids || [],
     });
@@ -1065,13 +1068,14 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
-                          {isEditing && canEdit ? (
+                          {isEditing ? (
                             <div className="space-y-2">
                               <input
                                 type="text"
                                 value={editFormData.title}
                                 onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
                                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm font-semibold"
+                                placeholder="Title"
                               />
                               <textarea
                                 value={editFormData.content}
@@ -1087,6 +1091,18 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
                                 placeholder="Design link..."
                               />
+                              <div>
+                                <label className="text-xs font-medium text-slate-600 mb-1 block flex items-center gap-1">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  Scheduled Post Date
+                                </label>
+                                <input
+                                  type="datetime-local"
+                                  value={editFormData.scheduled_post_date}
+                                  onChange={(e) => setEditFormData({ ...editFormData, scheduled_post_date: e.target.value })}
+                                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm"
+                                />
+                              </div>
 
                               {instagramAccounts.length > 0 && (
                                 <div>
@@ -1172,7 +1188,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                             <>
                               <div className="flex items-center gap-2">
                                 <h4 className="font-semibold text-slate-900">{post.title}</h4>
-                                {canEdit && !isEditing && (
+                                {!isEditing && (
                                   <button
                                     onClick={() => startEditing(post)}
                                     className="text-blue-600 hover:text-blue-700"
