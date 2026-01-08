@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Power, Calendar, CheckSquare, Tag, Zap, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Power, Calendar, CheckSquare, Tag, Zap, Edit2, Copy } from 'lucide-react';
 
 interface AutomationRule {
   id: string;
@@ -173,6 +173,35 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
       alert('Error deleting rule: ' + error.message);
     } else {
       await loadData();
+    }
+  }
+
+  async function duplicateRule(ruleId: string) {
+    const rule = rules.find(r => r.id === ruleId);
+    if (!rule) return;
+
+    const { error } = await supabase
+      .from('automation_rules')
+      .insert({
+        name: `${rule.name} (Copy)`,
+        project_type_id: rule.project_type_id,
+        main_status: rule.main_status,
+        substatus_filter: rule.substatus_filter,
+        trigger_type: rule.trigger_type,
+        trigger_config: rule.trigger_config,
+        condition_type: rule.condition_type,
+        condition_config: rule.condition_config,
+        action_type: rule.action_type,
+        action_config: rule.action_config,
+        execution_frequency_days: rule.execution_frequency_days,
+        is_active: false,
+      });
+
+    if (error) {
+      alert('Error duplicating rule: ' + error.message);
+    } else {
+      await loadData();
+      alert('Automation rule duplicated successfully!');
     }
   }
 
@@ -376,6 +405,13 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                     title={rule.is_active ? 'Deactivate' : 'Activate'}
                   >
                     <Power className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => duplicateRule(rule.id)}
+                    className="p-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+                    title="Duplicate"
+                  >
+                    <Copy className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => deleteRule(rule.id)}
