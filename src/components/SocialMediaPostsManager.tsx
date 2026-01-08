@@ -51,6 +51,8 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [filteredPosts, setFilteredPosts] = useState<SocialPost[]>([]);
   const [accountFilter, setAccountFilter] = useState<string>('all');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showStepModal, setShowStepModal] = useState(false);
@@ -99,7 +101,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
   useEffect(() => {
     filterPosts();
-  }, [posts, accountFilter]);
+  }, [posts, accountFilter, assigneeFilter, sortOrder]);
 
   const subscribeToChanges = () => {
     const postsChannel = supabase
@@ -118,21 +120,47 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   };
 
   const filterPosts = () => {
-    if (accountFilter === 'all') {
-      setFilteredPosts(posts);
-    } else if (accountFilter === 'instagram') {
-      setFilteredPosts(posts.filter(p => p.instagram_account_ids && p.instagram_account_ids.length > 0));
+    let filtered = [...posts];
+
+    // Account filter
+    if (accountFilter === 'instagram') {
+      filtered = filtered.filter(p => p.instagram_account_ids && p.instagram_account_ids.length > 0);
     } else if (accountFilter === 'facebook') {
-      setFilteredPosts(posts.filter(p => p.facebook_account_ids && p.facebook_account_ids.length > 0));
+      filtered = filtered.filter(p => p.facebook_account_ids && p.facebook_account_ids.length > 0);
     } else if (accountFilter.startsWith('ig-')) {
       const accountId = accountFilter.substring(3);
-      setFilteredPosts(posts.filter(p => p.instagram_account_ids && p.instagram_account_ids.includes(accountId)));
+      filtered = filtered.filter(p => p.instagram_account_ids && p.instagram_account_ids.includes(accountId));
     } else if (accountFilter.startsWith('fb-')) {
       const accountId = accountFilter.substring(3);
-      setFilteredPosts(posts.filter(p => p.facebook_account_ids && p.facebook_account_ids.includes(accountId)));
-    } else {
-      setFilteredPosts(posts);
+      filtered = filtered.filter(p => p.facebook_account_ids && p.facebook_account_ids.includes(accountId));
     }
+
+    // Assignee filter
+    if (assigneeFilter !== 'all' && user) {
+      filtered = filtered.filter(p => {
+        const steps = postSteps[p.id] || [];
+        const currentStep = steps.find(s => s.step_number === p.current_step);
+        if (assigneeFilter === 'me') {
+          return currentStep && currentStep.assigned_to === user.id;
+        } else {
+          return currentStep && currentStep.assigned_to === assigneeFilter;
+        }
+      });
+    }
+
+    // Sort by scheduled_post_date
+    filtered.sort((a, b) => {
+      const dateA = a.scheduled_post_date ? new Date(a.scheduled_post_date).getTime() : 0;
+      const dateB = b.scheduled_post_date ? new Date(b.scheduled_post_date).getTime() : 0;
+
+      if (sortOrder === 'asc') {
+        return dateA - dateB;
+      } else {
+        return dateB - dateA;
+      }
+    });
+
+    setFilteredPosts(filtered);
   };
 
   const loadPosts = async () => {
@@ -714,17 +742,20 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
           </button>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setAccountFilter('all')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              accountFilter === 'all'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            All
-          </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-slate-600 mb-1 block">Filter by Account</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setAccountFilter('all')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  accountFilter === 'all'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All
+              </button>
           <button
             onClick={() => setAccountFilter('instagram')}
             className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
@@ -787,6 +818,37 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
               ))}
             </div>
           )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs font-medium text-slate-600 mb-1 block">Filter by Assignee</label>
+              <select
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Posts</option>
+                <option value="me">My Tasks</option>
+                {staff.map(s => (
+                  <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-slate-600 mb-1 block">Sort by Date</label>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="desc">Newest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -813,9 +875,9 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                   </h4>
                   <div className="space-y-2">
                     {instagramAccounts.map((account) => {
-                      const isEditing = editingAccount?.type === 'instagram' && editingAccount?.id === account.id;
-                      const designerName = staff.find(s => s.id === accountDesigners[account.id])?.full_name || 'Not assigned';
-                      const approverName = staff.find(s => s.id === accountApprovers[account.id])?.full_name || 'Not assigned';
+                      const isEditing = editingAccount?.type === 'instagram' && editingAccount?.id === account.account_id;
+                      const designerName = staff.find(s => s.id === accountDesigners[account.account_id])?.full_name || 'Not assigned';
+                      const approverName = staff.find(s => s.id === accountApprovers[account.account_id])?.full_name || 'Not assigned';
 
                       return (
                         <div key={account.id} className="flex items-center justify-between p-3 bg-pink-50 rounded-lg border border-pink-200">
@@ -854,7 +916,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                           <div className="flex items-center gap-2 ml-4">
                             {!isEditing ? (
                               <button
-                                onClick={() => startEditingAccount('instagram', account.id)}
+                                onClick={() => startEditingAccount('instagram', account.account_id)}
                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -862,7 +924,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                             ) : (
                               <>
                                 <button
-                                  onClick={() => handleUpdateAccountAssignments('instagram', account.id)}
+                                  onClick={() => handleUpdateAccountAssignments('instagram', account.account_id)}
                                   className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
                                 >
                                   <Check className="w-4 h-4" />
@@ -891,9 +953,9 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                   </h4>
                   <div className="space-y-2">
                     {facebookAccounts.map((account) => {
-                      const isEditing = editingAccount?.type === 'facebook' && editingAccount?.id === account.id;
-                      const designerName = staff.find(s => s.id === accountDesigners[account.id])?.full_name || 'Not assigned';
-                      const approverName = staff.find(s => s.id === accountApprovers[account.id])?.full_name || 'Not assigned';
+                      const isEditing = editingAccount?.type === 'facebook' && editingAccount?.id === account.page_id;
+                      const designerName = staff.find(s => s.id === accountDesigners[account.page_id])?.full_name || 'Not assigned';
+                      const approverName = staff.find(s => s.id === accountApprovers[account.page_id])?.full_name || 'Not assigned';
 
                       return (
                         <div key={account.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -932,7 +994,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                           <div className="flex items-center gap-2 ml-4">
                             {!isEditing ? (
                               <button
-                                onClick={() => startEditingAccount('facebook', account.id)}
+                                onClick={() => startEditingAccount('facebook', account.page_id)}
                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -940,7 +1002,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                             ) : (
                               <>
                                 <button
-                                  onClick={() => handleUpdateAccountAssignments('facebook', account.id)}
+                                  onClick={() => handleUpdateAccountAssignments('facebook', account.page_id)}
                                   className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
                                 >
                                   <Check className="w-4 h-4" />
@@ -1055,6 +1117,12 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                 </span>
                                 <span>Step {post.current_step} of 3</span>
                                 <span>v{post.version}</span>
+                                {post.scheduled_post_date && (
+                                  <span className="flex items-center gap-1 text-slate-700 font-medium">
+                                    <Calendar className="w-3.5 h-3.5" />
+                                    {new Date(post.scheduled_post_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </span>
+                                )}
                                 {post.instagram_account_ids && post.instagram_account_ids.length > 0 && (
                                   <span className="flex items-center gap-1 text-pink-600">
                                     <Instagram className="w-3 h-3" />
