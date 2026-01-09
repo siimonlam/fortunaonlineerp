@@ -1126,24 +1126,33 @@ export function ProjectBoard() {
       ),
     ]);
 
+    if (staffRes.data) setStaff(staffRes.data);
+    const userIsAdmin = userRoleRes.data?.role === 'admin';
+    setIsAdmin(userIsAdmin);
+
+    const permIds = projectTypePermsRes.data?.map(p => p.project_type_id) || [];
+    setProjectTypePermissions(permIds);
+
     if (projectTypesRes.data) {
       setProjectTypes(projectTypesRes.data);
       if (!selectedProjectType && projectTypesRes.data.length > 0) {
         const filteredProjectTypes = projectTypesRes.data.filter(pt => pt.name !== 'Com Sec');
-        const fundingProject = filteredProjectTypes.find(pt => pt.name === 'Funding Project');
-        const defaultType = fundingProject || filteredProjectTypes[0];
-        setSelectedProjectType(defaultType.id);
+
+        // Filter by permissions - only show types the user has access to
+        const allowedProjectTypes = filteredProjectTypes.filter(pt =>
+          userIsAdmin || permIds.includes(pt.id)
+        );
+
+        if (allowedProjectTypes.length > 0) {
+          // Prefer Funding Project if user has access, otherwise pick the first allowed type
+          const fundingProject = allowedProjectTypes.find(pt => pt.name === 'Funding Project');
+          const defaultType = fundingProject || allowedProjectTypes[0];
+          setSelectedProjectType(defaultType.id);
+        } else {
+          // User has no project type permissions, default to clients view
+          setSelectedView('clients');
+        }
       }
-    }
-
-    if (staffRes.data) setStaff(staffRes.data);
-    setIsAdmin(userRoleRes.data?.role === 'admin');
-
-    if (projectTypePermsRes.data) {
-      const permIds = projectTypePermsRes.data.map(p => p.project_type_id);
-      setProjectTypePermissions(permIds);
-    } else {
-      setProjectTypePermissions([]);
     }
 
     console.log('[loadEssentialData] Core data loaded');
