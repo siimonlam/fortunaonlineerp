@@ -155,13 +155,24 @@ export function ShareResourcesPage() {
     try {
       const searchTerm = `%${query}%`;
 
-      const { data: fundingClients, error: fundingError } = await supabase
-        .from('clients')
-        .select('client_number, company_name, company_name_chinese, contact_email, contact_person')
-        .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+      // Search funding projects with their client information
+      const { data: fundingProjects, error: fundingProjectError } = await supabase
+        .from('projects')
+        .select(`
+          project_reference,
+          title,
+          clients!inner(
+            client_number,
+            company_name,
+            company_name_chinese,
+            contact_email,
+            contact_person
+          )
+        `)
+        .or(`clients.company_name.ilike.${searchTerm},clients.company_name_chinese.ilike.${searchTerm},clients.contact_person.ilike.${searchTerm},title.ilike.${searchTerm}`)
         .limit(10);
 
-      if (fundingError) console.error('Funding clients error:', fundingError);
+      if (fundingProjectError) console.error('Funding projects error:', fundingProjectError);
 
       const { data: comsecClients, error: comsecError } = await supabase
         .from('comsec_clients')
@@ -179,8 +190,23 @@ export function ShareResourcesPage() {
 
       if (marketingError) console.error('Marketing projects error:', marketingError);
 
+      // Transform funding projects data to flatten client info
+      const transformedFundingProjects = (fundingProjects || []).map(p => {
+        const client = Array.isArray(p.clients) ? p.clients[0] : p.clients;
+        return {
+          client_number: client?.client_number,
+          company_name: client?.company_name,
+          company_name_chinese: client?.company_name_chinese,
+          contact_email: client?.contact_email,
+          contact_person: client?.contact_person,
+          project_reference: p.project_reference,
+          project_title: p.title,
+          source: 'Funding Project'
+        };
+      });
+
       const allClients = [
-        ...(fundingClients || []).map(c => ({ ...c, source: 'Funding' })),
+        ...transformedFundingProjects,
         ...(comsecClients || []).map(c => ({ ...c, source: 'ComSec' })),
         ...(marketingProjects || []).map(c => ({ ...c, source: 'Marketing' }))
       ];
@@ -704,10 +730,21 @@ export function ShareResourcesPage() {
     try {
       const searchTerm = `%${query}%`;
 
-      const { data: fundingClients } = await supabase
-        .from('clients')
-        .select('client_number, company_name, company_name_chinese, contact_person, contact_number')
-        .or(`company_name.ilike.${searchTerm},company_name_chinese.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
+      // Search funding projects with their client information
+      const { data: fundingProjects } = await supabase
+        .from('projects')
+        .select(`
+          project_reference,
+          title,
+          clients!inner(
+            client_number,
+            company_name,
+            company_name_chinese,
+            contact_person,
+            contact_number
+          )
+        `)
+        .or(`clients.company_name.ilike.${searchTerm},clients.company_name_chinese.ilike.${searchTerm},clients.contact_person.ilike.${searchTerm},title.ilike.${searchTerm}`)
         .limit(10);
 
       const { data: comsecClients } = await supabase
@@ -722,8 +759,23 @@ export function ShareResourcesPage() {
         .or(`company_name.ilike.${searchTerm},brand_name.ilike.${searchTerm},contact_person.ilike.${searchTerm}`)
         .limit(10);
 
+      // Transform funding projects data
+      const transformedFundingProjects = (fundingProjects || []).map(p => {
+        const client = Array.isArray(p.clients) ? p.clients[0] : p.clients;
+        return {
+          client_number: client?.client_number,
+          company_name: client?.company_name,
+          company_name_chinese: client?.company_name_chinese,
+          contact_person: client?.contact_person,
+          phone: client?.contact_number,
+          project_reference: p.project_reference,
+          project_title: p.title,
+          source: 'Funding Project'
+        };
+      });
+
       const allClients = [
-        ...(fundingClients || []).map(c => ({ ...c, phone: c.contact_number, source: 'Funding' })),
+        ...transformedFundingProjects,
         ...(comsecClients || []).map(c => ({ ...c, source: 'ComSec' })),
         ...(marketingProjects || []).map(c => ({ ...c, phone: c.contact_number, source: 'Marketing' }))
       ];
@@ -1288,6 +1340,12 @@ export function ShareResourcesPage() {
                                     <span className="text-slate-600"> - {client.brand_name}</span>
                                   )}
                                 </div>
+                                {client.project_reference && (
+                                  <div className="text-sm text-indigo-600 mt-1 flex items-center gap-1 font-medium">
+                                    <span className="bg-indigo-50 px-2 py-0.5 rounded">{client.project_reference}</span>
+                                    {client.project_title && <span className="text-slate-600">- {client.project_title}</span>}
+                                  </div>
+                                )}
                                 {client.contact_person && (
                                   <div className="text-sm text-slate-600 mt-1.5 flex items-center gap-1">
                                     <span className="text-slate-400">Contact:</span>
@@ -1666,6 +1724,12 @@ export function ShareResourcesPage() {
                                     <span className="text-slate-600"> - {client.brand_name}</span>
                                   )}
                                 </div>
+                                {client.project_reference && (
+                                  <div className="text-sm text-indigo-600 mt-1 flex items-center gap-1 font-medium">
+                                    <span className="bg-indigo-50 px-2 py-0.5 rounded">{client.project_reference}</span>
+                                    {client.project_title && <span className="text-slate-600">- {client.project_title}</span>}
+                                  </div>
+                                )}
                                 {client.contact_person && (
                                   <div className="text-sm text-slate-600 mt-1.5 flex items-center gap-1">
                                     <span className="text-slate-400">Contact:</span>
