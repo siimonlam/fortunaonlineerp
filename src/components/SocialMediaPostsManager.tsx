@@ -6,6 +6,7 @@ import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Ca
 interface SocialPost {
   id: string;
   marketing_project_id: string;
+  post_id: string;
   title: string;
   content: string;
   design_link: string;
@@ -1239,6 +1240,11 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                             </div>
                           ) : (
                             <>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                  {post.post_id}
+                                </span>
+                              </div>
                               <div className="flex items-center gap-2">
                                 <h4 className="font-semibold text-slate-900">{post.title}</h4>
                               </div>
@@ -1307,6 +1313,16 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                       {isExpanded && !isEditing && (
                         <div className="mt-4 space-y-4">
                           <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <label className="text-slate-600 font-medium">Post ID:</label>
+                              <p className="text-slate-900 mt-1 font-mono text-blue-600">{post.post_id}</p>
+                            </div>
+                            <div>
+                              <label className="text-slate-600 font-medium">Created:</label>
+                              <p className="text-slate-900 mt-1">
+                                {new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                            </div>
                             <div>
                               <label className="text-slate-600 font-medium">Content:</label>
                               <p className="text-slate-900 mt-1">{post.content || 'No content yet'}</p>
