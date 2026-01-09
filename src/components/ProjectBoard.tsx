@@ -14,6 +14,7 @@ import { AdminPage } from './AdminPage';
 import { CreateProjectModal } from './CreateProjectModal';
 import { ComSecPage } from './ComSecPage';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
+import { EditPartnerProjectModal } from './EditPartnerProjectModal';
 import { FundingDashboard } from './FundingDashboard';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
@@ -237,6 +238,8 @@ export function ProjectBoard() {
   const [partnerProjectFilterStatus, setPartnerProjectFilterStatus] = useState<string>('all');
   const [partnerProjectSortBy, setPartnerProjectSortBy] = useState<'date' | 'amount'>('date');
   const [partnerProjectSortOrder, setPartnerProjectSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [selectedPartnerProject, setSelectedPartnerProject] = useState<any | null>(null);
+  const [partnerProjectTab, setPartnerProjectTab] = useState<'dashboard' | 'projects'>('projects');
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [myTasks, setMyTasks] = useState<any[]>([]);
   const [selectedTaskUser, setSelectedTaskUser] = useState<string>('all');
@@ -3459,17 +3462,173 @@ export function ProjectBoard() {
                   )}
                   {activeClientTab === 'channel' && channelPartnerSubTab === 'projects' ? (
                     <div className="bg-white rounded-lg border border-slate-200">
-                      <div className="px-6 py-4 border-b border-slate-200">
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-lg font-semibold text-slate-900">Partner Projects</h3>
+                      {/* Tab Navigation */}
+                      <div className="border-b border-slate-200">
+                        <div className="flex gap-2 px-6 py-2">
                           <button
-                            onClick={() => setShowAddPartnerProjectModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                            onClick={() => setPartnerProjectTab('dashboard')}
+                            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                              partnerProjectTab === 'dashboard'
+                                ? 'border-emerald-600 text-emerald-600'
+                                : 'border-transparent text-slate-600 hover:text-slate-900'
+                            }`}
                           >
-                            <Plus className="w-4 h-4" />
-                            Add Partner Project
+                            <div className="flex items-center gap-2">
+                              <BarChart3 className="w-4 h-4" />
+                              Dashboard
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => setPartnerProjectTab('projects')}
+                            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                              partnerProjectTab === 'projects'
+                                ? 'border-emerald-600 text-emerald-600'
+                                : 'border-transparent text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4" />
+                              Projects
+                            </div>
                           </button>
                         </div>
+                      </div>
+
+                      {partnerProjectTab === 'dashboard' ? (
+                        <div className="p-6">
+                          <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-semibold text-slate-900">Partner Projects Dashboard</h3>
+                            <button
+                              onClick={() => setShowAddPartnerProjectModal(true)}
+                              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Add Partner Project
+                            </button>
+                          </div>
+
+                          {/* Overall Summary */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                              <div className="text-xs font-semibold text-blue-600 uppercase mb-1">Total Projects</div>
+                              <div className="text-3xl font-bold text-blue-900">{partnerProjects.length}</div>
+                            </div>
+                            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4 border border-emerald-200">
+                              <div className="text-xs font-semibold text-emerald-600 uppercase mb-1">Total Amount</div>
+                              <div className="text-3xl font-bold text-emerald-900">
+                                ${partnerProjects.reduce((sum, p) => sum + (p.project_amount || 0), 0).toLocaleString()}
+                              </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4 border border-amber-200">
+                              <div className="text-xs font-semibold text-amber-600 uppercase mb-1">Total Commission</div>
+                              <div className="text-3xl font-bold text-amber-900">
+                                ${partnerProjects.reduce((sum, p) => sum + (p.commission_amount || 0), 0).toLocaleString()}
+                              </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                              <div className="text-xs font-semibold text-purple-600 uppercase mb-1">Active Partners</div>
+                              <div className="text-3xl font-bold text-purple-900">
+                                {new Set(partnerProjects.map(p => p.channel_partner_name).filter(Boolean)).size}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Charts by Project Type */}
+                          <h4 className="text-md font-semibold text-slate-700 mb-4">Performance by Project Type</h4>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {['audit', 'marketing', 'production', 'website', 'others'].map((type) => {
+                              const typeProjects = partnerProjects.filter(p => p.project_type === type);
+                              const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+
+                              // Group by partner
+                              const partnerStats = typeProjects.reduce((acc, project) => {
+                                const partnerName = project.channel_partner_name || 'Unknown';
+                                if (!acc[partnerName]) {
+                                  acc[partnerName] = { count: 0, amount: 0 };
+                                }
+                                acc[partnerName].count += 1;
+                                acc[partnerName].amount += project.project_amount || 0;
+                                return acc;
+                              }, {} as Record<string, { count: number; amount: number }>);
+
+                              const partners = Object.keys(partnerStats).sort((a, b) =>
+                                partnerStats[b].amount - partnerStats[a].amount
+                              );
+
+                              const totalAmount = typeProjects.reduce((sum, p) => sum + (p.project_amount || 0), 0);
+                              const maxAmount = Math.max(...partners.map(p => partnerStats[p].amount), 1);
+
+                              return (
+                                <div key={type} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h5 className="text-lg font-semibold text-slate-900">{typeLabel}</h5>
+                                    <div className="text-right">
+                                      <div className="text-xs text-slate-500">Total</div>
+                                      <div className="text-sm font-bold text-slate-900">{typeProjects.length} projects</div>
+                                      <div className="text-sm font-bold text-emerald-600">${totalAmount.toLocaleString()}</div>
+                                    </div>
+                                  </div>
+
+                                  {partners.length === 0 ? (
+                                    <div className="text-center py-8 text-slate-400">
+                                      No projects yet
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      {partners.slice(0, 5).map((partner) => {
+                                        const stats = partnerStats[partner];
+                                        const percentage = (stats.amount / maxAmount) * 100;
+
+                                        return (
+                                          <div key={partner} className="space-y-1">
+                                            <div className="flex items-center justify-between text-sm">
+                                              <span className="font-medium text-slate-700 truncate max-w-[150px]" title={partner}>
+                                                {partner}
+                                              </span>
+                                              <span className="text-xs text-slate-500 ml-2">
+                                                {stats.count} project{stats.count !== 1 ? 's' : ''}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
+                                                <div
+                                                  className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full flex items-center justify-end pr-2 transition-all duration-500"
+                                                  style={{ width: `${Math.max(percentage, 5)}%` }}
+                                                >
+                                                  <span className="text-xs font-semibold text-white">
+                                                    ${stats.amount.toLocaleString()}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                      {partners.length > 5 && (
+                                        <div className="text-xs text-slate-400 text-center pt-2">
+                                          + {partners.length - 5} more partner{partners.length - 5 !== 1 ? 's' : ''}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="px-6 py-4 border-b border-slate-200">
+                            <div className="flex justify-between items-center mb-4">
+                              <h3 className="text-lg font-semibold text-slate-900">Partner Projects</h3>
+                              <button
+                                onClick={() => setShowAddPartnerProjectModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                              >
+                                <Plus className="w-4 h-4" />
+                                Add Partner Project
+                              </button>
+                            </div>
 
                         <div className="flex flex-wrap gap-4 items-center bg-slate-50 p-4 rounded-lg">
                           <div className="flex-1 min-w-[200px]">
@@ -3545,29 +3704,6 @@ export function ProjectBoard() {
                           Showing {filteredAndSortedPartnerProjects.length} of {partnerProjects.length} projects
                         </div>
                       </div>
-
-                      {partnerProjects.length > 0 && (
-                        <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-slate-200">
-                          <h4 className="text-sm font-semibold text-slate-700 mb-3">Summary by Project Type</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                            {['audit', 'marketing', 'production', 'website', 'others'].map((type) => {
-                              const typeProjects = partnerProjects.filter(p => p.project_type === type);
-                              const totalAmount = typeProjects.reduce((sum, p) => sum + (p.project_amount || 0), 0);
-                              const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
-
-                              return (
-                                <div key={type} className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
-                                  <div className="text-xs font-semibold text-slate-500 uppercase mb-1">{typeLabel}</div>
-                                  <div className="text-2xl font-bold text-slate-900">{typeProjects.length}</div>
-                                  <div className="text-xs text-slate-600 mt-1">
-                                    ${totalAmount.toLocaleString()}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
 
                       <div className="overflow-x-auto">
                         {loadingPartnerProjects ? (
@@ -3704,6 +3840,8 @@ export function ProjectBoard() {
                           </table>
                         )}
                       </div>
+                        </>
+                      )}
                     </div>
                   ) : activeClientTab === 'channel' && channelPartnerSubTab === 'partners' ? (
                     <div className="bg-white rounded-lg border border-slate-200 rounded-t-none border-t-0 p-6">
@@ -4537,6 +4675,17 @@ export function ProjectBoard() {
           onClose={() => setShowAddPartnerProjectModal(false)}
           onSuccess={() => {
             setShowAddPartnerProjectModal(false);
+            loadPartnerProjects();
+          }}
+        />
+      )}
+
+      {selectedPartnerProject && (
+        <EditPartnerProjectModal
+          project={selectedPartnerProject}
+          onClose={() => setSelectedPartnerProject(null)}
+          onSuccess={() => {
+            setSelectedPartnerProject(null);
             loadPartnerProjects();
           }}
         />
