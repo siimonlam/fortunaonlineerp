@@ -214,8 +214,46 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
           setVisibleSections(sections);
           setHasFullAccess(false);
         }
-      } else {
+        return;
+      }
+
+      const { data: buttonAccess } = await supabase
+        .from('marketing_button_staff')
+        .select(`
+          button_id,
+          marketing_project_buttons!inner(
+            marketing_project_id
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('marketing_project_buttons.marketing_project_id', projectId);
+
+      if (buttonAccess && buttonAccess.length > 0) {
         setHasFullAccess(true);
+        return;
+      }
+
+      const { data: buttons } = await supabase
+        .from('marketing_project_buttons')
+        .select('id')
+        .eq('marketing_project_id', projectId);
+
+      if (!buttons || buttons.length === 0) {
+        setHasFullAccess(true);
+        return;
+      }
+
+      const buttonIds = buttons.map(b => b.id);
+      const { data: anyRestrictions } = await supabase
+        .from('marketing_button_staff')
+        .select('button_id')
+        .in('button_id', buttonIds);
+
+      if (!anyRestrictions || anyRestrictions.length === 0) {
+        setHasFullAccess(true);
+      } else {
+        setHasFullAccess(false);
+        setVisibleSections([]);
       }
     } catch (err: any) {
       console.error('Error fetching permissions:', err);
