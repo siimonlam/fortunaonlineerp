@@ -1468,14 +1468,24 @@ export function ShareResourcesPage() {
                               Google Drive Files ({selectedDriveFiles.length})
                             </p>
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-2">
                             {selectedDriveFiles.map((file, idx) => (
-                              <div key={idx} className="flex items-center gap-2 text-sm text-blue-700">
-                                <FileText className="w-3 h-3" />
-                                <span className="truncate">{file.name}</span>
+                              <div key={idx} className="flex items-center gap-2 bg-white rounded-lg p-2 border border-blue-200">
+                                <FileText className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                <span className="flex-1 truncate text-sm text-blue-900">{file.name}</span>
                                 {file.size && (
-                                  <span className="text-xs text-blue-600">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                  <span className="text-xs text-blue-600 flex-shrink-0">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                                 )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedDriveFiles(selectedDriveFiles.filter((_, i) => i !== idx));
+                                  }}
+                                  className="p-1 text-blue-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                                  title="Remove file"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
                               </div>
                             ))}
                           </div>
