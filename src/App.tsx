@@ -41,10 +41,76 @@ function AppContent() {
 
   useEffect(() => {
     if (user && !loading && window.location.pathname !== '/onboarding' && window.location.pathname !== '/phone-scan') {
+      const shouldShowTaskSummary = () => {
+        const now = new Date();
+        const sessionKey = `task_summary_session_${new Date().toDateString()}`;
+        const lastShownKey = 'task_summary_last_shown';
+
+        const isReload = !sessionStorage.getItem(sessionKey);
+        sessionStorage.setItem(sessionKey, 'true');
+
+        if (isReload) {
+          localStorage.setItem(lastShownKey, now.toISOString());
+          return true;
+        }
+
+        const lastShown = localStorage.getItem(lastShownKey);
+        if (!lastShown) {
+          localStorage.setItem(lastShownKey, now.toISOString());
+          return true;
+        }
+
+        const lastShownTime = new Date(lastShown);
+        const timeDiff = now.getTime() - lastShownTime.getTime();
+        const minutesDiff = timeDiff / (1000 * 60);
+
+        if (minutesDiff < 30) {
+          return false;
+        }
+
+        const currentMinutes = now.getMinutes();
+        const isHalfHourMark = currentMinutes === 0 || currentMinutes === 30;
+
+        if (isHalfHourMark) {
+          localStorage.setItem(lastShownKey, now.toISOString());
+          return true;
+        }
+
+        return false;
+      };
+
       const timer = setTimeout(() => {
-        setShowTaskSummary(true);
+        if (shouldShowTaskSummary()) {
+          setShowTaskSummary(true);
+        }
       }, 500);
-      return () => clearTimeout(timer);
+
+      const intervalTimer = setInterval(() => {
+        const now = new Date();
+        const currentMinutes = now.getMinutes();
+        const currentSeconds = now.getSeconds();
+
+        if ((currentMinutes === 0 || currentMinutes === 30) && currentSeconds === 0) {
+          const lastShownKey = 'task_summary_last_shown';
+          const lastShown = localStorage.getItem(lastShownKey);
+
+          if (lastShown) {
+            const lastShownTime = new Date(lastShown);
+            const timeDiff = now.getTime() - lastShownTime.getTime();
+            const minutesDiff = timeDiff / (1000 * 60);
+
+            if (minutesDiff >= 30) {
+              localStorage.setItem(lastShownKey, now.toISOString());
+              setShowTaskSummary(true);
+            }
+          }
+        }
+      }, 1000);
+
+      return () => {
+        clearTimeout(timer);
+        clearInterval(intervalTimer);
+      };
     }
   }, [user, loading]);
 
