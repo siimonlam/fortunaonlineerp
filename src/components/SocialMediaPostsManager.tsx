@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save, Copy } from 'lucide-react';
+import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save, Copy, FolderPlus } from 'lucide-react';
 
 interface SocialPost {
   id: string;
@@ -71,6 +71,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   const [editingAccount, setEditingAccount] = useState<{ type: string; id: string } | null>(null);
   const [tempDesigner, setTempDesigner] = useState('');
   const [tempApprover, setTempApprover] = useState('');
+  const [creatingFolders, setCreatingFolders] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -787,6 +788,46 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     setTempApprover(accountApprovers[accountId] || '');
   };
 
+  const handleCreateFoldersForExistingPosts = async () => {
+    if (!confirm('This will create Google Drive folders for all existing posts in this marketing project. Continue?')) {
+      return;
+    }
+
+    setCreatingFolders(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Not authenticated');
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-social-post-folders`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ marketingProjectId }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`Success! Created ${result.folders_created} folders for existing posts.${result.errors > 0 ? `\n${result.errors} errors occurred.` : ''}`);
+      } else {
+        alert(`Failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error creating folders:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setCreatingFolders(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-8 text-slate-600">Loading posts...</div>;
   }
@@ -796,13 +837,24 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-900">Social Media Posts</h3>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Post
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCreateFoldersForExistingPosts}
+              disabled={creatingFolders}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Create folders for all existing posts"
+            >
+              <FolderPlus className="w-4 h-4" />
+              {creatingFolders ? 'Creating Folders...' : 'Create Folders'}
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              New Post
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
