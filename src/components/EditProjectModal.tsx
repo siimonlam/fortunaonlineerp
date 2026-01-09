@@ -3383,6 +3383,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             channel_partner_name: clientChannelPartner?.name || '',
             channel_partner_reference: clientChannelPartner?.reference_number || '',
             project_content: project.description || '',
+            project_type: projectType?.name?.toLowerCase() === 'funding project' ? 'audit' : 'others',
           }}
         />
       )}

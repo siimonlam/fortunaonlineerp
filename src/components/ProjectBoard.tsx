@@ -231,6 +231,12 @@ export function ProjectBoard() {
   const [partnerProjects, setPartnerProjects] = useState<any[]>([]);
   const [loadingPartnerProjects, setLoadingPartnerProjects] = useState(false);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
+  const [partnerProjectSearchQuery, setPartnerProjectSearchQuery] = useState('');
+  const [partnerProjectFilterPartner, setPartnerProjectFilterPartner] = useState<string>('all');
+  const [partnerProjectFilterType, setPartnerProjectFilterType] = useState<string>('all');
+  const [partnerProjectFilterStatus, setPartnerProjectFilterStatus] = useState<string>('all');
+  const [partnerProjectSortBy, setPartnerProjectSortBy] = useState<'date' | 'amount'>('date');
+  const [partnerProjectSortOrder, setPartnerProjectSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [myTasks, setMyTasks] = useState<any[]>([]);
   const [selectedTaskUser, setSelectedTaskUser] = useState<string>('all');
@@ -1032,6 +1038,58 @@ export function ProjectBoard() {
       setLoadingPartnerProjects(false);
     }
   }
+
+  // Filter and sort partner projects
+  const filteredAndSortedPartnerProjects = useMemo(() => {
+    let filtered = [...partnerProjects];
+
+    // Apply search filter
+    if (partnerProjectSearchQuery) {
+      const query = partnerProjectSearchQuery.toLowerCase();
+      filtered = filtered.filter(project =>
+        (project.project_reference?.toLowerCase().includes(query)) ||
+        (project.channel_partner_name?.toLowerCase().includes(query)) ||
+        (project.company_name?.toLowerCase().includes(query)) ||
+        (project.channel_partner_reference?.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply partner filter
+    if (partnerProjectFilterPartner !== 'all') {
+      filtered = filtered.filter(project => project.channel_partner_name === partnerProjectFilterPartner);
+    }
+
+    // Apply type filter
+    if (partnerProjectFilterType !== 'all') {
+      filtered = filtered.filter(project => project.project_type === partnerProjectFilterType);
+    }
+
+    // Apply status filter
+    if (partnerProjectFilterStatus !== 'all') {
+      filtered = filtered.filter(project => project.project_status === partnerProjectFilterStatus);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      if (partnerProjectSortBy === 'date') {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return partnerProjectSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+      } else {
+        const amountA = a.project_amount || 0;
+        const amountB = b.project_amount || 0;
+        return partnerProjectSortOrder === 'desc' ? amountB - amountA : amountA - amountB;
+      }
+    });
+
+    return filtered;
+  }, [partnerProjects, partnerProjectSearchQuery, partnerProjectFilterPartner, partnerProjectFilterType, partnerProjectFilterStatus, partnerProjectSortBy, partnerProjectSortOrder]);
+
+  // Get unique partner names for filter dropdown
+  const uniquePartnerNames = useMemo(() => {
+    const partners = new Set(partnerProjects.map(p => p.channel_partner_name).filter(Boolean));
+    return Array.from(partners).sort();
+  }, [partnerProjects]);
 
   // Helper for timeout handling
   const timeout = (ms: number) => new Promise((_, reject) =>
@@ -3401,65 +3459,214 @@ export function ProjectBoard() {
                   )}
                   {activeClientTab === 'channel' && channelPartnerSubTab === 'projects' ? (
                     <div className="bg-white rounded-lg border border-slate-200">
-                      <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                        <h3 className="text-lg font-semibold text-slate-900">Partner Projects</h3>
-                        <button
-                          onClick={() => setShowAddPartnerProjectModal(true)}
-                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Add Partner Project
-                        </button>
+                      <div className="px-6 py-4 border-b border-slate-200">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-lg font-semibold text-slate-900">Partner Projects</h3>
+                          <button
+                            onClick={() => setShowAddPartnerProjectModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add Partner Project
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-4 items-center bg-slate-50 p-4 rounded-lg">
+                          <div className="flex-1 min-w-[200px]">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="text"
+                                value={partnerProjectSearchQuery}
+                                onChange={(e) => setPartnerProjectSearchQuery(e.target.value)}
+                                placeholder="Search projects..."
+                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 flex-wrap">
+                            <select
+                              value={partnerProjectFilterPartner}
+                              onChange={(e) => setPartnerProjectFilterPartner(e.target.value)}
+                              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white text-sm"
+                            >
+                              <option value="all">All Partners</option>
+                              {uniquePartnerNames.map((partner) => (
+                                <option key={partner} value={partner}>
+                                  {partner}
+                                </option>
+                              ))}
+                            </select>
+
+                            <select
+                              value={partnerProjectFilterType}
+                              onChange={(e) => setPartnerProjectFilterType(e.target.value)}
+                              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white text-sm"
+                            >
+                              <option value="all">All Types</option>
+                              <option value="audit">Audit</option>
+                              <option value="marketing">Marketing</option>
+                              <option value="production">Production</option>
+                              <option value="website">Website</option>
+                              <option value="others">Others</option>
+                            </select>
+
+                            <select
+                              value={partnerProjectFilterStatus}
+                              onChange={(e) => setPartnerProjectFilterStatus(e.target.value)}
+                              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white text-sm"
+                            >
+                              <option value="all">All Status</option>
+                              <option value="pending">Pending</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="completed">Completed</option>
+                              <option value="cancelled">Cancelled</option>
+                            </select>
+
+                            <select
+                              value={`${partnerProjectSortBy}-${partnerProjectSortOrder}`}
+                              onChange={(e) => {
+                                const [newSortBy, newSortOrder] = e.target.value.split('-');
+                                setPartnerProjectSortBy(newSortBy as 'date' | 'amount');
+                                setPartnerProjectSortOrder(newSortOrder as 'asc' | 'desc');
+                              }}
+                              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white text-sm"
+                            >
+                              <option value="date-desc">Newest First</option>
+                              <option value="date-asc">Oldest First</option>
+                              <option value="amount-desc">Highest Amount</option>
+                              <option value="amount-asc">Lowest Amount</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="text-sm text-slate-600 mt-2">
+                          Showing {filteredAndSortedPartnerProjects.length} of {partnerProjects.length} projects
+                        </div>
                       </div>
-                      <div className="p-6">
+
+                      {partnerProjects.length > 0 && (
+                        <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-slate-200">
+                          <h4 className="text-sm font-semibold text-slate-700 mb-3">Summary by Project Type</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                            {['audit', 'marketing', 'production', 'website', 'others'].map((type) => {
+                              const typeProjects = partnerProjects.filter(p => p.project_type === type);
+                              const totalAmount = typeProjects.reduce((sum, p) => sum + (p.project_amount || 0), 0);
+                              const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+
+                              return (
+                                <div key={type} className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+                                  <div className="text-xs font-semibold text-slate-500 uppercase mb-1">{typeLabel}</div>
+                                  <div className="text-2xl font-bold text-slate-900">{typeProjects.length}</div>
+                                  <div className="text-xs text-slate-600 mt-1">
+                                    ${totalAmount.toLocaleString()}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="overflow-x-auto">
                         {loadingPartnerProjects ? (
-                          <div className="text-center py-12">
+                          <div className="p-12 text-center">
                             <p className="text-slate-500">Loading partner projects...</p>
                           </div>
                         ) : partnerProjects.length === 0 ? (
-                          <div className="text-center py-12">
+                          <div className="p-12 text-center">
                             <p className="text-slate-500 text-lg">No Partner Projects Yet</p>
                             <p className="text-slate-400 text-sm mt-2">Click "Add Partner Project" to get started</p>
                           </div>
+                        ) : filteredAndSortedPartnerProjects.length === 0 ? (
+                          <div className="p-12 text-center">
+                            <p className="text-slate-500 text-lg">No projects match your filters</p>
+                            <p className="text-slate-400 text-sm mt-2">Try adjusting your search or filter criteria</p>
+                          </div>
                         ) : (
-                          <div className="grid grid-cols-1 gap-4">
-                            {partnerProjects.map((project) => (
-                              <div
-                                key={project.id}
-                                onClick={() => setSelectedPartnerProject(project)}
-                                className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                              >
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Project Ref</div>
-                                    <div className="font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block">
+                          <table className="w-full">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Project Ref
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Partner
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Company
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Partner Ref
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Type
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Status
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Project Amount
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Date
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Paid Status
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  Commission
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {filteredAndSortedPartnerProjects.map((project) => (
+                                <tr
+                                  key={project.id}
+                                  onClick={() => setSelectedPartnerProject(project)}
+                                  className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                >
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
                                       {project.project_reference || '-'}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Partner</div>
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="font-medium text-slate-900">{project.channel_partner_name}</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Partner Ref</div>
-                                    <div className="font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-slate-600">{project.company_name || '-'}</div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="text-sm font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
                                       {project.channel_partner_reference || '-'}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Project Amount</div>
-                                    <div className="font-medium text-slate-900">
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded capitalize">
+                                      {project.project_type || '-'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`text-xs font-medium px-2 py-1 rounded capitalize ${
+                                      project.project_status === 'completed' ? 'bg-green-100 text-green-800' :
+                                      project.project_status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                      project.project_status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                      'bg-amber-100 text-amber-800'
+                                    }`}>
+                                      {project.project_status?.replace('_', ' ') || 'pending'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="text-sm font-medium text-slate-900">
                                       ${project.project_amount?.toLocaleString() || '0'}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Date</div>
-                                    <div className="text-sm text-slate-600">
-                                      {project.date ? new Date(project.date).toLocaleDateString() : '-'}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Paid Status</div>
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                                    {project.date ? new Date(project.date).toLocaleDateString() : '-'}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
                                     {project.paid_status ? (
                                       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                         <CheckCircle2 className="w-3 h-3" />
@@ -3471,32 +3678,30 @@ export function ProjectBoard() {
                                         Unpaid
                                       </span>
                                     )}
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Commission Rate</div>
-                                    <div className="text-sm font-medium text-slate-900">{project.commission_rate}%</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Commission</div>
-                                    <div className="font-medium text-slate-900">
-                                      ${project.commission_amount?.toLocaleString() || '0'}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm">
+                                      <div className="font-medium text-amber-600">
+                                        ${project.commission_amount?.toLocaleString() || '0'}
+                                      </div>
+                                      <div className="text-xs text-slate-500">{project.commission_rate}%</div>
+                                      {project.commission_paid_status ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                                          <CheckCircle2 className="w-3 h-3" />
+                                          Paid
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 mt-1">
+                                          <XCircle className="w-3 h-3" />
+                                          Pending
+                                        </span>
+                                      )}
                                     </div>
-                                    {project.commission_paid_status ? (
-                                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
-                                        <CheckCircle2 className="w-3 h-3" />
-                                        Paid
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
-                                        <XCircle className="w-3 h-3" />
-                                        Unpaid
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         )}
                       </div>
                     </div>
