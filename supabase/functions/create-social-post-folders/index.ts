@@ -157,7 +157,7 @@ Deno.serve(async (req: Request) => {
     // Get all social posts for this marketing project
     const { data: posts, error: postsError } = await supabase
       .from('marketing_social_posts')
-      .select('id, post_id, title')
+      .select('id, post_id, title, google_drive_folder_id')
       .eq('marketing_project_id', marketingProjectId)
       .order('created_at', { ascending: true });
 
@@ -272,19 +272,54 @@ Deno.serve(async (req: Request) => {
     const results = [];
     let successCount = 0;
     let errorCount = 0;
+    let skippedCount = 0;
 
     for (const post of posts) {
       try {
+        // Skip if folder already exists
+        if (post.google_drive_folder_id) {
+          console.log(`Post ${post.post_id} already has folder ID: ${post.google_drive_folder_id}`);
+          results.push({
+            post_id: post.post_id,
+            folder_id: post.google_drive_folder_id,
+            success: true,
+            skipped: true,
+            message: 'Folder already exists'
+          });
+          skippedCount++;
+          continue;
+        }
+
         const folderName = post.post_id || `Post_${post.id.substring(0, 8)}`;
         console.log(`Creating folder for post: ${folderName}`);
 
-        const folderId = await createGoogleDriveFolder(
-          folderName,
-          socialMediaFolderId,
-          accessToken
-        );
+        // Check if folder already exists in Drive
+        let folderId = await findSubfolder(socialMediaFolderId, folderName, accessToken);
+        
+        if (!folderId) {
+          // Create new folder
+          folderId = await createGoogleDriveFolder(
+            folderName,
+            socialMediaFolderId,
+            accessToken
+          );
+          console.log(`Folder created: ${folderId} for post ${post.post_id}`);
+        } else {
+          console.log(`Folder already exists in Drive: ${folderId} for post ${post.post_id}`);
+        }
 
-        console.log(`Folder created: ${folderId} for post ${post.post_id}`);
+        // Update the post with the folder ID
+        const { error: updateError } = await supabase
+          .from('marketing_social_posts')
+          .update({ google_drive_folder_id: folderId })
+          .eq('id', post.id);
+
+        if (updateError) {
+          console.error(`Failed to update post ${post.post_id} with folder ID:`, updateError);
+          throw new Error(`Failed to save folder ID: ${updateError.message}`);
+        }
+
+        console.log(`Post ${post.post_id} updated with folder ID: ${folderId}`);
 
         results.push({
           post_id: post.post_id,
@@ -305,13 +340,14 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    console.log(`Folder creation complete. Success: ${successCount}, Errors: ${errorCount}`);
+    console.log(`Folder creation complete. Success: ${successCount}, Skipped: ${skippedCount}, Errors: ${errorCount}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Created ${successCount} folders for existing posts`,
+        message: `Created ${successCount} folders, skipped ${skippedCount} existing folders`,
         folders_created: successCount,
+        skipped: skippedCount,
         errors: errorCount,
         results: results,
       }),

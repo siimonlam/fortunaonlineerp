@@ -74,6 +74,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   const [tempDesigner, setTempDesigner] = useState('');
   const [tempApprover, setTempApprover] = useState('');
   const [creatingFolders, setCreatingFolders] = useState(false);
+  const [expandedSteps, setExpandedSteps] = useState<Record<string, Set<number>>>({});
 
   const [formData, setFormData] = useState({
     title: '',
@@ -732,6 +733,26 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
       case 'cancelled': return 'bg-red-100 text-red-700';
       default: return 'bg-gray-100 text-gray-700';
     }
+  };
+
+  const toggleStepExpansion = (postId: string, stepNumber: number) => {
+    setExpandedSteps(prev => {
+      const postSteps = prev[postId] || new Set<number>();
+      const newSet = new Set(postSteps);
+      if (newSet.has(stepNumber)) {
+        newSet.delete(stepNumber);
+      } else {
+        newSet.add(stepNumber);
+      }
+      return { ...prev, [postId]: newSet };
+    });
+  };
+
+  const isStepExpanded = (postId: string, stepNumber: number, step: PostStep | undefined): boolean => {
+    if (!step) return true;
+    if (step.status !== 'completed') return true;
+    const postSteps = expandedSteps[postId];
+    return postSteps ? postSteps.has(stepNumber) : false;
   };
 
   const handleUpdateAccountAssignments = async (type: 'instagram' | 'facebook', accountId: string) => {
@@ -1411,15 +1432,34 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                               const step = steps.find(s => s.step_number === stepNum);
                               const stepNames = ['', 'Content Drafting', 'Approval', 'Content Posted'];
 
-                              return (
-                                <div key={stepNum} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                                  <div className="mt-0.5">
-                                    {step ? getStepIcon(step) : <Circle className="w-5 h-5 text-slate-300" />}
-                                  </div>
+                              const stepExpanded = isStepExpanded(post.id, stepNum, step);
+                              const isCompleted = step?.status === 'completed';
 
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between">
-                                      <h6 className="font-medium text-slate-900">{stepNames[stepNum]}</h6>
+                              return (
+                                <div key={stepNum} className="p-3 bg-slate-50 rounded-lg">
+                                  <div className="flex items-start gap-3">
+                                    <div className="mt-0.5">
+                                      {step ? getStepIcon(step) : <Circle className="w-5 h-5 text-slate-300" />}
+                                    </div>
+
+                                    <div className="flex-1">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <h6 className="font-medium text-slate-900">{stepNames[stepNum]}</h6>
+                                          {isCompleted && (
+                                            <button
+                                              onClick={() => toggleStepExpansion(post.id, stepNum)}
+                                              className="text-slate-400 hover:text-slate-600 transition-colors"
+                                              title={stepExpanded ? "Collapse" : "Expand"}
+                                            >
+                                              {stepExpanded ? (
+                                                <ChevronDown className="w-4 h-4" />
+                                              ) : (
+                                                <ChevronRight className="w-4 h-4" />
+                                              )}
+                                            </button>
+                                          )}
+                                        </div>
                                       {step && (
                                         <div className="flex items-center gap-2">
                                           {stepNum === 2 && step.status !== 'completed' && (
@@ -1490,9 +1530,10 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                           Create Step 2
                                         </button>
                                       )}
+                                      </div>
                                     </div>
 
-                                    {step && (
+                                    {step && stepExpanded && (
                                       <div className="mt-2 text-sm text-slate-600 space-y-1">
                                         {step.assignee ? (
                                           <p className="flex items-center gap-1">
@@ -1523,7 +1564,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                       </div>
                                     )}
 
-                                    {stepNum === 3 && step && (
+                                    {stepNum === 3 && step && stepExpanded && (
                                       <div className="mt-4 pt-4 border-t border-slate-200">
                                         <SocialPostImageUploader
                                           postId={post.id}
