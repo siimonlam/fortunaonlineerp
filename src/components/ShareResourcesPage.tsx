@@ -48,6 +48,10 @@ export function ShareResourcesPage() {
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [selectedDriveFiles, setSelectedDriveFiles] = useState<any[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState('0AK-QGp_5SOJWUk9PVA');
+  const [folderPath, setFolderPath] = useState<Array<{id: string, name: string}>>([
+    { id: '0AK-QGp_5SOJWUk9PVA', name: 'Shared Files' }
+  ]);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [emailForm, setEmailForm] = useState({
     from_account_id: '',
@@ -205,12 +209,12 @@ export function ShareResourcesPage() {
     setClients([]);
   };
 
-  const fetchDriveFiles = async () => {
-    const folderId = '0AK-QGp_5SOJWUk9PVA';
+  const fetchDriveFiles = async (folderId?: string) => {
+    const targetFolderId = folderId || currentFolderId;
     setLoadingFiles(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${folderId}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${targetFolderId}`,
         {
           method: 'GET',
           headers: {
@@ -231,7 +235,25 @@ export function ShareResourcesPage() {
     }
   };
 
+  const navigateToFolder = (folderId: string, folderName: string) => {
+    setCurrentFolderId(folderId);
+    const newPath = [...folderPath, { id: folderId, name: folderName }];
+    setFolderPath(newPath);
+    fetchDriveFiles(folderId);
+  };
+
+  const navigateToBreadcrumb = (index: number) => {
+    const newPath = folderPath.slice(0, index + 1);
+    const targetFolder = newPath[newPath.length - 1];
+    setCurrentFolderId(targetFolder.id);
+    setFolderPath(newPath);
+    fetchDriveFiles(targetFolder.id);
+  };
+
   const toggleDriveFileSelection = (file: any) => {
+    if (file.mimeType === 'application/vnd.google-apps.folder') {
+      return;
+    }
     const exists = selectedDriveFiles.find(f => f.id === file.id);
     if (exists) {
       setSelectedDriveFiles(selectedDriveFiles.filter(f => f.id !== file.id));
@@ -242,7 +264,9 @@ export function ShareResourcesPage() {
 
   const openAttachmentModal = () => {
     setShowAttachmentModal(true);
-    fetchDriveFiles();
+    setCurrentFolderId('0AK-QGp_5SOJWUk9PVA');
+    setFolderPath([{ id: '0AK-QGp_5SOJWUk9PVA', name: 'Shared Files' }]);
+    fetchDriveFiles('0AK-QGp_5SOJWUk9PVA');
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1496,41 +1520,76 @@ export function ShareResourcesPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingFiles ? (
-                <div className="text-center py-8">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <p className="text-slate-600 mt-2">Loading files...</p>
-                </div>
-              ) : driveFiles.length === 0 ? (
-                <div className="text-center py-8">
-                  <Folder className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                  <p className="text-slate-600">No files found in Google Drive folder</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {driveFiles.map((file) => (
-                    <label
-                      key={file.id}
-                      className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedDriveFiles.some(f => f.id === file.id)}
-                        onChange={() => toggleDriveFileSelection(file)}
-                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                      />
-                      <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{file.name}</p>
-                        {file.size && (
-                          <p className="text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                        )}
-                      </div>
-                    </label>
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4 bg-slate-50 border-b border-slate-200">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  {folderPath.map((folder, index) => (
+                    <div key={folder.id} className="flex items-center gap-2">
+                      <button
+                        onClick={() => navigateToBreadcrumb(index)}
+                        className="hover:text-blue-600 hover:underline font-medium"
+                      >
+                        {folder.name}
+                      </button>
+                      {index < folderPath.length - 1 && <span>/</span>}
+                    </div>
                   ))}
                 </div>
-              )}
+              </div>
+
+              <div className="p-6">
+                {loadingFiles ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p className="text-slate-600 mt-2">Loading files...</p>
+                  </div>
+                ) : driveFiles.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Folder className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                    <p className="text-slate-600">No files found in this folder</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {driveFiles.map((file) => {
+                      const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+                      return (
+                        <div
+                          key={file.id}
+                          onClick={() => isFolder ? navigateToFolder(file.id, file.name) : toggleDriveFileSelection(file)}
+                          className={`flex items-center gap-3 p-3 border border-slate-200 rounded-lg transition-colors ${
+                            isFolder
+                              ? 'hover:bg-blue-50 hover:border-blue-300 cursor-pointer'
+                              : 'hover:bg-slate-50 cursor-pointer'
+                          }`}
+                        >
+                          {!isFolder && (
+                            <input
+                              type="checkbox"
+                              checked={selectedDriveFiles.some(f => f.id === file.id)}
+                              onChange={() => toggleDriveFileSelection(file)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                            />
+                          )}
+                          {isFolder ? (
+                            <FolderOpen className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                          ) : (
+                            <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium truncate ${isFolder ? 'text-blue-700' : 'text-slate-900'}`}>
+                              {file.name}
+                            </p>
+                            {!isFolder && file.size && (
+                              <p className="text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="p-6 border-t border-slate-200 flex justify-between items-center">
