@@ -2704,7 +2704,7 @@ export function ProjectBoard() {
                     )}
                   </>
                 )}
-                {!selectedMarketingProject && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab === 'projects' && (
+                {!selectedMarketingProject && !isAdminSection && !isComSecSection && !isClientSection && isFundingProjectType && fundingProjectTab === 'projects' && (
                   <>
                     <h2 className="text-2xl font-bold text-slate-900">
                       {currentStatus?.is_substatus && parentStatus ? (
@@ -2734,13 +2734,18 @@ export function ProjectBoard() {
                     )}
                   </>
                 )}
-                {!selectedMarketingProject && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab !== 'projects' && (
+                {!selectedMarketingProject && !isAdminSection && !isComSecSection && !isClientSection && isFundingProjectType && fundingProjectTab !== 'projects' && (
                   <h2 className="text-2xl font-bold text-slate-900">
                     {fundingProjectTab === 'dashboard' && 'Dashboard'}
                     {fundingProjectTab === 'invoices' && 'Invoices'}
                     {fundingProjectTab === 'emails' && 'Scheduled Emails'}
                     {fundingProjectTab === 'meetings' && 'Meetings'}
                     {fundingProjectTab === 'resources' && 'Share Resources'}
+                  </h2>
+                )}
+                {isClientSection && !isAdminSection && !isComSecSection && (
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    Clients
                   </h2>
                 )}
               </div>
