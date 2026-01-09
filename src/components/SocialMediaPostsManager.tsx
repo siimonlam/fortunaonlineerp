@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save, Copy, FolderPlus } from 'lucide-react';
+import { SocialPostImageUploader } from './SocialPostImageUploader';
 
 interface SocialPost {
   id: string;
@@ -19,6 +20,7 @@ interface SocialPost {
   created_at: string;
   instagram_account_ids: string[];
   facebook_account_ids: string[];
+  google_drive_folder_id: string | null;
   creator?: {
     full_name: string;
   };
@@ -1518,6 +1520,15 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                         {step.notes && (
                                           <p className="text-slate-700 mt-1 whitespace-pre-line">Note: {step.notes}</p>
                                         )}
+                                      </div>
+                                    )}
+
+                                    {stepNum === 3 && step && (
+                                      <div className="mt-4 pt-4 border-t border-slate-200">
+                                        <SocialPostImageUploader
+                                          postId={post.id}
+                                          postFolderId={post.google_drive_folder_id}
+                                        />
                                       </div>
                                     )}
 
