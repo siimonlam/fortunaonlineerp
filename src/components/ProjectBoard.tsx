@@ -2704,6 +2704,36 @@ export function ProjectBoard() {
                     )}
                   </>
                 )}
+                {!selectedMarketingProject && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab === 'projects' && (
+                  <>
+                    <h2 className="text-2xl font-bold text-slate-900">
+                      {currentStatus?.is_substatus && parentStatus ? (
+                        <span>
+                          {parentStatus.name} <span className="text-slate-400">/</span> {currentStatus?.name}
+                        </span>
+                      ) : (
+                        currentStatus?.name || 'Projects'
+                      )}
+                    </h2>
+                    {selectedStatus && statusManagers.filter(m => m.status_id === selectedStatus).length > 0 && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-600">Status Manager{statusManagers.filter(m => m.status_id === selectedStatus).length > 1 ? 's' : ''}:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {statusManagers.filter(m => m.status_id === selectedStatus).map((manager) => (
+                            <div
+                              key={manager.id}
+                              className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium border border-blue-200"
+                              title={manager.staff?.email}
+                            >
+                              <User className="w-4 h-4" />
+                              {manager.staff?.full_name}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
                 {!selectedMarketingProject && !isAdminSection && !isComSecSection && isFundingProjectType && fundingProjectTab !== 'projects' && (
                   <h2 className="text-2xl font-bold text-slate-900">
                     {fundingProjectTab === 'dashboard' && 'Dashboard'}
