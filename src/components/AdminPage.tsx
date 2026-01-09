@@ -140,6 +140,44 @@ export function AdminPage() {
     setLoading(false);
   }
 
+  async function toggleCombinedPermission(userId: string, permissionGroup: 'client' | 'channel_partner', currentValue: boolean) {
+    setLoading(true);
+
+    const { data: existing } = await supabase
+      .from('user_global_permissions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const updatedPermissions = {
+      user_id: userId,
+      client_view_all: existing?.client_view_all || false,
+      client_edit_all: existing?.client_edit_all || false,
+      channel_partner_view_all: existing?.channel_partner_view_all || false,
+      channel_partner_edit_all: existing?.channel_partner_edit_all || false,
+      updated_at: new Date().toISOString()
+    };
+
+    if (permissionGroup === 'client') {
+      updatedPermissions.client_view_all = !currentValue;
+      updatedPermissions.client_edit_all = !currentValue;
+    } else {
+      updatedPermissions.channel_partner_view_all = !currentValue;
+      updatedPermissions.channel_partner_edit_all = !currentValue;
+    }
+
+    const { error } = await supabase
+      .from('user_global_permissions')
+      .upsert(updatedPermissions);
+
+    if (error) {
+      alert('Error updating permission: ' + error.message);
+    } else {
+      await loadData();
+    }
+    setLoading(false);
+  }
+
   const menuItems = [
     { id: 'permissions', label: 'Client Permissions', icon: Users },
     { id: 'funding-auth', label: 'Funding Authorization', icon: Lock },
@@ -243,47 +281,34 @@ export function AdminPage() {
                           User
                         </th>
                         <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                          View All Clients
-                        </th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                          Edit All Clients
+                          View and Edit All
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {userPermissions.map(perm => (
-                        <tr key={perm.user_id} className="hover:bg-slate-50">
-                          <td className="px-4 py-4">
-                            <div className="font-medium text-slate-900">{perm.email}</div>
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            <button
-                              onClick={() => togglePermission(perm.user_id, 'client_view_all', perm.client_view_all)}
-                              disabled={loading}
-                              className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                                perm.client_view_all
-                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                              }`}
-                            >
-                              <Check className={`w-5 h-5 ${perm.client_view_all ? '' : 'opacity-30'}`} />
-                            </button>
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            <button
-                              onClick={() => togglePermission(perm.user_id, 'client_edit_all', perm.client_edit_all)}
-                              disabled={loading}
-                              className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                                perm.client_edit_all
-                                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                              }`}
-                            >
-                              <Edit className={`w-5 h-5 ${perm.client_edit_all ? '' : 'opacity-30'}`} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {userPermissions.map(perm => {
+                        const hasAccess = perm.client_view_all && perm.client_edit_all;
+                        return (
+                          <tr key={perm.user_id} className="hover:bg-slate-50">
+                            <td className="px-4 py-4">
+                              <div className="font-medium text-slate-900">{perm.email}</div>
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                              <button
+                                onClick={() => toggleCombinedPermission(perm.user_id, 'client', hasAccess)}
+                                disabled={loading}
+                                className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                                  hasAccess
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                }`}
+                              >
+                                <Check className={`w-5 h-5 ${hasAccess ? '' : 'opacity-30'}`} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -306,47 +331,34 @@ export function AdminPage() {
                           User
                         </th>
                         <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                          View All Channel Partners
-                        </th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                          Edit All Channel Partners
+                          View and Edit All
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {userPermissions.map(perm => (
-                        <tr key={perm.user_id} className="hover:bg-slate-50">
-                          <td className="px-4 py-4">
-                            <div className="font-medium text-slate-900">{perm.email}</div>
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            <button
-                              onClick={() => togglePermission(perm.user_id, 'channel_partner_view_all', perm.channel_partner_view_all)}
-                              disabled={loading}
-                              className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                                perm.channel_partner_view_all
-                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                              }`}
-                            >
-                              <Check className={`w-5 h-5 ${perm.channel_partner_view_all ? '' : 'opacity-30'}`} />
-                            </button>
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            <button
-                              onClick={() => togglePermission(perm.user_id, 'channel_partner_edit_all', perm.channel_partner_edit_all)}
-                              disabled={loading}
-                              className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
-                                perm.channel_partner_edit_all
-                                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                              }`}
-                            >
-                              <Edit className={`w-5 h-5 ${perm.channel_partner_edit_all ? '' : 'opacity-30'}`} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {userPermissions.map(perm => {
+                        const hasAccess = perm.channel_partner_view_all && perm.channel_partner_edit_all;
+                        return (
+                          <tr key={perm.user_id} className="hover:bg-slate-50">
+                            <td className="px-4 py-4">
+                              <div className="font-medium text-slate-900">{perm.email}</div>
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                              <button
+                                onClick={() => toggleCombinedPermission(perm.user_id, 'channel_partner', hasAccess)}
+                                disabled={loading}
+                                className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                                  hasAccess
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                }`}
+                              >
+                                <Check className={`w-5 h-5 ${hasAccess ? '' : 'opacity-30'}`} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
