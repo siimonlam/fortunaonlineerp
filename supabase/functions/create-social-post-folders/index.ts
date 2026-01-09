@@ -9,6 +9,33 @@ const corsHeaders = {
 
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3';
 
+async function findSubfolder(
+  parentId: string,
+  folderName: string,
+  accessToken: string
+): Promise<string | null> {
+  const query = `'${parentId}' in parents and name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const response = await fetch(
+    `${GOOGLE_DRIVE_API}/files?q=${encodeURIComponent(query)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to search for folder: ${error}`);
+  }
+
+  const data = await response.json();
+  if (data.files && data.files.length > 0) {
+    return data.files[0].id;
+  }
+  return null;
+}
+
 async function createGoogleDriveFolder(
   name: string,
   parentId: string,
@@ -198,6 +225,49 @@ Deno.serve(async (req: Request) => {
       console.log('Token refreshed successfully');
     }
 
+    // Find Marketing folder
+    console.log('Looking for Marketing folder...');
+    const marketingFolderId = await findSubfolder(
+      marketingProject.google_drive_folder_id,
+      'Marketing',
+      accessToken
+    );
+
+    if (!marketingFolderId) {
+      return new Response(
+        JSON.stringify({
+          error: 'Marketing folder not found. Please ensure the marketing project folder structure exists.'
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    console.log(`Marketing folder found: ${marketingFolderId}`);
+
+    // Find Social_Media folder under Marketing
+    console.log('Looking for Social_Media folder...');
+    let socialMediaFolderId = await findSubfolder(
+      marketingFolderId,
+      'Social_Media',
+      accessToken
+    );
+
+    // If Social_Media folder doesn't exist, create it
+    if (!socialMediaFolderId) {
+      console.log('Social_Media folder not found, creating it...');
+      socialMediaFolderId = await createGoogleDriveFolder(
+        'Social_Media',
+        marketingFolderId,
+        accessToken
+      );
+      console.log(`Social_Media folder created: ${socialMediaFolderId}`);
+    } else {
+      console.log(`Social_Media folder found: ${socialMediaFolderId}`);
+    }
+
     // Create folders for each post
     const results = [];
     let successCount = 0;
@@ -210,7 +280,7 @@ Deno.serve(async (req: Request) => {
 
         const folderId = await createGoogleDriveFolder(
           folderName,
-          marketingProject.google_drive_folder_id,
+          socialMediaFolderId,
           accessToken
         );
 
