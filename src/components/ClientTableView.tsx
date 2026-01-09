@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, CheckCircle2, XCircle, LayoutGrid, List, Mail, Phone, MapPin, User, Briefcase } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, CheckCircle2, XCircle, LayoutGrid, List, Mail, Phone, MapPin, User, Briefcase, Search, Filter } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { EditPartnerProjectModal } from './EditPartnerProjectModal';
@@ -46,6 +46,9 @@ interface PartnerProject {
   commission_rate: number;
   commission_amount: number;
   commission_paid_status: boolean;
+  project_type?: string;
+  project_status?: string;
+  company_name?: string;
 }
 
 interface ClientTableViewProps {
@@ -69,6 +72,12 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [selectedPartnerProject, setSelectedPartnerProject] = useState<PartnerProject | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterPartner, setFilterPartner] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     if (activeTab === 'channel' && channelPartnerSubTab === 'projects') {
@@ -92,6 +101,56 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
       setLoadingProjects(false);
     }
   }
+
+  const filteredAndSortedProjects = useMemo(() => {
+    let filtered = [...partnerProjects];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(project =>
+        project.project_reference?.toLowerCase().includes(query) ||
+        project.channel_partner_name?.toLowerCase().includes(query) ||
+        project.company_name?.toLowerCase().includes(query) ||
+        project.channel_partner_reference?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply partner filter
+    if (filterPartner !== 'all') {
+      filtered = filtered.filter(project => project.channel_partner_reference === filterPartner);
+    }
+
+    // Apply status filter
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(project => project.project_status === filterStatus);
+    }
+
+    // Apply type filter
+    if (filterType !== 'all') {
+      filtered = filtered.filter(project => project.project_type === filterType);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'date') {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        comparison = dateA - dateB;
+      } else if (sortBy === 'amount') {
+        comparison = a.project_amount - b.project_amount;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  }, [partnerProjects, searchQuery, filterPartner, filterStatus, filterType, sortBy, sortOrder]);
+
+  const uniquePartners = useMemo(() => {
+    const partners = new Set(partnerProjects.map(p => p.channel_partner_reference).filter(Boolean));
+    return Array.from(partners).sort();
+  }, [partnerProjects]);
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
@@ -643,15 +702,115 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
 
       {activeTab === 'channel' && channelPartnerSubTab === 'projects' && (
         <div>
-          <div className="px-6 py-4 border-b border-slate-200 flex justify-end">
-            <button
-              onClick={() => setShowAddPartnerProjectModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Create Partner Project
-            </button>
+          <div className="px-6 py-4 border-b border-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Partner Projects</h3>
+              <button
+                onClick={() => setShowAddPartnerProjectModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Create Partner Project
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-4 items-center bg-slate-50 p-4 rounded-lg">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search projects..."
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
+                <select
+                  value={filterPartner}
+                  onChange={(e) => setFilterPartner(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                >
+                  <option value="all">All Partners</option>
+                  {uniquePartners.map((partner) => (
+                    <option key={partner} value={partner}>
+                      {partner}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                >
+                  <option value="all">All Types</option>
+                  <option value="audit">Audit</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="production">Production</option>
+                  <option value="website">Website</option>
+                  <option value="others">Others</option>
+                </select>
+
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+
+                <select
+                  value={`${sortBy}-${sortOrder}`}
+                  onChange={(e) => {
+                    const [newSortBy, newSortOrder] = e.target.value.split('-');
+                    setSortBy(newSortBy as 'date' | 'amount');
+                    setSortOrder(newSortOrder as 'asc' | 'desc');
+                  }}
+                  className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                >
+                  <option value="date-desc">Newest First</option>
+                  <option value="date-asc">Oldest First</option>
+                  <option value="amount-desc">Highest Amount</option>
+                  <option value="amount-asc">Lowest Amount</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="text-sm text-slate-600 mt-2">
+              Showing {filteredAndSortedProjects.length} of {partnerProjects.length} projects
+            </div>
           </div>
+
+          {partnerProjects.length > 0 && (
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-200">
+              <h4 className="text-sm font-semibold text-slate-700 mb-3">Summary by Project Type</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {['audit', 'marketing', 'production', 'website', 'others'].map((type) => {
+                  const typeProjects = partnerProjects.filter(p => p.project_type === type);
+                  const totalAmount = typeProjects.reduce((sum, p) => sum + (p.project_amount || 0), 0);
+                  const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+
+                  return (
+                    <div key={type} className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+                      <div className="text-xs font-semibold text-slate-500 uppercase mb-1">{typeLabel}</div>
+                      <div className="text-2xl font-bold text-slate-900">{typeProjects.length}</div>
+                      <div className="text-xs text-slate-600 mt-1">
+                        ${totalAmount.toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="overflow-x-auto">
             {loadingProjects ? (
@@ -662,6 +821,11 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
               <div className="p-12 text-center">
                 <p className="text-slate-500 text-lg">No Partner Projects Yet</p>
                 <p className="text-slate-400 text-sm mt-2">Click "Create Partner Project" to get started</p>
+              </div>
+            ) : filteredAndSortedProjects.length === 0 ? (
+              <div className="p-12 text-center">
+                <p className="text-slate-500 text-lg">No projects match your filters</p>
+                <p className="text-slate-400 text-sm mt-2">Try adjusting your search or filter criteria</p>
               </div>
             ) : (
               <table className="w-full">
@@ -697,7 +861,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {partnerProjects.map((project) => (
+                {filteredAndSortedProjects.map((project) => (
                   <tr
                     key={project.id}
                     onClick={() => setSelectedPartnerProject(project)}

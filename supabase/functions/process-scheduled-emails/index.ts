@@ -198,7 +198,54 @@ Deno.serve(async (req: Request) => {
 
         const attachments: any[] = [];
 
-        if (email.attachment_type === 'google_drive' && email.attachment_ids && email.attachment_ids.length > 0) {
+        if (email.attachment_type === 'mixed' && email.attachment_metadata?.files) {
+          const accessToken = await getServiceAccountToken();
+
+          for (const file of email.attachment_metadata.files) {
+            try {
+              if (file.source === 'google_drive') {
+                const driveFile = await downloadFileFromDrive(file.id, accessToken);
+                attachments.push({
+                  filename: driveFile.filename,
+                  content: driveFile.content,
+                  encoding: 'base64',
+                  contentType: driveFile.mimeType,
+                });
+              } else if (file.source === 'share_resource') {
+                const { data: resource } = await supabase
+                  .from('share_resources')
+                  .select('title, file_path')
+                  .eq('id', file.id)
+                  .single();
+
+                if (resource && resource.file_path) {
+                  const { data: fileData } = await supabase.storage
+                    .from('share-resources')
+                    .download(resource.file_path);
+
+                  if (fileData) {
+                    const arrayBuffer = await fileData.arrayBuffer();
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    const content = btoa(String.fromCharCode(...uint8Array));
+
+                    const mimeType = fileData.type || 'application/octet-stream';
+                    const filename = resource.title || 'attachment';
+                    const finalFilename = filename.includes('.') ? filename : `${filename}.pdf`;
+
+                    attachments.push({
+                      filename: finalFilename,
+                      content: content,
+                      encoding: 'base64',
+                      contentType: mimeType,
+                    });
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to process attachment ${file.id}:`, error);
+            }
+          }
+        } else if (email.attachment_type === 'google_drive' && email.attachment_ids && email.attachment_ids.length > 0) {
           const accessToken = await getServiceAccountToken();
 
           for (const fileId of email.attachment_ids) {

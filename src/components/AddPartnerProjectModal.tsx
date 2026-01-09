@@ -47,6 +47,8 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
     commissionRate: '',
     commissionPaidStatus: false,
     projectContent: prefillData?.project_content || '',
+    projectType: 'others',
+    projectStatus: 'pending',
   });
 
   useEffect(() => {
@@ -99,6 +101,8 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
         commission_rate: formData.commissionRate ? parseFloat(formData.commissionRate) : 0,
         commission_paid_status: formData.commissionPaidStatus,
         project_content: formData.projectContent.trim() || null,
+        project_type: formData.projectType,
+        project_status: formData.projectStatus,
       });
 
       if (error) throw error;
@@ -260,6 +264,42 @@ export function AddPartnerProjectModal({ onClose, onSuccess, prefillData }: AddP
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Project Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={formData.projectType}
+                onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="audit">Audit</option>
+                <option value="marketing">Marketing</option>
+                <option value="production">Production</option>
+                <option value="website">Website</option>
+                <option value="others">Others</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Project Status
+              </label>
+              <select
+                value={formData.projectStatus}
+                onChange={(e) => setFormData({ ...formData, projectStatus: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
             </div>
           </div>
 
