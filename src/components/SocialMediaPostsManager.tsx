@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save, Copy, FolderPlus, Send } from 'lucide-react';
+import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save, Copy, FolderPlus, Send, AlertCircle, Bell } from 'lucide-react';
 import { SocialPostImageUploader } from './SocialPostImageUploader';
 import { PublishPostModal } from './PublishPostModal';
 
@@ -757,6 +757,54 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     return postSteps ? postSteps.has(stepNumber) : false;
   };
 
+  const getTaskReminderIcon = (step: PostStep | undefined) => {
+    if (!step || !step.due_date || step.status === 'completed') return null;
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const dueDate = new Date(step.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (dueDate < now) {
+      const daysOverdue = Math.abs(daysUntilDue);
+      return (
+        <div className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-md" title={`${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} overdue`}>
+          <AlertCircle className="w-3.5 h-3.5" />
+          <span className="text-xs font-medium">{daysOverdue}d overdue</span>
+        </div>
+      );
+    } else if (dueDate.getTime() === now.getTime()) {
+      return (
+        <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded-md" title="Due today">
+          <Clock className="w-3.5 h-3.5" />
+          <span className="text-xs font-medium">Due today</span>
+        </div>
+      );
+    } else if (daysUntilDue <= 3) {
+      return (
+        <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-md" title={`Due in ${daysUntilDue} day${daysUntilDue !== 1 ? 's' : ''}`}>
+          <Bell className="w-3.5 h-3.5" />
+          <span className="text-xs font-medium">Due in {daysUntilDue}d</span>
+        </div>
+      );
+    } else if (daysUntilDue <= 7) {
+      return (
+        <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md" title={`Due in ${daysUntilDue} days`}>
+          <Calendar className="w-3.5 h-3.5" />
+          <span className="text-xs font-medium">Due in {daysUntilDue}d</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   const handleUpdateAccountAssignments = async (type: 'instagram' | 'facebook', accountId: string) => {
     try {
       if (type === 'instagram') {
@@ -1447,7 +1495,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
                                     <div className="flex-1">
                                       <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3 flex-wrap">
                                           <div className="flex items-center gap-2">
                                             <h6 className="font-medium text-slate-900">{stepNames[stepNum]}</h6>
                                             {isCompleted && (
@@ -1464,6 +1512,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                               </button>
                                             )}
                                           </div>
+                                          {getTaskReminderIcon(step)}
                                           {step && (
                                             <div className="flex items-center gap-2">
                                               {stepNum === 2 && step.status !== 'completed' && (
