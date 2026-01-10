@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Upload, X, Image as ImageIcon, Loader2, Trash2, ExternalLink } from 'lucide-react';
+import { DriveThumbnail } from './DriveThumbnail';
 
 interface PostImage {
   id: string;
@@ -247,23 +248,12 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
                 key={image.id}
                 className="group relative bg-slate-50 rounded-lg border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"
               >
-                <div className="aspect-square bg-slate-100 flex items-center justify-center">
+                <div className="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
                   {image.google_drive_file_id ? (
-                    <img
-                      src={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-drive-image?fileId=${image.google_drive_file_id}`}
+                    <DriveThumbnail
+                      fileId={image.google_drive_file_id}
                       alt={image.file_name}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement!.innerHTML = `
-                          <div class="flex flex-col items-center justify-center p-4 text-slate-400">
-                            <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span class="text-xs">Preview unavailable</span>
-                          </div>
-                        `;
-                      }}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center p-4 text-slate-400">
