@@ -1,6 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Calendar, Send, Instagram, Facebook, Check, Loader2 } from 'lucide-react';
+import { X, Calendar, Send, Instagram, Facebook, Check, Loader2, Upload, Trash2 } from 'lucide-react';
+
+interface PostImage {
+  id: string;
+  file_name: string;
+  google_drive_url: string;
+  google_drive_file_id: string;
+  thumbnail_url: string | null;
+  file_size: number | null;
+  created_at: string;
+}
 
 interface PublishPostModalProps {
   post: {
@@ -44,8 +54,11 @@ export function PublishPostModal({
   const [selectedFacebookAccounts, setSelectedFacebookAccounts] = useState<string[]>(
     post.facebook_account_ids || []
   );
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<PostImage[]>([]);
+  const [selectedExistingImageIds, setSelectedExistingImageIds] = useState<string[]>([]);
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
+  const [loadingImages, setLoadingImages] = useState(true);
   const [publishing, setPublishing] = useState(false);
 
   const selectedIgAccounts = instagramAccounts.filter(acc =>
@@ -55,12 +68,56 @@ export function PublishPostModal({
     selectedFacebookAccounts.includes(acc.page_id)
   );
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    fetchExistingImages();
+  }, [post.id]);
+
+  const fetchExistingImages = async () => {
+    setLoadingImages(true);
+    try {
+      const { data, error } = await supabase
+        .from('marketing_social_post_images')
+        .select('*')
+        .eq('post_id', post.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching images:', error);
+        return;
+      }
+
+      if (data) {
+        setExistingImages(data);
+        setSelectedExistingImageIds(data.map(img => img.id));
+      }
+    } catch (error) {
+      console.error('Error fetching images:', error);
+    } finally {
+      setLoadingImages(false);
+    }
+  };
+
+  const toggleExistingImage = (imageId: string) => {
+    if (selectedExistingImageIds.includes(imageId)) {
+      setSelectedExistingImageIds(selectedExistingImageIds.filter(id => id !== imageId));
+    } else {
+      setSelectedExistingImageIds([...selectedExistingImageIds, imageId]);
+    }
+  };
+
+  const handleNewImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setSelectedImages(files);
+    setNewImages([...newImages, ...files]);
 
     const previews = files.map(file => URL.createObjectURL(file));
-    setImagePreviews(previews);
+    setNewImagePreviews([...newImagePreviews, ...previews]);
+  };
+
+  const removeNewImage = (index: number) => {
+    const updatedImages = newImages.filter((_, i) => i !== index);
+    const updatedPreviews = newImagePreviews.filter((_, i) => i !== index);
+    setNewImages(updatedImages);
+    setNewImagePreviews(updatedPreviews);
   };
 
   const handlePublish = async () => {
@@ -74,6 +131,11 @@ export function PublishPostModal({
       return;
     }
 
+    if (selectedExistingImageIds.length === 0 && newImages.length === 0) {
+      alert('Please select at least one image to publish');
+      return;
+    }
+
     setPublishing(true);
 
     try {
@@ -83,10 +145,14 @@ export function PublishPostModal({
         return;
       }
 
-      let uploadedImageUrls: string[] = [];
+      const existingImageUrls = existingImages
+        .filter(img => selectedExistingImageIds.includes(img.id))
+        .map(img => img.google_drive_url);
 
-      if (selectedImages.length > 0 && post.google_drive_folder_id) {
-        const uploadPromises = selectedImages.map(async (file) => {
+      let newUploadedUrls: string[] = [];
+
+      if (newImages.length > 0 && post.google_drive_folder_id) {
+        const uploadPromises = newImages.map(async (file) => {
           const formData = new FormData();
           formData.append('image', file);
           formData.append('folderId', post.google_drive_folder_id!);
@@ -111,8 +177,10 @@ export function PublishPostModal({
         });
 
         const urls = await Promise.all(uploadPromises);
-        uploadedImageUrls = urls.filter(url => url !== null) as string[];
+        newUploadedUrls = urls.filter(url => url !== null) as string[];
       }
+
+      const allImageUrls = [...existingImageUrls, ...newUploadedUrls];
 
       const publishData = {
         postId: post.id,
@@ -120,7 +188,7 @@ export function PublishPostModal({
         content: post.content,
         instagramAccountIds: selectedInstagramAccounts,
         facebookAccountIds: selectedFacebookAccounts,
-        imageUrls: uploadedImageUrls,
+        imageUrls: allImageUrls,
         publishType: postType,
         scheduledDate: postType === 'scheduled' ? scheduledDate : null,
       };
@@ -129,12 +197,12 @@ export function PublishPostModal({
 
       alert(
         postType === 'instant'
-          ? `Post will be published instantly to ${selectedInstagramAccounts.length + selectedFacebookAccounts.length} accounts`
-          : `Post scheduled for ${new Date(scheduledDate).toLocaleString()}`
+          ? `Post will be published instantly to ${selectedInstagramAccounts.length + selectedFacebookAccounts.length} accounts with ${allImageUrls.length} image(s)`
+          : `Post scheduled for ${new Date(scheduledDate).toLocaleString()} with ${allImageUrls.length} image(s)`
       );
 
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error publishing post:', error);
       alert(`Failed to publish: ${error.message}`);
     } finally {
@@ -225,31 +293,104 @@ export function PublishPostModal({
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-3">
-              Upload Images/Videos (Optional)
-            </label>
-            <input
-              type="file"
-              accept="image/*,video/*"
-              multiple
-              onChange={handleImageUpload}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-            {imagePreviews.length > 0 && (
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {imagePreviews.map((preview, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200">
-                    <img src={preview} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-3">
+                Images from Post Folder
+              </label>
+
+              {loadingImages ? (
+                <div className="flex items-center justify-center py-8 bg-slate-50 rounded-lg border border-slate-200">
+                  <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                </div>
+              ) : existingImages.length > 0 ? (
+                <div className="grid grid-cols-3 gap-3">
+                  {existingImages.map((image) => {
+                    const isSelected = selectedExistingImageIds.includes(image.id);
+                    return (
+                      <div
+                        key={image.id}
+                        onClick={() => toggleExistingImage(image.id)}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-blue-500 ring-2 ring-blue-200'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <img
+                          src={image.google_drive_url}
+                          alt={image.file_name}
+                          className="w-full h-full object-cover"
+                        />
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                          <p className="text-xs text-white truncate">{image.file_name}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-slate-50 rounded-lg border border-slate-200">
+                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm text-slate-600">No images uploaded to this post yet</p>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-3">
+                Upload Additional Images (Optional)
+              </label>
+              <div className="space-y-3">
+                <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer">
+                  <Upload className="w-5 h-5 text-slate-600" />
+                  <span className="text-sm font-medium text-slate-700">Choose files to upload</span>
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    multiple
+                    onChange={handleNewImageUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                {newImagePreviews.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {newImagePreviews.map((preview, idx) => (
+                      <div
+                        key={idx}
+                        className="relative aspect-square rounded-lg overflow-hidden border-2 border-green-500 ring-2 ring-green-200"
+                      >
+                        <img
+                          src={preview}
+                          alt={`New ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          onClick={() => removeNewImage(idx)}
+                          className="absolute top-2 right-2 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
+                        >
+                          <X className="w-4 h-4 text-white" />
+                        </button>
+                        <div className="absolute top-2 left-2">
+                          <span className="text-xs font-semibold text-white bg-green-600 px-2 py-0.5 rounded">NEW</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
-            {!post.google_drive_folder_id && (
-              <p className="text-xs text-amber-600 mt-2">
-                Note: No Google Drive folder linked. Images will need to be manually uploaded.
-              </p>
-            )}
+              {!post.google_drive_folder_id && (
+                <p className="text-xs text-amber-600 mt-2">
+                  Note: No Google Drive folder linked. Images will need to be manually uploaded.
+                </p>
+              )}
+            </div>
           </div>
 
           {selectedIgAccounts.length > 0 && (
