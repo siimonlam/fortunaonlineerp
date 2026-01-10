@@ -7,6 +7,7 @@ interface PostImage {
   id: string;
   file_name: string;
   google_drive_url: string;
+  google_drive_file_id: string;
   thumbnail_url: string | null;
   file_size: number | null;
   created_at: string;
@@ -247,9 +248,9 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
                 className="group relative bg-slate-50 rounded-lg border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"
               >
                 <div className="aspect-square bg-slate-100 flex items-center justify-center">
-                  {image.google_drive_url ? (
+                  {image.google_drive_file_id ? (
                     <img
-                      src={image.google_drive_url}
+                      src={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-drive-image?fileId=${image.google_drive_file_id}`}
                       alt={image.file_name}
                       className="w-full h-full object-cover"
                       onError={(e) => {

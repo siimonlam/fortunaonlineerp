@@ -1565,8 +1565,8 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                       </div>
                                     )}
 
-                                    {stepNum === 3 && step && stepExpanded && (
-                                      <div className="mt-4 pt-4 border-t border-slate-200">
+                                    {stepNum === 3 && step && (
+                                      <div className="mt-3">
                                         <SocialPostImageUploader
                                           postId={post.id}
                                           postFolderId={post.google_drive_folder_id}
