@@ -1447,89 +1447,107 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
                                     <div className="flex-1">
                                       <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <h6 className="font-medium text-slate-900">{stepNames[stepNum]}</h6>
-                                          {isCompleted && (
-                                            <button
-                                              onClick={() => toggleStepExpansion(post.id, stepNum)}
-                                              className="text-slate-400 hover:text-slate-600 transition-colors"
-                                              title={stepExpanded ? "Collapse" : "Expand"}
-                                            >
-                                              {stepExpanded ? (
-                                                <ChevronDown className="w-4 h-4" />
-                                              ) : (
-                                                <ChevronRight className="w-4 h-4" />
-                                              )}
-                                            </button>
-                                          )}
-                                        </div>
-                                      {step && (
-                                        <div className="flex items-center gap-2">
-                                          {stepNum === 2 && step.status !== 'completed' && (
-                                            <>
+                                        <div className="flex items-center gap-3">
+                                          <div className="flex items-center gap-2">
+                                            <h6 className="font-medium text-slate-900">{stepNames[stepNum]}</h6>
+                                            {isCompleted && (
                                               <button
-                                                onClick={() => openStepModal(post, stepNum)}
-                                                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                                onClick={() => toggleStepExpansion(post.id, stepNum)}
+                                                className="text-slate-400 hover:text-slate-600 transition-colors"
+                                                title={stepExpanded ? "Collapse" : "Expand"}
                                               >
-                                                Edit Step
-                                              </button>
-                                              <button
-                                                onClick={() => handleApproveStep(post, step)}
-                                                className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                                              >
-                                                <Check className="w-3 h-3" />
-                                                Approve
-                                              </button>
-                                              <button
-                                                onClick={() => handleDisapproveStep(post, step)}
-                                                className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                              >
-                                                <XIcon className="w-3 h-3" />
-                                                Disapprove
-                                              </button>
-                                            </>
-                                          )}
-                                          {step.status !== 'completed' && stepNum !== 2 && (
-                                            <>
-                                              <button
-                                                onClick={() => openStepModal(post, stepNum)}
-                                                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                                              >
-                                                Edit Step
-                                              </button>
-                                              {(step.status === 'in_progress' || step.status === 'pending') && (
-                                                stepNum === 3 ? (
-                                                  <div className="flex items-center gap-2">
-                                                    <button
-                                                      onClick={() => {
-                                                        setSelectedPost(post);
-                                                        setShowPublishModal(true);
-                                                      }}
-                                                      className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                                                    >
-                                                      <Send className="w-3 h-3" />
-                                                      Publish Post
-                                                    </button>
-                                                    <button
-                                                      onClick={() => handleCompleteStep(post, stepNum)}
-                                                      className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                                                    >
-                                                      Complete
-                                                    </button>
-                                                  </div>
+                                                {stepExpanded ? (
+                                                  <ChevronDown className="w-4 h-4" />
                                                 ) : (
+                                                  <ChevronRight className="w-4 h-4" />
+                                                )}
+                                              </button>
+                                            )}
+                                          </div>
+                                          {step && (
+                                            <div className="flex items-center gap-2">
+                                              {stepNum === 2 && step.status !== 'completed' && (
+                                                <>
                                                   <button
-                                                    onClick={() => handleCompleteStep(post, stepNum)}
-                                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                                    onClick={() => openStepModal(post, stepNum)}
+                                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                                                   >
-                                                    Complete
+                                                    Edit Step
                                                   </button>
-                                                )
+                                                  <button
+                                                    onClick={() => handleApproveStep(post, step)}
+                                                    className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                                  >
+                                                    <Check className="w-3 h-3" />
+                                                    Approve
+                                                  </button>
+                                                  <button
+                                                    onClick={() => handleDisapproveStep(post, step)}
+                                                    className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                                                  >
+                                                    <XIcon className="w-3 h-3" />
+                                                    Disapprove
+                                                  </button>
+                                                </>
                                               )}
-                                            </>
+                                              {step.status !== 'completed' && stepNum !== 2 && (
+                                                <>
+                                                  <button
+                                                    onClick={() => openStepModal(post, stepNum)}
+                                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                                  >
+                                                    Edit Step
+                                                  </button>
+                                                  {(step.status === 'in_progress' || step.status === 'pending') && (
+                                                    stepNum === 3 ? (
+                                                      <>
+                                                        <button
+                                                          onClick={() => {
+                                                            setSelectedPost(post);
+                                                            setShowPublishModal(true);
+                                                          }}
+                                                          className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                                        >
+                                                          <Send className="w-3 h-3" />
+                                                          Publish Post
+                                                        </button>
+                                                        <button
+                                                          onClick={() => handleCompleteStep(post, stepNum)}
+                                                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                                        >
+                                                          Complete
+                                                        </button>
+                                                      </>
+                                                    ) : (
+                                                      <button
+                                                        onClick={() => handleCompleteStep(post, stepNum)}
+                                                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                                      >
+                                                        Complete
+                                                      </button>
+                                                    )
+                                                  )}
+                                                </>
+                                              )}
+                                            </div>
                                           )}
                                         </div>
-                                      )}
+                                        {step && (
+                                          <div className="flex items-center gap-3 text-xs text-slate-600">
+                                            {step.assignee && (
+                                              <span className="flex items-center gap-1">
+                                                <User className="w-3 h-3" />
+                                                {step.assignee.full_name}
+                                              </span>
+                                            )}
+                                            {step.due_date && (
+                                              <span className="flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" />
+                                                {new Date(step.due_date).toLocaleDateString()}
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
                                       {!step && stepNum === post.current_step && stepNum === 2 && (
                                         <button
                                           onClick={async () => {
@@ -1559,23 +1577,6 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
                                     {step && stepExpanded && (
                                       <div className="mt-2 text-sm text-slate-600 space-y-1">
-                                        {step.assignee ? (
-                                          <p className="flex items-center gap-1">
-                                            <User className="w-3 h-3" />
-                                            Assigned to: {step.assignee.full_name}
-                                          </p>
-                                        ) : (
-                                          <p className="flex items-center gap-1 text-orange-600">
-                                            <User className="w-3 h-3" />
-                                            Unassigned (Click "Edit Step" to assign)
-                                          </p>
-                                        )}
-                                        {step.due_date && (
-                                          <p className="flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" />
-                                            Due: {new Date(step.due_date).toLocaleDateString()}
-                                          </p>
-                                        )}
                                         {step.completed_at && step.completer && (
                                           <p className="flex items-center gap-1 text-green-600">
                                             <CheckCircle className="w-3 h-3" />

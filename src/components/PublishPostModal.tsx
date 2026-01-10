@@ -213,10 +213,17 @@ export function PublishPostModal({
           .eq('id', stepData.id);
       }
 
+      await supabase
+        .from('marketing_social_posts')
+        .update({
+          status: 'posted',
+        })
+        .eq('id', post.id);
+
       alert(
         postType === 'instant'
-          ? `✓ Post published successfully!\n\nPublished to ${selectedInstagramAccounts.length + selectedFacebookAccounts.length} accounts with ${allImageUrls.length} image(s).\n\nStep 3 has been marked as completed.`
-          : `✓ Post scheduled successfully!\n\nScheduled for ${new Date(scheduledDate).toLocaleString()} with ${allImageUrls.length} image(s).\n\nStep 3 has been marked as completed.`
+          ? `✓ Post published successfully!\n\nPublished to ${selectedInstagramAccounts.length + selectedFacebookAccounts.length} accounts with ${allImageUrls.length} image(s).\n\nPost status updated to "posted".`
+          : `✓ Post scheduled successfully!\n\nScheduled for ${new Date(scheduledDate).toLocaleString()} with ${allImageUrls.length} image(s).\n\nPost status updated to "posted".`
       );
 
       onSuccess();
