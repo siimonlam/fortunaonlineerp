@@ -190,115 +190,121 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
 
   return (
     <div className="space-y-4">
-      {images.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-slate-900 mb-3">
-            Uploaded Images ({images.length})
-          </h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {images.map((image) => (
-              <div
-                key={image.id}
-                className="group relative bg-slate-50 rounded-lg border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"
-              >
-                <div className="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
-                  {image.google_drive_file_id ? (
-                    <DriveThumbnail
-                      fileId={image.google_drive_file_id}
-                      alt={image.file_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center p-4 text-slate-400">
-                      <ImageIcon className="w-10 h-10 mb-2" />
-                      <span className="text-xs">No preview</span>
-                    </div>
-                  )}
-                </div>
+      <div className="flex gap-4">
+        {/* Left column: Drag and drop area */}
+        <div className="w-72 flex-shrink-0">
+          <div
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors h-full min-h-[250px] flex flex-col items-center justify-center ${
+              dragActive
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-slate-300 hover:border-slate-400'
+            } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleFileInput}
+              className="hidden"
+              id="image-upload-input"
+            />
 
-                <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex gap-1">
-                  <a
-                    href={image.google_drive_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1.5 bg-white rounded-full shadow-lg hover:bg-blue-50 text-blue-600"
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                  {user && user.id === image.uploaded_by && (
-                    <button
-                      onClick={() => handleDelete(image.id, image.file_name)}
-                      className="p-1.5 bg-white rounded-full shadow-lg hover:bg-red-50 text-red-600"
-                      title="Delete image"
+            {uploading ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                <p className="text-sm font-medium text-slate-700">{uploadProgress}</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <Upload className="w-10 h-10 text-slate-400" />
+                <div>
+                  <p className="text-sm font-medium text-slate-700">
+                    Drag and drop images here, or{' '}
+                    <label
+                      htmlFor="image-upload-input"
+                      className="text-blue-600 hover:text-blue-700 cursor-pointer"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="p-3 bg-white">
-                  <p className="text-xs font-medium text-slate-900 truncate" title={image.file_name}>
-                    {image.file_name}
+                      browse
+                    </label>
                   </p>
-                  <div className="flex items-center justify-between mt-1 text-xs text-slate-500">
-                    <span>{formatFileSize(image.file_size)}</span>
-                    <span>{new Date(image.created_at).toLocaleDateString()}</span>
-                  </div>
-                  {image.uploader && (
-                    <p className="text-xs text-slate-400 mt-1">
-                      by {image.uploader.full_name}
-                    </p>
-                  )}
+                  <p className="text-xs text-slate-500 mt-1">
+                    Supports: JPG, PNG, GIF, WebP
+                  </p>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </div>
-      )}
 
-      <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          dragActive
-            ? 'border-blue-500 bg-blue-50'
-            : 'border-slate-300 hover:border-slate-400'
-        } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={handleFileInput}
-          className="hidden"
-          id="image-upload-input"
-        />
-
-        {uploading ? (
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-            <p className="text-sm font-medium text-slate-700">{uploadProgress}</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3">
-            <Upload className="w-10 h-10 text-slate-400" />
-            <div>
-              <p className="text-sm font-medium text-slate-700">
-                Drag and drop images here, or{' '}
-                <label
-                  htmlFor="image-upload-input"
-                  className="text-blue-600 hover:text-blue-700 cursor-pointer"
+        {/* Right column: Uploaded images */}
+        {images.length > 0 && (
+          <div className="flex-1">
+            <h4 className="text-sm font-semibold text-slate-900 mb-3">
+              Uploaded Images ({images.length})
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {images.map((image) => (
+                <div
+                  key={image.id}
+                  className="group relative bg-slate-50 rounded-lg border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"
                 >
-                  browse
-                </label>
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Supports: JPG, PNG, GIF, WebP
-              </p>
+                  <div className="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
+                    {image.google_drive_file_id ? (
+                      <DriveThumbnail
+                        fileId={image.google_drive_file_id}
+                        alt={image.file_name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-4 text-slate-400">
+                        <ImageIcon className="w-10 h-10 mb-2" />
+                        <span className="text-xs">No preview</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex gap-1">
+                    <a
+                      href={image.google_drive_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 bg-white rounded-full shadow-lg hover:bg-blue-50 text-blue-600"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    {user && user.id === image.uploaded_by && (
+                      <button
+                        onClick={() => handleDelete(image.id, image.file_name)}
+                        className="p-1.5 bg-white rounded-full shadow-lg hover:bg-red-50 text-red-600"
+                        title="Delete image"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="p-3 bg-white">
+                    <p className="text-xs font-medium text-slate-900 truncate" title={image.file_name}>
+                      {image.file_name}
+                    </p>
+                    <div className="flex items-center justify-between mt-1 text-xs text-slate-500">
+                      <span>{formatFileSize(image.file_size)}</span>
+                      <span>{new Date(image.created_at).toLocaleDateString()}</span>
+                    </div>
+                    {image.uploader && (
+                      <p className="text-xs text-slate-400 mt-1">
+                        by {image.uploader.full_name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
