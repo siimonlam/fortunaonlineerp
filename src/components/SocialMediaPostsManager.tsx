@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save, Copy, FolderPlus } from 'lucide-react';
+import { Plus, CheckCircle, Circle, Clock, CreditCard as Edit2, Trash2, User, Calendar, ExternalLink, X, ChevronDown, ChevronRight, Instagram, Facebook, Check, XCircle as XIcon, Save, Copy, FolderPlus, Send } from 'lucide-react';
 import { SocialPostImageUploader } from './SocialPostImageUploader';
+import { PublishPostModal } from './PublishPostModal';
 
 interface SocialPost {
   id: string;
@@ -59,6 +60,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showStepModal, setShowStepModal] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
   const [selectedStep, setSelectedStep] = useState<number>(0);
   const [editingPost, setEditingPost] = useState<string | null>(null);
@@ -1496,12 +1498,25 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                                 Edit Step
                                               </button>
                                               {(step.status === 'in_progress' || step.status === 'pending') && (
-                                                <button
-                                                  onClick={() => handleCompleteStep(post, stepNum)}
-                                                  className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                                                >
-                                                  Complete
-                                                </button>
+                                                stepNum === 3 ? (
+                                                  <button
+                                                    onClick={() => {
+                                                      setSelectedPost(post);
+                                                      setShowPublishModal(true);
+                                                    }}
+                                                    className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                                  >
+                                                    <Send className="w-3 h-3" />
+                                                    Publish Post
+                                                  </button>
+                                                ) : (
+                                                  <button
+                                                    onClick={() => handleCompleteStep(post, stepNum)}
+                                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                                  >
+                                                    Complete
+                                                  </button>
+                                                )
                                               )}
                                             </>
                                           )}
@@ -1816,6 +1831,23 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
             </div>
           </div>
         </div>
+      )}
+
+      {showPublishModal && selectedPost && (
+        <PublishPostModal
+          post={selectedPost}
+          instagramAccounts={instagramAccounts}
+          facebookAccounts={facebookAccounts}
+          onClose={() => {
+            setShowPublishModal(false);
+            setSelectedPost(null);
+          }}
+          onSuccess={() => {
+            setShowPublishModal(false);
+            setSelectedPost(null);
+            loadPosts();
+          }}
+        />
       )}
     </div>
   );
