@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2, ImageIcon } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface DriveThumbnailProps {
   fileId: string;
@@ -29,17 +30,22 @@ export function DriveThumbnail({ fileId, accessToken, alt, className = '', mimeT
         setLoading(true);
         setError(false);
 
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        console.log('[DriveThumbnail] Fetching image with fileId:', fileId);
 
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = accessToken || session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const url = new URL(`${supabaseUrl}/functions/v1/serve-drive-file`);
         url.searchParams.append('fileId', fileId);
         if (mimeType) {
           url.searchParams.append('mimeType', mimeType);
         }
 
+        console.log('[DriveThumbnail] Requesting URL:', url.toString());
+
         const headers: HeadersInit = {
-          'Authorization': `Bearer ${accessToken || supabaseAnonKey}`,
+          'Authorization': `Bearer ${token}`,
         };
 
         const response = await fetch(url.toString(), {
@@ -48,10 +54,13 @@ export function DriveThumbnail({ fileId, accessToken, alt, className = '', mimeT
         });
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[DriveThumbnail] Failed to fetch image ${fileId}:`, response.status, errorText);
           throw new Error(`Failed to fetch image: ${response.statusText}`);
         }
 
         const blob = await response.blob();
+        console.log('[DriveThumbnail] Successfully fetched blob, size:', blob.size, 'type:', blob.type);
 
         if (!isMounted) {
           return;
@@ -60,8 +69,9 @@ export function DriveThumbnail({ fileId, accessToken, alt, className = '', mimeT
         objectUrl = URL.createObjectURL(blob);
         setImageUrl(objectUrl);
         setLoading(false);
+        console.log('[DriveThumbnail] Image loaded successfully');
       } catch (err) {
-        console.error('Error fetching image from Drive:', err);
+        console.error('[DriveThumbnail] Error fetching image from Drive:', err);
         if (isMounted) {
           setError(true);
           setLoading(false);

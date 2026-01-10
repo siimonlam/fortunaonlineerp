@@ -64,7 +64,10 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
       .eq('post_id', postId)
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (error) {
+      console.error('[SocialPostImageUploader] Error loading images:', error);
+    } else if (data) {
+      console.log('[SocialPostImageUploader] Loaded images:', data);
       setImages(data);
     }
   };
@@ -248,25 +251,33 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
               Uploaded Images ({images.length})
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {images.map((image) => (
-                <div
-                  key={image.id}
-                  className="group relative bg-slate-50 rounded-lg border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  <div className="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
-                    {image.google_drive_file_id ? (
-                      <DriveThumbnail
-                        fileId={image.google_drive_file_id}
-                        alt={image.file_name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-4 text-slate-400">
-                        <ImageIcon className="w-10 h-10 mb-2" />
-                        <span className="text-xs">No preview</span>
-                      </div>
-                    )}
-                  </div>
+              {images.map((image) => {
+                console.log('[SocialPostImageUploader] Rendering image:', {
+                  id: image.id,
+                  fileName: image.file_name,
+                  googleDriveFileId: image.google_drive_file_id,
+                  hasFileId: !!image.google_drive_file_id
+                });
+
+                return (
+                  <div
+                    key={image.id}
+                    className="group relative bg-slate-50 rounded-lg border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"
+                  >
+                    <div className="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
+                      {image.google_drive_file_id ? (
+                        <DriveThumbnail
+                          fileId={image.google_drive_file_id}
+                          alt={image.file_name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-4 text-slate-400">
+                          <ImageIcon className="w-10 h-10 mb-2" />
+                          <span className="text-xs">No file ID</span>
+                        </div>
+                      )}
+                    </div>
 
                   <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex gap-1">
                     <a
@@ -304,7 +315,8 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
