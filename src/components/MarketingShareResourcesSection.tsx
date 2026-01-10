@@ -99,7 +99,13 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
       .eq('marketing_project_id', marketingProjectId)
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error fetching resources:', error);
+      return;
+    }
+
+    if (data) {
+      console.log('Fetched resources:', data);
       setResources(data);
     }
   };
@@ -360,19 +366,30 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
           .update(resourceData)
           .eq('id', editingResource.id);
 
-        if (!error) {
-          fetchResources();
-          resetForm();
+        if (error) {
+          console.error('Error updating resource:', error);
+          alert(`Failed to update resource: ${error.message}`);
+          return;
         }
-      } else {
-        const { error } = await supabase
-          .from('marketing_share_resources')
-          .insert(resourceData);
 
-        if (!error) {
-          fetchResources();
-          resetForm();
+        await fetchResources();
+        resetForm();
+      } else {
+        const { data, error } = await supabase
+          .from('marketing_share_resources')
+          .insert(resourceData)
+          .select();
+
+        if (error) {
+          console.error('Error creating resource:', error);
+          alert(`Failed to create resource: ${error.message}`);
+          return;
         }
+
+        console.log('Resource created successfully:', data);
+        await fetchResources();
+        resetForm();
+        alert('Resource added successfully!');
       }
     } finally {
       setUploading(false);
