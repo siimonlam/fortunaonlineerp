@@ -99,7 +99,7 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
 
   const uploadFiles = async (files: File[]) => {
     if (!postFolderId) {
-      alert('Please create the post folder first by clicking "Create Folders" button.');
+      alert('Please create the post folder first by clicking "Create Folders" button. If you already clicked it, try clicking it again to refresh the folder information.');
       return;
     }
 
@@ -319,7 +319,7 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
           <div className="text-sm text-amber-800">
             <p className="font-medium">Folder not created</p>
             <p className="text-amber-700 mt-1">
-              Please create the post folder first by clicking the "Create Folders" button at the top of the Social Media Posts section.
+              Please create the post folder first by clicking the "Create Folders" button at the top of the Social Media Posts section. If you already created folders, click the button again to refresh.
             </p>
           </div>
         </div>

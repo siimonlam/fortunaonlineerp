@@ -840,6 +840,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
       if (response.ok) {
         alert(`Success! Created ${result.folders_created} folders for existing posts.${result.errors > 0 ? `\n${result.errors} errors occurred.` : ''}`);
+        await loadPosts();
       } else {
         alert(`Failed: ${result.error || 'Unknown error'}`);
       }
