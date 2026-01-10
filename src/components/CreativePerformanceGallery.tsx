@@ -314,6 +314,51 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
             Click "Sync Creatives" to fetch ad creatives from your Meta account
           </p>
         </div>
+      ) : creatives.every(c => c.spend === 0 && c.impressions === 0) ? (
+        <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <ImageIcon className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-semibold text-amber-900 mb-1">No Performance Data Available</h4>
+                <p className="text-sm text-amber-800">
+                  {creatives.length} creative{creatives.length !== 1 ? 's' : ''} found, but no performance data for the selected time period.
+                  This means these creatives haven't been used in active ads during this time range, or you need to sync ad insights first.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {creatives.map((creative) => (
+              <div
+                key={creative.creative_id}
+                className="bg-white border border-gray-200 rounded-lg overflow-hidden opacity-60"
+              >
+                <div className="aspect-square bg-gray-100 relative">
+                  {creative.image_url || creative.thumbnail_url ? (
+                    <img
+                      src={creative.thumbnail_url || creative.image_url}
+                      alt={creative.title || creative.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : null}
+                  <div className={`${creative.image_url || creative.thumbnail_url ? 'hidden' : ''} absolute inset-0 flex items-center justify-center`}>
+                    <div className="text-center">
+                      <ImageIcon className="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-500">No Preview</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h4 className="font-semibold text-gray-900 mb-1 line-clamp-2 min-h-[3rem]">
+                    {creative.title || creative.name}
+                  </h4>
+                  <p className="text-xs text-gray-500 mt-2">No data for selected period</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : viewMode === 'gallery' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {creatives.map((creative) => (

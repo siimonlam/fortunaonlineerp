@@ -28,8 +28,8 @@ interface ObjectiveComparison {
 }
 
 interface AdSetComparison {
-  adset_id: string;
   name: string;
+  adset_ids: string[];
   month1: ComparisonMetrics;
   month2: ComparisonMetrics;
 }
@@ -37,6 +37,18 @@ interface AdSetComparison {
 interface DemographicComparison {
   age_group: string;
   gender: string;
+  month1: ComparisonMetrics;
+  month2: ComparisonMetrics;
+}
+
+interface GenderComparison {
+  gender: string;
+  month1: ComparisonMetrics;
+  month2: ComparisonMetrics;
+}
+
+interface AgeComparison {
+  age_group: string;
   month1: ComparisonMetrics;
   month2: ComparisonMetrics;
 }
@@ -65,6 +77,7 @@ export default function MonthlyComparison({ accountId }: Props) {
   };
   const [loading, setLoading] = useState(true);
   const [comparisonType, setComparisonType] = useState<'overall' | 'objectives' | 'campaigns' | 'adsets' | 'demographics' | 'platform'>('overall');
+  const [demographicView, setDemographicView] = useState<'gender' | 'age' | 'combined'>('gender');
 
   const [overallMonth1, setOverallMonth1] = useState<ComparisonMetrics | null>(null);
   const [overallMonth2, setOverallMonth2] = useState<ComparisonMetrics | null>(null);
@@ -72,6 +85,8 @@ export default function MonthlyComparison({ accountId }: Props) {
   const [campaignComparisons, setCampaignComparisons] = useState<CampaignComparison[]>([]);
   const [adSetComparisons, setAdSetComparisons] = useState<AdSetComparison[]>([]);
   const [demographicComparisons, setDemographicComparisons] = useState<DemographicComparison[]>([]);
+  const [genderComparisons, setGenderComparisons] = useState<GenderComparison[]>([]);
+  const [ageComparisons, setAgeComparisons] = useState<AgeComparison[]>([]);
   const [platformComparisons, setPlatformComparisons] = useState<PlatformComparison[]>([]);
 
   useEffect(() => {
@@ -402,15 +417,19 @@ export default function MonthlyComparison({ accountId }: Props) {
     const adsetMap = new Map<string, AdSetComparison>();
 
     (month1Data || []).forEach(row => {
-      if (!adsetMap.has(row.adset_id)) {
-        adsetMap.set(row.adset_id, {
-          adset_id: row.adset_id,
-          name: row.adset_name || 'Unknown',
+      const name = row.adset_name || 'Unknown';
+      if (!adsetMap.has(name)) {
+        adsetMap.set(name, {
+          name,
+          adset_ids: [],
           month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
           month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
         });
       }
-      const adset = adsetMap.get(row.adset_id)!;
+      const adset = adsetMap.get(name)!;
+      if (!adset.adset_ids.includes(row.adset_id)) {
+        adset.adset_ids.push(row.adset_id);
+      }
       adset.month1.spend += Number(row.spend) || 0;
       adset.month1.impressions += Number(row.impressions) || 0;
       adset.month1.clicks += Number(row.clicks) || 0;
@@ -419,15 +438,19 @@ export default function MonthlyComparison({ accountId }: Props) {
     });
 
     (month2Data || []).forEach(row => {
-      if (!adsetMap.has(row.adset_id)) {
-        adsetMap.set(row.adset_id, {
-          adset_id: row.adset_id,
-          name: row.adset_name || 'Unknown',
+      const name = row.adset_name || 'Unknown';
+      if (!adsetMap.has(name)) {
+        adsetMap.set(name, {
+          name,
+          adset_ids: [],
           month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
           month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
         });
       }
-      const adset = adsetMap.get(row.adset_id)!;
+      const adset = adsetMap.get(name)!;
+      if (!adset.adset_ids.includes(row.adset_id)) {
+        adset.adset_ids.push(row.adset_id);
+      }
       adset.month2.spend += Number(row.spend) || 0;
       adset.month2.impressions += Number(row.impressions) || 0;
       adset.month2.clicks += Number(row.clicks) || 0;
@@ -445,7 +468,11 @@ export default function MonthlyComparison({ accountId }: Props) {
       adset.month2.cpm = adset.month2.impressions > 0 ? (adset.month2.spend / adset.month2.impressions) * 1000 : 0;
     });
 
-    setAdSetComparisons(Array.from(adsetMap.values()));
+    const sorted = Array.from(adsetMap.values()).sort((a, b) =>
+      (b.month1.spend + b.month2.spend) - (a.month1.spend + a.month2.spend)
+    );
+
+    setAdSetComparisons(sorted);
   };
 
   const fetchDemographicComparison = async () => {
@@ -464,41 +491,103 @@ export default function MonthlyComparison({ accountId }: Props) {
       .lt('month_year', getNextMonthStart(month2));
 
     const demoMap = new Map<string, DemographicComparison>();
+    const genderMap = new Map<string, GenderComparison>();
+    const ageMap = new Map<string, AgeComparison>();
 
     (month1Data || []).forEach(row => {
-      const key = `${row.age_group}_${row.gender}`;
-      if (!demoMap.has(key)) {
-        demoMap.set(key, {
+      const combKey = `${row.age_group}_${row.gender}`;
+      if (!demoMap.has(combKey)) {
+        demoMap.set(combKey, {
           age_group: row.age_group || 'unknown',
           gender: row.gender || 'unknown',
           month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
           month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
         });
       }
-      const demo = demoMap.get(key)!;
+      const demo = demoMap.get(combKey)!;
       demo.month1.spend += Number(row.spend) || 0;
       demo.month1.impressions += Number(row.impressions) || 0;
       demo.month1.clicks += Number(row.clicks) || 0;
       demo.month1.reach += Number(row.reach) || 0;
       demo.month1.results += Number(row.results) || 0;
+
+      const gender = row.gender || 'unknown';
+      if (!genderMap.has(gender)) {
+        genderMap.set(gender, {
+          gender,
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+        });
+      }
+      const genderData = genderMap.get(gender)!;
+      genderData.month1.spend += Number(row.spend) || 0;
+      genderData.month1.impressions += Number(row.impressions) || 0;
+      genderData.month1.clicks += Number(row.clicks) || 0;
+      genderData.month1.reach += Number(row.reach) || 0;
+      genderData.month1.results += Number(row.results) || 0;
+
+      const age = row.age_group || 'unknown';
+      if (!ageMap.has(age)) {
+        ageMap.set(age, {
+          age_group: age,
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+        });
+      }
+      const ageData = ageMap.get(age)!;
+      ageData.month1.spend += Number(row.spend) || 0;
+      ageData.month1.impressions += Number(row.impressions) || 0;
+      ageData.month1.clicks += Number(row.clicks) || 0;
+      ageData.month1.reach += Number(row.reach) || 0;
+      ageData.month1.results += Number(row.results) || 0;
     });
 
     (month2Data || []).forEach(row => {
-      const key = `${row.age_group}_${row.gender}`;
-      if (!demoMap.has(key)) {
-        demoMap.set(key, {
+      const combKey = `${row.age_group}_${row.gender}`;
+      if (!demoMap.has(combKey)) {
+        demoMap.set(combKey, {
           age_group: row.age_group || 'unknown',
           gender: row.gender || 'unknown',
           month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
           month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
         });
       }
-      const demo = demoMap.get(key)!;
+      const demo = demoMap.get(combKey)!;
       demo.month2.spend += Number(row.spend) || 0;
       demo.month2.impressions += Number(row.impressions) || 0;
       demo.month2.clicks += Number(row.clicks) || 0;
       demo.month2.reach += Number(row.reach) || 0;
       demo.month2.results += Number(row.results) || 0;
+
+      const gender = row.gender || 'unknown';
+      if (!genderMap.has(gender)) {
+        genderMap.set(gender, {
+          gender,
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+        });
+      }
+      const genderData = genderMap.get(gender)!;
+      genderData.month2.spend += Number(row.spend) || 0;
+      genderData.month2.impressions += Number(row.impressions) || 0;
+      genderData.month2.clicks += Number(row.clicks) || 0;
+      genderData.month2.reach += Number(row.reach) || 0;
+      genderData.month2.results += Number(row.results) || 0;
+
+      const age = row.age_group || 'unknown';
+      if (!ageMap.has(age)) {
+        ageMap.set(age, {
+          age_group: age,
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+        });
+      }
+      const ageData = ageMap.get(age)!;
+      ageData.month2.spend += Number(row.spend) || 0;
+      ageData.month2.impressions += Number(row.impressions) || 0;
+      ageData.month2.clicks += Number(row.clicks) || 0;
+      ageData.month2.reach += Number(row.reach) || 0;
+      ageData.month2.results += Number(row.results) || 0;
     });
 
     demoMap.forEach(demo => {
@@ -511,7 +600,33 @@ export default function MonthlyComparison({ accountId }: Props) {
       demo.month2.cpm = demo.month2.impressions > 0 ? (demo.month2.spend / demo.month2.impressions) * 1000 : 0;
     });
 
+    genderMap.forEach(gender => {
+      gender.month1.ctr = gender.month1.impressions > 0 ? (gender.month1.clicks / gender.month1.impressions) * 100 : 0;
+      gender.month1.cpc = gender.month1.clicks > 0 ? gender.month1.spend / gender.month1.clicks : 0;
+      gender.month1.cpm = gender.month1.impressions > 0 ? (gender.month1.spend / gender.month1.impressions) * 1000 : 0;
+
+      gender.month2.ctr = gender.month2.impressions > 0 ? (gender.month2.clicks / gender.month2.impressions) * 100 : 0;
+      gender.month2.cpc = gender.month2.clicks > 0 ? gender.month2.spend / gender.month2.clicks : 0;
+      gender.month2.cpm = gender.month2.impressions > 0 ? (gender.month2.spend / gender.month2.impressions) * 1000 : 0;
+    });
+
+    ageMap.forEach(age => {
+      age.month1.ctr = age.month1.impressions > 0 ? (age.month1.clicks / age.month1.impressions) * 100 : 0;
+      age.month1.cpc = age.month1.clicks > 0 ? age.month1.spend / age.month1.clicks : 0;
+      age.month1.cpm = age.month1.impressions > 0 ? (age.month1.spend / age.month1.impressions) * 1000 : 0;
+
+      age.month2.ctr = age.month2.impressions > 0 ? (age.month2.clicks / age.month2.impressions) * 100 : 0;
+      age.month2.cpc = age.month2.clicks > 0 ? age.month2.spend / age.month2.clicks : 0;
+      age.month2.cpm = age.month2.impressions > 0 ? (age.month2.spend / age.month2.impressions) * 1000 : 0;
+    });
+
     setDemographicComparisons(Array.from(demoMap.values()));
+    setGenderComparisons(Array.from(genderMap.values()).sort((a, b) =>
+      (b.month1.spend + b.month2.spend) - (a.month1.spend + a.month2.spend)
+    ));
+    setAgeComparisons(Array.from(ageMap.values()).sort((a, b) =>
+      (b.month1.spend + b.month2.spend) - (a.month1.spend + a.month2.spend)
+    ));
   };
 
   const fetchPlatformComparison = async () => {
@@ -988,10 +1103,17 @@ export default function MonthlyComparison({ accountId }: Props) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {adSetComparisons.map((adset) => (
+                {adSetComparisons.map((adset, idx) => (
                   <>
-                    <tr key={`${adset.adset_id}-m1`} className="hover:bg-gray-50">
-                      <td rowSpan={2} className="px-4 py-3 font-medium text-gray-900 border-r border-gray-200">{adset.name}</td>
+                    <tr key={`${adset.name}-${idx}-m1`} className="hover:bg-gray-50">
+                      <td rowSpan={2} className="px-4 py-3 font-medium text-gray-900 border-r border-gray-200">
+                        <div>{adset.name}</div>
+                        {adset.adset_ids.length > 1 && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {adset.adset_ids.length} ad sets grouped
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month1)}</td>
                       <td className="px-4 py-2 text-right text-gray-900">HK${adset.month1.spend.toFixed(2)}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month1.impressions.toLocaleString()}</td>
@@ -1000,7 +1122,7 @@ export default function MonthlyComparison({ accountId }: Props) {
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month1.ctr.toFixed(2)}%</td>
                       <td className="px-4 py-2 text-right text-gray-700">HK${adset.month1.cpc.toFixed(2)}</td>
                     </tr>
-                    <tr key={`${adset.adset_id}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
+                    <tr key={`${adset.name}-${idx}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
                       <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month2)}</td>
                       <td className="px-4 py-2 text-right text-gray-900 font-medium">HK${adset.month2.spend.toFixed(2)}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month2.impressions.toLocaleString()}</td>
@@ -1021,68 +1143,199 @@ export default function MonthlyComparison({ accountId }: Props) {
 
       {comparisonType === 'demographics' && (
         <>
-          {demographicComparisons.length === 0 ? (
+          {demographicComparisons.length === 0 && genderComparisons.length === 0 && ageComparisons.length === 0 ? (
             <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
               <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
               <p className="text-gray-600 font-medium mb-2">No demographic data available</p>
               <p className="text-sm text-gray-500">Use "Sync Monthly Reports" to fetch demographic comparison data</p>
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Age Group</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Gender</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Month</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Spend</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {demographicComparisons.slice(0, 20).map((demo, idx) => (
-                  <>
-                    <tr key={`${idx}-m1`} className="hover:bg-gray-50">
-                      <td rowSpan={2} className="px-4 py-3 text-gray-900 border-r border-gray-200">{demo.age_group}</td>
-                      <td rowSpan={2} className="px-4 py-3 border-r border-gray-200">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          demo.gender === 'male' ? 'bg-blue-100 text-blue-800' :
-                          demo.gender === 'female' ? 'bg-pink-100 text-pink-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {demo.gender === 'male' ? 'Male' : demo.gender === 'female' ? 'Female' : 'Unknown'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month1)}</td>
-                      <td className="px-4 py-2 text-right text-gray-900">HK${demo.month1.spend.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{demo.month1.impressions.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{demo.month1.clicks.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{demo.month1.results.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{demo.month1.ctr.toFixed(2)}%</td>
-                    </tr>
-                    <tr key={`${idx}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
-                      <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month2)}</td>
-                      <td className="px-4 py-2 text-right text-gray-900 font-medium">HK${demo.month2.spend.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{demo.month2.impressions.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{demo.month2.clicks.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{demo.month2.results.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{demo.month2.ctr.toFixed(2)}%</td>
-                    </tr>
-                  </>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {demographicComparisons.length > 20 && (
-            <div className="px-6 py-3 bg-gray-50 text-sm text-gray-600 text-center">
-              Showing top 20 of {demographicComparisons.length} demographic segments
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1 w-fit">
+                <button
+                  onClick={() => setDemographicView('gender')}
+                  className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                    demographicView === 'gender' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  By Gender
+                </button>
+                <button
+                  onClick={() => setDemographicView('age')}
+                  className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                    demographicView === 'age' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  By Age
+                </button>
+                <button
+                  onClick={() => setDemographicView('combined')}
+                  className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                    demographicView === 'combined' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Combined
+                </button>
+              </div>
+
+              {demographicView === 'gender' && (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-700">Gender</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Month</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Spend</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">CPC</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {genderComparisons.map((gender, idx) => (
+                          <>
+                            <tr key={`${idx}-m1`} className="hover:bg-gray-50">
+                              <td rowSpan={2} className="px-4 py-3 border-r border-gray-200">
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                  gender.gender === 'male' ? 'bg-blue-100 text-blue-800' :
+                                  gender.gender === 'female' ? 'bg-pink-100 text-pink-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {gender.gender === 'male' ? 'Male' : gender.gender === 'female' ? 'Female' : 'Unknown'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month1)}</td>
+                              <td className="px-4 py-2 text-right text-gray-900">HK${gender.month1.spend.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.impressions.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.clicks.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.ctr.toFixed(2)}%</td>
+                              <td className="px-4 py-2 text-right text-gray-700">HK${gender.month1.cpc.toFixed(2)}</td>
+                            </tr>
+                            <tr key={`${idx}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
+                              <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month2)}</td>
+                              <td className="px-4 py-2 text-right text-gray-900 font-medium">HK${gender.month2.spend.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.impressions.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.clicks.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.ctr.toFixed(2)}%</td>
+                              <td className="px-4 py-2 text-right text-gray-700">HK${gender.month2.cpc.toFixed(2)}</td>
+                            </tr>
+                          </>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {demographicView === 'age' && (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-700">Age Group</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Month</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Spend</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">CPC</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {ageComparisons.map((age, idx) => (
+                          <>
+                            <tr key={`${idx}-m1`} className="hover:bg-gray-50">
+                              <td rowSpan={2} className="px-4 py-3 font-medium text-gray-900 border-r border-gray-200">{age.age_group}</td>
+                              <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month1)}</td>
+                              <td className="px-4 py-2 text-right text-gray-900">HK${age.month1.spend.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.impressions.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.clicks.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.ctr.toFixed(2)}%</td>
+                              <td className="px-4 py-2 text-right text-gray-700">HK${age.month1.cpc.toFixed(2)}</td>
+                            </tr>
+                            <tr key={`${idx}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
+                              <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month2)}</td>
+                              <td className="px-4 py-2 text-right text-gray-900 font-medium">HK${age.month2.spend.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.impressions.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.clicks.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.ctr.toFixed(2)}%</td>
+                              <td className="px-4 py-2 text-right text-gray-700">HK${age.month2.cpc.toFixed(2)}</td>
+                            </tr>
+                          </>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {demographicView === 'combined' && (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-700">Age Group</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-700">Gender</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Month</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Spend</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {demographicComparisons.slice(0, 20).map((demo, idx) => (
+                          <>
+                            <tr key={`${idx}-m1`} className="hover:bg-gray-50">
+                              <td rowSpan={2} className="px-4 py-3 text-gray-900 border-r border-gray-200">{demo.age_group}</td>
+                              <td rowSpan={2} className="px-4 py-3 border-r border-gray-200">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  demo.gender === 'male' ? 'bg-blue-100 text-blue-800' :
+                                  demo.gender === 'female' ? 'bg-pink-100 text-pink-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {demo.gender === 'male' ? 'Male' : demo.gender === 'female' ? 'Female' : 'Unknown'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month1)}</td>
+                              <td className="px-4 py-2 text-right text-gray-900">HK${demo.month1.spend.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.impressions.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.clicks.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.ctr.toFixed(2)}%</td>
+                            </tr>
+                            <tr key={`${idx}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
+                              <td className="px-4 py-2 text-right text-xs text-gray-500">{formatMonthDisplay(month2)}</td>
+                              <td className="px-4 py-2 text-right text-gray-900 font-medium">HK${demo.month2.spend.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.impressions.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.clicks.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.ctr.toFixed(2)}%</td>
+                            </tr>
+                          </>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {demographicComparisons.length > 20 && (
+                    <div className="px-6 py-3 bg-gray-50 text-sm text-gray-600 text-center">
+                      Showing top 20 of {demographicComparisons.length} demographic segments
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-        </div>
           )}
         </>
       )}
