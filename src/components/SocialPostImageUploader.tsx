@@ -190,53 +190,6 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
 
   return (
     <div className="space-y-4">
-      <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          dragActive
-            ? 'border-blue-500 bg-blue-50'
-            : 'border-slate-300 hover:border-slate-400'
-        } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={handleFileInput}
-          className="hidden"
-          id="image-upload-input"
-        />
-
-        {uploading ? (
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-            <p className="text-sm font-medium text-slate-700">{uploadProgress}</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3">
-            <Upload className="w-10 h-10 text-slate-400" />
-            <div>
-              <p className="text-sm font-medium text-slate-700">
-                Drag and drop images here, or{' '}
-                <label
-                  htmlFor="image-upload-input"
-                  className="text-blue-600 hover:text-blue-700 cursor-pointer"
-                >
-                  browse
-                </label>
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Supports: JPG, PNG, GIF, WebP
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
       {images.length > 0 && (
         <div>
           <h4 className="text-sm font-semibold text-slate-900 mb-3">
@@ -303,6 +256,53 @@ export function SocialPostImageUploader({ postId, postFolderId }: SocialPostImag
           </div>
         </div>
       )}
+
+      <div
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          dragActive
+            ? 'border-blue-500 bg-blue-50'
+            : 'border-slate-300 hover:border-slate-400'
+        } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={handleFileInput}
+          className="hidden"
+          id="image-upload-input"
+        />
+
+        {uploading ? (
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+            <p className="text-sm font-medium text-slate-700">{uploadProgress}</p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3">
+            <Upload className="w-10 h-10 text-slate-400" />
+            <div>
+              <p className="text-sm font-medium text-slate-700">
+                Drag and drop images here, or{' '}
+                <label
+                  htmlFor="image-upload-input"
+                  className="text-blue-600 hover:text-blue-700 cursor-pointer"
+                >
+                  browse
+                </label>
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Supports: JPG, PNG, GIF, WebP
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {!postFolderId && (
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">

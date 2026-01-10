@@ -195,10 +195,28 @@ export function PublishPostModal({
 
       console.log('Publishing post:', publishData);
 
+      const { data: stepData } = await supabase
+        .from('marketing_social_post_steps')
+        .select('*')
+        .eq('post_id', post.id)
+        .eq('step_number', 3)
+        .maybeSingle();
+
+      if (stepData) {
+        await supabase
+          .from('marketing_social_post_steps')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            completed_by: session.user.id,
+          })
+          .eq('id', stepData.id);
+      }
+
       alert(
         postType === 'instant'
-          ? `Post will be published instantly to ${selectedInstagramAccounts.length + selectedFacebookAccounts.length} accounts with ${allImageUrls.length} image(s)`
-          : `Post scheduled for ${new Date(scheduledDate).toLocaleString()} with ${allImageUrls.length} image(s)`
+          ? `✓ Post published successfully!\n\nPublished to ${selectedInstagramAccounts.length + selectedFacebookAccounts.length} accounts with ${allImageUrls.length} image(s).\n\nStep 3 has been marked as completed.`
+          : `✓ Post scheduled successfully!\n\nScheduled for ${new Date(scheduledDate).toLocaleString()} with ${allImageUrls.length} image(s).\n\nStep 3 has been marked as completed.`
       );
 
       onSuccess();

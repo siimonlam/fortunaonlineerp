@@ -1499,16 +1499,24 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                               </button>
                                               {(step.status === 'in_progress' || step.status === 'pending') && (
                                                 stepNum === 3 ? (
-                                                  <button
-                                                    onClick={() => {
-                                                      setSelectedPost(post);
-                                                      setShowPublishModal(true);
-                                                    }}
-                                                    className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                                                  >
-                                                    <Send className="w-3 h-3" />
-                                                    Publish Post
-                                                  </button>
+                                                  <div className="flex items-center gap-2">
+                                                    <button
+                                                      onClick={() => {
+                                                        setSelectedPost(post);
+                                                        setShowPublishModal(true);
+                                                      }}
+                                                      className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                                    >
+                                                      <Send className="w-3 h-3" />
+                                                      Publish Post
+                                                    </button>
+                                                    <button
+                                                      onClick={() => handleCompleteStep(post, stepNum)}
+                                                      className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                                    >
+                                                      Complete
+                                                    </button>
+                                                  </div>
                                                 ) : (
                                                   <button
                                                     onClick={() => handleCompleteStep(post, stepNum)}
