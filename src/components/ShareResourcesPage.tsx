@@ -558,6 +558,7 @@ export function ShareResourcesPage() {
 
   const handleSendEmailClick = () => {
     if (!validateEmailForm()) return;
+    setShowEmailModal(false);
     setShowSendConfirmation(true);
   };
 
@@ -1737,7 +1738,10 @@ export function ShareResourcesPage() {
                   Schedule Email
                 </button>
                 <button
-                  onClick={() => setShowSendConfirmation(false)}
+                  onClick={() => {
+                    setShowSendConfirmation(false);
+                    setShowEmailModal(true);
+                  }}
                   className="w-full px-4 py-3 bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors font-medium"
                 >
                   Cancel
