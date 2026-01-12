@@ -111,6 +111,8 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
   const [shareResources, setShareResources] = useState<ShareResource[]>([]);
   const [selectedAttachments, setSelectedAttachments] = useState<any[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [folderPath, setFolderPath] = useState<Array<{ id: string; name: string }>>([]);
   const [formData, setFormData] = useState({
     from_account_id: '',
     recipient_emails: clientEmails || '',
@@ -198,8 +200,10 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
     setShowModal(true);
   };
 
-  const fetchDriveFiles = async () => {
-    if (!googleDriveFolderId) {
+  const fetchDriveFiles = async (folderId?: string) => {
+    const targetFolderId = folderId || googleDriveFolderId;
+
+    if (!targetFolderId) {
       showErrorPopup('No Google Drive folder associated with this project');
       return;
     }
@@ -207,7 +211,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
     setLoadingFiles(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${googleDriveFolderId}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${targetFolderId}`,
         {
           method: 'GET',
           headers: {
@@ -220,6 +224,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
 
       const data = await response.json();
       setDriveFiles(data.files || []);
+      setCurrentFolderId(targetFolderId);
     } catch (error: any) {
       console.error('Error fetching drive files:', error);
       showErrorPopup(error.message || 'Failed to load Google Drive files');
@@ -228,12 +233,14 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
     }
   };
 
-  const fetchShareResources = async () => {
+  const fetchShareResources = async (folderId?: string) => {
     const shareResourcesFolderId = '0AK-QGp_5SOJWUk9PVA';
+    const targetFolderId = folderId || shareResourcesFolderId;
+
     setLoadingFiles(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${shareResourcesFolderId}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${targetFolderId}`,
         {
           method: 'GET',
           headers: {
@@ -246,6 +253,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
 
       const data = await response.json();
       setShareResources(data.files || []);
+      setCurrentFolderId(targetFolderId);
     } catch (error: any) {
       console.error('Error fetching share resources:', error);
       showErrorPopup(error.message || 'Failed to load share resources');
@@ -254,9 +262,35 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
     }
   };
 
+  const navigateToFolder = (folder: { id: string; name: string }) => {
+    setFolderPath([...folderPath, folder]);
+    if (attachmentSource === 'google_drive') {
+      fetchDriveFiles(folder.id);
+    } else {
+      fetchShareResources(folder.id);
+    }
+  };
+
+  const navigateBack = (index: number) => {
+    const newPath = folderPath.slice(0, index + 1);
+    setFolderPath(newPath);
+
+    const targetFolderId = index === -1
+      ? (attachmentSource === 'google_drive' ? googleDriveFolderId : '0AK-QGp_5SOJWUk9PVA')
+      : newPath[newPath.length - 1].id;
+
+    if (attachmentSource === 'google_drive') {
+      fetchDriveFiles(targetFolderId);
+    } else {
+      fetchShareResources(targetFolderId);
+    }
+  };
+
   const openAttachmentModal = (source: 'google_drive' | 'share_resource') => {
     setAttachmentSource(source);
     setShowAttachmentModal(true);
+    setFolderPath([]);
+    setCurrentFolderId(null);
 
     if (source === 'google_drive') {
       fetchDriveFiles();
@@ -794,6 +828,28 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
+              {folderPath.length > 0 && (
+                <div className="flex items-center gap-2 mb-4 text-sm text-slate-600 flex-wrap">
+                  <button
+                    onClick={() => navigateBack(-1)}
+                    className="hover:text-blue-600 transition-colors"
+                  >
+                    {attachmentSource === 'google_drive' ? 'Project Files' : 'Share Resources'}
+                  </button>
+                  {folderPath.map((folder, index) => (
+                    <div key={folder.id} className="flex items-center gap-2">
+                      <span>/</span>
+                      <button
+                        onClick={() => navigateBack(index)}
+                        className="hover:text-blue-600 transition-colors"
+                      >
+                        {folder.name}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {loadingFiles ? (
                 <div className="text-center py-8">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -809,7 +865,23 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
                   <div className="space-y-2">
                     {driveFiles.map((file) => {
                       const { Icon, color, bgColor } = getFileIcon(file);
-                      return (
+                      const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+
+                      return isFolder ? (
+                        <button
+                          key={file.id}
+                          onClick={() => navigateToFolder({ id: file.id, name: file.name })}
+                          className="w-full flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                        >
+                          <div className={`p-2 rounded-lg ${bgColor} flex-shrink-0`}>
+                            <Icon className={`w-5 h-5 ${color}`} />
+                          </div>
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="font-medium text-slate-900 truncate">{file.name}</p>
+                            <p className="text-xs text-slate-500">Folder</p>
+                          </div>
+                        </button>
+                      ) : (
                         <label
                           key={file.id}
                           className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
@@ -844,7 +916,23 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
                   <div className="space-y-2">
                     {shareResources.map((resource) => {
                       const { Icon, color, bgColor } = getFileIcon(resource);
-                      return (
+                      const isFolder = resource.mimeType === 'application/vnd.google-apps.folder';
+
+                      return isFolder ? (
+                        <button
+                          key={resource.id}
+                          onClick={() => navigateToFolder({ id: resource.id, name: resource.name })}
+                          className="w-full flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                        >
+                          <div className={`p-2 rounded-lg ${bgColor} flex-shrink-0`}>
+                            <Icon className={`w-5 h-5 ${color}`} />
+                          </div>
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="font-medium text-slate-900 truncate">{resource.name}</p>
+                            <p className="text-xs text-slate-500">Folder</p>
+                          </div>
+                        </button>
+                      ) : (
                         <label
                           key={resource.id}
                           className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
