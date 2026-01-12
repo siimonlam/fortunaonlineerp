@@ -1800,6 +1800,12 @@ export function ProjectBoard() {
     }
   }
 
+  function getStatusManagers(statusId: string): Staff[] {
+    return statusManagers
+      .filter(sm => sm.status_id === statusId && sm.staff)
+      .map(sm => sm.staff as Staff);
+  }
+
   async function handleStatusChange(projectId: string, newStatusId: string) {
     const { error } = await supabase
       .from('projects')
@@ -2494,7 +2500,22 @@ export function ProjectBoard() {
                             }}
                             className="flex-1 text-left px-2 py-2 flex items-center justify-between"
                           >
-                            <span>{status.name}</span>
+                            <span className="flex items-center gap-2">
+                              <span>{status.name}</span>
+                              {getStatusManagers(status.id).length > 0 && (
+                                <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                                  <Users className="w-3 h-3" />
+                                  <span className="font-medium">
+                                    {getStatusManagers(status.id).map((m, i) => (
+                                      <span key={m.id}>
+                                        {i > 0 && ', '}
+                                        {m.full_name}
+                                      </span>
+                                    ))}
+                                  </span>
+                                </span>
+                              )}
+                            </span>
                             <span className="flex items-center gap-1.5 pr-2">
                               {getStatusPastDueCount(status.id) > 0 && (
                                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-red-600 px-2 py-0.5 rounded-md shadow-sm">
@@ -2531,6 +2552,19 @@ export function ProjectBoard() {
                                 <span className="flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
                                   {sub.name}
+                                  {getStatusManagers(sub.id).length > 0 && (
+                                    <span className={`inline-flex items-center gap-1 text-xs ${selectedStatus === sub.id ? 'text-blue-100' : 'text-slate-500'}`}>
+                                      <Users className="w-3 h-3" />
+                                      <span className="font-medium">
+                                        {getStatusManagers(sub.id).map((m, i) => (
+                                          <span key={m.id}>
+                                            {i > 0 && ', '}
+                                            {m.full_name}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    </span>
+                                  )}
                                 </span>
                                 <span className="flex items-center gap-1.5">
                                   {pastDueCount > 0 && (
@@ -2565,7 +2599,22 @@ export function ProjectBoard() {
                           }`}
                         >
                           <span className="flex items-center justify-between">
-                            <span>{status.name}</span>
+                            <span className="flex items-center gap-2">
+                              <span>{status.name}</span>
+                              {getStatusManagers(status.id).length > 0 && (
+                                <span className={`inline-flex items-center gap-1 text-xs ${selectedStatus === status.id ? 'text-blue-100' : 'text-slate-500'}`}>
+                                  <Users className="w-3 h-3" />
+                                  <span className="font-medium">
+                                    {getStatusManagers(status.id).map((m, i) => (
+                                      <span key={m.id}>
+                                        {i > 0 && ', '}
+                                        {m.full_name}
+                                      </span>
+                                    ))}
+                                  </span>
+                                </span>
+                              )}
+                            </span>
                             <span className="flex items-center gap-1.5">
                               {(isMarketingProjectType ? (marketingStatusTaskCounts[status.id]?.pastDue || 0) : getStatusPastDueCount(status.id)) > 0 && (
                                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-red-600 px-2 py-0.5 rounded-md shadow-sm">
