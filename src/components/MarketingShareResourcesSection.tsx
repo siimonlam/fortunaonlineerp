@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle, Loader2, Check } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle, Loader2, Check, CheckCircle } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
@@ -54,6 +54,8 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
   const [selectedDriveFiles, setSelectedDriveFiles] = useState<any[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [emailForm, setEmailForm] = useState({
     from_account_id: '',
     recipient_emails: '',
@@ -590,13 +592,14 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
 
       if (error) throw error;
 
-      alert(emailForm.send_immediately ? 'Email scheduled to send immediately' : 'Email scheduled successfully');
       setShowEmailModal(false);
       setSelectedResource(null);
       setSelectedDriveFiles([]);
       setSearchQuery('');
       setClients([]);
       setShowClientDropdown(false);
+      setSuccessMessage(emailForm.send_immediately ? 'Email sent successfully!' : 'Email scheduled successfully!');
+      setShowSuccessPopup(true);
     } catch (err) {
       console.error('Error scheduling email:', err);
       alert('Failed to schedule email');
@@ -1676,6 +1679,25 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showSuccessPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">{successMessage}</h3>
+            <button
+              onClick={() => setShowSuccessPopup(false)}
+              className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

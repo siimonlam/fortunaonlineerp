@@ -8,10 +8,17 @@ interface InfluencerCollab {
   marketing_project_id: string;
   item: string;
   collaborator_name: string;
+  phone_number: string;
   platform: string;
+  platforms: string[];
   category: string;
   primary_market: string;
   page_link: string;
+  tiktok_link: string;
+  youtube_link: string;
+  facebook_link: string;
+  instagram_link: string;
+  script: string;
   follower_count: number;
   engagement: number;
   suggested_price: number;
@@ -55,10 +62,17 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
   const [formData, setFormData] = useState({
     item: '',
     collaborator_name: '',
+    phone_number: '',
     platform: '',
+    platforms: [] as string[],
     category: '',
     primary_market: '',
     page_link: '',
+    tiktok_link: '',
+    youtube_link: '',
+    facebook_link: '',
+    instagram_link: '',
+    script: '',
     follower_count: '',
     engagement: '',
     suggested_price: '',
@@ -193,10 +207,17 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         marketing_project_id: marketingProjectId,
         item: formData.item || null,
         collaborator_name: formData.collaborator_name,
+        phone_number: formData.phone_number || null,
         platform: formData.platform || null,
+        platforms: formData.platforms.length > 0 ? formData.platforms : null,
         category: formData.category || null,
         primary_market: formData.primary_market || null,
         page_link: formData.page_link || null,
+        tiktok_link: formData.tiktok_link || null,
+        youtube_link: formData.youtube_link || null,
+        facebook_link: formData.facebook_link || null,
+        instagram_link: formData.instagram_link || null,
+        script: formData.script || null,
         follower_count: formData.follower_count ? parseInt(formData.follower_count) : null,
         engagement: formData.engagement ? parseFloat(formData.engagement) : null,
         suggested_price: formData.suggested_price ? parseFloat(formData.suggested_price) : null,
@@ -244,10 +265,17 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     setFormData({
       item: collab.item || '',
       collaborator_name: collab.collaborator_name || '',
+      phone_number: collab.phone_number || '',
       platform: collab.platform || '',
+      platforms: collab.platforms || [],
       category: collab.category || '',
       primary_market: collab.primary_market || '',
       page_link: collab.page_link || '',
+      tiktok_link: collab.tiktok_link || '',
+      youtube_link: collab.youtube_link || '',
+      facebook_link: collab.facebook_link || '',
+      instagram_link: collab.instagram_link || '',
+      script: collab.script || '',
       follower_count: collab.follower_count?.toString() || '',
       engagement: collab.engagement?.toString() || '',
       suggested_price: collab.suggested_price?.toString() || '',
@@ -336,10 +364,17 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     setFormData({
       item: '',
       collaborator_name: '',
+      phone_number: '',
       platform: '',
+      platforms: [] as string[],
       category: '',
       primary_market: '',
       page_link: '',
+      tiktok_link: '',
+      youtube_link: '',
+      facebook_link: '',
+      instagram_link: '',
+      script: '',
       follower_count: '',
       engagement: '',
       suggested_price: '',
@@ -680,23 +715,23 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </div>
 
                   <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={formData.phone_number}
+                      onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="+852 1234 5678"
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Item/Product</label>
                     <input
                       type="text"
                       value={formData.item}
                       onChange={(e) => setFormData({ ...formData, item: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Platform</label>
-                    <input
-                      type="text"
-                      value={formData.platform}
-                      onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Instagram, TikTok, YouTube..."
                     />
                   </div>
 
@@ -723,7 +758,101 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Page Link</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Platform (Legacy)</label>
+                    <input
+                      type="text"
+                      value={formData.platform}
+                      onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Instagram, TikTok, YouTube..."
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Platforms (Select Multiple)</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {['TikTok', 'YouTube', 'Facebook', 'Instagram', 'Others'].map((platform) => (
+                        <label key={platform} className="flex items-center gap-2 p-2 border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
+                          <input
+                            type="checkbox"
+                            checked={formData.platforms.includes(platform)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({ ...formData, platforms: [...formData.platforms, platform] });
+                              } else {
+                                setFormData({ ...formData, platforms: formData.platforms.filter(p => p !== platform) });
+                              }
+                            }}
+                            className="rounded border-slate-300"
+                          />
+                          <span className="text-sm text-slate-700">{platform}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Script / Talking Points</label>
+                    <textarea
+                      value={formData.script}
+                      onChange={(e) => setFormData({ ...formData, script: e.target.value })}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter collaboration script or talking points..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-semibold text-slate-900">Social Media Links</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">TikTok Link</label>
+                    <input
+                      type="url"
+                      value={formData.tiktok_link}
+                      onChange={(e) => setFormData({ ...formData, tiktok_link: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="https://www.tiktok.com/@username"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">YouTube Link</label>
+                    <input
+                      type="url"
+                      value={formData.youtube_link}
+                      onChange={(e) => setFormData({ ...formData, youtube_link: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="https://www.youtube.com/@channelname"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Facebook Link</label>
+                    <input
+                      type="url"
+                      value={formData.facebook_link}
+                      onChange={(e) => setFormData({ ...formData, facebook_link: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="https://www.facebook.com/pagename"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Instagram Link</label>
+                    <input
+                      type="url"
+                      value={formData.instagram_link}
+                      onChange={(e) => setFormData({ ...formData, instagram_link: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="https://www.instagram.com/username"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Page Link (Legacy)</label>
                     <input
                       type="url"
                       value={formData.page_link}

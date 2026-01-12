@@ -105,6 +105,8 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [sendImmediately, setSendImmediately] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
   const [attachmentSource, setAttachmentSource] = useState<'google_drive' | 'share_resource' | null>(null);
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
@@ -377,6 +379,8 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
 
       fetchScheduledEmails();
       resetForm();
+      setSuccessMessage(sendImmediately ? 'Email sent successfully!' : 'Email scheduled successfully!');
+      setShowSuccessPopup(true);
     } else {
       showErrorPopup(`Error scheduling email: ${error.message}`);
     }
@@ -977,6 +981,25 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
         </>
       ) : (
         <EmailTemplateManager />
+      )}
+
+      {showSuccessPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">{successMessage}</h3>
+            <button
+              onClick={() => setShowSuccessPopup(false)}
+              className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
