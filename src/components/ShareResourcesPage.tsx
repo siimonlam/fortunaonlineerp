@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle, CheckCircle } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
@@ -69,6 +69,8 @@ export function ShareResourcesPage() {
   });
   const [whatsappAccounts, setWhatsappAccounts] = useState<any[]>([]);
   const [whatsappGroups, setWhatsappGroups] = useState<any[]>([]);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchResources();
@@ -633,13 +635,32 @@ export function ShareResourcesPage() {
 
       console.log('[ShareResources] Email scheduled successfully:', insertedEmail);
 
-      alert(emailForm.send_immediately ? 'Email scheduled to send immediately' : 'Email scheduled successfully');
+      if (emailForm.send_immediately) {
+        try {
+          console.log('[ShareResources] Triggering immediate email send');
+          await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-scheduled-emails`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+        } catch (err) {
+          console.error('Error triggering email send:', err);
+        }
+      }
+
       setShowEmailModal(false);
       setSelectedResource(null);
       setSelectedDriveFiles([]);
       setSearchQuery('');
       setClients([]);
       setShowClientDropdown(false);
+      setSuccessMessage(emailForm.send_immediately ? 'Email sent successfully!' : 'Email scheduled successfully!');
+      setShowSuccessPopup(true);
     } catch (err) {
       console.error('Error scheduling email:', err);
       alert('Failed to schedule email');
@@ -1684,6 +1705,32 @@ export function ShareResourcesPage() {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSuccessPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-slate-900">Success</h3>
+                </div>
+              </div>
+              <p className="text-slate-700 mb-6">{successMessage}</p>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowSuccessPopup(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  OK
+                </button>
+              </div>
             </div>
           </div>
         </div>
