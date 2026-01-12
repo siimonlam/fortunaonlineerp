@@ -2175,6 +2175,7 @@ export function ProjectBoard() {
       return (
         (partner.name && partner.name.toLowerCase().includes(query)) ||
         (partner.client_number && String(partner.client_number).toLowerCase().includes(query)) ||
+        ((partner as any).reference_number && (partner as any).reference_number.toLowerCase().includes(query)) ||
         (partner.contact_person && partner.contact_person.toLowerCase().includes(query)) ||
         (partner.email && partner.email.toLowerCase().includes(query)) ||
         (partner.phone && partner.phone.toLowerCase().includes(query)) ||
@@ -2184,10 +2185,16 @@ export function ProjectBoard() {
     })
     .sort((a, b) => {
       switch (clientSortBy) {
-        case 'client_number_asc':
-          return String(a.client_number || '').localeCompare(String(b.client_number || ''));
-        case 'client_number_desc':
-          return String(b.client_number || '').localeCompare(String(a.client_number || ''));
+        case 'client_number_asc': {
+          const numA = typeof a.client_number === 'number' ? a.client_number : parseInt(String(a.client_number || '0').replace(/\D/g, ''), 10);
+          const numB = typeof b.client_number === 'number' ? b.client_number : parseInt(String(b.client_number || '0').replace(/\D/g, ''), 10);
+          return numA - numB;
+        }
+        case 'client_number_desc': {
+          const numA = typeof a.client_number === 'number' ? a.client_number : parseInt(String(a.client_number || '0').replace(/\D/g, ''), 10);
+          const numB = typeof b.client_number === 'number' ? b.client_number : parseInt(String(b.client_number || '0').replace(/\D/g, ''), 10);
+          return numB - numA;
+        }
         case 'created_newest':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case 'created_oldest':
