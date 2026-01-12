@@ -611,13 +611,27 @@ export function ShareResourcesPage() {
         attachmentData.attachment_type = 'mixed';
         attachmentData.attachment_ids = allAttachments.map(a => a.id);
         attachmentData.attachment_metadata = { files: allAttachments };
+
+        console.log('[ShareResources] Email with attachments:', {
+          attachmentType: attachmentData.attachment_type,
+          attachmentCount: allAttachments.length,
+          attachments: allAttachments
+        });
+      } else {
+        console.log('[ShareResources] Email without attachments');
       }
 
-      const { error } = await supabase
+      console.log('[ShareResources] Inserting scheduled email:', attachmentData);
+
+      const { data: insertedEmail, error } = await supabase
         .from('scheduled_emails')
-        .insert(attachmentData);
+        .insert(attachmentData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      console.log('[ShareResources] Email scheduled successfully:', insertedEmail);
 
       alert(emailForm.send_immediately ? 'Email scheduled to send immediately' : 'Email scheduled successfully');
       setShowEmailModal(false);

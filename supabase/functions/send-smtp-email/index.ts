@@ -53,6 +53,10 @@ async function getSmtpSettings(supabase: any) {
 async function sendEmail(settings: Record<string, string>, payload: EmailPayload) {
   const port = parseInt(settings.smtp_port || '587');
 
+  console.log(`[SendSMTP] Preparing to send email to: ${payload.to.join(', ')}`);
+  console.log(`[SendSMTP] Subject: ${payload.subject}`);
+  console.log(`[SendSMTP] Attachments count: ${payload.attachments?.length || 0}`);
+
   try {
     const transporter = nodemailer.createTransport({
       host: settings.smtp_host,
@@ -77,14 +81,22 @@ async function sendEmail(settings: Record<string, string>, payload: EmailPayload
     }
 
     if (payload.attachments && payload.attachments.length > 0) {
+      console.log(`[SendSMTP] Adding ${payload.attachments.length} attachments:`);
+      payload.attachments.forEach((att, idx) => {
+        console.log(`[SendSMTP]   ${idx + 1}. ${att.filename} (${att.contentType || 'unknown type'})`);
+      });
       emailMessage.attachments = payload.attachments;
+    } else {
+      console.log(`[SendSMTP] No attachments to add`);
     }
 
+    console.log(`[SendSMTP] Sending email via SMTP...`);
     await transporter.sendMail(emailMessage);
+    console.log(`[SendSMTP] Email sent successfully!`);
 
     return { success: true };
   } catch (error) {
-    console.error('SMTP Error:', error);
+    console.error('[SendSMTP] SMTP Error:', error);
     throw new Error(`Failed to send email: ${error.message}`);
   }
 }

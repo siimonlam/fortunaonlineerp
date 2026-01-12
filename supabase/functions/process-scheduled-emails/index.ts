@@ -199,11 +199,15 @@ Deno.serve(async (req: Request) => {
         const attachments: any[] = [];
 
         if (email.attachment_type === 'mixed' && email.attachment_metadata?.files) {
+          console.log(`[ProcessEmail] Processing ${email.attachment_metadata.files.length} attachments for email ${email.id}`);
           const accessToken = await getServiceAccountToken();
 
           for (const file of email.attachment_metadata.files) {
             try {
+              console.log(`[ProcessEmail] Processing file:`, JSON.stringify(file));
+
               if (file.source === 'google_drive') {
+                console.log(`[ProcessEmail] Downloading from Google Drive, fileId: ${file.id}`);
                 const driveFile = await downloadFileFromDrive(file.id, accessToken);
                 attachments.push({
                   filename: driveFile.filename,
@@ -211,40 +215,72 @@ Deno.serve(async (req: Request) => {
                   encoding: 'base64',
                   contentType: driveFile.mimeType,
                 });
+                console.log(`[ProcessEmail] Successfully added Google Drive attachment: ${driveFile.filename}`);
               } else if (file.source === 'share_resource') {
-                const { data: resource } = await supabase
+                console.log(`[ProcessEmail] Processing share_resource, id: ${file.id}`);
+
+                const { data: resource, error: resourceError } = await supabase
                   .from('share_resources')
-                  .select('title, file_path')
+                  .select('title, file_path, file_name, resource_type')
                   .eq('id', file.id)
                   .single();
 
-                if (resource && resource.file_path) {
-                  const { data: fileData } = await supabase.storage
-                    .from('share-resources')
-                    .download(resource.file_path);
+                console.log(`[ProcessEmail] Resource query result:`, { resource, error: resourceError });
 
-                  if (fileData) {
-                    const arrayBuffer = await fileData.arrayBuffer();
-                    const uint8Array = new Uint8Array(arrayBuffer);
-                    const content = btoa(String.fromCharCode(...uint8Array));
-
-                    const mimeType = fileData.type || 'application/octet-stream';
-                    const filename = resource.title || 'attachment';
-                    const finalFilename = filename.includes('.') ? filename : `${filename}.pdf`;
-
-                    attachments.push({
-                      filename: finalFilename,
-                      content: content,
-                      encoding: 'base64',
-                      contentType: mimeType,
-                    });
-                  }
+                if (resourceError) {
+                  throw new Error(`Failed to fetch resource: ${resourceError.message}`);
                 }
+
+                if (!resource) {
+                  throw new Error(`Resource not found: ${file.id}`);
+                }
+
+                if (!resource.file_path) {
+                  console.error(`[ProcessEmail] Resource ${file.id} has no file_path, type: ${resource.resource_type}`);
+                  throw new Error(`Resource has no file attached`);
+                }
+
+                console.log(`[ProcessEmail] Downloading from storage, path: ${resource.file_path}`);
+
+                const { data: fileData, error: downloadError } = await supabase.storage
+                  .from('share-resources')
+                  .download(resource.file_path);
+
+                if (downloadError) {
+                  console.error(`[ProcessEmail] Storage download error:`, downloadError);
+                  throw new Error(`Failed to download file: ${downloadError.message}`);
+                }
+
+                if (!fileData) {
+                  throw new Error(`No file data returned from storage`);
+                }
+
+                console.log(`[ProcessEmail] File downloaded, size: ${fileData.size}, type: ${fileData.type}`);
+
+                const arrayBuffer = await fileData.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const content = btoa(String.fromCharCode(...uint8Array));
+
+                const mimeType = fileData.type || 'application/octet-stream';
+                const filename = resource.file_name || resource.title || 'attachment';
+                const finalFilename = filename.includes('.') ? filename : `${filename}.pdf`;
+
+                attachments.push({
+                  filename: finalFilename,
+                  content: content,
+                  encoding: 'base64',
+                  contentType: mimeType,
+                });
+
+                console.log(`[ProcessEmail] Successfully added share_resource attachment: ${finalFilename}`);
               }
             } catch (error) {
-              console.error(`Failed to process attachment ${file.id}:`, error);
+              console.error(`[ProcessEmail] Failed to process attachment ${file.id}:`, error);
+              console.error(`[ProcessEmail] Error details:`, error.message);
             }
           }
+
+          console.log(`[ProcessEmail] Total attachments prepared: ${attachments.length}`);
         } else if (email.attachment_type === 'google_drive' && email.attachment_ids && email.attachment_ids.length > 0) {
           const accessToken = await getServiceAccountToken();
 
@@ -300,20 +336,27 @@ Deno.serve(async (req: Request) => {
 
         const emailFunctionUrl = `${supabaseUrl}/functions/v1/send-smtp-email`;
 
+        const emailPayload = {
+          to: email.recipient_emails,
+          subject: email.subject,
+          body: email.body,
+          html: false,
+          smtpSettings: smtpSettings,
+          attachments: attachments,
+        };
+
+        console.log(`[ProcessEmail] Sending email with ${attachments.length} attachments`);
+        if (attachments.length > 0) {
+          console.log(`[ProcessEmail] Attachment filenames:`, attachments.map(a => a.filename));
+        }
+
         const response = await fetch(emailFunctionUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${supabaseServiceKey}`,
           },
-          body: JSON.stringify({
-            to: email.recipient_emails,
-            subject: email.subject,
-            body: email.body,
-            html: false,
-            smtpSettings: smtpSettings,
-            attachments: attachments,
-          }),
+          body: JSON.stringify(emailPayload),
         });
 
         const result = await response.json();
