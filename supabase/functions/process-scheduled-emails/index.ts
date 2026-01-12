@@ -131,7 +131,14 @@ async function downloadFileFromDrive(fileId: string, accessToken: string): Promi
 
   const arrayBuffer = await response.arrayBuffer();
   const uint8Array = new Uint8Array(arrayBuffer);
-  const content = btoa(String.fromCharCode(...uint8Array));
+
+  let binaryString = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+    binaryString += String.fromCharCode(...chunk);
+  }
+  const content = btoa(binaryString);
 
   return {
     content,
@@ -259,7 +266,14 @@ Deno.serve(async (req: Request) => {
 
                 const arrayBuffer = await fileData.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
-                const content = btoa(String.fromCharCode(...uint8Array));
+
+                let binaryString = '';
+                const chunkSize = 8192;
+                for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                  const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+                  binaryString += String.fromCharCode(...chunk);
+                }
+                const content = btoa(binaryString);
 
                 const mimeType = fileData.type || 'application/octet-stream';
                 const filename = resource.file_name || resource.title || 'attachment';
@@ -314,7 +328,14 @@ Deno.serve(async (req: Request) => {
                 if (fileData) {
                   const arrayBuffer = await fileData.arrayBuffer();
                   const uint8Array = new Uint8Array(arrayBuffer);
-                  const content = btoa(String.fromCharCode(...uint8Array));
+
+                  let binaryString = '';
+                  const chunkSize = 8192;
+                  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                    const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+                    binaryString += String.fromCharCode(...chunk);
+                  }
+                  const content = btoa(binaryString);
 
                   const mimeType = fileData.type || 'application/octet-stream';
                   const filename = resource.title || 'attachment';

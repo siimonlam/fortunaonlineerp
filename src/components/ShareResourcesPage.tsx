@@ -71,6 +71,7 @@ export function ShareResourcesPage() {
   const [whatsappGroups, setWhatsappGroups] = useState<any[]>([]);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showSendConfirmation, setShowSendConfirmation] = useState(false);
 
   useEffect(() => {
     fetchResources();
@@ -536,25 +537,36 @@ export function ShareResourcesPage() {
     setShowEmailModal(true);
   };
 
-  const handleSendEmail = async () => {
-    if (!user) return;
-
+  const validateEmailForm = () => {
     if (!emailForm.recipient_emails.trim()) {
       alert('Please enter at least one recipient email');
-      return;
+      return false;
     }
 
     if (!emailForm.subject.trim()) {
       alert('Please enter email subject');
-      return;
+      return false;
     }
 
     if (!emailForm.body.trim()) {
       alert('Please enter email body');
-      return;
+      return false;
     }
 
-    if (!emailForm.send_immediately && !emailForm.scheduled_date) {
+    return true;
+  };
+
+  const handleSendEmailClick = () => {
+    if (!validateEmailForm()) return;
+    setShowSendConfirmation(true);
+  };
+
+  const handleSendEmail = async (sendImmediately: boolean) => {
+    if (!user) return;
+
+    setShowSendConfirmation(false);
+
+    if (!sendImmediately && !emailForm.scheduled_date) {
       alert('Please select a scheduled date');
       return;
     }
@@ -565,7 +577,7 @@ export function ShareResourcesPage() {
         .map(email => email.trim())
         .filter(email => email.length > 0);
 
-      const scheduledDate = emailForm.send_immediately
+      const scheduledDate = sendImmediately
         ? new Date().toISOString()
         : new Date(emailForm.scheduled_date).toISOString();
 
@@ -578,7 +590,7 @@ export function ShareResourcesPage() {
         body: emailForm.body,
         scheduled_date: scheduledDate,
         status: 'pending',
-        send_immediately: emailForm.send_immediately
+        send_immediately: sendImmediately
       };
 
       const allAttachments: any[] = [];
@@ -635,7 +647,7 @@ export function ShareResourcesPage() {
 
       console.log('[ShareResources] Email scheduled successfully:', insertedEmail);
 
-      if (emailForm.send_immediately) {
+      if (sendImmediately) {
         try {
           console.log('[ShareResources] Triggering immediate email send');
           await fetch(
@@ -659,7 +671,7 @@ export function ShareResourcesPage() {
       setSearchQuery('');
       setClients([]);
       setShowClientDropdown(false);
-      setSuccessMessage(emailForm.send_immediately ? 'Email sent successfully!' : 'Email scheduled successfully!');
+      setSuccessMessage(sendImmediately ? 'Email sent successfully!' : 'Email scheduled successfully!');
       setShowSuccessPopup(true);
     } catch (err) {
       console.error('Error scheduling email:', err);
@@ -1586,20 +1598,11 @@ export function ShareResourcesPage() {
                     Cancel
                   </button>
                   <button
-                    onClick={handleSendEmail}
+                    onClick={handleSendEmailClick}
                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
                   >
-                    {emailForm.send_immediately ? (
-                      <>
-                        <Send className="w-4 h-4" />
-                        Send Now
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="w-4 h-4" />
-                        Schedule Email
-                      </>
-                    )}
+                    <Send className="w-4 h-4" />
+                    Send Email
                   </button>
                 </div>
               </div>
@@ -1705,6 +1708,41 @@ export function ShareResourcesPage() {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSendConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg w-full max-w-md shadow-xl">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-slate-900 mb-4">Send Email</h3>
+              <p className="text-slate-700 mb-6">
+                Choose how you would like to send this email:
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleSendEmail(true)}
+                  className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                >
+                  <Send className="w-5 h-5" />
+                  Send Now
+                </button>
+                <button
+                  onClick={() => handleSendEmail(false)}
+                  className="w-full px-4 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                >
+                  <Clock className="w-5 h-5" />
+                  Schedule Email
+                </button>
+                <button
+                  onClick={() => setShowSendConfirmation(false)}
+                  className="w-full px-4 py-3 bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
