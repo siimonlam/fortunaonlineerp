@@ -604,11 +604,33 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <div className="font-medium text-slate-900">{collab.collaborator_name}</div>
-                    {collab.page_link && (
-                      <a href={collab.page_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs flex items-center gap-1">
-                        View Profile <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {collab.instagram_link && (
+                        <a href={collab.instagram_link} target="_blank" rel="noopener noreferrer" className="text-pink-600 hover:underline text-xs flex items-center gap-1">
+                          Instagram <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      {collab.tiktok_link && (
+                        <a href={collab.tiktok_link} target="_blank" rel="noopener noreferrer" className="text-slate-900 hover:underline text-xs flex items-center gap-1">
+                          TikTok <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      {collab.facebook_link && (
+                        <a href={collab.facebook_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs flex items-center gap-1">
+                          Facebook <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      {collab.youtube_link && (
+                        <a href={collab.youtube_link} target="_blank" rel="noopener noreferrer" className="text-red-600 hover:underline text-xs flex items-center gap-1">
+                          YouTube <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      {collab.page_link && !collab.instagram_link && !collab.tiktok_link && !collab.facebook_link && !collab.youtube_link && (
+                        <a href={collab.page_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs flex items-center gap-1">
+                          View Profile <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.item || '-'}</td>
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.platform || '-'}</td>
