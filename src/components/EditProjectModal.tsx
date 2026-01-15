@@ -3288,6 +3288,50 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   </p>
                 </div>
               )}
+
+              <div className="flex justify-end pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!canEdit) {
+                      alert('You do not have permission to edit this project');
+                      return;
+                    }
+                    try {
+                      const tableName = isMarketingProject ? 'marketing_projects' : 'projects';
+                      const { error } = await supabase
+                        .from(tableName)
+                        .update({
+                          google_drive_folder_id: formData.googleDriveFolderId.trim() || null,
+                          updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', project.id);
+
+                      if (error) throw error;
+
+                      setOriginalData(prev => ({
+                        ...prev,
+                        googleDriveFolderId: formData.googleDriveFolderId,
+                      }));
+
+                      alert('Folder ID saved successfully!');
+                      if (onUpdate) {
+                        onUpdate({
+                          ...project,
+                          google_drive_folder_id: formData.googleDriveFolderId.trim() || null,
+                        });
+                      }
+                    } catch (error: any) {
+                      console.error('Error saving folder ID:', error);
+                      alert('Failed to save folder ID: ' + error.message);
+                    }
+                  }}
+                  disabled={!canEdit || loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Save Folder ID
+                </button>
+              </div>
             </div>
           </div>
         )}
