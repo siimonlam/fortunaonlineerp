@@ -149,7 +149,9 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     }
 
     if (platformFilter) {
-      filtered = filtered.filter(collab => collab.platform === platformFilter);
+      filtered = filtered.filter(collab =>
+        collab.platforms && collab.platforms.includes(platformFilter)
+      );
     }
 
     if (statusFilter) {
@@ -195,7 +197,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     return sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
   };
 
-  const uniquePlatforms = Array.from(new Set(collaborations.map(c => c.platform).filter(Boolean)));
+  const uniquePlatforms = Array.from(new Set(collaborations.flatMap(c => c.platforms || []).filter(Boolean)));
   const uniqueStatuses = Array.from(new Set(collaborations.map(c => c.status)));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -525,16 +527,9 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </div>
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Item</th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
-                  onClick={() => handleSort('platform')}
-                >
-                  <div className="flex items-center gap-1">
-                    Platform {getSortIcon('platform')}
-                  </div>
-                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Platforms</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Category</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Market</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Markets</th>
                 <th
                   className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
                   onClick={() => handleSort('follower_count')}
@@ -657,9 +652,29 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.item || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-slate-900">{collab.platform || '-'}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {collab.platforms && collab.platforms.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {collab.platforms.map((platform) => (
+                          <span key={platform} className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs">
+                            {platform}
+                          </span>
+                        ))}
+                      </div>
+                    ) : '-'}
+                  </td>
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.category || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-slate-900">{collab.primary_market || '-'}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {collab.primary_markets && collab.primary_markets.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {collab.primary_markets.map((market) => (
+                          <span key={market} className="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                            {market}
+                          </span>
+                        ))}
+                      </div>
+                    ) : '-'}
+                  </td>
                   <td className="px-4 py-3 text-sm text-slate-900">
                     {collab.follower_count ? collab.follower_count.toLocaleString() : '-'}
                   </td>
@@ -829,28 +844,6 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                         ))}
                       </div>
                     )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Primary Market (Legacy)</label>
-                    <input
-                      type="text"
-                      value={formData.primary_market}
-                      onChange={(e) => setFormData({ ...formData, primary_market: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Hong Kong, China, Asia..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Platform (Legacy)</label>
-                    <input
-                      type="text"
-                      value={formData.platform}
-                      onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Instagram, TikTok, YouTube..."
-                    />
                   </div>
 
                   <div className="col-span-2">
