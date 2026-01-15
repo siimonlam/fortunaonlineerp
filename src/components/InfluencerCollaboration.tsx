@@ -546,13 +546,8 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                     Engagement {getSortIcon('engagement')}
                   </div>
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
-                  onClick={() => handleSort('suggested_price')}
-                >
-                  <div className="flex items-center gap-1">
-                    Price {getSortIcon('suggested_price')}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  Compensation
                 </th>
                 <th
                   className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
@@ -682,7 +677,9 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                     {collab.engagement ? `${collab.engagement}%` : '-'}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-900">
-                    {collab.suggested_price ? `$${collab.suggested_price.toLocaleString()}` : '-'}
+                    {collab.compensation_amount ?
+                      `${collab.compensation_currency || 'USD'} ${collab.compensation_amount.toLocaleString()}` :
+                      '-'}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(collab.status)}`}>
@@ -970,14 +967,36 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Suggested Price</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Compensation Currency</label>
+                    <select
+                      value={formData.compensation_currency}
+                      onChange={(e) => setFormData({ ...formData, compensation_currency: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="USD">USD - US Dollar</option>
+                      <option value="HKD">HKD - Hong Kong Dollar</option>
+                      <option value="GBP">GBP - British Pound</option>
+                      <option value="EUR">EUR - Euro</option>
+                      <option value="CNY">CNY - Chinese Yuan</option>
+                      <option value="JPY">JPY - Japanese Yen</option>
+                      <option value="KRW">KRW - South Korean Won</option>
+                      <option value="SGD">SGD - Singapore Dollar</option>
+                      <option value="AUD">AUD - Australian Dollar</option>
+                      <option value="CAD">CAD - Canadian Dollar</option>
+                      <option value="INR">INR - Indian Rupee</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Compensation Amount</label>
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.suggested_price}
-                      onChange={(e) => setFormData({ ...formData, suggested_price: e.target.value })}
+                      value={formData.compensation_amount}
+                      onChange={(e) => setFormData({ ...formData, compensation_amount: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min="0"
+                      placeholder="0.00"
                     />
                   </div>
                 </div>
