@@ -13,6 +13,7 @@ interface InfluencerCollab {
   platforms: string[];
   category: string;
   primary_market: string;
+  primary_markets: string[];
   page_link: string;
   tiktok_link: string;
   youtube_link: string;
@@ -27,6 +28,8 @@ interface InfluencerCollab {
   status: string;
   collaboration_type: string;
   compensation: string;
+  compensation_currency: string;
+  compensation_amount: number;
   affiliate_link: string;
   coupon_code: string;
   post_link: string;
@@ -67,6 +70,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     platforms: [] as string[],
     category: '',
     primary_market: '',
+    primary_markets: [] as string[],
     page_link: '',
     tiktok_link: '',
     youtube_link: '',
@@ -81,6 +85,8 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     status: 'Contacted',
     collaboration_type: '',
     compensation: '',
+    compensation_currency: 'USD',
+    compensation_amount: '',
     affiliate_link: '',
     coupon_code: '',
     post_link: '',
@@ -212,6 +218,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         platforms: formData.platforms.length > 0 ? formData.platforms : null,
         category: formData.category || null,
         primary_market: formData.primary_market || null,
+        primary_markets: formData.primary_markets.length > 0 ? formData.primary_markets : null,
         page_link: formData.page_link || null,
         tiktok_link: formData.tiktok_link || null,
         youtube_link: formData.youtube_link || null,
@@ -226,6 +233,8 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         status: formData.status,
         collaboration_type: formData.collaboration_type || null,
         compensation: formData.compensation || null,
+        compensation_currency: formData.compensation_currency || 'USD',
+        compensation_amount: formData.compensation_amount ? parseFloat(formData.compensation_amount) : null,
         affiliate_link: formData.affiliate_link || null,
         coupon_code: formData.coupon_code || null,
         post_link: formData.post_link || null,
@@ -270,6 +279,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       platforms: collab.platforms || [],
       category: collab.category || '',
       primary_market: collab.primary_market || '',
+      primary_markets: collab.primary_markets || [],
       page_link: collab.page_link || '',
       tiktok_link: collab.tiktok_link || '',
       youtube_link: collab.youtube_link || '',
@@ -284,6 +294,8 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       status: collab.status || 'Contacted',
       collaboration_type: collab.collaboration_type || '',
       compensation: collab.compensation || '',
+      compensation_currency: collab.compensation_currency || 'USD',
+      compensation_amount: collab.compensation_amount?.toString() || '',
       affiliate_link: collab.affiliate_link || '',
       coupon_code: collab.coupon_code || '',
       post_link: collab.post_link || '',
@@ -369,6 +381,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       platforms: [] as string[],
       category: '',
       primary_market: '',
+      primary_markets: [] as string[],
       page_link: '',
       tiktok_link: '',
       youtube_link: '',
@@ -383,6 +396,8 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       status: 'Contacted',
       collaboration_type: '',
       compensation: '',
+      compensation_currency: 'USD',
+      compensation_amount: '',
       affiliate_link: '',
       coupon_code: '',
       post_link: '',
@@ -598,7 +613,16 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredCollaborations.map((collab) => (
-                <tr key={collab.id} className="hover:bg-slate-50">
+                <tr
+                  key={collab.id}
+                  className="hover:bg-slate-50 cursor-pointer"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
+                      return;
+                    }
+                    handleEdit(collab);
+                  }}
+                >
                   <td className="px-4 py-3 text-sm text-slate-900">
                     {collab.outreach_date ? new Date(collab.outreach_date).toLocaleDateString() : '-'}
                   </td>
@@ -768,8 +792,47 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                     />
                   </div>
 
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Primary Markets (Select Multiple)</label>
+                    <div className="max-h-48 overflow-y-auto border border-slate-300 rounded-lg p-3 space-y-2">
+                      {['United States', 'United Kingdom', 'Hong Kong', 'China', 'Canada', 'Australia', 'Singapore', 'Japan', 'South Korea', 'Taiwan', 'Malaysia', 'Thailand', 'Vietnam', 'Philippines', 'Indonesia', 'India', 'Germany', 'France', 'Italy', 'Spain', 'Netherlands', 'Brazil', 'Mexico', 'United Arab Emirates', 'Saudi Arabia'].map((country) => (
+                        <label key={country} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={formData.primary_markets.includes(country)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({ ...formData, primary_markets: [...formData.primary_markets, country] });
+                              } else {
+                                setFormData({ ...formData, primary_markets: formData.primary_markets.filter(c => c !== country) });
+                              }
+                            }}
+                            className="rounded border-slate-300"
+                          />
+                          <span className="text-sm text-slate-700">{country}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {formData.primary_markets.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {formData.primary_markets.map((market) => (
+                          <span key={market} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                            {market}
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, primary_markets: formData.primary_markets.filter(m => m !== market) })}
+                              className="text-blue-700 hover:text-blue-900"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Primary Market</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Primary Market (Legacy)</label>
                     <input
                       type="text"
                       value={formData.primary_market}
@@ -965,15 +1028,51 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                     />
                   </div>
 
-                  <div>
+                  <div className="col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Compensation</label>
-                    <input
-                      type="text"
-                      value={formData.compensation}
-                      onChange={(e) => setFormData({ ...formData, compensation: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Monetary, Product, Commission..."
-                    />
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <select
+                          value={formData.compensation_currency}
+                          onChange={(e) => setFormData({ ...formData, compensation_currency: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="USD">USD ($)</option>
+                          <option value="HKD">HKD (HK$)</option>
+                          <option value="GBP">GBP (£)</option>
+                          <option value="EUR">EUR (€)</option>
+                          <option value="CNY">CNY (¥)</option>
+                          <option value="JPY">JPY (¥)</option>
+                          <option value="SGD">SGD (S$)</option>
+                          <option value="AUD">AUD (A$)</option>
+                          <option value="CAD">CAD (C$)</option>
+                          <option value="KRW">KRW (₩)</option>
+                          <option value="TWD">TWD (NT$)</option>
+                          <option value="MYR">MYR (RM)</option>
+                          <option value="THB">THB (฿)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.compensation_amount}
+                          onChange={(e) => setFormData({ ...formData, compensation_amount: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Amount"
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={formData.compensation}
+                          onChange={(e) => setFormData({ ...formData, compensation: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Type (Product, Commission...)"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="col-span-2">
