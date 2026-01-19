@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Trash2, Edit, X, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon } from 'lucide-react';
+import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Resource {
   id: string;
@@ -382,9 +383,8 @@ export function ComSecShareResourcesSection() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-slate-900">Shared Resources</h3>
+    <div className="max-w-full -mx-8 -mt-6 px-4 py-2 h-[calc(100vh-12rem)]">
+      <div className="flex justify-end gap-3 mb-3">
         <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -394,7 +394,18 @@ export function ComSecShareResourcesSection() {
         </button>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex gap-4 h-[calc(100%-4rem)]">
+        <div className="flex-1 min-w-0">
+          <ServiceAccountDriveExplorer
+            folderId="0AK-QGp_5SOJWUk9PVA"
+            folderName="Shared Files"
+            driveUrl="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
+            embedded={true}
+          />
+        </div>
+
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          <div className="space-y-4 pr-2">
         {resources.length === 0 ? (
           <div className="bg-white rounded-lg border border-slate-200 text-center py-12">
             <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -463,6 +474,8 @@ export function ComSecShareResourcesSection() {
             </div>
           ))
         )}
+          </div>
+        </div>
       </div>
 
       {showModal && (
