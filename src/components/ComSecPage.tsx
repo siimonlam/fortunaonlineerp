@@ -6,6 +6,7 @@ import { InvoicePreview } from './InvoicePreview';
 import { DocumentFolderModal } from './DocumentFolderModal';
 import { EditComSecClientModal } from './EditComSecClientModal';
 import { LetterReceivedModal } from './LetterReceivedModal';
+import { ComSecShareResourcesSection } from './ComSecShareResourcesSection';
 
 interface ComSecClient {
   id: string;
@@ -98,7 +99,7 @@ interface Staff {
   email: string;
 }
 
-type TabType = 'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders';
+type TabType = 'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources';
 
 interface ComSecPageProps {
   activeModule: TabType;
@@ -1767,6 +1768,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
       {activeModule === 'virtual_office' && renderVirtualOfficeTab()}
       {activeModule === 'knowledge_base' && renderKnowledgeBaseTab()}
       {activeModule === 'reminders' && renderRemindersTab()}
+      {activeModule === 'share_resources' && <ComSecShareResourcesSection />}
 
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
