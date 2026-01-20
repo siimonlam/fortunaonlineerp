@@ -10,7 +10,7 @@ interface AutomationRule {
   substatus_filter?: string;
   trigger_type: 'hkpc_date_set' | 'task_completed' | 'status_changed' | 'periodic' | 'days_after_date' | 'days_before_date' | 'deposit_paid' | 'application_number_set' | 'approval_date_set' | 'label_added';
   trigger_config: any;
-  condition_type?: 'no_condition' | 'sales_source' | 'sales_person';
+  condition_type?: 'no_condition' | 'sales_source' | 'sales_person' | 'invoice_status';
   condition_config?: any;
   action_type: 'add_task' | 'add_label' | 'remove_label' | 'change_status' | 'set_field_value';
   action_config: any;
@@ -71,7 +71,8 @@ const ACTION_TYPES = [
 const CONDITION_TYPES = [
   { value: 'no_condition', label: 'No Condition' },
   { value: 'sales_source', label: 'Sales Source' },
-  { value: 'sales_person', label: 'Sales Person' }
+  { value: 'sales_person', label: 'Sales Person' },
+  { value: 'invoice_status', label: 'Invoice Status' }
 ];
 
 interface AutomationPageProps {
@@ -605,6 +606,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                         <option value="approval_date">Approval Date</option>
                         <option value="deposit_paid_date">Deposit Paid Date</option>
                         <option value="hi_po_date">Hi-Po Date</option>
+                        <option value="invoice_issue_date">Invoice Issue Date</option>
                         <option value="next_hkpc_due_date">Next HKPC Due Date</option>
                       </select>
                     </div>
@@ -739,6 +741,26 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                       {staff.map(person => (
                         <option key={person.id} value={person.id}>{person.full_name || person.email}</option>
                       ))}
+                    </select>
+                  </div>
+                )}
+
+                {formData.condition_type === 'invoice_status' && (
+                  <div className="ml-4 p-3 bg-slate-50 rounded-lg">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Invoice Status</label>
+                    <select
+                      value={formData.condition_config.invoice_status || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        condition_config: { ...formData.condition_config, invoice_status: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select invoice status...</option>
+                      <option value="Paid">Paid</option>
+                      <option value="Unpaid">Unpaid</option>
+                      <option value="Void">Void</option>
+                      <option value="Overdue">Overdue</option>
                     </select>
                   </div>
                 )}

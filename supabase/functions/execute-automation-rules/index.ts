@@ -161,7 +161,7 @@ Deno.serve(async (req: Request) => {
         if (rule.condition_type && rule.condition_type !== 'no_condition') {
           const { data: project } = await supabase
             .from('projects')
-            .select('sales_source, sales_person_id')
+            .select('sales_source, sales_person_id, project_reference, client_number')
             .eq('id', project_id)
             .maybeSingle();
 
@@ -186,6 +186,29 @@ Deno.serve(async (req: Request) => {
               console.log(`Skipping rule - sales person mismatch: "${project.sales_person_id}" !== "${expectedSalesPerson}"`);
               results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'sales_person_mismatch' });
               continue;
+            }
+          }
+
+          if (rule.condition_type === 'invoice_status') {
+            const expectedInvoiceStatus = rule.condition_config?.invoice_status;
+            if (expectedInvoiceStatus) {
+              // Query invoices for this project
+              const { data: invoices } = await supabase
+                .from('funding_invoice')
+                .select('payment_status')
+                .or(`project_reference.eq.${project.project_reference},client_number.eq.${project.client_number}`)
+                .order('created_at', { ascending: false });
+
+              // Check if any invoice matches the expected status
+              const hasMatchingInvoice = invoices?.some(invoice =>
+                invoice.payment_status === expectedInvoiceStatus
+              );
+
+              if (!hasMatchingInvoice) {
+                console.log(`Skipping rule - no invoice with status "${expectedInvoiceStatus}" found`);
+                results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'invoice_status_mismatch' });
+                continue;
+              }
             }
           }
         }
