@@ -196,57 +196,8 @@ Deno.serve(async (req: Request) => {
           }
 
           if (shouldExecute) {
-            // Check conditions before executing
-            if (rule.condition_type && rule.condition_type !== 'no_condition') {
-              const { data: fullProject } = await supabase
-                .from('projects')
-                .select('sales_source, sales_person_id, project_reference, client_number')
-                .eq('id', project.id)
-                .maybeSingle();
-
-              if (fullProject) {
-                if (rule.condition_type === 'sales_source') {
-                  const expectedSource = rule.condition_config?.sales_source;
-                  if (expectedSource && fullProject.sales_source !== expectedSource) {
-                    console.log(`Skipping rule - sales source mismatch: "${fullProject.sales_source}" !== "${expectedSource}"`);
-                    continue;
-                  }
-                }
-
-                if (rule.condition_type === 'sales_person') {
-                  const expectedSalesPerson = rule.condition_config?.sales_person_id;
-                  if (expectedSalesPerson && fullProject.sales_person_id !== expectedSalesPerson) {
-                    console.log(`Skipping rule - sales person mismatch: "${fullProject.sales_person_id}" !== "${expectedSalesPerson}"`);
-                    continue;
-                  }
-                }
-
-                if (rule.condition_type === 'invoice_status') {
-                  const expectedInvoiceStatus = rule.condition_config?.invoice_status;
-                  if (expectedInvoiceStatus) {
-                    // Query invoices for this project
-                    const { data: invoices } = await supabase
-                      .from('funding_invoice')
-                      .select('payment_status')
-                      .or(`project_reference.eq.${fullProject.project_reference},client_number.eq.${fullProject.client_number}`)
-                      .order('created_at', { ascending: false });
-
-                    // Check if any invoice matches the expected status
-                    const hasMatchingInvoice = invoices?.some(invoice =>
-                      invoice.payment_status === expectedInvoiceStatus
-                    );
-
-                    if (!hasMatchingInvoice) {
-                      console.log(`Skipping rule - no invoice with status "${expectedInvoiceStatus}" found`);
-                      continue;
-                    }
-                  }
-                }
-              }
-            }
-
             console.log(`Executing automation for project: ${project.title}`);
-
+            
             if (rule.action_type === 'add_task') {
               const taskConfig = rule.action_config;
               if (taskConfig.title) {
