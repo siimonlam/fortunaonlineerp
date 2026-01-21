@@ -2519,19 +2519,6 @@ export function ProjectBoard() {
                           >
                             <span className="flex items-center gap-2">
                               <span>{status.name}</span>
-                              {getStatusManagers(status.id).length > 0 && (
-                                <span className="inline-flex items-center gap-1 text-xs text-slate-600">
-                                  <Users className="w-3 h-3" />
-                                  <span className="font-medium">
-                                    {getStatusManagers(status.id).map((m, i) => (
-                                      <span key={m.id}>
-                                        {i > 0 && ', '}
-                                        {m.full_name}
-                                      </span>
-                                    ))}
-                                  </span>
-                                </span>
-                              )}
                             </span>
                             <span className="flex items-center gap-1.5 pr-2">
                               {getStatusPastDueCount(status.id) > 0 && (
@@ -2569,19 +2556,6 @@ export function ProjectBoard() {
                                 <span className="flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
                                   {sub.name}
-                                  {getStatusManagers(sub.id).length > 0 && (
-                                    <span className={`inline-flex items-center gap-1 text-xs ${selectedStatus === sub.id ? 'text-blue-100' : 'text-slate-500'}`}>
-                                      <Users className="w-3 h-3" />
-                                      <span className="font-medium">
-                                        {getStatusManagers(sub.id).map((m, i) => (
-                                          <span key={m.id}>
-                                            {i > 0 && ', '}
-                                            {m.full_name}
-                                          </span>
-                                        ))}
-                                      </span>
-                                    </span>
-                                  )}
                                 </span>
                                 <span className="flex items-center gap-1.5">
                                   {pastDueCount > 0 && (
