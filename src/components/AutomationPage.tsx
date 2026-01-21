@@ -303,6 +303,9 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
 
     if (rule.trigger_type === 'periodic' && rule.trigger_config) {
       const actionFreq = rule.trigger_config.frequency || '?';
+      if (rule.trigger_config.check_invoices) {
+        return `${triggerLabel} - Invoice Chase: Checks daily, Action every ${actionFreq} days (day ${actionFreq}, ${actionFreq * 2}, ${actionFreq * 3}...) from invoice issue date`;
+      }
       const dateField = rule.trigger_config.date_field || 'project start';
       return `${triggerLabel} - Checks daily, Action every ${actionFreq} days (day ${actionFreq}, ${actionFreq * 2}, ${actionFreq * 3}...) from ${dateField}`;
     }
@@ -580,11 +583,35 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                       <p className="text-sm text-blue-700 font-medium">Daily (Every 1 day)</p>
                       <p className="text-xs text-slate-600 mt-1">Periodic rules always check projects daily. The Action Frequency below controls when actions execute.</p>
                     </div>
+
+                    <div className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-lg">
+                      <input
+                        type="checkbox"
+                        id="check_invoices"
+                        checked={formData.trigger_config.check_invoices || false}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          trigger_config: { ...formData.trigger_config, check_invoices: e.target.checked }
+                        })}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                      <label htmlFor="check_invoices" className="text-sm font-medium text-slate-700 cursor-pointer">
+                        Check Unpaid Invoices (Invoice Chase)
+                      </label>
+                    </div>
+                    {formData.trigger_config.check_invoices && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm text-amber-800">
+                          This automation will check all unpaid invoices and execute actions based on invoice issue date instead of project dates.
+                        </p>
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
                         Action Frequency (N days)
                       </label>
-                      <p className="text-xs text-slate-500 mb-2">Actions execute every N days from start date (e.g., N=20: day 20, 40, 60, 80...)</p>
+                      <p className="text-xs text-slate-500 mb-2">Actions execute every N days from start date (e.g., N=10: day 10, 20, 30, 40...)</p>
                       <input
                         type="number"
                         min="1"
@@ -596,27 +623,30 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Start from date field</label>
-                      <select
-                        value={formData.trigger_config.date_field || ''}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          trigger_config: { ...formData.trigger_config, date_field: e.target.value }
-                        })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select date field...</option>
-                        <option value="start_date">Start Date</option>
-                        <option value="project_start_date">Project Start Date</option>
-                        <option value="submission_date">Submission Date</option>
-                        <option value="approval_date">Approval Date</option>
-                        <option value="deposit_paid_date">Deposit Paid Date</option>
-                        <option value="hi_po_date">Hi-Po Date</option>
-                        <option value="next_hkpc_due_date">Next HKPC Due Date</option>
-                        <option value="invoice_date">Invoice Date</option>
-                      </select>
-                    </div>
+
+                    {!formData.trigger_config.check_invoices && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Start from date field</label>
+                        <select
+                          value={formData.trigger_config.date_field || ''}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            trigger_config: { ...formData.trigger_config, date_field: e.target.value }
+                          })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select date field...</option>
+                          <option value="start_date">Start Date</option>
+                          <option value="project_start_date">Project Start Date</option>
+                          <option value="submission_date">Submission Date</option>
+                          <option value="approval_date">Approval Date</option>
+                          <option value="deposit_paid_date">Deposit Paid Date</option>
+                          <option value="hi_po_date">Hi-Po Date</option>
+                          <option value="next_hkpc_due_date">Next HKPC Due Date</option>
+                          <option value="invoice_date">Invoice Date</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                 )}
 
