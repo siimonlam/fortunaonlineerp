@@ -188,6 +188,25 @@ Deno.serve(async (req: Request) => {
               continue;
             }
           }
+
+          if (rule.condition_type === 'invoice_status') {
+            const expectedInvoiceStatus = rule.condition_config?.invoice_status;
+            if (expectedInvoiceStatus) {
+              // Check if project has any invoice with the expected status
+              const { data: invoices } = await supabase
+                .from('funding_invoices')
+                .select('payment_status')
+                .eq('project_id', project_id);
+
+              const hasMatchingInvoice = invoices?.some(inv => inv.payment_status?.toLowerCase() === expectedInvoiceStatus.toLowerCase());
+
+              if (!hasMatchingInvoice) {
+                console.log(`Skipping rule - no invoice with status "${expectedInvoiceStatus}" found for project`);
+                results.push({ rule: rule.name, action: rule.action_type, status: 'skipped', reason: 'invoice_status_mismatch' });
+                continue;
+              }
+            }
+          }
         }
 
         if (rule.action_type === 'add_label') {
