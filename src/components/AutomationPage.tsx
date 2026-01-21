@@ -45,7 +45,7 @@ interface Status {
   parent_status_id?: string;
 }
 
-const MAIN_STATUSES = ['Hi-Po', 'Pre-Submission', 'Q&A', 'Final Report'];
+const MAIN_STATUSES = ['All', 'Hi-Po', 'Pre-Submission', 'Q&A', 'Final Report'];
 
 const TRIGGER_TYPES = [
   { value: 'hkpc_date_set', label: 'New Next HKPC Date is set' },
@@ -470,7 +470,7 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                 </select>
               </div>
 
-              {formData.main_status && (
+              {formData.main_status && formData.main_status !== 'All' && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Substatus Filter</label>
                   <select
@@ -490,6 +490,13 @@ export function AutomationPage({ projectTypeId, projectTypeName = 'Funding Proje
                   </select>
                   <p className="text-xs text-slate-500 mt-1">
                     Select 'All' to apply to all substatuses, or choose a specific substatus to improve performance
+                  </p>
+                </div>
+              )}
+              {formData.main_status === 'All' && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    This automation will apply to all main statuses (Hi-Po, Pre-Submission, Q&A, Final Report) and their substatuses.
                   </p>
                 </div>
               )}

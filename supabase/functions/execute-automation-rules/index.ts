@@ -75,7 +75,7 @@ Deno.serve(async (req: Request) => {
     const query = supabase
       .from('automation_rules')
       .select('*')
-      .eq('main_status', mainStatusName)
+      .or(`main_status.eq.${mainStatusName},main_status.eq.All`)
       .eq('trigger_type', trigger_type)
       .eq('is_active', true);
 
