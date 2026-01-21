@@ -4703,20 +4703,8 @@ export function ProjectBoard() {
               setSelectedProject(null);
               loadData();
             }}
-            onRefresh={async () => {
-              // Reload data but keep the modal open with updated project
-              await loadData();
-              // Refresh the selected project with latest data
-              const tableName = selectedProject.table_source || 'projects';
-              const { data: updatedProject } = await supabase
-                .from(tableName)
-                .select('*')
-                .eq('id', selectedProject.id)
-                .maybeSingle();
-
-              if (updatedProject) {
-                setSelectedProject(updatedProject);
-              }
+            onRefresh={() => {
+              loadData();
             }}
             isMarketing={isMarketingProject && !isFundingProject}
           />

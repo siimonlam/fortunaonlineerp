@@ -1195,11 +1195,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         console.log('[handleAddTask] Reloading tasks...');
         await loadTasks();
         console.log('[handleAddTask] Task addition complete!');
-
-        // Notify parent to refresh project list
-        if (onRefresh) {
-          onRefresh();
-        }
       }
     } catch (error: any) {
       console.error('[handleAddTask] Error adding task:', error);
@@ -1231,11 +1226,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       }
 
       await loadTasks();
-
-      // Notify parent to refresh project list without closing this modal
-      if (onRefresh) {
-        onRefresh();
-      }
     } catch (error: any) {
       console.error('Error updating task:', error);
       alert(`Failed to update task: ${error.message}`);
@@ -1342,11 +1332,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
       setEditingTaskId(null);
       await loadTasks();
-
-      // Notify parent to refresh project list
-      if (onRefresh) {
-        onRefresh();
-      }
     } catch (error: any) {
       console.error('Error updating task:', error);
       alert(`Failed to update task: ${error.message}`);
@@ -1370,11 +1355,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       }
 
       await loadTasks();
-
-      // Notify parent to refresh project list
-      if (onRefresh) {
-        onRefresh();
-      }
     } catch (error: any) {
       console.error('Error deleting task:', error);
       alert(`Failed to delete task: ${error.message}`);
