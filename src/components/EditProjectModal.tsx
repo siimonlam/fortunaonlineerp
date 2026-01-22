@@ -147,6 +147,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [folderCreationError, setFolderCreationError] = useState<string | null>(null);
   const [showInvoiceSettings, setShowInvoiceSettings] = useState(false);
   const [showReceiptSettings, setShowReceiptSettings] = useState(false);
+  const [receivableAmount, setReceivableAmount] = useState<number>(0);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
@@ -355,6 +356,26 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     const isChanged = JSON.stringify(normalizedFormData) !== JSON.stringify(normalizedOriginalData);
     setHasUnsavedChanges(isChanged);
   }, [formData, originalData]);
+
+  useEffect(() => {
+    // Calculate receivable amount
+    // Receivable = (Project Size × Funding Scheme %) - (Sum of all paid invoice amounts)
+    const projectSize = parseFloat(formData.projectSize) || 0;
+    const fundingScheme = parseFloat(formData.fundingScheme) || 0;
+
+    // Calculate total funded amount
+    const totalFundedAmount = projectSize * (fundingScheme / 100);
+
+    // Calculate total paid invoices
+    const totalPaidInvoices = invoices
+      .filter(inv => inv.payment_status === 'Paid')
+      .reduce((sum, inv) => sum + (parseFloat(inv.amount) || 0), 0);
+
+    // Calculate receivable
+    const receivable = totalFundedAmount - totalPaidInvoices;
+
+    setReceivableAmount(receivable);
+  }, [invoices, formData.projectSize, formData.fundingScheme]);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
@@ -2213,6 +2234,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                   placeholder="25.00"
                 />
+              </div>
+              <div className="col-span-3">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Receivable</label>
+                <div className="w-full px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+                  <span className={`text-lg font-semibold ${receivableAmount >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    HKD ${receivableAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Calculated as: (Project Size × Funding Scheme %) - Total Paid Invoices
+                </p>
               </div>
             </div>
             </div>
