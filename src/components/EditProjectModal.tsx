@@ -201,6 +201,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     depositPaidDate: project.deposit_paid_date || '',
     serviceFeePercentage: project.service_fee_percentage?.toString() || '',
     fundingScheme: project.funding_scheme?.toString() || '25',
+    grantedAmount: (project as any).granted_amount || '',
     startDate: project.start_date || '',
     projectStartDate: project.project_start_date || '',
     projectEndDate: project.project_end_date || '',
@@ -252,6 +253,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     depositPaidDate: project.deposit_paid_date || '',
     serviceFeePercentage: project.service_fee_percentage?.toString() || '',
     fundingScheme: project.funding_scheme?.toString() || '25',
+    grantedAmount: (project as any).granted_amount || '',
     startDate: project.start_date || '',
     projectStartDate: project.project_start_date || '',
     projectEndDate: project.project_end_date || '',
@@ -1007,6 +1009,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         deposit_paid_date: formData.depositPaidDate || null,
         service_fee_percentage: formData.serviceFeePercentage ? parseFloat(formData.serviceFeePercentage) : null,
         funding_scheme: formData.fundingScheme ? parseFloat(formData.fundingScheme) : null,
+        granted_amount: formData.grantedAmount.trim() || null,
         start_date: formData.startDate || null,
         project_start_date: formData.projectStartDate || null,
         project_end_date: formData.projectEndDate || null,
@@ -2240,6 +2243,18 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   onChange={(e) => setFormData({ ...formData, fundingScheme: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                   placeholder="25.00"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Granted Amount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  disabled={!canEdit}
+                  value={formData.grantedAmount}
+                  onChange={(e) => setFormData({ ...formData, grantedAmount: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  placeholder="0.00"
                 />
               </div>
               <div className="col-span-3">
