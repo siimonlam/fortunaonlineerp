@@ -359,12 +359,13 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
   useEffect(() => {
     // Calculate receivable amount
-    // Receivable = (Project Size × Funding Scheme %) - (Sum of all paid invoice amounts)
+    // Receivable = (Project Size × Funding Scheme % × Service Fee %) - (Sum of all paid invoice amounts)
     const projectSize = parseFloat(formData.projectSize) || 0;
     const fundingScheme = parseFloat(formData.fundingScheme) || 0;
+    const serviceFee = parseFloat(formData.serviceFeePercentage) || 0;
 
     // Calculate total funded amount
-    const totalFundedAmount = projectSize * (fundingScheme / 100);
+    const totalFundedAmount = projectSize * (fundingScheme / 100) * (serviceFee / 100);
 
     // Calculate total paid invoices
     const totalPaidInvoices = invoices
@@ -375,7 +376,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     const receivable = totalFundedAmount - totalPaidInvoices;
 
     setReceivableAmount(receivable);
-  }, [invoices, formData.projectSize, formData.fundingScheme]);
+  }, [invoices, formData.projectSize, formData.fundingScheme, formData.serviceFeePercentage]);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
