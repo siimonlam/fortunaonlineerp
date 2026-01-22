@@ -361,30 +361,39 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
   useEffect(() => {
     // Calculate receivable amount
-    // Receivable = (Project Size × Funding Scheme % × Service Fee %) - (Sum of all paid invoice amounts)
-    const projectSize = parseFloat(formData.projectSize) || 0;
-
-    if (projectSize === 0) {
-      setReceivableAmount(0);
-      return;
-    }
-
-    const fundingScheme = parseFloat(formData.fundingScheme) || 0;
+    const grantedAmount = parseFloat(formData.grantedAmount) || 0;
     const serviceFee = parseFloat(formData.serviceFeePercentage) || 0;
-
-    // Calculate total funded amount
-    const totalFundedAmount = projectSize * (fundingScheme / 100) * (serviceFee / 100);
 
     // Calculate total paid invoices
     const totalPaidInvoices = invoices
       .filter(inv => inv.payment_status === 'Paid')
       .reduce((sum, inv) => sum + (parseFloat(inv.amount) || 0), 0);
 
-    // Calculate receivable
-    const receivable = totalFundedAmount - totalPaidInvoices;
+    let receivable = 0;
+
+    if (grantedAmount > 0) {
+      // If Granted Amount is not blank: receivable = Granted Amount × Service Fee %
+      receivable = grantedAmount * (serviceFee / 100) - totalPaidInvoices;
+    } else {
+      // If Granted Amount is blank: use the current calculation
+      const projectSize = parseFloat(formData.projectSize) || 0;
+
+      if (projectSize === 0) {
+        setReceivableAmount(0);
+        return;
+      }
+
+      const fundingScheme = parseFloat(formData.fundingScheme) || 0;
+
+      // Calculate total funded amount (Project Size × Funding Scheme % × Service Fee %)
+      const totalFundedAmount = projectSize * (fundingScheme / 100) * (serviceFee / 100);
+
+      // Calculate receivable
+      receivable = totalFundedAmount - totalPaidInvoices;
+    }
 
     setReceivableAmount(receivable);
-  }, [invoices, formData.projectSize, formData.fundingScheme, formData.serviceFeePercentage]);
+  }, [invoices, formData.projectSize, formData.fundingScheme, formData.serviceFeePercentage, formData.grantedAmount]);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
@@ -2265,7 +2274,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Calculated as: (Project Size × Funding Scheme %) - Total Paid Invoices
+                  {formData.grantedAmount
+                    ? 'Calculated as: (Granted Amount × Service Fee %) - Total Paid Invoices'
+                    : 'Calculated as: (Project Size × Funding Scheme % × Service Fee %) - Total Paid Invoices'
+                  }
                 </p>
               </div>
             </div>
