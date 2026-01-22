@@ -1,4 +1,6 @@
-import { Building2, FileText, Package, Calendar, Clock } from 'lucide-react';
+import { Building2, FileText, Package, Calendar, Clock, DollarSign } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface Task {
   id: string;
@@ -8,6 +10,7 @@ interface Task {
 }
 
 interface Project {
+  id?: string;
   company_name?: string;
   contact_name?: string;
   contact_number?: string;
@@ -21,6 +24,7 @@ interface Project {
   deposit_paid?: boolean;
   deposit_paid_date?: string;
   service_fee_percentage?: number;
+  funding_scheme?: number;
   invoice_number?: string;
   agreement_ref?: string;
   whatsapp_group_id?: string;
@@ -39,10 +43,35 @@ interface ProjectCardFieldsProps {
 }
 
 export function ProjectCardFields({ project }: ProjectCardFieldsProps) {
+  const [receivable, setReceivable] = useState<number | null>(null);
+
   const incompleteTasks = project.tasks?.filter(t => !t.completed && t.deadline) || [];
   const nextUpcomingTask = incompleteTasks
     .filter(t => new Date(t.deadline!) >= new Date())
     .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())[0];
+
+  useEffect(() => {
+    async function calculateReceivable() {
+      if (!project.id) return;
+
+      const projectSize = parseFloat(project.project_size || '0');
+      const fundingScheme = project.funding_scheme || 0;
+      const serviceFee = project.service_fee_percentage || 0;
+
+      const { data: invoices } = await supabase
+        .from('funding_invoice')
+        .select('amount')
+        .eq('project_id', project.id)
+        .eq('payment_status', 'Paid');
+
+      const totalPaid = invoices?.reduce((sum, inv) => sum + parseFloat(inv.amount || '0'), 0) || 0;
+      const calculated = (projectSize * fundingScheme / 100 * serviceFee / 100) - totalPaid;
+
+      setReceivable(calculated);
+    }
+
+    calculateReceivable();
+  }, [project.id, project.project_size, project.funding_scheme, project.service_fee_percentage]);
 
   return (
     <div className="space-y-1.5 mb-3 text-xs">
@@ -108,6 +137,14 @@ export function ProjectCardFields({ project }: ProjectCardFieldsProps) {
           <Package className="w-3.5 h-3.5 flex-shrink-0" />
           <span className="font-medium">Size:</span>
           <span>{project.project_size}</span>
+        </div>
+      )}
+
+      {receivable !== null && (
+        <div className={`flex items-center gap-2 ${receivable >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <DollarSign className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="font-medium">Receivable:</span>
+          <span>HKD ${receivable.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       )}
     </div>

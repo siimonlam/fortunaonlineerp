@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, Bell, ArrowUpDown, ArrowUp, ArrowDown, Tag } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface Staff {
   id: string;
@@ -54,6 +55,7 @@ interface Project {
   deposit_amount?: number;
   project_name?: string;
   service_fee_percentage?: number;
+  funding_scheme?: number;
   whatsapp_group_id?: string;
   invoice_number?: string;
   agreement_ref?: string;
@@ -107,6 +109,36 @@ export function ProjectListView({
 }: ProjectListViewProps) {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [receivables, setReceivables] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    async function calculateReceivables() {
+      const receivableMap: Record<string, number> = {};
+
+      for (const project of projects) {
+        if (!isFundingProject(project)) continue;
+
+        const projectSize = parseFloat(project.project_size || '0');
+        const fundingScheme = project.funding_scheme || 0;
+        const serviceFee = project.service_fee_percentage || 0;
+
+        const { data: invoices } = await supabase
+          .from('funding_invoice')
+          .select('amount')
+          .eq('project_id', project.id)
+          .eq('payment_status', 'Paid');
+
+        const totalPaid = invoices?.reduce((sum, inv) => sum + parseFloat(inv.amount || '0'), 0) || 0;
+        const calculated = (projectSize * fundingScheme / 100 * serviceFee / 100) - totalPaid;
+
+        receivableMap[project.id] = calculated;
+      }
+
+      setReceivables(receivableMap);
+    }
+
+    calculateReceivables();
+  }, [projects, projectTypes]);
 
   const isFundingProject = (project: Project) => {
     return projectTypes?.find(pt => pt.id === project.project_type_id)?.name === 'Funding Project';
@@ -258,6 +290,15 @@ export function ProjectListView({
             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
               {project.abbreviation || '-'}
             </td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+              {receivables[project.id] !== undefined ? (
+                <span className={receivables[project.id] >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                  HKD ${receivables[project.id].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              ) : (
+                <span className="text-slate-400">-</span>
+              )}
+            </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
               {formatDate(project.next_hkpc_due_date)}
             </td>
@@ -312,6 +353,9 @@ export function ProjectListView({
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Abbreviation
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Receivable
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-200 transition-colors"
