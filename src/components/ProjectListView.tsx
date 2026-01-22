@@ -119,6 +119,12 @@ export function ProjectListView({
         if (!isFundingProject(project)) continue;
 
         const projectSize = parseFloat(project.project_size || '0');
+
+        if (projectSize === 0) {
+          receivableMap[project.id] = 0;
+          continue;
+        }
+
         const fundingScheme = project.funding_scheme || 0;
         const serviceFee = project.service_fee_percentage || 0;
 

@@ -361,6 +361,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     // Calculate receivable amount
     // Receivable = (Project Size × Funding Scheme % × Service Fee %) - (Sum of all paid invoice amounts)
     const projectSize = parseFloat(formData.projectSize) || 0;
+
+    if (projectSize === 0) {
+      setReceivableAmount(0);
+      return;
+    }
+
     const fundingScheme = parseFloat(formData.fundingScheme) || 0;
     const serviceFee = parseFloat(formData.serviceFeePercentage) || 0;
 

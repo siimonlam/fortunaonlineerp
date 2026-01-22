@@ -55,6 +55,12 @@ export function ProjectCardFields({ project }: ProjectCardFieldsProps) {
       if (!project.id) return;
 
       const projectSize = parseFloat(project.project_size || '0');
+
+      if (projectSize === 0) {
+        setReceivable(0);
+        return;
+      }
+
       const fundingScheme = project.funding_scheme || 0;
       const serviceFee = project.service_fee_percentage || 0;
 
