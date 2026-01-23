@@ -3232,23 +3232,18 @@ export function ProjectBoard() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder={
-                          activeClientTab === 'company' ? 'Search clients...' :
-                          activeClientTab === 'channel' ? 'Search partners...' :
-                          'Search inquiries...'
-                        }
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-                      />
-                    </div>
                   {activeClientTab !== 'inquiries' && (
-                    <>
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder={activeClientTab === 'company' ? 'Search clients...' : 'Search partners...'}
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                        />
+                      </div>
                       <select
                         value={clientSortBy}
                         onChange={(e) => setClientSortBy(e.target.value as any)}
@@ -3283,15 +3278,13 @@ export function ProjectBoard() {
                           <Table className="w-4 h-4" />
                         </button>
                       </div>
-                    </>
-                  )}
-                    {activeClientTab !== 'inquiries' && activeClientTab === 'company' && (
-                      <>
-                        {selectedClientIds.size > 0 && (
-                          <>
-                            <div className="relative">
-                              <button
-                                onClick={() => setShowBulkProjectMenu(!showBulkProjectMenu)}
+                      {activeClientTab === 'company' && (
+                        <>
+                          {selectedClientIds.size > 0 && (
+                            <>
+                              <div className="relative">
+                                <button
+                                  onClick={() => setShowBulkProjectMenu(!showBulkProjectMenu)}
                                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
                               >
                                 <Plus className="w-5 h-5" />
@@ -3453,17 +3446,16 @@ export function ProjectBoard() {
                               Export {selectedClientIds.size} Selected
                             </button>
                           </>
-                        )}
-                        <button
-                          onClick={() => setShowImportModal(true)}
-                          className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
-                        >
-                          <Upload className="w-5 h-5" />
-                          Import/Update CSV
-                        </button>
-                      </>
-                    )}
-                    {activeClientTab !== 'inquiries' && (
+                          )}
+                          <button
+                            onClick={() => setShowImportModal(true)}
+                            className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
+                          >
+                            <Upload className="w-5 h-5" />
+                            Import/Update CSV
+                          </button>
+                        </>
+                      )}
                       <button
                         onClick={() => {
                           setAddClientType(activeClientTab as 'company' | 'channel');
@@ -3478,8 +3470,8 @@ export function ProjectBoard() {
                         <Plus className="w-5 h-5" />
                         {activeClientTab === 'company' ? 'Add Company Client' : 'Add Channel Partner'}
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
