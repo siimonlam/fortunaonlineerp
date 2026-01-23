@@ -64,16 +64,12 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
     const { error } = await supabase
       .from('partner_projects')
       .update({
-        project_reference: formData.projectReference || null,
-        channel_partner_name: formData.channelPartnerName,
-        channel_partner_reference: formData.channelPartnerReference || null,
         project_amount: parseFloat(formData.projectAmount) || 0,
         date: formData.date || null,
         paid_status: formData.paidStatus,
         commission_rate: parseFloat(formData.commissionRate) || 0,
         commission_amount: parseFloat(formData.commissionAmount) || 0,
         commission_paid_status: formData.commissionPaidStatus,
-        company_name: formData.companyName || null,
         project_content: formData.projectContent || null,
         project_type: formData.projectType,
         project_status: formData.projectStatus,
@@ -127,8 +123,8 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
               <input
                 type="text"
                 value={formData.projectReference}
-                onChange={(e) => setFormData({ ...formData, projectReference: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 cursor-not-allowed"
               />
             </div>
 
@@ -138,10 +134,9 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
               </label>
               <input
                 type="text"
-                required
                 value={formData.channelPartnerName}
-                onChange={(e) => setFormData({ ...formData, channelPartnerName: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 cursor-not-allowed"
               />
             </div>
 
@@ -152,8 +147,8 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
               <input
                 type="text"
                 value={formData.channelPartnerReference}
-                onChange={(e) => setFormData({ ...formData, channelPartnerReference: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 cursor-not-allowed"
               />
             </div>
 
@@ -286,8 +281,8 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
               <input
                 type="text"
                 value={formData.companyName}
-                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 cursor-not-allowed"
               />
             </div>
           </div>
