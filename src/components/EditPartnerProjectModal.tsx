@@ -14,8 +14,7 @@ interface PartnerProject {
   commission_rate: number;
   commission_amount: number;
   commission_paid_status: boolean;
-  client_name: string | null;
-  client_reference: string | null;
+  company_name: string | null;
   project_content: string | null;
   project_type?: string;
   project_status?: string;
@@ -39,8 +38,7 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
     commissionRate: project.commission_rate.toString(),
     commissionAmount: project.commission_amount.toString(),
     commissionPaidStatus: project.commission_paid_status,
-    clientName: project.client_name || '',
-    clientReference: project.client_reference || '',
+    companyName: project.company_name || '',
     projectContent: project.project_content || '',
     projectType: project.project_type || 'others',
     projectStatus: project.project_status || 'pending',
@@ -75,8 +73,7 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
         commission_rate: parseFloat(formData.commissionRate) || 0,
         commission_amount: parseFloat(formData.commissionAmount) || 0,
         commission_paid_status: formData.commissionPaidStatus,
-        client_name: formData.clientName || null,
-        client_reference: formData.clientReference || null,
+        company_name: formData.companyName || null,
         project_content: formData.projectContent || null,
         project_type: formData.projectType,
         project_status: formData.projectStatus,
@@ -282,26 +279,14 @@ export function EditPartnerProjectModal({ project, onClose, onSuccess }: EditPar
               </div>
             </div>
 
-            <div>
+            <div className="col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Client Name
+                Company Name
               </label>
               <input
                 type="text"
-                value={formData.clientName}
-                onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Client Reference
-              </label>
-              <input
-                type="text"
-                value={formData.clientReference}
-                onChange={(e) => setFormData({ ...formData, clientReference: e.target.value })}
+                value={formData.companyName}
+                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
