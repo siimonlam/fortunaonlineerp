@@ -154,52 +154,47 @@ Deno.serve(async (req: Request) => {
               .eq('invoice_id', invoice.id)
               .maybeSingle();
 
-            const startDate = new Date(invoice.issue_date);
-            startDate.setHours(0, 0, 0, 0);
-
             const todayMidnight = new Date(now);
             todayMidnight.setHours(0, 0, 0, 0);
-
-            const daysSinceStart = Math.floor((todayMidnight.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-            const expectedExecutionNumber = Math.floor(daysSinceStart / intervalDays);
 
             let shouldExecute = false;
 
             if (!existingExecution) {
-              if (expectedExecutionNumber >= 1) {
-                const targetExecutionDate = new Date(startDate);
-                targetExecutionDate.setDate(targetExecutionDate.getDate() + (expectedExecutionNumber * intervalDays));
-                targetExecutionDate.setHours(0, 0, 0, 0);
+              const issueDate = new Date(invoice.issue_date);
+              issueDate.setHours(0, 0, 0, 0);
 
-                if (todayMidnight.getTime() === targetExecutionDate.getTime()) {
-                  shouldExecute = true;
+              const daysSinceIssue = Math.floor((todayMidnight.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24));
 
-                  const nextExecution = new Date(targetExecutionDate);
-                  nextExecution.setDate(nextExecution.getDate() + intervalDays);
-
-                  await supabase
-                    .from('periodic_automation_executions')
-                    .insert({
-                      automation_rule_id: rule.id,
-                      project_id: invoice.project_id,
-                      invoice_id: invoice.id,
-                      last_executed_at: now.toISOString(),
-                      next_execution_at: nextExecution.toISOString()
-                    });
-
-                  console.log(`First execution for invoice ${invoice.invoice_number}: today is the exact target date (day ${daysSinceStart}), next execution on day ${daysSinceStart + intervalDays}`);
-                } else {
-                  console.log(`Skipping invoice ${invoice.invoice_number}: not on target date. Today is day ${daysSinceStart}, target was day ${expectedExecutionNumber * intervalDays}`);
-                }
-              }
-            } else {
-              const nextExecutionDate = new Date(existingExecution.next_execution_at);
-              nextExecutionDate.setHours(0, 0, 0, 0);
-
-              if (todayMidnight.getTime() === nextExecutionDate.getTime()) {
+              if (daysSinceIssue >= intervalDays) {
                 shouldExecute = true;
 
-                const nextExecution = new Date(nextExecutionDate);
+                const nextExecution = new Date(todayMidnight);
+                nextExecution.setDate(nextExecution.getDate() + intervalDays);
+
+                await supabase
+                  .from('periodic_automation_executions')
+                  .insert({
+                    automation_rule_id: rule.id,
+                    project_id: invoice.project_id,
+                    invoice_id: invoice.id,
+                    last_executed_at: now.toISOString(),
+                    next_execution_at: nextExecution.toISOString()
+                  });
+
+                console.log(`First execution for invoice ${invoice.invoice_number}: ${daysSinceIssue} days since issue, interval is ${intervalDays} days`);
+              } else {
+                console.log(`Skipping invoice ${invoice.invoice_number}: only ${daysSinceIssue} days since issue, need ${intervalDays} days`);
+              }
+            } else {
+              const lastExecuted = new Date(existingExecution.last_executed_at);
+              lastExecuted.setHours(0, 0, 0, 0);
+
+              const daysSinceLastExecution = Math.floor((todayMidnight.getTime() - lastExecuted.getTime()) / (1000 * 60 * 60 * 24));
+
+              if (daysSinceLastExecution >= intervalDays) {
+                shouldExecute = true;
+
+                const nextExecution = new Date(todayMidnight);
                 nextExecution.setDate(nextExecution.getDate() + intervalDays);
 
                 await supabase
@@ -211,9 +206,9 @@ Deno.serve(async (req: Request) => {
                   })
                   .eq('id', existingExecution.id);
 
-                console.log(`Subsequent execution for invoice ${invoice.invoice_number}: today is the exact target date (day ${daysSinceStart}), next execution on day ${daysSinceStart + intervalDays}`);
-              } else if (todayMidnight.getTime() > nextExecutionDate.getTime()) {
-                console.log(`Missed execution for invoice ${invoice.invoice_number}: today is day ${daysSinceStart}, but target was ${Math.floor((nextExecutionDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))}. Waiting for next cycle.`);
+                console.log(`Executing for invoice ${invoice.invoice_number}: ${daysSinceLastExecution} days since last execution, interval is ${intervalDays} days`);
+              } else {
+                console.log(`Skipping invoice ${invoice.invoice_number}: only ${daysSinceLastExecution} days since last execution, need ${intervalDays} days`);
               }
             }
 
@@ -344,53 +339,47 @@ Deno.serve(async (req: Request) => {
               .is('invoice_id', null)
               .maybeSingle();
 
-            const startDate = new Date(projectStartDate);
-            startDate.setHours(0, 0, 0, 0);
-
             const todayMidnight = new Date(now);
             todayMidnight.setHours(0, 0, 0, 0);
-
-            const daysSinceStart = Math.floor((todayMidnight.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-
-            const expectedExecutionNumber = Math.floor(daysSinceStart / intervalDays);
 
             let shouldExecute = false;
 
             if (!existingExecution) {
-              if (expectedExecutionNumber >= 1) {
-                const targetExecutionDate = new Date(startDate);
-                targetExecutionDate.setDate(targetExecutionDate.getDate() + (expectedExecutionNumber * intervalDays));
-                targetExecutionDate.setHours(0, 0, 0, 0);
+              const startDate = new Date(projectStartDate);
+              startDate.setHours(0, 0, 0, 0);
 
-                if (todayMidnight.getTime() === targetExecutionDate.getTime()) {
-                  shouldExecute = true;
+              const daysSinceStart = Math.floor((todayMidnight.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-                  const nextExecution = new Date(targetExecutionDate);
-                  nextExecution.setDate(nextExecution.getDate() + intervalDays);
-
-                  await supabase
-                    .from('periodic_automation_executions')
-                    .insert({
-                      automation_rule_id: rule.id,
-                      project_id: project.id,
-                      invoice_id: null,
-                      last_executed_at: now.toISOString(),
-                      next_execution_at: nextExecution.toISOString()
-                    });
-
-                  console.log(`First execution for ${project.title}: today is the exact target date (day ${daysSinceStart}), next execution on day ${daysSinceStart + intervalDays}`);
-                } else {
-                  console.log(`Skipping ${project.title}: not on target date. Today is day ${daysSinceStart}, target was day ${expectedExecutionNumber * intervalDays}`);
-                }
-              }
-            } else {
-              const nextExecutionDate = new Date(existingExecution.next_execution_at);
-              nextExecutionDate.setHours(0, 0, 0, 0);
-
-              if (todayMidnight.getTime() === nextExecutionDate.getTime()) {
+              if (daysSinceStart >= intervalDays) {
                 shouldExecute = true;
 
-                const nextExecution = new Date(nextExecutionDate);
+                const nextExecution = new Date(todayMidnight);
+                nextExecution.setDate(nextExecution.getDate() + intervalDays);
+
+                await supabase
+                  .from('periodic_automation_executions')
+                  .insert({
+                    automation_rule_id: rule.id,
+                    project_id: project.id,
+                    invoice_id: null,
+                    last_executed_at: now.toISOString(),
+                    next_execution_at: nextExecution.toISOString()
+                  });
+
+                console.log(`First execution for ${project.title}: ${daysSinceStart} days since ${dateField}, interval is ${intervalDays} days`);
+              } else {
+                console.log(`Skipping ${project.title}: only ${daysSinceStart} days since ${dateField}, need ${intervalDays} days`);
+              }
+            } else {
+              const lastExecuted = new Date(existingExecution.last_executed_at);
+              lastExecuted.setHours(0, 0, 0, 0);
+
+              const daysSinceLastExecution = Math.floor((todayMidnight.getTime() - lastExecuted.getTime()) / (1000 * 60 * 60 * 24));
+
+              if (daysSinceLastExecution >= intervalDays) {
+                shouldExecute = true;
+
+                const nextExecution = new Date(todayMidnight);
                 nextExecution.setDate(nextExecution.getDate() + intervalDays);
 
                 await supabase
@@ -402,9 +391,9 @@ Deno.serve(async (req: Request) => {
                   })
                   .eq('id', existingExecution.id);
 
-                console.log(`Subsequent execution for ${project.title}: today is the exact target date (day ${daysSinceStart}), next execution on day ${daysSinceStart + intervalDays}`);
-              } else if (todayMidnight.getTime() > nextExecutionDate.getTime()) {
-                console.log(`Missed execution for ${project.title}: today is day ${daysSinceStart}, but target was ${Math.floor((nextExecutionDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))}. Waiting for next cycle.`);
+                console.log(`Executing for ${project.title}: ${daysSinceLastExecution} days since last execution, interval is ${intervalDays} days`);
+              } else {
+                console.log(`Skipping ${project.title}: only ${daysSinceLastExecution} days since last execution, need ${intervalDays} days`);
               }
             }
 
