@@ -63,6 +63,9 @@ Deno.serve(async (req: Request) => {
         const intervalDays = rule.trigger_config?.frequency || rule.trigger_config?.interval_days || 1;
         const checkInvoices = rule.trigger_config?.check_invoices === true;
 
+        const todayMidnight = new Date(now);
+        todayMidnight.setHours(0, 0, 0, 0);
+
         if (checkInvoices) {
           console.log('Processing invoice-based automation...');
 
@@ -147,73 +150,13 @@ Deno.serve(async (req: Request) => {
               continue;
             }
 
-            const { data: existingExecution } = await supabase
-              .from('periodic_automation_executions')
-              .select('*')
-              .eq('automation_rule_id', rule.id)
-              .eq('invoice_id', invoice.id)
-              .maybeSingle();
+            const issueDate = new Date(invoice.issue_date);
+            issueDate.setHours(0, 0, 0, 0);
 
-            const todayMidnight = new Date(now);
-            todayMidnight.setHours(0, 0, 0, 0);
+            const daysSinceIssue = Math.floor((todayMidnight.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24));
 
-            let shouldExecute = false;
-
-            if (!existingExecution) {
-              const issueDate = new Date(invoice.issue_date);
-              issueDate.setHours(0, 0, 0, 0);
-
-              const daysSinceIssue = Math.floor((todayMidnight.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24));
-
-              if (daysSinceIssue >= intervalDays) {
-                shouldExecute = true;
-
-                const nextExecution = new Date(todayMidnight);
-                nextExecution.setDate(nextExecution.getDate() + intervalDays);
-
-                await supabase
-                  .from('periodic_automation_executions')
-                  .insert({
-                    automation_rule_id: rule.id,
-                    project_id: invoice.project_id,
-                    invoice_id: invoice.id,
-                    last_executed_at: now.toISOString(),
-                    next_execution_at: nextExecution.toISOString()
-                  });
-
-                console.log(`First execution for invoice ${invoice.invoice_number}: ${daysSinceIssue} days since issue, interval is ${intervalDays} days`);
-              } else {
-                console.log(`Skipping invoice ${invoice.invoice_number}: only ${daysSinceIssue} days since issue, need ${intervalDays} days`);
-              }
-            } else {
-              const lastExecuted = new Date(existingExecution.last_executed_at);
-              lastExecuted.setHours(0, 0, 0, 0);
-
-              const daysSinceLastExecution = Math.floor((todayMidnight.getTime() - lastExecuted.getTime()) / (1000 * 60 * 60 * 24));
-
-              if (daysSinceLastExecution >= intervalDays) {
-                shouldExecute = true;
-
-                const nextExecution = new Date(todayMidnight);
-                nextExecution.setDate(nextExecution.getDate() + intervalDays);
-
-                await supabase
-                  .from('periodic_automation_executions')
-                  .update({
-                    last_executed_at: now.toISOString(),
-                    next_execution_at: nextExecution.toISOString(),
-                    updated_at: now.toISOString()
-                  })
-                  .eq('id', existingExecution.id);
-
-                console.log(`Executing for invoice ${invoice.invoice_number}: ${daysSinceLastExecution} days since last execution, interval is ${intervalDays} days`);
-              } else {
-                console.log(`Skipping invoice ${invoice.invoice_number}: only ${daysSinceLastExecution} days since last execution, need ${intervalDays} days`);
-              }
-            }
-
-            if (shouldExecute) {
-              console.log(`Executing automation for invoice: ${invoice.invoice_number}`);
+            if (daysSinceIssue % intervalDays === 0 && daysSinceIssue > 0) {
+              console.log(`Executing automation for invoice ${invoice.invoice_number}: ${daysSinceIssue} days since issue (${daysSinceIssue} % ${intervalDays} = 0)`);
 
               if (rule.action_type === 'add_task') {
                 const taskConfig = rule.action_config;
@@ -263,6 +206,8 @@ Deno.serve(async (req: Request) => {
                   });
                 }
               }
+            } else {
+              console.log(`Skipping invoice ${invoice.invoice_number}: ${daysSinceIssue} days since issue (${daysSinceIssue} % ${intervalDays} = ${daysSinceIssue % intervalDays})`);
             }
           }
         } else {
@@ -331,74 +276,13 @@ Deno.serve(async (req: Request) => {
               continue;
             }
 
-            const { data: existingExecution } = await supabase
-              .from('periodic_automation_executions')
-              .select('*')
-              .eq('automation_rule_id', rule.id)
-              .eq('project_id', project.id)
-              .is('invoice_id', null)
-              .maybeSingle();
+            const startDate = new Date(projectStartDate);
+            startDate.setHours(0, 0, 0, 0);
 
-            const todayMidnight = new Date(now);
-            todayMidnight.setHours(0, 0, 0, 0);
+            const daysSinceStart = Math.floor((todayMidnight.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-            let shouldExecute = false;
-
-            if (!existingExecution) {
-              const startDate = new Date(projectStartDate);
-              startDate.setHours(0, 0, 0, 0);
-
-              const daysSinceStart = Math.floor((todayMidnight.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-
-              if (daysSinceStart >= intervalDays) {
-                shouldExecute = true;
-
-                const nextExecution = new Date(todayMidnight);
-                nextExecution.setDate(nextExecution.getDate() + intervalDays);
-
-                await supabase
-                  .from('periodic_automation_executions')
-                  .insert({
-                    automation_rule_id: rule.id,
-                    project_id: project.id,
-                    invoice_id: null,
-                    last_executed_at: now.toISOString(),
-                    next_execution_at: nextExecution.toISOString()
-                  });
-
-                console.log(`First execution for ${project.title}: ${daysSinceStart} days since ${dateField}, interval is ${intervalDays} days`);
-              } else {
-                console.log(`Skipping ${project.title}: only ${daysSinceStart} days since ${dateField}, need ${intervalDays} days`);
-              }
-            } else {
-              const lastExecuted = new Date(existingExecution.last_executed_at);
-              lastExecuted.setHours(0, 0, 0, 0);
-
-              const daysSinceLastExecution = Math.floor((todayMidnight.getTime() - lastExecuted.getTime()) / (1000 * 60 * 60 * 24));
-
-              if (daysSinceLastExecution >= intervalDays) {
-                shouldExecute = true;
-
-                const nextExecution = new Date(todayMidnight);
-                nextExecution.setDate(nextExecution.getDate() + intervalDays);
-
-                await supabase
-                  .from('periodic_automation_executions')
-                  .update({
-                    last_executed_at: now.toISOString(),
-                    next_execution_at: nextExecution.toISOString(),
-                    updated_at: now.toISOString()
-                  })
-                  .eq('id', existingExecution.id);
-
-                console.log(`Executing for ${project.title}: ${daysSinceLastExecution} days since last execution, interval is ${intervalDays} days`);
-              } else {
-                console.log(`Skipping ${project.title}: only ${daysSinceLastExecution} days since last execution, need ${intervalDays} days`);
-              }
-            }
-
-            if (shouldExecute) {
-              console.log(`Executing automation for project: ${project.title}`);
+            if (daysSinceStart % intervalDays === 0 && daysSinceStart > 0) {
+              console.log(`Executing automation for ${project.title}: ${daysSinceStart} days since ${dateField} (${daysSinceStart} % ${intervalDays} = 0)`);
 
               if (rule.action_type === 'add_task') {
                 const taskConfig = rule.action_config;
@@ -536,6 +420,8 @@ Deno.serve(async (req: Request) => {
                   });
                 }
               }
+            } else {
+              console.log(`Skipping ${project.title}: ${daysSinceStart} days since ${dateField} (${daysSinceStart} % ${intervalDays} = ${daysSinceStart % intervalDays})`);
             }
           }
         }
