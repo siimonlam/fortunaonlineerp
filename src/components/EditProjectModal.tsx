@@ -276,6 +276,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(true);
+  const [filterAssignee, setFilterAssignee] = useState<string>('');
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState({
     title: '',
@@ -2644,27 +2645,48 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           )}
 
           <div className="space-y-4 mt-6">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <h3 className="text-lg font-semibold text-slate-900">Tasks</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCompletedTasks(!showCompletedTasks)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:text-slate-900 text-sm rounded-lg hover:bg-slate-100 transition-colors"
-                  title={showCompletedTasks ? 'Hide completed tasks' : 'Show completed tasks'}
-                >
-                  {showCompletedTasks ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  {showCompletedTasks ? 'Hide' : 'Show'} Completed
-                </button>
-                {canEdit && (
+            <div className="border-b border-slate-200 pb-2">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-slate-900">Tasks</h3>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowAddTask(!showAddTask)}
-                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:text-slate-900 text-sm rounded-lg hover:bg-slate-100 transition-colors"
+                    title={showCompletedTasks ? 'Hide completed tasks' : 'Show completed tasks'}
                   >
-                    {showAddTask ? 'Cancel' : '+ Add Task'}
+                    {showCompletedTasks ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showCompletedTasks ? 'Hide' : 'Show'} Completed
                   </button>
-                )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddTask(!showAddTask)}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      {showAddTask ? 'Cancel' : '+ Add Task'}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <Users className="w-4 h-4" />
+                  Assignee:
+                </label>
+                <select
+                  value={filterAssignee}
+                  onChange={(e) => setFilterAssignee(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Assignees</option>
+                  <option value="unassigned">Unassigned</option>
+                  {staff.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.full_name || s.email}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -2731,9 +2753,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               ) : (
                 (() => {
                   const now = new Date();
-                  const filteredTasks = showCompletedTasks
+                  let filteredTasks = showCompletedTasks
                     ? tasks
                     : tasks.filter(t => !t.completed);
+
+                  if (filterAssignee) {
+                    if (filterAssignee === 'unassigned') {
+                      filteredTasks = filteredTasks.filter(t => !t.assigned_to);
+                    } else {
+                      filteredTasks = filteredTasks.filter(t => t.assigned_to === filterAssignee);
+                    }
+                  }
 
                   const sortedTasks = [...filteredTasks].sort((a, b) => {
                     if (a.completed !== b.completed) {
@@ -2749,6 +2779,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
                     return aDate.getTime() - bDate.getTime();
                   });
+
+                  if (sortedTasks.length === 0) {
+                    return (
+                      <p className="text-sm text-slate-500 text-center py-4">
+                        No tasks match the selected filters
+                      </p>
+                    );
+                  }
 
                   return sortedTasks.map(task => (
                     <div key={task.id} className="bg-white border border-slate-200 rounded-lg p-3">
