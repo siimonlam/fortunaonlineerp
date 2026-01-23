@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Edit, X, FolderOpen, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle, CheckCircle, Filter, Tag } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 interface Resource {
   id: string;
@@ -14,27 +19,38 @@ interface Resource {
   file_path?: string;
   file_name?: string;
   file_size?: number;
+  category_id?: string;
   created_by: string;
   created_at: string;
   staff?: {
     full_name: string;
+  };
+  share_resource_categories?: {
+    name: string;
   };
 }
 
 export function ShareResourcesPage() {
   const { user } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
+  const [filteredResources, setFilteredResources] = useState<Resource[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [resourceSearchQuery, setResourceSearchQuery] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     content: '',
     resource_type: 'text' as 'text' | 'image' | 'link' | 'file' | 'email',
     image_url: '',
-    external_url: ''
+    external_url: '',
+    category_id: ''
   });
 
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -75,6 +91,7 @@ export function ShareResourcesPage() {
 
   useEffect(() => {
     fetchResources();
+    fetchCategories();
     fetchEmailAccounts();
     fetchWhatsAppAccounts();
     fetchWhatsAppGroups();
@@ -84,6 +101,9 @@ export function ShareResourcesPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'share_resources' }, () => {
         fetchResources();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'share_resource_categories' }, () => {
+        fetchCategories();
+      })
       .subscribe();
 
     return () => {
@@ -91,17 +111,47 @@ export function ShareResourcesPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let filtered = resources;
+
+    if (resourceSearchQuery.trim()) {
+      const query = resourceSearchQuery.toLowerCase();
+      filtered = filtered.filter(resource =>
+        resource.title.toLowerCase().includes(query) ||
+        resource.content.toLowerCase().includes(query)
+      );
+    }
+
+    if (selectedCategoryFilter !== 'all') {
+      filtered = filtered.filter(resource => resource.category_id === selectedCategoryFilter);
+    }
+
+    setFilteredResources(filtered);
+  }, [resources, resourceSearchQuery, selectedCategoryFilter]);
+
   const fetchResources = async () => {
     const { data, error } = await supabase
       .from('share_resources')
       .select(`
         *,
-        staff:created_by(full_name)
+        staff:created_by(full_name),
+        share_resource_categories(name)
       `)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
       setResources(data);
+    }
+  };
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from('share_resource_categories')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (!error && data) {
+      setCategories(data);
     }
   };
 
@@ -400,6 +450,7 @@ export function ShareResourcesPage() {
         file_path: fileData?.path || null,
         file_name: fileData?.name || null,
         file_size: fileData?.size || null,
+        category_id: formData.category_id || null,
         created_by: user.id
       };
 
@@ -473,7 +524,8 @@ export function ShareResourcesPage() {
       content: '',
       resource_type: 'text',
       image_url: '',
-      external_url: ''
+      external_url: '',
+      category_id: ''
     });
     setSelectedFile(null);
     setSelectedImageFile(null);
@@ -488,9 +540,30 @@ export function ShareResourcesPage() {
       content: resource.content,
       resource_type: resource.resource_type,
       image_url: resource.image_url || '',
-      external_url: resource.external_url || ''
+      external_url: resource.external_url || '',
+      category_id: resource.category_id || ''
     });
     setShowModal(true);
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      alert('Please enter a category name');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('share_resource_categories')
+      .insert({ name: newCategoryName.trim() });
+
+    if (error) {
+      alert(`Error adding category: ${error.message}`);
+      return;
+    }
+
+    setNewCategoryName('');
+    setShowAddCategoryModal(false);
+    fetchCategories();
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -966,16 +1039,77 @@ export function ShareResourcesPage() {
           />
         </div>
 
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          <div className="space-y-4 pr-2">
-        {resources.length === 0 ? (
-          <div className="bg-white rounded-lg border border-slate-200 text-center py-12">
-            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500">No resources shared yet</p>
-            <p className="text-sm text-slate-400 mt-1">Be the first to share something with the team!</p>
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="mb-4 space-y-3 flex-shrink-0">
+            <div className="flex gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  value={resourceSearchQuery}
+                  onChange={(e) => setResourceSearchQuery(e.target.value)}
+                  placeholder="Search resources..."
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={selectedCategoryFilter}
+                  onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                  className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option value="all">All Categories</option>
+                  {categories.map(category => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowAddCategoryModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors whitespace-nowrap"
+                  title="Add new category"
+                >
+                  <Tag className="w-4 h-4" />
+                  Add Category
+                </button>
+              </div>
+            </div>
+            {(resourceSearchQuery || selectedCategoryFilter !== 'all') && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600">
+                  Showing {filteredResources.length} of {resources.length} resources
+                </span>
+                {(resourceSearchQuery || selectedCategoryFilter !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setResourceSearchQuery('');
+                      setSelectedCategoryFilter('all');
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            )}
           </div>
+
+          <div className="space-y-4 pr-2 flex-1 overflow-y-auto">
+        {filteredResources.length === 0 ? (
+          resources.length === 0 ? (
+            <div className="bg-white rounded-lg border border-slate-200 text-center py-12">
+              <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500">No resources shared yet</p>
+              <p className="text-sm text-slate-400 mt-1">Be the first to share something with the team!</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-slate-200 text-center py-12">
+              <Filter className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500">No resources match your filters</p>
+              <p className="text-sm text-slate-400 mt-1">Try adjusting your search or category filter</p>
+            </div>
+          )
         ) : (
-          resources.map(resource => (
+          filteredResources.map(resource => (
             <div key={resource.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
               <div className="p-6">
                 <div className="flex items-start justify-between gap-4">
@@ -1015,8 +1149,15 @@ export function ShareResourcesPage() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-lg font-semibold text-slate-900 truncate">{resource.title}</h3>
-                        <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-lg font-semibold text-slate-900 truncate">{resource.title}</h3>
+                          {resource.share_resource_categories && (
+                            <span className="flex-shrink-0 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                              {resource.share_resource_categories.name}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
                           <span>Shared by {resource.staff?.full_name || 'Unknown'}</span>
                           <span>•</span>
                           <span>{new Date(resource.created_at).toLocaleDateString()}</span>
@@ -1164,6 +1305,32 @@ export function ShareResourcesPage() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Category
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">No category</option>
+                      {categories.map(category => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCategoryModal(true)}
+                      className="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+                      title="Add new category"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
 
                 {formData.resource_type === 'file' && (
@@ -2043,6 +2210,67 @@ export function ShareResourcesPage() {
                         Send WhatsApp
                       </>
                     )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Add New Category</h3>
+                <button
+                  onClick={() => {
+                    setShowAddCategoryModal(false);
+                    setNewCategoryName('');
+                  }}
+                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="Enter category name..."
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCategory();
+                      }
+                    }}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowAddCategoryModal(false);
+                      setNewCategoryName('');
+                    }}
+                    className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddCategory}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Add Category
                   </button>
                 </div>
               </div>
