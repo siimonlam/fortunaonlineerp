@@ -65,10 +65,27 @@ interface ClientTableViewProps {
   onSelectAll?: (selectAll: boolean) => void;
 }
 
+interface Inquiry {
+  id: string;
+  company_name: string;
+  name: string;
+  phone: string;
+  email: string;
+  industry: string | null;
+  interest: string;
+  status: string;
+  notes: string | null;
+  assigned_to: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export function ClientTableView({ clients, channelPartners, projectTypes, onClientClick, onCreateProject, onChannelPartnerClick, onAddClient, activeTab, selectedClientIds, onToggleClientSelection, onSelectAll }: ClientTableViewProps) {
-  const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
+  const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects' | 'inquiries'>('partners');
   const [partnerProjects, setPartnerProjects] = useState<PartnerProject[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingInquiries, setLoadingInquiries] = useState(false);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [selectedPartnerProject, setSelectedPartnerProject] = useState<PartnerProject | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
@@ -82,6 +99,9 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
   useEffect(() => {
     if (activeTab === 'channel' && channelPartnerSubTab === 'projects') {
       loadPartnerProjects();
+    }
+    if (activeTab === 'channel' && channelPartnerSubTab === 'inquiries') {
+      loadInquiries();
     }
   }, [activeTab, channelPartnerSubTab]);
 
@@ -99,6 +119,23 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
       console.error('Error loading partner projects:', error);
     } finally {
       setLoadingProjects(false);
+    }
+  }
+
+  async function loadInquiries() {
+    setLoadingInquiries(true);
+    try {
+      const { data, error } = await supabase
+        .from('inquiries')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInquiries(data || []);
+    } catch (error) {
+      console.error('Error loading inquiries:', error);
+    } finally {
+      setLoadingInquiries(false);
     }
   }
 
@@ -175,6 +212,16 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
             }`}
           >
             Partner Projects
+          </button>
+          <button
+            onClick={() => setChannelPartnerSubTab('inquiries')}
+            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+              channelPartnerSubTab === 'inquiries'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Inquiries
           </button>
         </div>
       )}
@@ -950,6 +997,105 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
             loadPartnerProjects();
           }}
         />
+      )}
+
+      {activeTab === 'channel' && channelPartnerSubTab === 'inquiries' && (
+        <div className="overflow-x-auto">
+          {loadingInquiries ? (
+            <div className="p-12 text-center">
+              <p className="text-slate-500">Loading inquiries...</p>
+            </div>
+          ) : inquiries.length === 0 ? (
+            <div className="p-12 text-center">
+              <p className="text-slate-500 text-lg">No Inquiries Yet</p>
+              <p className="text-slate-400 text-sm mt-2">Inquiries from your website will appear here</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Company Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Contact Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Phone
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Industry
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Interest
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Submitted
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {inquiries.map((inquiry) => (
+                  <tr
+                    key={inquiry.id}
+                    className="hover:bg-slate-50 transition-colors"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        inquiry.status === 'new' ? 'bg-blue-100 text-blue-800' :
+                        inquiry.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
+                        inquiry.status === 'converted' ? 'bg-green-100 text-green-800' :
+                        'bg-slate-100 text-slate-800'
+                      }`}>
+                        {inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-medium text-slate-900">{inquiry.company_name}</div>
+                      {inquiry.notes && (
+                        <div className="text-xs text-slate-500 truncate max-w-xs">{inquiry.notes}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
+                      {inquiry.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
+                      <a href={`mailto:${inquiry.email}`} className="text-blue-600 hover:text-blue-800">
+                        {inquiry.email}
+                      </a>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
+                      {inquiry.phone}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {inquiry.industry ? (
+                        <span className="inline-block text-xs font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded">
+                          {inquiry.industry}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-slate-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-slate-700 max-w-xs truncate">
+                        {inquiry.interest}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      {new Date(inquiry.created_at).toLocaleDateString()} {new Date(inquiry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       )}
     </div>
   );
