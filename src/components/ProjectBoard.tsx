@@ -182,7 +182,7 @@ export function ProjectBoard() {
   const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin' | 'comsec'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list' | 'substatus'>('grid');
-  const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel'>('company');
+  const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel' | 'inquiries'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources'>('clients');
   const [showCreateMarketingProjectModal, setShowCreateMarketingProjectModal] = useState(false);
@@ -3218,6 +3218,18 @@ export function ProjectBoard() {
                     >
                       Channel Partners
                     </button>
+                    <button
+                      onClick={() => {
+                        setActiveClientTab('inquiries');
+                      }}
+                      className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        activeClientTab === 'inquiries'
+                          ? 'bg-purple-600 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Inquiries
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -3225,47 +3237,55 @@ export function ProjectBoard() {
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="text"
-                        placeholder={activeClientTab === 'company' ? 'Search clients...' : 'Search partners...'}
+                        placeholder={
+                          activeClientTab === 'company' ? 'Search clients...' :
+                          activeClientTab === 'channel' ? 'Search partners...' :
+                          'Search inquiries...'
+                        }
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                       />
                     </div>
-                  <select
-                    value={clientSortBy}
-                    onChange={(e) => setClientSortBy(e.target.value as any)}
-                    className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  >
-                    <option value="client_number_asc">Client # (Low to High)</option>
-                    <option value="client_number_desc">Client # (High to Low)</option>
-                    <option value="created_newest">Created (Newest First)</option>
-                    <option value="created_oldest">Created (Oldest First)</option>
-                  </select>
-                  <div className="flex items-center bg-white border border-slate-300 rounded-lg p-1">
-                    <button
-                      onClick={() => setClientViewMode('card')}
-                      className={`px-3 py-2 rounded-md transition-colors ${
-                        clientViewMode === 'card'
-                          ? 'bg-blue-600 text-white'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                      title="Card View"
-                    >
-                      <LayoutGrid className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setClientViewMode('table')}
-                      className={`px-3 py-2 rounded-md transition-colors ${
-                        clientViewMode === 'table'
-                          ? 'bg-blue-600 text-white'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                      title="Table View"
-                    >
-                      <Table className="w-4 h-4" />
-                    </button>
-                  </div>
-                    {activeClientTab === 'company' && (
+                  {activeClientTab !== 'inquiries' && (
+                    <>
+                      <select
+                        value={clientSortBy}
+                        onChange={(e) => setClientSortBy(e.target.value as any)}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                      >
+                        <option value="client_number_asc">Client # (Low to High)</option>
+                        <option value="client_number_desc">Client # (High to Low)</option>
+                        <option value="created_newest">Created (Newest First)</option>
+                        <option value="created_oldest">Created (Oldest First)</option>
+                      </select>
+                      <div className="flex items-center bg-white border border-slate-300 rounded-lg p-1">
+                        <button
+                          onClick={() => setClientViewMode('card')}
+                          className={`px-3 py-2 rounded-md transition-colors ${
+                            clientViewMode === 'card'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                          title="Card View"
+                        >
+                          <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setClientViewMode('table')}
+                          className={`px-3 py-2 rounded-md transition-colors ${
+                            clientViewMode === 'table'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                          title="Table View"
+                        >
+                          <Table className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                    {activeClientTab !== 'inquiries' && activeClientTab === 'company' && (
                       <>
                         {selectedClientIds.size > 0 && (
                           <>
@@ -3443,20 +3463,22 @@ export function ProjectBoard() {
                         </button>
                       </>
                     )}
-                    <button
-                      onClick={() => {
-                        setAddClientType(activeClientTab);
-                        setIsAddClientModalOpen(true);
-                      }}
-                      className={`${
-                        activeClientTab === 'company'
-                          ? 'bg-blue-600 hover:bg-blue-700'
-                          : 'bg-emerald-600 hover:bg-emerald-700'
-                      } text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md`}
-                    >
-                      <Plus className="w-5 h-5" />
-                      {activeClientTab === 'company' ? 'Add Company Client' : 'Add Channel Partner'}
-                    </button>
+                    {activeClientTab !== 'inquiries' && (
+                      <button
+                        onClick={() => {
+                          setAddClientType(activeClientTab as 'company' | 'channel');
+                          setIsAddClientModalOpen(true);
+                        }}
+                        className={`${
+                          activeClientTab === 'company'
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : 'bg-emerald-600 hover:bg-emerald-700'
+                        } text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md`}
+                      >
+                        <Plus className="w-5 h-5" />
+                        {activeClientTab === 'company' ? 'Add Company Client' : 'Add Channel Partner'}
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

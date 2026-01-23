@@ -59,7 +59,7 @@ interface ClientTableViewProps {
   onCreateProject: (client: Client, targetProjectTypeId: string) => void;
   onChannelPartnerClick: (partner: Client) => void;
   onAddClient: (type: 'company' | 'channel') => void;
-  activeTab: 'company' | 'channel';
+  activeTab: 'company' | 'channel' | 'inquiries';
   selectedClientIds?: Set<string>;
   onToggleClientSelection?: (clientId: string) => void;
   onSelectAll?: (selectAll: boolean) => void;
@@ -100,7 +100,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
     if (activeTab === 'channel' && channelPartnerSubTab === 'projects') {
       loadPartnerProjects();
     }
-    if (activeTab === 'channel' && channelPartnerSubTab === 'inquiries') {
+    if (activeTab === 'inquiries') {
       loadInquiries();
     }
   }, [activeTab, channelPartnerSubTab]);
@@ -212,16 +212,6 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
             }`}
           >
             Partner Projects
-          </button>
-          <button
-            onClick={() => setChannelPartnerSubTab('inquiries')}
-            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-              channelPartnerSubTab === 'inquiries'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Inquiries
           </button>
         </div>
       )}
@@ -999,7 +989,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
         />
       )}
 
-      {activeTab === 'channel' && channelPartnerSubTab === 'inquiries' && (
+      {activeTab === 'inquiries' && (
         <div className="overflow-x-auto">
           {loadingInquiries ? (
             <div className="p-12 text-center">
