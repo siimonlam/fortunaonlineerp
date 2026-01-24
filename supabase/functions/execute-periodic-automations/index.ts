@@ -174,6 +174,30 @@ Deno.serve(async (req: Request) => {
 
               console.log(`Executing automation for invoice ${invoice.invoice_number}: ${daysSinceIssue} days since issue (${daysSinceIssue} % ${intervalDays} = 0)`);
 
+              const nextExecution = new Date(todayMidnight);
+              nextExecution.setDate(nextExecution.getDate() + intervalDays);
+
+              const { data: trackingRecord, error: trackingError } = await supabase
+                .from('periodic_automation_executions')
+                .upsert({
+                  automation_rule_id: rule.id,
+                  project_id: invoice.project_id,
+                  invoice_id: invoice.id,
+                  last_executed_at: now.toISOString(),
+                  next_execution_at: nextExecution.toISOString(),
+                  updated_at: now.toISOString()
+                }, {
+                  onConflict: 'automation_rule_id,project_id'
+                })
+                .select();
+
+              if (trackingError) {
+                console.error(`Failed to track execution for invoice ${invoice.invoice_number}:`, trackingError);
+                throw trackingError;
+              }
+
+              console.log(`Tracked execution for invoice ${invoice.invoice_number}, next execution: ${nextExecution.toISOString()}`);
+
               if (rule.action_type === 'add_task') {
                 const taskConfig = rule.action_config;
                 if (taskConfig.title) {
@@ -222,24 +246,6 @@ Deno.serve(async (req: Request) => {
                   });
                 }
               }
-
-              const nextExecution = new Date(todayMidnight);
-              nextExecution.setDate(nextExecution.getDate() + intervalDays);
-
-              await supabase
-                .from('periodic_automation_executions')
-                .upsert({
-                  automation_rule_id: rule.id,
-                  project_id: invoice.project_id,
-                  invoice_id: invoice.id,
-                  last_executed_at: now.toISOString(),
-                  next_execution_at: nextExecution.toISOString(),
-                  updated_at: now.toISOString()
-                }, {
-                  onConflict: 'automation_rule_id,project_id'
-                });
-
-              console.log(`Tracked execution for invoice ${invoice.invoice_number}, next execution: ${nextExecution.toISOString()}`);
             } else {
               console.log(`Skipping invoice ${invoice.invoice_number}: ${daysSinceIssue} days since issue (${daysSinceIssue} % ${intervalDays} = ${daysSinceIssue % intervalDays})`);
             }
@@ -333,6 +339,29 @@ Deno.serve(async (req: Request) => {
               }
 
               console.log(`Executing automation for ${project.title}: ${daysSinceStart} days since ${dateField} (${daysSinceStart} % ${intervalDays} = 0)`);
+
+              const nextExecution = new Date(todayMidnight);
+              nextExecution.setDate(nextExecution.getDate() + intervalDays);
+
+              const { data: trackingRecord, error: trackingError } = await supabase
+                .from('periodic_automation_executions')
+                .upsert({
+                  automation_rule_id: rule.id,
+                  project_id: project.id,
+                  last_executed_at: now.toISOString(),
+                  next_execution_at: nextExecution.toISOString(),
+                  updated_at: now.toISOString()
+                }, {
+                  onConflict: 'automation_rule_id,project_id'
+                })
+                .select();
+
+              if (trackingError) {
+                console.error(`Failed to track execution for ${project.title}:`, trackingError);
+                throw trackingError;
+              }
+
+              console.log(`Tracked execution for ${project.title}, next execution: ${nextExecution.toISOString()}`);
 
               if (rule.action_type === 'add_task') {
                 const taskConfig = rule.action_config;
@@ -470,23 +499,6 @@ Deno.serve(async (req: Request) => {
                   });
                 }
               }
-
-              const nextExecution = new Date(todayMidnight);
-              nextExecution.setDate(nextExecution.getDate() + intervalDays);
-
-              await supabase
-                .from('periodic_automation_executions')
-                .upsert({
-                  automation_rule_id: rule.id,
-                  project_id: project.id,
-                  last_executed_at: now.toISOString(),
-                  next_execution_at: nextExecution.toISOString(),
-                  updated_at: now.toISOString()
-                }, {
-                  onConflict: 'automation_rule_id,project_id'
-                });
-
-              console.log(`Tracked execution for ${project.title}, next execution: ${nextExecution.toISOString()}`);
             } else {
               console.log(`Skipping ${project.title}: ${daysSinceStart} days since ${dateField} (${daysSinceStart} % ${intervalDays} = ${daysSinceStart % intervalDays})`);
             }
