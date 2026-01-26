@@ -1483,7 +1483,7 @@ export function ProjectBoard() {
       };
 
       console.log('[loadData] Starting parallel queries...');
-      const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes, comSecClientsRes, projectLabelsRes] = await Promise.all([
+      const [projectTypesRes, statusesRes, projectsRes, clientsRes, channelPartnersRes, staffRes, statusManagersRes, projectTypePermsRes, partnerProjectsRes, fundingInvoicesRes, comSecClientsRes, projectLabelsRes, tasksRes] = await Promise.all([
       loadWithTimeout(supabase.from('project_types').select('*').order('name'), 'project_types'),
       loadWithTimeout(supabase.from('statuses').select('*').order('order_index'), 'statuses'),
       loadWithTimeout(
@@ -1519,6 +1519,7 @@ export function ProjectBoard() {
       loadWithTimeout(supabase.from('funding_invoice').select('*').order('created_at', { ascending: false }), 'funding_invoice'),
       loadWithTimeout(supabase.from('comsec_clients').select('id, company_code, company_name, client_id, parent_client_id').order('created_at', { ascending: false }), 'comsec_clients'),
       loadWithTimeout(supabase.from('project_labels').select('project_id, labels:label_id(id, name, color)'), 'project_labels'),
+      loadWithTimeout(supabase.from('tasks').select('id, project_id, title, deadline, completed, assigned_to').eq('completed', false), 'tasks'),
     ]);
     console.log('[loadData] All queries completed');
 
@@ -1614,7 +1615,9 @@ export function ProjectBoard() {
         const invoice = fundingInvoicesRes.data?.find(inv => inv.project_id === project.id);
         const invoice_number = invoice?.invoice_number || null;
 
-        return { ...project, labels: projectLabels, invoice_number, tasks: [] };
+        const projectTasks = tasksRes.data?.filter(task => task.project_id === project.id) || [];
+
+        return { ...project, labels: projectLabels, invoice_number, tasks: projectTasks };
       });
       setProjects(projectsWithLabelsAndInvoices);
     }
