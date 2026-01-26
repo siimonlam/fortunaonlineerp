@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { X, Building2, User, Mail, Phone, MapPin, Briefcase, Percent, Scan } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BusinessCardScanner } from './BusinessCardScanner';
+import { INDUSTRY_OPTIONS } from '../constants/industries';
 
 interface Staff {
   id: string;
@@ -375,36 +376,11 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="">Select an industry</option>
-                    <option value="Accounting">Accounting</option>
-                    <option value="Advertising & Marketing">Advertising & Marketing</option>
-                    <option value="Agriculture">Agriculture</option>
-                    <option value="Automotive">Automotive</option>
-                    <option value="Aviation / Aerospace">Aviation / Aerospace</option>
-                    <option value="Banking & Financial Services">Banking & Financial Services</option>
-                    <option value="Biotechnology">Biotechnology</option>
-                    <option value="Construction">Construction</option>
-                    <option value="Consulting">Consulting</option>
-                    <option value="Education">Education</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Energy / Utilities">Energy / Utilities</option>
-                    <option value="Entertainment / Media">Entertainment / Media</option>
-                    <option value="Fashion & Apparel">Fashion & Apparel</option>
-                    <option value="Food & Beverage">Food & Beverage</option>
-                    <option value="Government">Government</option>
-                    <option value="Healthcare / Pharmaceuticals">Healthcare / Pharmaceuticals</option>
-                    <option value="Hospitality / Tourism">Hospitality / Tourism</option>
-                    <option value="Insurance">Insurance</option>
-                    <option value="Legal Services">Legal Services</option>
-                    <option value="Logistics / Supply Chain">Logistics / Supply Chain</option>
-                    <option value="Manufacturing">Manufacturing</option>
-                    <option value="Non-Profit / NGO">Non-Profit / NGO</option>
-                    <option value="Real Estate">Real Estate</option>
-                    <option value="Retail">Retail</option>
-                    <option value="Software / SaaS">Software / SaaS</option>
-                    <option value="Telecommunications">Telecommunications</option>
-                    <option value="Transportation">Transportation</option>
-                    <option value="Other">Other</option>
+                    {INDUSTRY_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -605,36 +581,11 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="">Select an industry</option>
-                    <option value="Accounting">Accounting</option>
-                    <option value="Advertising & Marketing">Advertising & Marketing</option>
-                    <option value="Agriculture">Agriculture</option>
-                    <option value="Automotive">Automotive</option>
-                    <option value="Aviation / Aerospace">Aviation / Aerospace</option>
-                    <option value="Banking & Financial Services">Banking & Financial Services</option>
-                    <option value="Biotechnology">Biotechnology</option>
-                    <option value="Construction">Construction</option>
-                    <option value="Consulting">Consulting</option>
-                    <option value="Education">Education</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Energy / Utilities">Energy / Utilities</option>
-                    <option value="Entertainment / Media">Entertainment / Media</option>
-                    <option value="Fashion & Apparel">Fashion & Apparel</option>
-                    <option value="Food & Beverage">Food & Beverage</option>
-                    <option value="Government">Government</option>
-                    <option value="Healthcare / Pharmaceuticals">Healthcare / Pharmaceuticals</option>
-                    <option value="Hospitality / Tourism">Hospitality / Tourism</option>
-                    <option value="Insurance">Insurance</option>
-                    <option value="Legal Services">Legal Services</option>
-                    <option value="Logistics / Supply Chain">Logistics / Supply Chain</option>
-                    <option value="Manufacturing">Manufacturing</option>
-                    <option value="Non-Profit / NGO">Non-Profit / NGO</option>
-                    <option value="Real Estate">Real Estate</option>
-                    <option value="Retail">Retail</option>
-                    <option value="Software / SaaS">Software / SaaS</option>
-                    <option value="Telecommunications">Telecommunications</option>
-                    <option value="Transportation">Transportation</option>
-                    <option value="Other">Other</option>
+                    {INDUSTRY_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

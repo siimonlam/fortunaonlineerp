@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, Save, UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { INDUSTRY_OPTIONS } from '../constants/industries';
 
 interface Staff {
   id: string;
@@ -262,15 +263,11 @@ export function ConvertInquiryToClientModal({ inquiry, onClose, onSuccess }: Con
                 onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Select Industry</option>
-                <option value="Technology">Technology</option>
-                <option value="Finance">Finance</option>
-                <option value="Healthcare">Healthcare</option>
-                <option value="Retail">Retail</option>
-                <option value="Manufacturing">Manufacturing</option>
-                <option value="F&B">F&B</option>
-                <option value="E-commerce">E-commerce</option>
-                <option value="Other">Other</option>
+                {INDUSTRY_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
 
