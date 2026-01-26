@@ -72,7 +72,7 @@ Deno.serve(async (req: Request) => {
           let invoiceQuery = supabase
             .from('funding_invoice')
             .select('id, invoice_number, issue_date, project_id, projects(id, title, sales_person_id, status_id)')
-            .neq('payment_status', 'Paid')
+            .in('payment_status', ['unpaid', 'Pending', 'pending', 'Overdue'])
             .not('issue_date', 'is', null);
 
           if (rule.project_type_id && rule.main_status !== 'All') {
