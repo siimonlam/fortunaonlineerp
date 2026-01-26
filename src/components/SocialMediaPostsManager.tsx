@@ -57,7 +57,6 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showStepModal, setShowStepModal] = useState(false);
@@ -112,7 +111,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
   useEffect(() => {
     filterPosts();
-  }, [posts, accountFilter, assigneeFilter, sortOrder, statusFilter]);
+  }, [posts, accountFilter, assigneeFilter, sortOrder]);
 
   const subscribeToChanges = () => {
     const postsChannel = supabase
@@ -132,11 +131,6 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
   const filterPosts = () => {
     let filtered = [...posts];
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(p => p.status === statusFilter);
-    }
 
     // Account filter
     if (accountFilter === 'instagram') {
@@ -1018,22 +1012,6 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
 
           <div className="space-y-2">
             <div>
-              <label className="text-xs font-medium text-slate-600 mb-1 block">Filter by Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Statuses</option>
-                <option value="draft">Draft</option>
-                <option value="in_approval">In Approval</option>
-                <option value="approved">Approved</option>
-                <option value="posted">Posted</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div>
               <label className="text-xs font-medium text-slate-600 mb-1 block">Filter by Assignee</label>
               <select
                 value={assigneeFilter}
@@ -1537,7 +1515,31 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                           {getTaskReminderIcon(step)}
                                           {step && (
                                             <div className="flex items-center gap-2">
-                                              {step.status !== 'completed' && (
+                                              {stepNum === 2 && step.status !== 'completed' && (
+                                                <>
+                                                  <button
+                                                    onClick={() => openStepModal(post, stepNum)}
+                                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                                  >
+                                                    Edit Step
+                                                  </button>
+                                                  <button
+                                                    onClick={() => handleApproveStep(post, step)}
+                                                    className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                                  >
+                                                    <Check className="w-3 h-3" />
+                                                    Approve
+                                                  </button>
+                                                  <button
+                                                    onClick={() => handleDisapproveStep(post, step)}
+                                                    className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                                                  >
+                                                    <XIcon className="w-3 h-3" />
+                                                    Disapprove
+                                                  </button>
+                                                </>
+                                              )}
+                                              {step.status !== 'completed' && stepNum !== 2 && (
                                                 <>
                                                   <button
                                                     onClick={() => openStepModal(post, stepNum)}
@@ -1546,54 +1548,33 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                                     Edit Step
                                                   </button>
                                                   {(step.status === 'in_progress' || step.status === 'pending') && (
-                                                    <>
-                                                      {stepNum === 2 && (
-                                                        <>
-                                                          <button
-                                                            onClick={() => handleApproveStep(post, step)}
-                                                            className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                                                          >
-                                                            <Check className="w-3 h-3" />
-                                                            Approve
-                                                          </button>
-                                                          <button
-                                                            onClick={() => handleDisapproveStep(post, step)}
-                                                            className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                                                          >
-                                                            <XIcon className="w-3 h-3" />
-                                                            Disapprove
-                                                          </button>
-                                                        </>
-                                                      )}
-                                                      {stepNum === 3 && (
-                                                        <>
-                                                          <button
-                                                            onClick={() => {
-                                                              setSelectedPost(post);
-                                                              setShowPublishModal(true);
-                                                            }}
-                                                            className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                                                          >
-                                                            <Send className="w-3 h-3" />
-                                                            Publish Post
-                                                          </button>
-                                                          <button
-                                                            onClick={() => handleCompleteStep(post, stepNum)}
-                                                            className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                                                          >
-                                                            Complete
-                                                          </button>
-                                                        </>
-                                                      )}
-                                                      {stepNum === 1 && (
+                                                    stepNum === 3 ? (
+                                                      <>
+                                                        <button
+                                                          onClick={() => {
+                                                            setSelectedPost(post);
+                                                            setShowPublishModal(true);
+                                                          }}
+                                                          className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                                        >
+                                                          <Send className="w-3 h-3" />
+                                                          Publish Post
+                                                        </button>
                                                         <button
                                                           onClick={() => handleCompleteStep(post, stepNum)}
                                                           className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
                                                         >
                                                           Complete
                                                         </button>
-                                                      )}
-                                                    </>
+                                                      </>
+                                                    ) : (
+                                                      <button
+                                                        onClick={() => handleCompleteStep(post, stepNum)}
+                                                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                                                      >
+                                                        Complete
+                                                      </button>
+                                                    )
                                                   )}
                                                 </>
                                               )}
