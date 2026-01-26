@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, CheckCircle2, XCircle, LayoutGrid, List, Mail, Phone, MapPin, User, Briefcase, Search, Filter } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, LayoutGrid, List, Mail, Phone, MapPin, User, Briefcase, Search, Filter, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { EditPartnerProjectModal } from './EditPartnerProjectModal';
+import { ConvertInquiryToClientModal } from './ConvertInquiryToClientModal';
 
 interface Staff {
   id: string;
@@ -78,6 +79,7 @@ interface Inquiry {
   assigned_to: string | null;
   created_at: string;
   updated_at: string;
+  from_website: string | null;
 }
 
 export function ClientTableView({ clients, channelPartners, projectTypes, onClientClick, onCreateProject, onChannelPartnerClick, onAddClient, activeTab, selectedClientIds, onToggleClientSelection, onSelectAll }: ClientTableViewProps) {
@@ -88,6 +90,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
   const [loadingInquiries, setLoadingInquiries] = useState(false);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [selectedPartnerProject, setSelectedPartnerProject] = useState<PartnerProject | null>(null);
+  const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPartner, setFilterPartner] = useState<string>('all');
@@ -1028,6 +1031,9 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                     Submitted
                   </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -1080,12 +1086,34 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                       {new Date(inquiry.created_at).toLocaleDateString()} {new Date(inquiry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      {inquiry.status !== 'converted' && (
+                        <button
+                          onClick={() => setSelectedInquiry(inquiry)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm hover:shadow"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          Convert
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
         </div>
+      )}
+
+      {selectedInquiry && (
+        <ConvertInquiryToClientModal
+          inquiry={selectedInquiry}
+          onClose={() => setSelectedInquiry(null)}
+          onSuccess={() => {
+            setSelectedInquiry(null);
+            loadInquiries();
+          }}
+        />
       )}
     </div>
   );
