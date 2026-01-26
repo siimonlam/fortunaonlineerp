@@ -54,14 +54,13 @@ export function ProjectCardFields({ project }: ProjectCardFieldsProps) {
     async function calculateReceivable() {
       if (!project.id) return;
 
-      const projectSize = parseFloat(project.project_size || '0');
-
-      if (projectSize === 0) {
+      // If all balance settled flag is checked, receivable is 0
+      if ((project as any).all_balance_settled) {
         setReceivable(0);
         return;
       }
 
-      const fundingScheme = project.funding_scheme || 0;
+      const grantedAmount = parseFloat((project as any).granted_amount || '0');
       const serviceFee = project.service_fee_percentage || 0;
 
       const { data: invoices } = await supabase
@@ -71,13 +70,29 @@ export function ProjectCardFields({ project }: ProjectCardFieldsProps) {
         .eq('payment_status', 'Paid');
 
       const totalPaid = invoices?.reduce((sum, inv) => sum + parseFloat(inv.amount || '0'), 0) || 0;
-      const calculated = (projectSize * fundingScheme / 100 * serviceFee / 100) - totalPaid;
+
+      let calculated = 0;
+      if (grantedAmount > 0) {
+        // If Granted Amount is set: (Granted Amount × Service Fee %) - Total Paid
+        calculated = (grantedAmount * serviceFee / 100) - totalPaid;
+      } else {
+        const projectSize = parseFloat(project.project_size || '0');
+
+        if (projectSize === 0) {
+          setReceivable(0);
+          return;
+        }
+
+        const fundingScheme = project.funding_scheme || 0;
+        // Otherwise: (Project Size × Funding Scheme % × Service Fee %) - Total Paid
+        calculated = (projectSize * fundingScheme / 100 * serviceFee / 100) - totalPaid;
+      }
 
       setReceivable(calculated);
     }
 
     calculateReceivable();
-  }, [project.id, project.project_size, project.funding_scheme, project.service_fee_percentage]);
+  }, [project.id, project.project_size, project.funding_scheme, project.service_fee_percentage, (project as any).granted_amount, (project as any).all_balance_settled]);
 
   return (
     <div className="space-y-1.5 mb-3 text-xs">

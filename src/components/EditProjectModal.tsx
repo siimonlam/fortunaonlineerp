@@ -219,6 +219,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     parentCompanyName: project.parent_company_name || '',
     extension: (project as any).extension || false,
     kickoffDateWithFirstPayment: (project as any).kickoff_date_with_first_payment || '',
+    allBalanceSettled: (project as any).all_balance_settled || false,
   });
 
   const [originalData, setOriginalData] = useState({
@@ -271,6 +272,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     parentCompanyName: project.parent_company_name || '',
     extension: (project as any).extension || false,
     kickoffDateWithFirstPayment: (project as any).kickoff_date_with_first_payment || '',
+    allBalanceSettled: (project as any).all_balance_settled || false,
   });
 
   const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
@@ -372,6 +374,12 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
     let receivable = 0;
 
+    // If "All balance settled" is checked, receivable is 0
+    if (formData.allBalanceSettled) {
+      setReceivableAmount(0);
+      return;
+    }
+
     if (grantedAmount > 0) {
       // If Granted Amount is not blank: receivable = Granted Amount × Service Fee %
       receivable = grantedAmount * (serviceFee / 100) - totalPaidInvoices;
@@ -394,7 +402,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     }
 
     setReceivableAmount(receivable);
-  }, [invoices, formData.projectSize, formData.fundingScheme, formData.serviceFeePercentage, formData.grantedAmount]);
+  }, [invoices, formData.projectSize, formData.fundingScheme, formData.serviceFeePercentage, formData.grantedAmount, formData.allBalanceSettled]);
 
   async function loadStaff() {
     const { data } = await supabase.from('staff').select('*');
@@ -1037,6 +1045,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         parent_company_name: formData.parentCompanyName.trim() || null,
         extension: formData.extension,
         kickoff_date_with_first_payment: formData.kickoffDateWithFirstPayment || null,
+        all_balance_settled: formData.allBalanceSettled,
       } : {};
 
       const { error } = await supabase
@@ -2268,6 +2277,21 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 />
               </div>
               <div className="col-span-3">
+                <div className="flex items-center mb-3">
+                  <input
+                    type="checkbox"
+                    id="allBalanceSettled"
+                    disabled={!canEdit}
+                    checked={formData.allBalanceSettled}
+                    onChange={(e) => setFormData({ ...formData, allBalanceSettled: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                  />
+                  <label htmlFor="allBalanceSettled" className="ml-2 text-sm font-medium text-slate-700">
+                    All balance settled
+                  </label>
+                </div>
+              </div>
+              <div className="col-span-3">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Receivable</label>
                 <div className="w-full px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
                   <span className={`text-lg font-semibold ${receivableAmount >= 0 ? 'text-green-700' : 'text-red-700'}`}>
@@ -2275,7 +2299,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  {formData.grantedAmount
+                  {formData.allBalanceSettled
+                    ? 'All balance marked as settled'
+                    : formData.grantedAmount
                     ? 'Calculated as: (Granted Amount × Service Fee %) - Total Paid Invoices'
                     : 'Calculated as: (Project Size × Funding Scheme % × Service Fee %) - Total Paid Invoices'
                   }
