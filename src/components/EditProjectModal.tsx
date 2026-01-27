@@ -76,7 +76,6 @@ interface Project {
   hkpc_officer_phone?: string;
   parent_client_id?: string;
   parent_company_name?: string;
-  local_drive_path?: string;
   created_at: string;
   table_source?: string;
 }
@@ -221,7 +220,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     extension: (project as any).extension || false,
     kickoffDateWithFirstPayment: (project as any).kickoff_date_with_first_payment || '',
     allBalanceSettled: (project as any).all_balance_settled || false,
-    localDrivePath: project.local_drive_path || '',
   });
 
   const [originalData, setOriginalData] = useState({
@@ -275,7 +273,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     extension: (project as any).extension || false,
     kickoffDateWithFirstPayment: (project as any).kickoff_date_with_first_payment || '',
     allBalanceSettled: (project as any).all_balance_settled || false,
-    localDrivePath: project.local_drive_path || '',
   });
 
   const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
@@ -1049,7 +1046,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         extension: formData.extension,
         kickoff_date_with_first_payment: formData.kickoffDateWithFirstPayment || null,
         all_balance_settled: formData.allBalanceSettled,
-        local_drive_path: formData.localDrivePath.trim() || null,
       } : {};
 
       const { error } = await supabase
@@ -3325,36 +3321,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 />
                 <p className="text-xs text-slate-500 mt-1">
                   You can manually enter an existing Google Drive folder ID, or create a new one below
-                </p>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Local Drive Path (Google Drive for Desktop)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={formData.localDrivePath}
-                    onChange={(e) => setFormData({ ...formData, localDrivePath: e.target.value })}
-                    placeholder='e.g., H:\Shared drives\BUD\Project-Name'
-                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {formData.localDrivePath && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.open(`file:///${formData.localDrivePath.replace(/\\/g, '/')}`, '_blank');
-                      }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    >
-                      <ExternalLink size={16} />
-                      Open
-                    </button>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Enter the local path where Google Drive for Desktop syncs this folder (opens in File Explorer/Finder)
                 </p>
               </div>
 
