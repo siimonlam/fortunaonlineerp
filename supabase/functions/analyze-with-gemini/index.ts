@@ -32,22 +32,42 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get Gemini API key from environment or system settings
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Get Gemini API key from database (system_settings table) or environment variable
+    let geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+
+    if (!geminiApiKey) {
+      // Try to fetch from database
+      const apiKeyResponse = await fetch(
+        `${supabaseUrl}/rest/v1/system_settings?key=eq.gemini_api_key&select=value`,
+        {
+          headers: {
+            "apikey": supabaseServiceKey,
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (apiKeyResponse.ok) {
+        const apiKeyData = await apiKeyResponse.json();
+        if (apiKeyData && apiKeyData.length > 0 && apiKeyData[0].value) {
+          geminiApiKey = apiKeyData[0].value;
+        }
+      }
+    }
 
     if (!geminiApiKey) {
       return new Response(
-        JSON.stringify({ error: "Gemini API key not configured. Please add it in Admin settings." }),
+        JSON.stringify({ error: "Gemini API key not configured. Please add it in Meta Ads Settings page." }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
-
-    // Fetch the prompt template from the database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const promptResponse = await fetch(
       `${supabaseUrl}/rest/v1/gemini_prompts?prompt_name=eq.${promptName}&is_active=eq.true`,
