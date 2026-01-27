@@ -166,7 +166,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .from('meta_monthly_insights')
         .select('month_year')
         .in('account_id', accountIds)
-        .order('month_year', { ascending: false });
+        .order('month_year', { ascending: false })
+        .limit(10000);
 
       if (data) {
         const uniqueMonths = Array.from(new Set(data.map(d => {
@@ -216,7 +217,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .select('*')
         .eq('account_id', accountId)
         .gte('month_year', monthStart)
-        .lt('month_year', monthEnd);
+        .lt('month_year', monthEnd)
+        .limit(10000);
 
       if (!monthlyData || monthlyData.length === 0) {
         setCampaigns([]);
@@ -327,7 +329,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .select('age_group, gender, country, impressions, clicks, spend, reach, results, conversions')
         .eq('account_id', accountId)
         .gte('month_year', monthStart)
-        .lt('month_year', monthEnd);
+        .lt('month_year', monthEnd)
+        .limit(10000);
 
       if (!demographics || demographics.length === 0) {
         setDemographics([]);
@@ -497,7 +500,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .select('ad_id, spend, impressions, clicks, results, reach, ctr, cpc, conversions, conversion_values')
         .eq('account_id', accountId)
         .gte('date', monthStart)
-        .lte('date', monthEnd);
+        .lte('date', monthEnd)
+        .limit(50000);
 
       if (!insightsData || insightsData.length === 0) {
         setCreatives([]);
@@ -641,7 +645,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .select('*')
         .eq('account_id', accountId)
         .gte('month_year', monthStart)
-        .lt('month_year', monthEnd);
+        .lt('month_year', monthEnd)
+        .limit(10000);
 
       if (!platformData || platformData.length === 0) {
         setPlatforms([]);
