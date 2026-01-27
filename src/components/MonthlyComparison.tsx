@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowUp, ArrowDown, TrendingUp, DollarSign, MousePointer, Eye, Target } from 'lucide-react';
+import { ArrowUp, ArrowDown, TrendingUp, DollarSign, MousePointer, Eye, Target, Sparkles, X, AlertCircle } from 'lucide-react';
 
 interface ComparisonMetrics {
   spend: number;
@@ -88,6 +88,11 @@ export default function MonthlyComparison({ accountId }: Props) {
   const [genderComparisons, setGenderComparisons] = useState<GenderComparison[]>([]);
   const [ageComparisons, setAgeComparisons] = useState<AgeComparison[]>([]);
   const [platformComparisons, setPlatformComparisons] = useState<PlatformComparison[]>([]);
+
+  const [analyzingWithAI, setAnalyzingWithAI] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAvailableMonths();
@@ -691,6 +696,148 @@ export default function MonthlyComparison({ accountId }: Props) {
     setPlatformComparisons(Array.from(platformMap.values()));
   };
 
+  const handleAnalyzeWithAI = async () => {
+    if (!overallMonth1 || !overallMonth2) {
+      setAiError('No data available for analysis');
+      return;
+    }
+
+    setAnalyzingWithAI(true);
+    setAiError(null);
+    setAiAnalysis(null);
+
+    try {
+      const calculateChange = (oldValue: number, newValue: number) => {
+        if (oldValue === 0) return newValue > 0 ? 100 : 0;
+        return ((newValue - oldValue) / oldValue) * 100;
+      };
+
+      const analysisData = {
+        report_context: {
+          period_comparison: `${formatMonthDisplay(month1)} vs ${formatMonthDisplay(month2)}`,
+          currency: 'HKD',
+          primary_goal: 'Mixed (Sales, Traffic, Engagement)'
+        },
+        overall_performance: {
+          spend: {
+            prev: parseFloat(overallMonth1.spend.toFixed(2)),
+            curr: parseFloat(overallMonth2.spend.toFixed(2)),
+            change_pct: parseFloat(calculateChange(overallMonth1.spend, overallMonth2.spend).toFixed(1))
+          },
+          impressions: {
+            prev: overallMonth1.impressions,
+            curr: overallMonth2.impressions,
+            change_pct: parseFloat(calculateChange(overallMonth1.impressions, overallMonth2.impressions).toFixed(1))
+          },
+          clicks: {
+            prev: overallMonth1.clicks,
+            curr: overallMonth2.clicks,
+            change_pct: parseFloat(calculateChange(overallMonth1.clicks, overallMonth2.clicks).toFixed(1))
+          },
+          results: {
+            prev: overallMonth1.results,
+            curr: overallMonth2.results,
+            change_pct: parseFloat(calculateChange(overallMonth1.results, overallMonth2.results).toFixed(1))
+          },
+          ctr: {
+            prev: parseFloat(overallMonth1.ctr.toFixed(2)),
+            curr: parseFloat(overallMonth2.ctr.toFixed(2)),
+            change_pct: parseFloat(calculateChange(overallMonth1.ctr, overallMonth2.ctr).toFixed(1))
+          },
+          cpc: {
+            prev: parseFloat(overallMonth1.cpc.toFixed(2)),
+            curr: parseFloat(overallMonth2.cpc.toFixed(2)),
+            change_pct: parseFloat(calculateChange(overallMonth1.cpc, overallMonth2.cpc).toFixed(1))
+          },
+          cpm: {
+            prev: parseFloat(overallMonth1.cpm.toFixed(2)),
+            curr: parseFloat(overallMonth2.cpm.toFixed(2)),
+            change_pct: parseFloat(calculateChange(overallMonth1.cpm, overallMonth2.cpm).toFixed(1))
+          },
+          reach: {
+            prev: overallMonth1.reach,
+            curr: overallMonth2.reach,
+            change_pct: parseFloat(calculateChange(overallMonth1.reach, overallMonth2.reach).toFixed(1))
+          }
+        },
+        performance_by_objective: objectiveComparisons.map(obj => ({
+          objective: obj.objective,
+          status: obj.month2.results < obj.month1.results ? 'Declining' : 'Growing',
+          data: {
+            spend: { prev: parseFloat(obj.month1.spend.toFixed(2)), curr: parseFloat(obj.month2.spend.toFixed(2)) },
+            results: { prev: obj.month1.results, curr: obj.month2.results },
+            cpc: { prev: parseFloat(obj.month1.cpc.toFixed(2)), curr: parseFloat(obj.month2.cpc.toFixed(2)) },
+            ctr: { prev: parseFloat(obj.month1.ctr.toFixed(2)), curr: parseFloat(obj.month2.ctr.toFixed(2)) }
+          }
+        })),
+        top_campaigns: campaignComparisons.slice(0, 5).map(camp => ({
+          name: camp.name,
+          type: camp.objective,
+          insight: camp.month2.results < camp.month1.results ?
+            `Results dropped (${camp.month1.results} -> ${camp.month2.results})` :
+            `Results improved (${camp.month1.results} -> ${camp.month2.results})`,
+          jan_metrics: {
+            spend: parseFloat(camp.month2.spend.toFixed(2)),
+            results: camp.month2.results,
+            cpc: parseFloat(camp.month2.cpc.toFixed(2))
+          }
+        })),
+        ad_set_breakdown: adSetComparisons.slice(0, 5).map(adset => ({
+          name: adset.name,
+          trend: adset.month2.results < adset.month1.results ? 'Declining' : 'Growing',
+          results: { prev: adset.month1.results, curr: adset.month2.results },
+          spend: { prev: parseFloat(adset.month1.spend.toFixed(2)), curr: parseFloat(adset.month2.spend.toFixed(2)) }
+        })),
+        demographics_gender: genderComparisons.reduce((acc, gender) => {
+          acc[gender.gender] = {
+            insight: `${gender.gender} audience performance`,
+            spend: parseFloat(gender.month2.spend.toFixed(2)),
+            results: gender.month2.results,
+            ctr: parseFloat(gender.month2.ctr.toFixed(2)),
+            cpc: parseFloat(gender.month2.cpc.toFixed(2))
+          };
+          return acc;
+        }, {} as any),
+        platform_performance: platformComparisons.reduce((acc, platform) => {
+          acc[platform.publisher_platform] = {
+            insight: platform.month2.results > platform.month1.results ? 'Performance improved' : 'Performance declined',
+            prev_spend: parseFloat(platform.month1.spend.toFixed(2)),
+            curr_spend: parseFloat(platform.month2.spend.toFixed(2)),
+            curr_results: platform.month2.results
+          };
+          return acc;
+        }, {} as any)
+      };
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-with-gemini`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          promptName: 'monthly_comparison_analysis',
+          data: analysisData
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to analyze data with AI');
+      }
+
+      const result = await response.json();
+      setAiAnalysis(result.analysis);
+      setShowAnalysisModal(true);
+    } catch (error: any) {
+      console.error('Error analyzing with AI:', error);
+      setAiError(error.message || 'Failed to analyze data with AI. Please check your Gemini API settings.');
+    } finally {
+      setAnalyzingWithAI(false);
+    }
+  };
+
   const formatMonthDisplay = (monthStr: string) => {
     const [year, month] = monthStr.split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1);
@@ -781,7 +928,26 @@ export default function MonthlyComparison({ accountId }: Props) {
   return (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Months to Compare</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Select Months to Compare</h3>
+          <button
+            onClick={handleAnalyzeWithAI}
+            disabled={analyzingWithAI || !overallMonth1 || !overallMonth2}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+          >
+            {analyzingWithAI ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Sparkles size={18} />
+                Analyze with AI
+              </>
+            )}
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Month 1</label>
@@ -812,6 +978,12 @@ export default function MonthlyComparison({ accountId }: Props) {
             </select>
           </div>
         </div>
+        {aiError && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm flex items-start gap-2">
+            <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+            <p>{aiError}</p>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2 border-b border-gray-200">
@@ -1396,6 +1568,51 @@ export default function MonthlyComparison({ accountId }: Props) {
         </div>
           )}
         </>
+      )}
+
+      {showAnalysisModal && aiAnalysis && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-blue-600">
+              <div className="flex items-center gap-3">
+                <Sparkles className="text-white" size={24} />
+                <h2 className="text-xl font-bold text-white">AI Analysis Report</h2>
+              </div>
+              <button
+                onClick={() => setShowAnalysisModal(false)}
+                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-6 flex-1">
+              <div className="prose prose-sm max-w-none">
+                <div
+                  className="text-gray-800 whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{
+                    __html: aiAnalysis
+                      .replace(/### (.*?)(\n|$)/g, '<h3 class="text-lg font-bold mt-6 mb-3 text-gray-900">$1</h3>')
+                      .replace(/## (.*?)(\n|$)/g, '<h2 class="text-xl font-bold mt-8 mb-4 text-gray-900">$1</h2>')
+                      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
+                      .replace(/\* (.*?)(\n|$)/g, '<li class="ml-4">$1</li>')
+                      .replace(/🔴 STOP:/g, '<span class="inline-block px-2 py-1 bg-red-100 text-red-800 rounded font-semibold">🔴 STOP:</span>')
+                      .replace(/🟢 START:/g, '<span class="inline-block px-2 py-1 bg-green-100 text-green-800 rounded font-semibold">🟢 START:</span>')
+                      .replace(/🔵 SCALE:/g, '<span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded font-semibold">🔵 SCALE:</span>')
+                      .replace(/\n\n/g, '<br/><br/>')
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowAnalysisModal(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

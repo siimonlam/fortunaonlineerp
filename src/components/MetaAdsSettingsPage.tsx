@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Settings, Save, BarChart3, Check, AlertCircle } from 'lucide-react';
+import { Settings, Save, BarChart3, Check, AlertCircle, Sparkles, Edit3 } from 'lucide-react';
 
 export default function MetaAdsSettingsPage() {
   const [accessToken, setAccessToken] = useState('');
   const [adAccountIds, setAdAccountIds] = useState('');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [geminiPrompt, setGeminiPrompt] = useState('');
+  const [geminiPromptId, setGeminiPromptId] = useState('');
+  const [activeTab, setActiveTab] = useState<'meta' | 'gemini'>('meta');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -28,8 +32,26 @@ export default function MetaAdsSettingsPage() {
         .eq('key', 'meta_ads_account_ids')
         .maybeSingle();
 
+      const { data: geminiKeyData } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'gemini_api_key')
+        .maybeSingle();
+
+      const { data: promptData } = await supabase
+        .from('gemini_prompts')
+        .select('*')
+        .eq('prompt_name', 'monthly_comparison_analysis')
+        .eq('is_active', true)
+        .maybeSingle();
+
       if (tokenData) setAccessToken(tokenData.value);
       if (accountIdsData) setAdAccountIds(accountIdsData.value);
+      if (geminiKeyData) setGeminiApiKey(geminiKeyData.value);
+      if (promptData) {
+        setGeminiPrompt(promptData.prompt_template);
+        setGeminiPromptId(promptData.id);
+      }
     } catch (err: any) {
       console.error('Error fetching settings:', err);
     } finally {
@@ -175,6 +197,52 @@ export default function MetaAdsSettingsPage() {
     }
   };
 
+  const handleSaveGeminiSettings = async () => {
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      if (!geminiApiKey.trim()) {
+        throw new Error('Gemini API Key is required');
+      }
+
+      if (!geminiPrompt.trim()) {
+        throw new Error('Gemini Prompt is required');
+      }
+
+      const { error: apiKeyError } = await supabase
+        .from('system_settings')
+        .upsert({
+          key: 'gemini_api_key',
+          value: geminiApiKey.trim(),
+          description: 'Gemini API key for AI analysis'
+        }, {
+          onConflict: 'key'
+        });
+
+      if (apiKeyError) throw apiKeyError;
+
+      if (geminiPromptId) {
+        const { error: promptError } = await supabase
+          .from('gemini_prompts')
+          .update({
+            prompt_template: geminiPrompt.trim(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', geminiPromptId);
+
+        if (promptError) throw promptError;
+      }
+
+      setMessage({ type: 'success', text: 'Gemini AI settings saved successfully! Users can now analyze monthly reports with AI.' });
+    } catch (err: any) {
+      console.error('Error saving Gemini settings:', err);
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -191,8 +259,33 @@ export default function MetaAdsSettingsPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Meta Ads Settings</h1>
-          <p className="text-sm text-gray-600">Configure API access for automated ad data sync</p>
+          <p className="text-sm text-gray-600">Configure API access and AI analysis settings</p>
         </div>
+      </div>
+
+      <div className="flex gap-2 border-b border-gray-200 mb-6">
+        <button
+          onClick={() => setActiveTab('meta')}
+          className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2 ${
+            activeTab === 'meta'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <BarChart3 size={18} />
+          Meta Ads API
+        </button>
+        <button
+          onClick={() => setActiveTab('gemini')}
+          className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2 ${
+            activeTab === 'gemini'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Sparkles size={18} />
+          Gemini AI Analysis
+        </button>
       </div>
 
       {message && (
@@ -210,7 +303,9 @@ export default function MetaAdsSettingsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+      {activeTab === 'meta' && (
+        <>
+          <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Settings size={20} />
@@ -326,16 +421,114 @@ export default function MetaAdsSettingsPage() {
         </div>
       </div>
 
-      <div className="mt-6 bg-gray-50 rounded-lg border border-gray-200 p-4">
-        <h3 className="font-semibold text-gray-900 mb-2">Next Steps:</h3>
-        <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
-          <li>Paste your Access Token above</li>
-          <li>Click "Auto-Discover Accounts" to find all ad accounts automatically</li>
-          <li>Click "Save Settings" to store the configuration</li>
-          <li>Go to any Marketing Project and navigate to "Meta Ad" section</li>
-          <li>Link ad accounts to the project and sync campaign data</li>
-        </ol>
-      </div>
+          <div className="mt-6 bg-gray-50 rounded-lg border border-gray-200 p-4">
+            <h3 className="font-semibold text-gray-900 mb-2">Next Steps:</h3>
+            <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+              <li>Paste your Access Token above</li>
+              <li>Click "Auto-Discover Accounts" to find all ad accounts automatically</li>
+              <li>Click "Save Settings" to store the configuration</li>
+              <li>Go to any Marketing Project and navigate to "Meta Ad" section</li>
+              <li>Link ad accounts to the project and sync campaign data</li>
+            </ol>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'gemini' && (
+        <>
+          <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Sparkles size={20} />
+                Gemini AI Configuration
+              </h2>
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-purple-900 mb-2">Setup Instructions:</h3>
+                <ol className="list-decimal list-inside space-y-1 text-sm text-purple-800">
+                  <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Google AI Studio</a></li>
+                  <li>Create or select your project</li>
+                  <li>Generate a new API key</li>
+                  <li>Paste the API key below</li>
+                  <li>Customize the analysis prompt template (optional)</li>
+                  <li>Click "Save Settings"</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Gemini API Key <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                  placeholder="e.g., AIzaSy..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Your Gemini API key for AI-powered monthly report analysis
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Analysis Prompt Template <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <Edit3 size={14} />
+                    Customize the AI prompt
+                  </span>
+                </div>
+                <textarea
+                  value={geminiPrompt}
+                  onChange={(e) => setGeminiPrompt(e.target.value)}
+                  rows={12}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
+                  placeholder="Enter your custom prompt template..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This prompt will be sent to Gemini AI along with the monthly comparison data. Customize it to get better insights.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleSaveGeminiSettings}
+                  disabled={saving || !geminiApiKey.trim() || !geminiPrompt.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={18} />
+                      Save Gemini Settings
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 bg-purple-50 rounded-lg border border-purple-200 p-4">
+            <h3 className="font-semibold text-purple-900 mb-2">How It Works:</h3>
+            <ol className="list-decimal list-inside space-y-1 text-sm text-purple-800">
+              <li>Users view monthly comparison reports in Marketing Projects</li>
+              <li>They click "Analyze with AI" button on the Monthly Report tab</li>
+              <li>The system sends the comparison data along with your custom prompt to Gemini</li>
+              <li>Gemini analyzes the data and provides strategic insights and recommendations</li>
+              <li>Results are displayed in a formatted markdown report</li>
+            </ol>
+          </div>
+        </>
+      )}
     </div>
   );
 }
