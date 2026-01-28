@@ -220,6 +220,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     extension: (project as any).extension || false,
     kickoffDateWithFirstPayment: (project as any).kickoff_date_with_first_payment || '',
     allBalanceSettled: (project as any).all_balance_settled || false,
+    projectNotStarted: (project as any).project_not_started ?? true,
   });
 
   const [originalData, setOriginalData] = useState({
@@ -273,6 +274,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     extension: (project as any).extension || false,
     kickoffDateWithFirstPayment: (project as any).kickoff_date_with_first_payment || '',
     allBalanceSettled: (project as any).all_balance_settled || false,
+    projectNotStarted: (project as any).project_not_started ?? true,
   });
 
   const [tasks, setTasks] = useState<Task[]>(project.tasks || []);
@@ -361,6 +363,13 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     const isChanged = JSON.stringify(normalizedFormData) !== JSON.stringify(normalizedOriginalData);
     setHasUnsavedChanges(isChanged);
   }, [formData, originalData]);
+
+  useEffect(() => {
+    // Auto-uncheck "Project Not Started" when Kickoff Date is set
+    if (formData.kickoffDateWithFirstPayment && formData.projectNotStarted) {
+      setFormData(prev => ({ ...prev, projectNotStarted: false }));
+    }
+  }, [formData.kickoffDateWithFirstPayment]);
 
   useEffect(() => {
     // Calculate receivable amount
@@ -1046,6 +1055,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         extension: formData.extension,
         kickoff_date_with_first_payment: formData.kickoffDateWithFirstPayment || null,
         all_balance_settled: formData.allBalanceSettled,
+        project_not_started: formData.projectNotStarted,
       } : {};
 
       const { error } = await supabase
@@ -2520,6 +2530,18 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                     className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 disabled:opacity-50"
                   />
                   <span className="text-sm font-medium text-slate-700">Extension</span>
+                </label>
+              </div>
+              <div>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    disabled={!canEdit}
+                    checked={formData.projectNotStarted}
+                    onChange={(e) => setFormData({ ...formData, projectNotStarted: e.target.checked })}
+                    className="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500 disabled:opacity-50"
+                  />
+                  <span className="text-sm font-medium text-slate-700">Project Not Started</span>
                 </label>
               </div>
             </div>

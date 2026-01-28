@@ -62,7 +62,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
       const { data: projects, error } = await supabase
         .from('projects')
-        .select('id, title, submission_date, status_id, project_end_date, extension')
+        .select('id, title, submission_date, status_id, project_end_date, extension, project_not_started')
         .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696')
         .in('status_id', qaSubstatusIds);
 
@@ -101,7 +101,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
   const exportEndingSoonProjects = () => {
     if (endingSoonProjects.length === 0) return;
 
-    const headers = ['Project Title', 'End Date', 'Days Remaining', 'Extension'];
+    const headers = ['Project Title', 'End Date', 'Days Remaining', 'Extension', 'Project Not Started'];
     const rows = endingSoonProjects.map(project => {
       const daysRemaining = project.project_end_date
         ? Math.ceil((new Date(project.project_end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
@@ -118,7 +118,8 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
         `"${project.title.replace(/"/g, '""')}"`,
         endDateFormatted,
         daysRemaining,
-        project.extension ? 'Yes' : 'No'
+        project.extension ? 'Yes' : 'No',
+        (project as any).project_not_started ? 'Yes' : 'No'
       ].join(',');
     });
 
@@ -152,7 +153,7 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
 
       let projectQuery = supabase
         .from('projects')
-        .select('id, status_id, project_type_id, title, project_end_date, submission_date, extension')
+        .select('id, status_id, project_type_id, title, project_end_date, submission_date, extension, project_not_started')
         .eq('project_type_id', '49c17e80-db14-4e13-b03f-537771270696');
 
       const { data: projects, error: projectError } = await projectQuery;
@@ -556,6 +557,11 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
                           {project.extension && (
                             <span className="inline-flex items-center text-xs font-semibold text-white bg-red-600 px-2 py-0.5 rounded shadow-sm flex-shrink-0">
                               Extension
+                            </span>
+                          )}
+                          {(project as any).project_not_started && (
+                            <span className="inline-flex items-center text-xs font-semibold text-white bg-green-600 px-2 py-0.5 rounded shadow-sm flex-shrink-0">
+                              Project Not Started
                             </span>
                           )}
                         </div>
