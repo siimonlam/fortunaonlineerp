@@ -2735,6 +2735,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={() => setFilterAssignee(user?.id || '')}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    filterAssignee === user?.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  My Tasks
+                </button>
               </div>
             </div>
 
