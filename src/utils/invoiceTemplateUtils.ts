@@ -123,8 +123,6 @@ export async function generateInvoiceFromTemplate(
   // than embedding custom fonts which can cause compatibility issues.
 
   // Helper function to safely set field text
-  // NOTE: Standard PDF fonts only support WinAnsi encoding (ASCII characters)
-  // Chinese and other Unicode characters are not supported by pdf-lib's standard fonts
   const setFieldText = async (fieldName: string, text: string) => {
     if (!text) {
       return; // Skip empty values
@@ -133,27 +131,16 @@ export async function generateInvoiceFromTemplate(
     try {
       const field = form.getTextField(fieldName);
 
-      // Remove non-ASCII characters that WinAnsi encoding cannot handle
-      // This includes Chinese characters, emojis, and other Unicode characters
-      const sanitizedText = text.replace(/[^\x00-\x7F]/g, '');
-
-      if (!sanitizedText.trim()) {
-        console.warn(`Field ${fieldName} contains only non-ASCII characters - leaving empty. Original text had Chinese/Unicode characters that cannot be encoded in PDF.`);
-        return;
-      }
-
-      if (sanitizedText !== text) {
-        console.warn(`Field ${fieldName}: Removed non-ASCII characters. Original: "${text}", Sanitized: "${sanitizedText}"`);
-      }
-
       try {
-        field.setText(sanitizedText);
+        // Set text directly - the template should support Chinese characters
+        field.setText(text);
+        console.log(`Set field "${fieldName}" = "${text}"`);
       } catch (setTextError) {
         console.warn(`Could not set text for field ${fieldName}:`, setTextError);
       }
     } catch (error: any) {
       // Field might not exist or not be a text field
-      console.warn(`Field ${fieldName} error:`, error);
+      console.warn(`Field ${fieldName} not found or not a text field`);
     }
   };
 
