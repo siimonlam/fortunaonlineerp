@@ -101,8 +101,8 @@ Deno.serve(async (req: Request) => {
     // Prepare the full prompt with data
     const fullPrompt = `${promptTemplate}\n\n**Data to Analyze:**\n\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
 
-    // Call Gemini API
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`;
+    // Call Gemini API with gemini-1.5-flash (stable, latest available model)
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
 
     const geminiResponse = await fetch(geminiUrl, {
       method: "POST",
@@ -142,6 +142,8 @@ Deno.serve(async (req: Request) => {
           errorMessage = "Gemini API quota exceeded. Please check your Google Cloud billing.";
         } else if (geminiError.includes("PERMISSION_DENIED")) {
           errorMessage = "Gemini API access denied. Please verify your API key has the correct permissions.";
+        } else if (geminiError.includes("not found") || geminiError.includes("not supported")) {
+          errorMessage = "Gemini model not available. Using gemini-1.5-flash. Please verify your API key has access to this model.";
         } else {
           errorMessage = `Gemini API error: ${geminiError}`;
         }
