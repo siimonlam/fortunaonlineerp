@@ -78,6 +78,11 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
       console.log('Extracted fields:', extractedFields);
       setFields(extractedFields);
 
+      // Hide fields panel if no fields found
+      if (extractedFields.length === 0) {
+        setShowFields(false);
+      }
+
       // Create URL for preview
       const url = URL.createObjectURL(pdfBlob);
       setPdfUrl(url);
@@ -175,24 +180,28 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-[95vw] max-h-[98vh] lg:max-w-7xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full h-full max-w-[98vw] max-h-[96vh] overflow-hidden flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
           <div>
             <h2 className="text-xl font-semibold text-slate-800">Invoice Preview & Edit</h2>
             <p className="text-sm text-slate-600 mt-1">
-              Edit fields on the right, then save to Google Drive
+              {fields.length > 0
+                ? 'Edit fields on the right, then save to Google Drive'
+                : 'Review your invoice and save to Google Drive'}
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowFields(!showFields)}
-              className="px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center gap-2"
-              title="Toggle fields panel"
-            >
-              <Edit3 className="w-4 h-4" />
-              {showFields ? 'Hide' : 'Show'} Fields
-            </button>
+            {fields.length > 0 && (
+              <button
+                onClick={() => setShowFields(!showFields)}
+                className="px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center gap-2"
+                title="Toggle fields panel"
+              >
+                <Edit3 className="w-4 h-4" />
+                {showFields ? 'Hide' : 'Show'} Fields
+              </button>
+            )}
             <button
               onClick={handleOpenInNewTab}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -228,7 +237,7 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
 
         <div className="flex-1 overflow-hidden bg-slate-100 flex">
           {/* PDF Preview */}
-          <div className={`${showFields ? 'w-2/3' : 'w-full'} p-2 transition-all duration-300`}>
+          <div className={`${showFields ? 'w-3/4' : 'w-full'} p-2 transition-all duration-300`}>
             <div className="w-full h-full bg-white rounded-lg shadow-inner overflow-hidden">
               {iframeError ? (
                 <div className="flex flex-col items-center justify-center h-full p-8 text-center">
@@ -268,7 +277,7 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
 
           {/* Editable Fields Panel */}
           {showFields && (
-            <div className="w-1/3 p-2 overflow-hidden flex flex-col">
+            <div className="w-1/4 p-2 overflow-hidden flex flex-col">
               <div className="bg-white rounded-lg shadow-lg h-full flex flex-col">
                 <div className="p-4 border-b border-slate-200 bg-slate-50">
                   <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
@@ -286,10 +295,14 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
                       <div className="text-slate-500">Loading fields...</div>
                     </div>
                   ) : fields.length === 0 ? (
-                    <div className="flex items-center justify-center h-full">
+                    <div className="flex items-center justify-center h-full px-2">
                       <div className="text-slate-500 text-center">
-                        <p>No editable fields found</p>
-                        <p className="text-xs mt-2">This PDF may not have form fields</p>
+                        <p className="font-medium mb-2">No editable fields found</p>
+                        <p className="text-xs mb-4">This PDF template doesn't have form fields.</p>
+                        <p className="text-xs text-slate-600">
+                          To edit this invoice, you need to use a PDF template with fillable form fields.
+                          You can download this PDF and edit it manually in Adobe Acrobat or similar software.
+                        </p>
                       </div>
                     </div>
                   ) : (
