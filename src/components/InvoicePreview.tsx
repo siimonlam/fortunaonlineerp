@@ -1,4 +1,4 @@
-import { X, Download, Check, Maximize2, Edit3 } from 'lucide-react';
+import { X, Download, Check, Maximize2, Edit3, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PDFDocument, PDFTextField, PDFCheckBox } from 'pdf-lib';
 
@@ -22,6 +22,8 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
   const [pdfDoc, setPdfDoc] = useState<PDFDocument | null>(null);
   const [isLoadingFields, setIsLoadingFields] = useState(true);
   const [showFields, setShowFields] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     console.log('=== InvoicePreview useEffect ===');
@@ -100,6 +102,28 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
         field.name === fieldName ? { ...field, value: newValue } : field
       )
     );
+    setHasUnsavedChanges(true);
+  };
+
+  const handleRefreshPreview = async () => {
+    try {
+      setIsRefreshing(true);
+      const updatedBlob = await generateUpdatedPDF(false);
+
+      // Revoke old URL and create new one
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+
+      const newUrl = URL.createObjectURL(updatedBlob);
+      setPdfUrl(newUrl);
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('Error refreshing preview:', error);
+      alert('Failed to refresh preview');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -164,6 +188,7 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
       // Generate PDF with updated fields and flatten it
       const flattenedBlob = await generateUpdatedPDF(true);
       console.log('PDF updated with edited fields and flattened before saving to Google Drive');
+      setHasUnsavedChanges(false);
       await onSave(flattenedBlob);
     } catch (error) {
       console.error('Error preparing PDF:', error);
@@ -187,20 +212,37 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
             <h2 className="text-xl font-semibold text-slate-800">Invoice Preview & Edit</h2>
             <p className="text-sm text-slate-600 mt-1">
               {fields.length > 0
-                ? 'Edit fields on the right, then save to Google Drive'
+                ? hasUnsavedChanges
+                  ? 'Edit fields on the right, click "Refresh Preview" to see changes, then save'
+                  : 'Edit fields on the right, then save to Google Drive'
                 : 'Review your invoice and save to Google Drive'}
             </p>
           </div>
           <div className="flex gap-2">
             {fields.length > 0 && (
-              <button
-                onClick={() => setShowFields(!showFields)}
-                className="px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center gap-2"
-                title="Toggle fields panel"
-              >
-                <Edit3 className="w-4 h-4" />
-                {showFields ? 'Hide' : 'Show'} Fields
-              </button>
+              <>
+                <button
+                  onClick={() => setShowFields(!showFields)}
+                  className="px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center gap-2"
+                  title="Toggle fields panel"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  {showFields ? 'Hide' : 'Show'} Fields
+                </button>
+                <button
+                  onClick={handleRefreshPreview}
+                  disabled={isRefreshing || !hasUnsavedChanges}
+                  className={`px-4 py-2 text-white rounded-lg transition-colors flex items-center gap-2 ${
+                    hasUnsavedChanges
+                      ? 'bg-orange-600 hover:bg-orange-700 animate-pulse'
+                      : 'bg-slate-400 cursor-not-allowed'
+                  }`}
+                  title="Update preview with your changes"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing ? 'Updating...' : 'Refresh Preview'}
+                </button>
+              </>
             )}
             <button
               onClick={handleOpenInNewTab}
@@ -336,9 +378,18 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
 
                 {fields.length > 0 && (
                   <div className="p-4 border-t border-slate-200 bg-slate-50">
-                    <p className="text-xs text-slate-600">
-                      Changes will be applied when you save to Drive
-                    </p>
+                    {hasUnsavedChanges ? (
+                      <div className="flex items-start gap-2 text-orange-600">
+                        <RefreshCw className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs">
+                          <strong>Preview not updated.</strong> Click "Refresh Preview" to see your changes.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-600">
+                        Changes will be applied when you save to Drive
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
