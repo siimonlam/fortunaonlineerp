@@ -57,26 +57,42 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
 
       formFields.forEach((field) => {
         const fieldName = field.getName();
+        console.log('Processing field:', fieldName, 'Type:', field.constructor.name);
 
-        if (field.constructor.name === 'PDFTextField') {
-          const textField = field as PDFTextField;
+        // Try to detect field type by attempting to get it as a text field
+        try {
+          const textField = form.getTextField(fieldName);
           const value = textField.getText() || '';
           extractedFields.push({
             name: fieldName,
             value: value,
             type: 'text'
           });
-        } else if (field.constructor.name === 'PDFCheckBox') {
-          const checkBox = field as PDFCheckBox;
+          console.log('  -> Text field, value:', value);
+          return;
+        } catch (e) {
+          // Not a text field, try checkbox
+        }
+
+        // Try checkbox
+        try {
+          const checkBox = form.getCheckBox(fieldName);
           const value = checkBox.isChecked() ? 'Yes' : 'No';
           extractedFields.push({
             name: fieldName,
             value: value,
             type: 'checkbox'
           });
+          console.log('  -> Checkbox field, checked:', checkBox.isChecked());
+          return;
+        } catch (e) {
+          // Not a checkbox either
         }
+
+        console.log('  -> Unknown field type, skipping');
       });
 
+      console.log('Total extracted fields:', extractedFields.length);
       console.log('Extracted fields:', extractedFields);
       setFields(extractedFields);
 
