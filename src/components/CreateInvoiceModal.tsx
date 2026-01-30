@@ -432,6 +432,13 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
               />
             </div>
 
+            <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+              <p className="text-xs text-amber-800">
+                <strong>Note:</strong> Chinese characters and special Unicode characters are not supported in PDF forms.
+                They will be automatically removed from the generated invoice. Please use English text only.
+              </p>
+            </div>
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
                 <strong>Project:</strong> {project.company_name || 'N/A'}
