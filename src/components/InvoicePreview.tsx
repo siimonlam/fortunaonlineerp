@@ -1,6 +1,6 @@
-import { X, Download, Check, Maximize2 } from 'lucide-react';
+import { X, Download, Check, Maximize2, Edit3 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFTextField, PDFCheckBox } from 'pdf-lib';
 
 interface InvoicePreviewProps {
   pdfBlob: Blob;
@@ -9,9 +9,19 @@ interface InvoicePreviewProps {
   loading?: boolean;
 }
 
+interface PDFField {
+  name: string;
+  value: string;
+  type: 'text' | 'checkbox';
+}
+
 export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePreviewProps) {
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [iframeError, setIframeError] = useState(false);
+  const [fields, setFields] = useState<PDFField[]>([]);
+  const [pdfDoc, setPdfDoc] = useState<PDFDocument | null>(null);
+  const [isLoadingFields, setIsLoadingFields] = useState(true);
+  const [showFields, setShowFields] = useState(true);
 
   useEffect(() => {
     console.log('=== InvoicePreview useEffect ===');
@@ -19,52 +29,149 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
     console.log('PDF Blob size:', pdfBlob.size, 'bytes');
     console.log('PDF Blob type:', pdfBlob.type);
 
-    const url = URL.createObjectURL(pdfBlob);
-    setPdfUrl(url);
-    console.log('PDF URL created:', url);
-    console.log('PDF has editable fields - you can type directly in the viewer');
+    loadPdfAndExtractFields();
 
     return () => {
-      console.log('Revoking URL:', url);
-      URL.revokeObjectURL(url);
+      if (pdfUrl) {
+        console.log('Revoking URL:', pdfUrl);
+        URL.revokeObjectURL(pdfUrl);
+      }
     };
   }, [pdfBlob]);
 
-  const handleDownload = () => {
+  const loadPdfAndExtractFields = async () => {
+    try {
+      setIsLoadingFields(true);
+      const arrayBuffer = await pdfBlob.arrayBuffer();
+      const doc = await PDFDocument.load(arrayBuffer);
+      setPdfDoc(doc);
+
+      const form = doc.getForm();
+      const formFields = form.getFields();
+
+      console.log('Found form fields:', formFields.length);
+
+      const extractedFields: PDFField[] = [];
+
+      formFields.forEach((field) => {
+        const fieldName = field.getName();
+
+        if (field.constructor.name === 'PDFTextField') {
+          const textField = field as PDFTextField;
+          const value = textField.getText() || '';
+          extractedFields.push({
+            name: fieldName,
+            value: value,
+            type: 'text'
+          });
+        } else if (field.constructor.name === 'PDFCheckBox') {
+          const checkBox = field as PDFCheckBox;
+          const value = checkBox.isChecked() ? 'Yes' : 'No';
+          extractedFields.push({
+            name: fieldName,
+            value: value,
+            type: 'checkbox'
+          });
+        }
+      });
+
+      console.log('Extracted fields:', extractedFields);
+      setFields(extractedFields);
+
+      // Create URL for preview
+      const url = URL.createObjectURL(pdfBlob);
+      setPdfUrl(url);
+
+      setIsLoadingFields(false);
+    } catch (error) {
+      console.error('Error loading PDF:', error);
+      setIsLoadingFields(false);
+    }
+  };
+
+  const handleFieldChange = (fieldName: string, newValue: string) => {
+    setFields(prevFields =>
+      prevFields.map(field =>
+        field.name === fieldName ? { ...field, value: newValue } : field
+      )
+    );
+  };
+
+  const handleDownload = async () => {
+    const blob = await generateUpdatedPDF(false);
     const link = document.createElement('a');
-    const downloadUrl = URL.createObjectURL(pdfBlob);
+    const downloadUrl = URL.createObjectURL(blob);
     link.href = downloadUrl;
     link.download = 'invoice.pdf';
     link.click();
     URL.revokeObjectURL(downloadUrl);
   };
 
-  const handleOpenInNewTab = () => {
-    const newWindow = window.open(pdfUrl, '_blank');
+  const handleOpenInNewTab = async () => {
+    const blob = await generateUpdatedPDF(false);
+    const url = URL.createObjectURL(blob);
+    const newWindow = window.open(url, '_blank');
     if (!newWindow) {
       alert('Please allow popups to open PDF in a new tab');
     }
   };
 
-  const handleSave = async () => {
-    // Flatten the PDF before saving to make it non-editable
-    try {
-      const arrayBuffer = await pdfBlob.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(arrayBuffer);
-      const form = pdfDoc.getForm();
+  const generateUpdatedPDF = async (flatten: boolean = true): Promise<Blob> => {
+    if (!pdfDoc) {
+      throw new Error('PDF document not loaded');
+    }
 
-      // Flatten to convert all editable fields to static content
+    // Clone the document
+    const arrayBuffer = await pdfBlob.arrayBuffer();
+    const updatedDoc = await PDFDocument.load(arrayBuffer);
+    const form = updatedDoc.getForm();
+
+    // Update all fields with new values
+    fields.forEach((field) => {
+      try {
+        if (field.type === 'text') {
+          const pdfField = form.getTextField(field.name);
+          pdfField.setText(field.value);
+        } else if (field.type === 'checkbox') {
+          const pdfField = form.getCheckBox(field.name);
+          if (field.value === 'Yes') {
+            pdfField.check();
+          } else {
+            pdfField.uncheck();
+          }
+        }
+      } catch (error) {
+        console.error(`Error updating field ${field.name}:`, error);
+      }
+    });
+
+    // Flatten if requested (makes fields non-editable)
+    if (flatten) {
       form.flatten();
+    }
 
-      const pdfBytes = await pdfDoc.save();
-      const flattenedBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const pdfBytes = await updatedDoc.save();
+    return new Blob([pdfBytes], { type: 'application/pdf' });
+  };
 
-      console.log('PDF flattened (fields converted to non-editable) before saving to Google Drive');
+  const handleSave = async () => {
+    try {
+      // Generate PDF with updated fields and flatten it
+      const flattenedBlob = await generateUpdatedPDF(true);
+      console.log('PDF updated with edited fields and flattened before saving to Google Drive');
       await onSave(flattenedBlob);
     } catch (error) {
-      console.error('Error flattening PDF:', error);
+      console.error('Error preparing PDF:', error);
       alert('Failed to prepare PDF for saving');
     }
+  };
+
+  const formatFieldName = (name: string): string => {
+    return name
+      .replace(/_/g, ' ')
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/\b\w/g, l => l.toUpperCase())
+      .trim();
   };
 
   return (
@@ -72,19 +179,27 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
       <div className="bg-white rounded-lg shadow-xl w-full max-w-[95vw] max-h-[98vh] lg:max-w-7xl overflow-hidden flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
           <div>
-            <h2 className="text-xl font-semibold text-slate-800">Invoice Preview</h2>
+            <h2 className="text-xl font-semibold text-slate-800">Invoice Preview & Edit</h2>
             <p className="text-sm text-slate-600 mt-1">
-              Click on any field to edit. If preview is blank, click "Open in New Tab" for full editing.
+              Edit fields on the right, then save to Google Drive
             </p>
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => setShowFields(!showFields)}
+              className="px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center gap-2"
+              title="Toggle fields panel"
+            >
+              <Edit3 className="w-4 h-4" />
+              {showFields ? 'Hide' : 'Show'} Fields
+            </button>
+            <button
               onClick={handleOpenInNewTab}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              title="Open in new tab for better editing"
+              title="Open in new tab"
             >
               <Maximize2 className="w-4 h-4" />
-              Open in New Tab
+              New Tab
             </button>
             <button
               onClick={handleDownload}
@@ -95,7 +210,7 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
             </button>
             <button
               onClick={handleSave}
-              disabled={loading}
+              disabled={loading || isLoadingFields}
               className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Check className="w-5 h-5" />
@@ -111,42 +226,111 @@ export function InvoicePreview({ pdfBlob, onClose, onSave, loading }: InvoicePre
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden bg-slate-100 p-2">
-          <div className="w-full h-full bg-white rounded-lg shadow-inner overflow-hidden">
-            {iframeError ? (
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <p className="text-slate-600 mb-4">
-                  Cannot preview PDF in browser. Please download to view.
-                </p>
-                <button
-                  onClick={handleDownload}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                >
-                  <Download className="w-5 h-5" />
-                  Download PDF
-                </button>
-              </div>
-            ) : (
-              <object
-                data={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
-                type="application/pdf"
-                className="w-full h-full border-0"
-                onLoad={() => {
-                  console.log('PDF loaded successfully');
-                }}
-                onError={(e) => {
-                  console.error('Failed to load PDF', e);
-                  setIframeError(true);
-                }}
-              >
-                <embed
-                  src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+        <div className="flex-1 overflow-hidden bg-slate-100 flex">
+          {/* PDF Preview */}
+          <div className={`${showFields ? 'w-2/3' : 'w-full'} p-2 transition-all duration-300`}>
+            <div className="w-full h-full bg-white rounded-lg shadow-inner overflow-hidden">
+              {iframeError ? (
+                <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                  <p className="text-slate-600 mb-4">
+                    Cannot preview PDF in browser. Please download to view.
+                  </p>
+                  <button
+                    onClick={handleDownload}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    <Download className="w-5 h-5" />
+                    Download PDF
+                  </button>
+                </div>
+              ) : (
+                <object
+                  data={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
                   type="application/pdf"
                   className="w-full h-full border-0"
-                />
-              </object>
-            )}
+                  onLoad={() => {
+                    console.log('PDF loaded successfully');
+                  }}
+                  onError={(e) => {
+                    console.error('Failed to load PDF', e);
+                    setIframeError(true);
+                  }}
+                >
+                  <embed
+                    src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                    type="application/pdf"
+                    className="w-full h-full border-0"
+                  />
+                </object>
+              )}
+            </div>
           </div>
+
+          {/* Editable Fields Panel */}
+          {showFields && (
+            <div className="w-1/3 p-2 overflow-hidden flex flex-col">
+              <div className="bg-white rounded-lg shadow-lg h-full flex flex-col">
+                <div className="p-4 border-b border-slate-200 bg-slate-50">
+                  <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                    <Edit3 className="w-5 h-5" />
+                    Editable Fields
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1">
+                    {fields.length} field{fields.length !== 1 ? 's' : ''} found
+                  </p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {isLoadingFields ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-slate-500">Loading fields...</div>
+                    </div>
+                  ) : fields.length === 0 ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-slate-500 text-center">
+                        <p>No editable fields found</p>
+                        <p className="text-xs mt-2">This PDF may not have form fields</p>
+                      </div>
+                    </div>
+                  ) : (
+                    fields.map((field) => (
+                      <div key={field.name} className="space-y-1">
+                        <label className="block text-sm font-medium text-slate-700">
+                          {formatFieldName(field.name)}
+                        </label>
+                        {field.type === 'text' ? (
+                          <input
+                            type="text"
+                            value={field.value}
+                            onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder={`Enter ${formatFieldName(field.name).toLowerCase()}`}
+                          />
+                        ) : (
+                          <select
+                            value={field.value}
+                            onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                          >
+                            <option value="No">No</option>
+                            <option value="Yes">Yes</option>
+                          </select>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {fields.length > 0 && (
+                  <div className="p-4 border-t border-slate-200 bg-slate-50">
+                    <p className="text-xs text-slate-600">
+                      Changes will be applied when you save to Drive
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
