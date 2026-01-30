@@ -824,15 +824,30 @@ export default function MonthlyComparison({ accountId }: Props) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to analyze data with AI');
+        const errorMessage = errorData.error || 'Failed to analyze data with AI';
+        const detailsMessage = errorData.details ? `\n\nDetails: ${JSON.stringify(errorData.details, null, 2)}` : '';
+        throw new Error(errorMessage + detailsMessage);
       }
 
       const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to analyze data with AI');
+      }
+
       setAiAnalysis(result.analysis);
       setShowAnalysisModal(true);
     } catch (error: any) {
       console.error('Error analyzing with AI:', error);
-      setAiError(error.message || 'Failed to analyze data with AI. Please check your Gemini API settings.');
+      let errorMessage = error.message || 'Failed to analyze data with AI. Please check your Gemini API settings.';
+
+      if (errorMessage.includes('Gemini API key not configured')) {
+        errorMessage = 'Gemini API key not configured. Please add it in Marketing > Meta Ad > Settings page (gear icon).';
+      } else if (errorMessage.includes('No active prompt found')) {
+        errorMessage = 'Analysis prompt not configured. Please contact your administrator.';
+      }
+
+      setAiError(errorMessage);
     } finally {
       setAnalyzingWithAI(false);
     }

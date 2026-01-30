@@ -131,9 +131,25 @@ Deno.serve(async (req: Request) => {
     if (!geminiResponse.ok) {
       const error = await geminiResponse.json();
       console.error("Gemini API error:", error);
+
+      let errorMessage = "Failed to get response from Gemini AI";
+
+      if (error.error?.message) {
+        const geminiError = error.error.message;
+        if (geminiError.includes("API_KEY_INVALID") || geminiError.includes("invalid API key")) {
+          errorMessage = "Invalid Gemini API key. Please check your API key in Settings.";
+        } else if (geminiError.includes("quota") || geminiError.includes("RESOURCE_EXHAUSTED")) {
+          errorMessage = "Gemini API quota exceeded. Please check your Google Cloud billing.";
+        } else if (geminiError.includes("PERMISSION_DENIED")) {
+          errorMessage = "Gemini API access denied. Please verify your API key has the correct permissions.";
+        } else {
+          errorMessage = `Gemini API error: ${geminiError}`;
+        }
+      }
+
       return new Response(
         JSON.stringify({
-          error: "Failed to get response from Gemini AI",
+          error: errorMessage,
           details: error
         }),
         {
