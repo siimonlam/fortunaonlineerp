@@ -901,7 +901,6 @@ export function ProjectBoard() {
         .from('tasks')
         .select('id, deadline, completed')
         .in('meeting_id', meetingIds)
-        .eq('assigned_to', user.id)
         .eq('completed', false)
         .not('deadline', 'is', null);
 
