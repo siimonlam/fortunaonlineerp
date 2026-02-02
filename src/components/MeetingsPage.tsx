@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X, User, Clock, AlertCircle } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, CheckSquare, Square, Trash2, Edit, X, User, Clock, AlertCircle, Bell } from 'lucide-react';
 import { toLocalDateTimeString, fromLocalDateTimeString } from '../utils/dateTimeUtils';
 
 interface Meeting {
@@ -398,6 +398,23 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
     return { overdueTasks, upcomingTasks };
   };
 
+  const getMeetingTaskCounts = (meetingId: string) => {
+    const tasks = meetingTasks[meetingId] || [];
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const pastDue = tasks.filter(
+      task => !task.completed && task.deadline && new Date(task.deadline) < now
+    ).length;
+
+    const upcoming = tasks.filter(
+      task => !task.completed && task.deadline &&
+      new Date(task.deadline) >= now && new Date(task.deadline) <= sevenDaysFromNow
+    ).length;
+
+    return { pastDue, upcoming };
+  };
+
   const { overdueTasks, upcomingTasks } = getTaskReminders();
 
   return (
@@ -502,37 +519,58 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
             <p className="text-sm text-slate-500 text-center py-8">No meetings yet</p>
           ) : (
             <div className="space-y-2">
-              {meetings.map(meeting => (
-                <div
-                  key={meeting.id}
-                  className="group bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-all"
-                >
-                  <div className="p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold text-slate-900 truncate">
-                          {meeting.title}
-                        </h4>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {new Date(meeting.meeting_date).toLocaleDateString()}
-                        </p>
-                        {getMeetingProject(meeting) && (
-                          <p className="text-xs text-slate-400 mt-0.5 truncate">
-                            {getMeetingProject(meeting)?.title}
+              {meetings.map(meeting => {
+                const taskCounts = getMeetingTaskCounts(meeting.id);
+                return (
+                  <div
+                    key={meeting.id}
+                    className="group bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-all"
+                  >
+                    <div className="p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2">
+                            <h4 className="text-sm font-semibold text-slate-900 truncate flex-1">
+                              {meeting.title}
+                            </h4>
+                            {(taskCounts.pastDue > 0 || taskCounts.upcoming > 0) && (
+                              <div className="flex items-center gap-1">
+                                {taskCounts.pastDue > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
+                                    <AlertCircle className="w-3 h-3" />
+                                    {taskCounts.pastDue}
+                                  </span>
+                                )}
+                                {taskCounts.upcoming > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
+                                    <Bell className="w-3 h-3" />
+                                    {taskCounts.upcoming}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {new Date(meeting.meeting_date).toLocaleDateString()}
                           </p>
-                        )}
+                          {getMeetingProject(meeting) && (
+                            <p className="text-xs text-slate-400 mt-0.5 truncate">
+                              {getMeetingProject(meeting)?.title}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => openEditModal(meeting)}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors flex-shrink-0"
+                          title="Edit meeting"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => openEditModal(meeting)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="Edit meeting"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </nav>
@@ -548,19 +586,37 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
             <p className="text-slate-500">No meetings recorded yet</p>
           </div>
         ) : (
-          meetings.map(meeting => (
-            <div key={meeting.id} id={`meeting-${meeting.id}`} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-              <div className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-semibold text-slate-900">{meeting.title}</h3>
-                      {getMeetingProject(meeting) && (
-                        <span className="text-sm text-slate-500">
-                          — {getMeetingProject(meeting)?.title}
-                        </span>
-                      )}
-                    </div>
+          meetings.map(meeting => {
+            const taskCounts = getMeetingTaskCounts(meeting.id);
+            return (
+              <div key={meeting.id} id={`meeting-${meeting.id}`} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-lg font-semibold text-slate-900">{meeting.title}</h3>
+                        {getMeetingProject(meeting) && (
+                          <span className="text-sm text-slate-500">
+                            — {getMeetingProject(meeting)?.title}
+                          </span>
+                        )}
+                        {(taskCounts.pastDue > 0 || taskCounts.upcoming > 0) && (
+                          <div className="flex items-center gap-1.5 ml-2">
+                            {taskCounts.pastDue > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded-md shadow-sm">
+                                <AlertCircle className="w-3.5 h-3.5" />
+                                {taskCounts.pastDue} Past Due
+                              </span>
+                            )}
+                            {taskCounts.upcoming > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-800 bg-orange-100 px-2 py-1 rounded-md border border-orange-300">
+                                <Bell className="w-3.5 h-3.5" />
+                                {taskCounts.upcoming} Upcoming
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     <div className="flex flex-wrap gap-4 text-sm text-slate-600 mb-3">
                       <div className="flex items-center gap-1.5">
                         <Calendar className="w-4 h-4" />
@@ -648,7 +704,8 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
                 )}
               </div>
             </div>
-          ))
+            );
+          })
         )}
           </div>
         </div>
