@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign, Instagram, Facebook, BarChart3, Mail, MessageCircle } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, Eye, Edit, DollarSign, Instagram, Facebook, BarChart3, Mail, MessageCircle, TrendingUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
@@ -11,9 +11,10 @@ import { WhatsAppSettingsPage } from './WhatsAppSettingsPage';
 import InstagramAccountsPage from './InstagramAccountsPage';
 import FacebookAccountsPage from './FacebookAccountsPage';
 import MetaAdsSettingsPage from './MetaAdsSettingsPage';
+import MetaCampaignPerformancePage from './MetaCampaignPerformancePage';
 import { MarketingProjectPermissions } from './MarketingProjectPermissions';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'marketing-projects' | 'finance-auth' | 'labels' | 'automation' | 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'meta-ads';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'marketing-projects' | 'finance-auth' | 'labels' | 'automation' | 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'meta-ads' | 'meta-campaigns';
 
 interface User {
   id: string;
@@ -191,7 +192,8 @@ export function AdminPage() {
     { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
     { id: 'instagram', label: 'Instagram', icon: Instagram },
     { id: 'facebook', label: 'Facebook', icon: Facebook },
-    { id: 'meta-ads', label: 'Meta Ads', icon: BarChart3 },
+    { id: 'meta-ads', label: 'Meta Ads Settings', icon: BarChart3 },
+    { id: 'meta-campaigns', label: 'Meta Campaigns', icon: TrendingUp },
   ];
 
   return (
@@ -471,10 +473,16 @@ export function AdminPage() {
           {currentView === 'meta-ads' && (
             <div>
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Meta Ads</h2>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Meta Ads Settings</h2>
                 <p className="text-slate-600">Configure Meta Ads API and sync ad accounts</p>
               </div>
               <MetaAdsSettingsPage />
+            </div>
+          )}
+
+          {currentView === 'meta-campaigns' && (
+            <div>
+              <MetaCampaignPerformancePage />
             </div>
           )}
         </div>
