@@ -401,6 +401,7 @@ export function ComSecShareResourcesSection() {
             folderName="ComSec Shared Resources"
             driveUrl="https://drive.google.com/drive/folders/0AMcQWAT66qySUk9PVA"
             embedded={true}
+            driveType="comsec"
           />
         </div>
 

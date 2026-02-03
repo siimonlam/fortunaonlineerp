@@ -7,12 +7,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-async function getServiceAccountToken(): Promise<string> {
-  const serviceAccountEmail = "goldwinerp@woven-answer-485106-u8.iam.gserviceaccount.com";
-  const privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY");
+async function getServiceAccountToken(driveType: 'funding' | 'comsec' = 'funding'): Promise<string> {
+  const serviceAccountEmail = driveType === 'comsec'
+    ? "goldwinerp@woven-answer-485106-u8.iam.gserviceaccount.com"
+    : "fortunaerp@fortuna-erp.iam.gserviceaccount.com";
+
+  const privateKeyEnvVar = driveType === 'comsec'
+    ? "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_COMSEC"
+    : "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY";
+
+  const privateKey = Deno.env.get(privateKeyEnvVar);
 
   if (!privateKey) {
-    throw new Error("Service account private key not configured");
+    throw new Error(`Service account private key not configured for ${driveType} (${privateKeyEnvVar})`);
   }
 
   const now = Math.floor(Date.now() / 1000);

@@ -23,12 +23,20 @@ interface DriveFile {
   parents?: string[];
 }
 
-async function getServiceAccountToken(): Promise<string> {
-  const serviceAccountEmail = "goldwinerp@woven-answer-485106-u8.iam.gserviceaccount.com";
-  const privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY");
+async function getServiceAccountToken(driveType: 'funding' | 'comsec' = 'funding'): Promise<string> {
+  // Funding uses fortunaerp, ComSec uses goldwinerp
+  const serviceAccountEmail = driveType === 'comsec'
+    ? "goldwinerp@woven-answer-485106-u8.iam.gserviceaccount.com"
+    : "fortunaerp@fortuna-erp.iam.gserviceaccount.com";
+
+  const privateKeyEnvVar = driveType === 'comsec'
+    ? "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_COMSEC"
+    : "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY";
+
+  const privateKey = Deno.env.get(privateKeyEnvVar);
 
   if (!privateKey) {
-    throw new Error("Service account private key not configured");
+    throw new Error(`Service account private key not configured for ${driveType} (${privateKeyEnvVar})`);
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -324,8 +332,9 @@ Deno.serve(async (req: Request) => {
     const action = url.searchParams.get("action") || "list";
     const folderId = url.searchParams.get("folderId");
     const fileId = url.searchParams.get("fileId");
+    const driveType = (url.searchParams.get("driveType") || "funding") as 'funding' | 'comsec';
 
-    const accessToken = await getServiceAccountToken();
+    const accessToken = await getServiceAccountToken(driveType);
 
     if (action === "list" && folderId) {
       const files = await listDriveFiles(folderId, accessToken);

@@ -1036,6 +1036,7 @@ export function ShareResourcesPage() {
             folderName="Shared Files"
             driveUrl="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
             embedded={true}
+            driveType="funding"
           />
         </div>
 

@@ -7,6 +7,7 @@ interface ServiceAccountDriveExplorerProps {
   folderName?: string;
   driveUrl?: string;
   embedded?: boolean;
+  driveType?: 'funding' | 'comsec';
 }
 
 interface DriveFile {
@@ -30,7 +31,8 @@ export function ServiceAccountDriveExplorer({
   folderId,
   folderName = 'Shared Files',
   driveUrl,
-  embedded = false
+  embedded = false,
+  driveType = 'funding'
 }: ServiceAccountDriveExplorerProps) {
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,7 +73,7 @@ export function ServiceAccountDriveExplorer({
 
     try {
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
-      const response = await fetch(`${apiUrl}?action=list&folderId=${targetFolderId}`, {
+      const response = await fetch(`${apiUrl}?action=list&folderId=${targetFolderId}&driveType=${driveType}`, {
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
@@ -114,7 +116,7 @@ export function ServiceAccountDriveExplorer({
   async function handleDownloadFile(fileId: string, fileName: string) {
     try {
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
-      const response = await fetch(`${apiUrl}?action=download&fileId=${fileId}`, {
+      const response = await fetch(`${apiUrl}?action=download&fileId=${fileId}&driveType=${driveType}`, {
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
@@ -194,7 +196,7 @@ export function ServiceAccountDriveExplorer({
     setLoading(true);
     try {
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
-      const response = await fetch(`${apiUrl}?action=createFolder`, {
+      const response = await fetch(`${apiUrl}?action=createFolder&driveType=${driveType}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
@@ -269,7 +271,7 @@ export function ServiceAccountDriveExplorer({
                 const base64 = btoa(binary);
 
                 const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
-                const response = await fetch(`${apiUrl}?action=upload`, {
+                const response = await fetch(`${apiUrl}?action=upload&driveType=${driveType}`, {
                   method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
@@ -343,7 +345,7 @@ export function ServiceAccountDriveExplorer({
     setLoading(true);
     try {
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
-      const response = await fetch(`${apiUrl}?action=delete&fileId=${file.id}`, {
+      const response = await fetch(`${apiUrl}?action=delete&fileId=${file.id}&driveType=${driveType}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
@@ -370,7 +372,7 @@ export function ServiceAccountDriveExplorer({
     setLoading(true);
     try {
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files`;
-      const response = await fetch(`${apiUrl}?action=rename&fileId=${selectedFile.id}`, {
+      const response = await fetch(`${apiUrl}?action=rename&fileId=${selectedFile.id}&driveType=${driveType}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
