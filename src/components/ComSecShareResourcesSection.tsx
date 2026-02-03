@@ -397,9 +397,9 @@ export function ComSecShareResourcesSection() {
       <div className="flex gap-4 h-[calc(100%-4rem)]">
         <div className="flex-1 min-w-0">
           <ServiceAccountDriveExplorer
-            folderId="0AK-QGp_5SOJWUk9PVA"
-            folderName="Shared Files"
-            driveUrl="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
+            folderId="0AMcQWAT66qySUk9PVA"
+            folderName="ComSec Shared Resources"
+            driveUrl="https://drive.google.com/drive/folders/0AMcQWAT66qySUk9PVA"
             embedded={true}
           />
         </div>

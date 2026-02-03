@@ -14,7 +14,7 @@ interface GoogleAuthToken {
 }
 
 async function getServiceAccountToken(): Promise<string> {
-  const serviceAccountEmail = "fortunaerp@fortuna-erp.iam.gserviceaccount.com";
+  const serviceAccountEmail = "goldwinerp@woven-answer-485106-u8.iam.gserviceaccount.com";
   const privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY");
 
   if (!privateKey) {
