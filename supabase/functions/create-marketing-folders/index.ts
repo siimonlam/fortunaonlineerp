@@ -190,7 +190,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const folderName = `${marketingReference}_${brandName || companyName || 'Unnamed'}`;
+    const folderName = `${brandName || companyName || 'Unnamed'} - ${marketingReference}`;
     console.log(`Creating folder: ${folderName}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
