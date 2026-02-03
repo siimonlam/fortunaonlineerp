@@ -64,9 +64,9 @@ export function ShareResourcesPage() {
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [selectedDriveFiles, setSelectedDriveFiles] = useState<any[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
-  const [currentFolderId, setCurrentFolderId] = useState('0AMcQWAT66qySUk9PVA');
+  const [currentFolderId, setCurrentFolderId] = useState('0AK-QGp_5SOJWUk9PVA');
   const [folderPath, setFolderPath] = useState<Array<{id: string, name: string}>>([
-    { id: '0AMcQWAT66qySUk9PVA', name: 'Shared Resources' }
+    { id: '0AK-QGp_5SOJWUk9PVA', name: 'Shared Files' }
   ]);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [emailForm, setEmailForm] = useState({
@@ -343,9 +343,9 @@ export function ShareResourcesPage() {
 
   const openAttachmentModal = () => {
     setShowAttachmentModal(true);
-    setCurrentFolderId('0AMcQWAT66qySUk9PVA');
-    setFolderPath([{ id: '0AMcQWAT66qySUk9PVA', name: 'Shared Resources' }]);
-    fetchDriveFiles('0AMcQWAT66qySUk9PVA');
+    setCurrentFolderId('0AK-QGp_5SOJWUk9PVA');
+    setFolderPath([{ id: '0AK-QGp_5SOJWUk9PVA', name: 'Shared Files' }]);
+    fetchDriveFiles('0AK-QGp_5SOJWUk9PVA');
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1032,9 +1032,9 @@ export function ShareResourcesPage() {
       <div className="flex gap-4 h-[calc(100%-4rem)]">
         <div className="flex-1 min-w-0">
           <ServiceAccountDriveExplorer
-            folderId="0AMcQWAT66qySUk9PVA"
-            folderName="Shared Resources"
-            driveUrl="https://drive.google.com/drive/folders/0AMcQWAT66qySUk9PVA"
+            folderId="0AK-QGp_5SOJWUk9PVA"
+            folderName="Shared Files"
+            driveUrl="https://drive.google.com/drive/folders/0AK-QGp_5SOJWUk9PVA"
             embedded={true}
           />
         </div>
