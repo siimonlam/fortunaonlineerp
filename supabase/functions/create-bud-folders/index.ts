@@ -420,7 +420,7 @@ Deno.serve(async (req: Request) => {
     const parent_folder_id = '0AK4J5-rAVAsnUk9PVA';
 
     const rootFolderName = project_reference
-      ? `${project_reference} - ${project_name || 'Unnamed Project'}`
+      ? `${project_name || 'Unnamed Project'} - ${project_reference}`
       : project_name || `Project ${project_id}`;
 
     console.log('Creating root folder:', rootFolderName);
