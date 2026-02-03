@@ -236,7 +236,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
   };
 
   const fetchShareResources = async (folderId?: string) => {
-    const shareResourcesFolderId = '0AK-QGp_5SOJWUk9PVA';
+    const shareResourcesFolderId = '0AMcQWAT66qySUk9PVA';
     const targetFolderId = folderId || shareResourcesFolderId;
 
     setLoadingFiles(true);
@@ -278,7 +278,7 @@ export function EmailSchedulerTab({ projectId, projectTitle, clientEmails, googl
     setFolderPath(newPath);
 
     const targetFolderId = index === -1
-      ? (attachmentSource === 'google_drive' ? googleDriveFolderId : '0AK-QGp_5SOJWUk9PVA')
+      ? (attachmentSource === 'google_drive' ? googleDriveFolderId : '0AMcQWAT66qySUk9PVA')
       : newPath[newPath.length - 1].id;
 
     if (attachmentSource === 'google_drive') {
