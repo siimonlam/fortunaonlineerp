@@ -776,7 +776,7 @@ Deno.serve(async (req: Request) => {
     console.log('\n=== FETCHING AD-LEVEL INSIGHTS FOR CREATIVES ===\n');
 
     let totalAdInsightsUpserted = 0;
-    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,adset_id,campaign_id,impressions,reach,spend,clicks,conversions,actions,ctr,cpc,date_start,date_stop&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,adset_id,campaign_id,impressions,reach,spend,clicks,conversions,actions,ctr,cpc,date_start,date_stop&${timeRangeParam}&time_increment=1&limit=100&access_token=${accessToken}`;
 
     const adInsightsToUpsert: any[] = [];
     pageCount = 0;
