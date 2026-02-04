@@ -38,7 +38,6 @@ type SortDirection = 'asc' | 'desc';
 export default function CreativePerformanceGallery({ accountId, dateRange }: Props) {
   const [creatives, setCreatives] = useState<AdPerformance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'gallery' | 'table'>('gallery');
   const [sortField, setSortField] = useState<SortField>('spend');
@@ -196,48 +195,8 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
     return sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
   };
 
-  const handleSyncCreatives = async () => {
-    try {
-      if (!accountId) {
-        alert('Please select an account first');
-        return;
-      }
-
-      setSyncing(true);
-      setError(null);
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Not authenticated');
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-ad-creatives`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ accountId }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to sync creatives');
-      }
-
-      alert(`Successfully synced ${result.synced} creatives!`);
-      await fetchCreativePerformance();
-    } catch (err: any) {
-      console.error('Error syncing creatives:', err);
-      setError(err.message);
-      alert(`Error: ${err.message}`);
-    } finally {
-      setSyncing(false);
-    }
+  const handleRefresh = async () => {
+    await fetchCreativePerformance();
   };
 
   if (!accountId) {
@@ -304,21 +263,13 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
             </button>
           </div>
           <button
-            onClick={handleSyncCreatives}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            title="Refresh data"
           >
-            {syncing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4" />
-                Sync Creatives
-              </>
-            )}
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
           </button>
         </div>
       </div>
@@ -328,7 +279,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           <ImageIcon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-600 font-medium mb-2">No ads found</p>
           <p className="text-sm text-gray-500 mb-4">
-            Click "Sync Creatives" to fetch ads and their creatives from your Meta account
+            No ads available for this account. Make sure you have synced ad insights from the Ad Sets tab first.
           </p>
         </div>
       ) : creatives.every(c => c.spend === 0 && c.impressions === 0) ? (
