@@ -235,7 +235,7 @@ Deno.serve(async (req: Request) => {
       // Now fetch ads for each adset
       for (const adset of adsets) {
         console.log(`  Fetching ads for adset: ${adset.name} (${adset.id})`);
-        const adsUrl = `https://graph.facebook.com/v21.0/${adset.id}/ads?fields=id,name,status,creative{id,name,title,body,image_url,video_id,thumbnail_url,object_story_spec,effective_object_story_id,link_url,call_to_action_type,effective_object_url}&access_token=${accessToken}`;
+        const adsUrl = `https://graph.facebook.com/v21.0/${adset.id}/ads?fields=id,name,status,creative{id,name,title,body,image_url,video_id,thumbnail_url,object_story_spec,effective_object_story_id,link_url,call_to_action_type}&access_token=${accessToken}`;
         const adsResponse = await fetchWithRateLimit(adsUrl);
 
         if (!adsResponse.ok) {
@@ -303,7 +303,7 @@ Deno.serve(async (req: Request) => {
                 video_id: ad.creative.video_id || null,
                 thumbnail_url: ad.creative.thumbnail_url || null,
                 link_url: ad.creative.link_url || null,
-                effective_object_url: ad.creative.effective_object_url || null,
+                effective_object_url: null, // Field not available in API
                 call_to_action_type: ad.creative.call_to_action_type || null,
                 object_story_spec: ad.creative.object_story_spec ? JSON.stringify(ad.creative.object_story_spec) : null,
                 ad_format: adFormat,
@@ -316,7 +316,7 @@ Deno.serve(async (req: Request) => {
           }
 
           console.log(`    Fetching insights for ad: ${ad.name} (${ad.id})`);
-          const insightsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,reach,frequency,clicks,unique_clicks,ctr,unique_ctr,inline_link_clicks,inline_link_click_ctr,spend,cpc,cpm,cpp,video_views,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,conversions,conversion_values,cost_per_conversion,actions,social_spend,website_ctr,outbound_clicks,quality_ranking,engagement_rate_ranking,conversion_rate_ranking&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
+          const insightsUrl = `https://graph.facebook.com/v21.0/${ad.id}/insights?fields=impressions,reach,frequency,clicks,unique_clicks,ctr,unique_ctr,inline_link_clicks,inline_link_click_ctr,spend,cpc,cpm,cpp,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,conversions,conversion_values,cost_per_conversion,actions,social_spend,website_ctr,outbound_clicks,quality_ranking,engagement_rate_ranking,conversion_rate_ranking&time_range={"since":"${since}","until":"${until}"}&time_increment=1&access_token=${accessToken}`;
 
           console.log(`    Insights URL: ${insightsUrl.substring(0, 150)}...`);
 

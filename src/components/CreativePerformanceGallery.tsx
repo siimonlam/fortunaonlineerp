@@ -137,20 +137,20 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         creativesData.map(c => [c.creative_id, c])
       );
 
-      // Group ads by ad name
-      const adGroups = new Map<string, AdPerformance>();
+      // Group ads by creative_id to avoid duplication
+      const creativeGroups = new Map<string, AdPerformance>();
+      const processedAdsets = new Set<string>();
 
       ads.forEach(ad => {
-        const adName = ad.name || 'Untitled Ad';
+        const creativeId = ad.creative_id || `no-creative-${ad.ad_id}`;
+        const creative = ad.creative_id ? creativeMap.get(ad.creative_id) : null;
 
-        if (!adGroups.has(adName)) {
-          const creative = ad.creative_id ? creativeMap.get(ad.creative_id) : null;
-
-          adGroups.set(adName, {
-            ad_name: adName,
+        if (!creativeGroups.has(creativeId)) {
+          creativeGroups.set(creativeId, {
+            ad_name: creative?.name || ad.name || 'Untitled Ad',
             ad_ids: [],
             creative_id: ad.creative_id || null,
-            title: creative?.title || creative?.name || adName,
+            title: creative?.title || creative?.name || ad.name || 'Untitled Ad',
             body: creative?.body || '',
             image_url: creative?.image_url || '',
             thumbnail_url: creative?.thumbnail_url || '',
@@ -169,35 +169,41 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           });
         }
 
-        const group = adGroups.get(adName)!;
+        const group = creativeGroups.get(creativeId)!;
         group.ad_ids.push(ad.ad_id);
         group.ad_count = group.ad_ids.length;
       });
 
-      // Aggregate insights by ad name
+      // Aggregate insights by creative, avoiding double-counting adsets
       ads.forEach(ad => {
-        const adName = ad.name || 'Untitled Ad';
-        const group = adGroups.get(adName);
-        const insights = adInsightsMap.get(ad.ad_id);
+        const creativeId = ad.creative_id || `no-creative-${ad.ad_id}`;
+        const group = creativeGroups.get(creativeId);
 
-        if (group && insights) {
-          group.spend += Number(insights.spend) || 0;
-          group.impressions += Number(insights.impressions) || 0;
-          group.clicks += Number(insights.clicks) || 0;
-          group.conversions += Number(insights.conversions) || 0;
-          group.conversion_values += Number(insights.conversion_values) || 0;
-          group.results += Number(insights.results) || 0;
+        // Only count each adset once per creative to avoid duplication
+        const adsetKey = `${creativeId}-${ad.adset_id}`;
+        if (group && ad.adset_id && !processedAdsets.has(adsetKey)) {
+          processedAdsets.add(adsetKey);
+
+          const insights = adInsightsMap.get(ad.ad_id);
+          if (insights) {
+            group.spend += Number(insights.spend) || 0;
+            group.impressions += Number(insights.impressions) || 0;
+            group.clicks += Number(insights.clicks) || 0;
+            group.conversions += Number(insights.conversions) || 0;
+            group.conversion_values += Number(insights.conversion_values) || 0;
+            group.results += Number(insights.results) || 0;
+          }
         }
       });
 
       // Calculate derived metrics
-      adGroups.forEach((group) => {
+      creativeGroups.forEach((group) => {
         group.ctr = group.impressions > 0 ? (group.clicks / group.impressions) * 100 : 0;
         group.cpc = group.clicks > 0 ? group.spend / group.clicks : 0;
         group.roas = group.spend > 0 ? group.conversion_values / group.spend : 0;
       });
 
-      const sortedAds = sortCreatives(Array.from(adGroups.values()), sortField, sortDirection);
+      const sortedAds = sortCreatives(Array.from(creativeGroups.values()), sortField, sortDirection);
 
       setCreatives(sortedAds);
     } catch (err: any) {
