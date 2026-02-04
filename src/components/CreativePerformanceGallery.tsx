@@ -55,10 +55,14 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       const since = dateRange?.since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const until = dateRange?.until || new Date().toISOString().split('T')[0];
 
+      // Convert since/until dates to month_year format for monthly insights query
+      const sinceDate = new Date(since);
+      const monthStart = `${sinceDate.getFullYear()}-${String(sinceDate.getMonth() + 1).padStart(2, '0')}-01`;
+
       // Fetch all ads with their creative information
       const { data: ads, error: adsError } = await supabase
         .from('meta_ads')
-        .select('ad_id, creative_id, name, account_id')
+        .select('ad_id, creative_id, name, account_id, adset_id')
         .eq('account_id', accountId);
 
       if (adsError) throw adsError;
@@ -71,15 +75,19 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
 
       const adIds = ads.map(ad => ad.ad_id);
       const creativeIds = [...new Set(ads.map(ad => ad.creative_id).filter(Boolean))] as string[];
+      const adsetIds = [...new Set(ads.map(ad => ad.adset_id).filter(Boolean))] as string[];
 
-      // Fetch insights and creatives in parallel
+      // Fetch monthly insights for the adsets (not individual ads)
+      // and creatives in parallel
       const [insightsResult, creativesResult] = await Promise.all([
-        supabase
-          .from('meta_ad_insights')
-          .select('ad_id, spend, impressions, clicks, conversions, conversion_values, results')
-          .in('ad_id', adIds)
-          .gte('date', since)
-          .lte('date', until),
+        adsetIds.length > 0
+          ? supabase
+              .from('meta_monthly_insights')
+              .select('adset_id, spend, impressions, clicks, conversions, results')
+              .eq('account_id', accountId)
+              .in('adset_id', adsetIds)
+              .gte('month_year', monthStart)
+          : { data: [], error: null },
         creativeIds.length > 0
           ? supabase
               .from('meta_ad_creatives')
@@ -93,6 +101,36 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
 
       const insightsData = insightsResult.data || [];
       const creativesData = creativesResult.data || [];
+
+      // Create a map of adset_id to aggregated insights
+      const adsetInsightsMap = new Map<string, any>();
+      insightsData.forEach((insight: any) => {
+        const existing = adsetInsightsMap.get(insight.adset_id) || {
+          spend: 0,
+          impressions: 0,
+          clicks: 0,
+          conversions: 0,
+          conversion_values: 0,
+          results: 0
+        };
+
+        adsetInsightsMap.set(insight.adset_id, {
+          spend: existing.spend + (Number(insight.spend) || 0),
+          impressions: existing.impressions + (Number(insight.impressions) || 0),
+          clicks: existing.clicks + (Number(insight.clicks) || 0),
+          conversions: existing.conversions + (Number(insight.conversions) || 0),
+          conversion_values: existing.conversion_values + (Number(insight.conversion_values) || 0),
+          results: existing.results + (Number(insight.results) || 0)
+        });
+      });
+
+      // Map ads to their adset insights
+      const adInsightsMap = new Map<string, any>();
+      ads.forEach(ad => {
+        if (ad.adset_id && adsetInsightsMap.has(ad.adset_id)) {
+          adInsightsMap.set(ad.ad_id, adsetInsightsMap.get(ad.adset_id));
+        }
+      });
 
       // Create maps for quick lookups
       const creativeMap = new Map(
@@ -137,20 +175,18 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       });
 
       // Aggregate insights by ad name
-      insightsData.forEach(insight => {
-        const ad = ads.find(a => a.ad_id === insight.ad_id);
-        if (!ad) return;
-
+      ads.forEach(ad => {
         const adName = ad.name || 'Untitled Ad';
         const group = adGroups.get(adName);
+        const insights = adInsightsMap.get(ad.ad_id);
 
-        if (group) {
-          group.spend += Number(insight.spend) || 0;
-          group.impressions += Number(insight.impressions) || 0;
-          group.clicks += Number(insight.clicks) || 0;
-          group.conversions += Number(insight.conversions) || 0;
-          group.conversion_values += Number(insight.conversion_values) || 0;
-          group.results += Number(insight.results) || 0;
+        if (group && insights) {
+          group.spend += Number(insights.spend) || 0;
+          group.impressions += Number(insights.impressions) || 0;
+          group.clicks += Number(insights.clicks) || 0;
+          group.conversions += Number(insights.conversions) || 0;
+          group.conversion_values += Number(insights.conversion_values) || 0;
+          group.results += Number(insights.results) || 0;
         }
       });
 
