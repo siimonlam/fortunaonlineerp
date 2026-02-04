@@ -163,7 +163,16 @@ Deno.serve(async (req: Request) => {
       switch (objective.toUpperCase()) {
         case 'OUTCOME_TRAFFIC':
         case 'LINK_CLICKS':
-          return ['link_click', 'landing_page_view', 'outbound_click'];
+          return [
+            'link_click',
+            'landing_page_view',
+            'omni_landing_page_view',
+            'outbound_click',
+            'offsite_conversion.fb_pixel_view_content',
+            'onsite_conversion.flow_complete',
+            'onsite_web_view_content',
+            'view_content'
+          ];
 
         case 'OUTCOME_ENGAGEMENT':
         case 'POST_ENGAGEMENT':
@@ -172,18 +181,42 @@ Deno.serve(async (req: Request) => {
 
         case 'OUTCOME_LEADS':
         case 'LEAD_GENERATION':
-          return ['lead', 'onsite_conversion.lead_grouped'];
+          return [
+            'lead',
+            'onsite_conversion.lead_grouped',
+            'offsite_conversion.fb_pixel_lead',
+            'onsite_conversion.messaging_conversation_started_7d',
+            'leadgen_grouped'
+          ];
 
         case 'OUTCOME_SALES':
         case 'CONVERSIONS':
           return [
+            // Purchase actions (including omni cross-channel)
             'purchase',
-            'offsite_conversion.fb_pixel_purchase',
             'omni_purchase',
-            'offsite_conversion.fb_pixel_add_to_cart',
-            'offsite_conversion.fb_pixel_initiate_checkout',
+            'web_in_store_purchase',
+            'offsite_conversion.fb_pixel_purchase',
+            'onsite_conversion.purchase',
+            'offsite_conversion.custom',
+            // Cart actions (including omni)
             'add_to_cart',
-            'initiate_checkout'
+            'omni_add_to_cart',
+            'offsite_conversion.fb_pixel_add_to_cart',
+            'onsite_conversion.add_to_cart',
+            'onsite_web_add_to_cart',
+            'onsite_web_app_add_to_cart',
+            // Checkout actions (including omni)
+            'initiate_checkout',
+            'omni_initiated_checkout',
+            'offsite_conversion.fb_pixel_initiate_checkout',
+            // Other conversion actions
+            'offsite_conversion.fb_pixel_complete_registration',
+            'offsite_conversion.fb_pixel_add_payment_info',
+            'offsite_conversion.fb_pixel_view_content',
+            'onsite_conversion.post_save',
+            'view_content',
+            'onsite_web_view_content'
           ];
 
         case 'OUTCOME_APP_PROMOTION':
