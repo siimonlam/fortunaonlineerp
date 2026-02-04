@@ -555,8 +555,9 @@ Deno.serve(async (req: Request) => {
 
         for (const ad of ads) {
           const creative = ad.creative;
+          const adsetData = adsetMap.get(ad.adset_id);
 
-          // Store ad
+          // Store ad with client_number and marketing_reference from adset
           adsToUpsert.push({
             account_id: accountId,
             ad_id: ad.id,
@@ -565,6 +566,8 @@ Deno.serve(async (req: Request) => {
             campaign_id: ad.campaign_id,
             creative_id: creative?.id || null,
             status: ad.status,
+            client_number: adsetData?.client_number || null,
+            marketing_reference: adsetData?.marketing_reference || null,
             updated_at: new Date().toISOString()
           });
 
