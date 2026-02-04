@@ -38,6 +38,7 @@ interface InfluencerCollab {
   post_views: number;
   post_date: string;
   sales: number;
+  use_right: string[];
   created_at: string;
 }
 
@@ -95,6 +96,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     post_views: '',
     post_date: '',
     sales: '',
+    use_right: [] as string[],
   });
 
   useEffect(() => {
@@ -245,6 +247,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         post_views: formData.post_views ? parseInt(formData.post_views) : 0,
         post_date: formData.post_date || null,
         sales: formData.sales ? parseFloat(formData.sales) : 0,
+        use_right: formData.use_right.length > 0 ? formData.use_right : null,
         created_by: staffData?.id,
       };
 
@@ -306,6 +309,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       post_views: collab.post_views?.toString() || '',
       post_date: collab.post_date || '',
       sales: collab.sales?.toString() || '',
+      use_right: collab.use_right || [],
     });
     setShowModal(true);
   };
@@ -408,6 +412,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       post_views: '',
       post_date: '',
       sales: '',
+      use_right: [] as string[],
     });
   };
 
@@ -1038,6 +1043,52 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Sponsored Post, Product Review..."
                     />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Platform (Select Multiple)</label>
+                    <div className="grid grid-cols-4 gap-3">
+                      {['Instagram', 'TikTok', 'Facebook', 'YouTube', 'LinkedIn', 'Twitter', 'WeChat', 'RED (Xiaohongshu)'].map((platform) => (
+                        <label key={platform} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.platforms.includes(platform)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({ ...formData, platforms: [...formData.platforms, platform] });
+                              } else {
+                                setFormData({ ...formData, platforms: formData.platforms.filter(p => p !== platform) });
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-slate-700">{platform}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Use Right</label>
+                    <div className="grid grid-cols-4 gap-3">
+                      {['KOL IG', 'KOL TIKTOK', 'KOL Facebook', 'Brand Accounts'].map((right) => (
+                        <label key={right} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.use_right.includes(right)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({ ...formData, use_right: [...formData.use_right, right] });
+                              } else {
+                                setFormData({ ...formData, use_right: formData.use_right.filter(r => r !== right) });
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-slate-700">{right}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="col-span-2">
