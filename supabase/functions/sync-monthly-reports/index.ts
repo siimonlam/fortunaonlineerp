@@ -908,19 +908,21 @@ Deno.serve(async (req: Request) => {
       const uniqueAdsetIds = [...new Set(adInsightsToUpsert.map(r => r.adset_id).filter(Boolean))];
       const uniqueAdIds = [...new Set(adInsightsToUpsert.map(r => r.ad_id))];
 
-      // Create stub campaigns first
+      // Create stub campaigns first (only for missing ones)
       const missingCampaignStubs: any[] = [];
       for (const campaignId of uniqueCampaignIds) {
-        const insightRecord = adInsightsToUpsert.find(r => r.campaign_id === campaignId);
-        missingCampaignStubs.push({
-          campaign_id: campaignId,
-          account_id: accountId,
-          name: `Campaign ${campaignId} (Historical)`,
-          status: 'UNKNOWN',
-          client_number: insightRecord?.client_number || null,
-          marketing_reference: insightRecord?.marketing_reference || null,
-          updated_at: new Date().toISOString()
-        });
+        if (!campaignMap.has(campaignId)) {
+          const insightRecord = adInsightsToUpsert.find(r => r.campaign_id === campaignId);
+          missingCampaignStubs.push({
+            campaign_id: campaignId,
+            account_id: accountId,
+            name: `Campaign ${campaignId} (Historical)`,
+            status: 'UNKNOWN',
+            client_number: insightRecord?.client_number || null,
+            marketing_reference: insightRecord?.marketing_reference || null,
+            updated_at: new Date().toISOString()
+          });
+        }
       }
 
       if (missingCampaignStubs.length > 0) {
@@ -939,20 +941,22 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Create stub adsets second
+      // Create stub adsets second (only for missing ones)
       const missingAdsetStubs: any[] = [];
       for (const adsetId of uniqueAdsetIds) {
-        const insightRecord = adInsightsToUpsert.find(r => r.adset_id === adsetId);
-        missingAdsetStubs.push({
-          adset_id: adsetId,
-          campaign_id: insightRecord?.campaign_id || null,
-          account_id: accountId,
-          name: `AdSet ${adsetId} (Historical)`,
-          status: 'UNKNOWN',
-          client_number: insightRecord?.client_number || null,
-          marketing_reference: insightRecord?.marketing_reference || null,
-          updated_at: new Date().toISOString()
-        });
+        if (!adsetMap.has(adsetId)) {
+          const insightRecord = adInsightsToUpsert.find(r => r.adset_id === adsetId);
+          missingAdsetStubs.push({
+            adset_id: adsetId,
+            campaign_id: insightRecord?.campaign_id || null,
+            account_id: accountId,
+            name: `AdSet ${adsetId} (Historical)`,
+            status: 'UNKNOWN',
+            client_number: insightRecord?.client_number || null,
+            marketing_reference: insightRecord?.marketing_reference || null,
+            updated_at: new Date().toISOString()
+          });
+        }
       }
 
       if (missingAdsetStubs.length > 0) {
@@ -971,7 +975,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Create stub ads last
+      // Create stub ads last (only for missing ones)
       const missingAdStubs: any[] = [];
       for (const adId of uniqueAdIds) {
         if (!adsMap.has(adId)) {
