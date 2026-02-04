@@ -903,6 +903,45 @@ Deno.serve(async (req: Request) => {
     if (adInsightsToUpsert.length > 0) {
       console.log(`Upserting ${adInsightsToUpsert.length} ad insight records...`);
 
+      // First, ensure all referenced ads exist in meta_ads table
+      const uniqueAdIds = [...new Set(adInsightsToUpsert.map(r => r.ad_id))];
+      const missingAdStubs: any[] = [];
+
+      for (const adId of uniqueAdIds) {
+        if (!adsMap.has(adId)) {
+          // Create stub record for missing ad
+          const insightRecord = adInsightsToUpsert.find(r => r.ad_id === adId);
+          missingAdStubs.push({
+            ad_id: adId,
+            adset_id: insightRecord?.adset_id || null,
+            campaign_id: insightRecord?.campaign_id || null,
+            account_id: accountId,
+            name: `Ad ${adId} (Historical)`,
+            status: 'UNKNOWN',
+            client_number: insightRecord?.client_number || null,
+            marketing_reference: insightRecord?.marketing_reference || null,
+            updated_at: new Date().toISOString()
+          });
+        }
+      }
+
+      if (missingAdStubs.length > 0) {
+        console.log(`Creating ${missingAdStubs.length} stub records for missing ads...`);
+        const { error: stubError } = await supabase
+          .from('meta_ads')
+          .upsert(missingAdStubs, {
+            onConflict: 'ad_id',
+            ignoreDuplicates: false
+          });
+
+        if (stubError) {
+          console.error(`Error creating ad stubs:`, stubError);
+          errors.push(`Ad stub creation error: ${stubError.message}`);
+        } else {
+          console.log(`Successfully created ${missingAdStubs.length} ad stub records`);
+        }
+      }
+
       // Batch upsert in chunks to avoid conflicts
       const batchSize = 100;
       for (let i = 0; i < adInsightsToUpsert.length; i += batchSize) {
