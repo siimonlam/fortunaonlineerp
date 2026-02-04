@@ -776,10 +776,18 @@ Deno.serve(async (req: Request) => {
     console.log('\n=== FETCHING AD-LEVEL INSIGHTS FOR CREATIVES ===\n');
 
     let totalAdInsightsUpserted = 0;
-    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,adset_id,campaign_id,impressions,reach,spend,clicks,conversions,actions,ctr,cpc,date_start,date_stop&${timeRangeParam}&time_increment=1&limit=100&access_token=${accessToken}`;
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,adset_id,campaign_id,impressions,reach,spend,clicks,conversions,actions,ctr,cpc,cpm,date_start,date_stop&${timeRangeParam}&time_increment=monthly&limit=100&access_token=${accessToken}`;
 
     const adInsightsToUpsert: any[] = [];
     pageCount = 0;
+
+    // Get existing ads data from database for client_number and marketing_reference
+    const { data: existingAds } = await supabase
+      .from('meta_ads')
+      .select('ad_id, client_number, marketing_reference')
+      .eq('account_id', accountId);
+
+    const adsMap = new Map((existingAds || []).map(a => [a.ad_id, a]));
 
     while (nextPageUrl) {
       try {
@@ -809,12 +817,14 @@ Deno.serve(async (req: Request) => {
 
         for (const insight of insights) {
           try {
-            const monthYear = insight.date_start?.slice(0, 7) || '';
-            if (!monthYear) continue;
+            if (!insight.date_start) {
+              console.log(`Skipping insight with no date_start`);
+              continue;
+            }
 
-            const adData = adsToUpsert.find(a => a.ad_id === insight.ad_id);
+            const adData = adsMap.get(insight.ad_id);
 
-            const record = {
+            const record: any = {
               ad_id: insight.ad_id,
               adset_id: insight.adset_id,
               campaign_id: insight.campaign_id,
@@ -826,12 +836,14 @@ Deno.serve(async (req: Request) => {
               spend: parseFloat(insight.spend || '0'),
               ctr: parseFloat(insight.ctr || '0'),
               cpc: parseFloat(insight.cpc || '0'),
+              cpm: parseFloat(insight.cpm || '0'),
               conversions: parseInt(insight.conversions || '0'),
               client_number: adData?.client_number || null,
               marketing_reference: adData?.marketing_reference || null,
               updated_at: new Date().toISOString()
             };
 
+            // Parse actions to get results
             if (insight.actions && Array.isArray(insight.actions)) {
               let results = 0;
               let resultType = '';
@@ -887,20 +899,30 @@ Deno.serve(async (req: Request) => {
 
     if (adInsightsToUpsert.length > 0) {
       console.log(`Upserting ${adInsightsToUpsert.length} ad insight records...`);
-      const { error: adInsightsUpsertError } = await supabase
-        .from('meta_ad_insights')
-        .upsert(adInsightsToUpsert, {
-          onConflict: 'ad_id,date',
-          ignoreDuplicates: false
-        });
 
-      if (adInsightsUpsertError) {
-        console.error('Ad insights upsert error:', adInsightsUpsertError);
-        errors.push(`Ad insights upsert error: ${adInsightsUpsertError.message}`);
-      } else {
-        totalAdInsightsUpserted = adInsightsToUpsert.length;
-        console.log(`✓ Successfully upserted ${totalAdInsightsUpserted} ad insight records\n`);
+      // Batch upsert in chunks to avoid conflicts
+      const batchSize = 100;
+      for (let i = 0; i < adInsightsToUpsert.length; i += batchSize) {
+        const batch = adInsightsToUpsert.slice(i, i + batchSize);
+        const { error: adInsightsUpsertError } = await supabase
+          .from('meta_ad_insights')
+          .upsert(batch, {
+            onConflict: 'ad_id,date',
+            ignoreDuplicates: false
+          });
+
+        if (adInsightsUpsertError) {
+          console.error(`Ad insights batch upsert error (${i}-${i+batch.length}):`, adInsightsUpsertError);
+          errors.push(`Ad insights upsert error: ${adInsightsUpsertError.message}`);
+        } else {
+          totalAdInsightsUpserted += batch.length;
+          console.log(`✓ Upserted batch ${i}-${i+batch.length} (${batch.length} records)`);
+        }
       }
+
+      console.log(`✓ Successfully upserted ${totalAdInsightsUpserted} ad insight records total\n`);
+    } else {
+      console.log(`⚠ No ad insights to upsert\n`);
     }
 
     console.log(`\n========================================`);
