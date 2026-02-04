@@ -34,6 +34,7 @@ interface CampaignMetrics {
   total_clicks: number;
   total_conversions: number;
   total_results: number;
+  result_types: string;
   avg_ctr: number;
   avg_cpc: number;
 }
@@ -258,6 +259,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             total_clicks: 0,
             total_conversions: 0,
             total_results: 0,
+            result_type_set: new Set<string>(),
             avg_ctr: 0,
             avg_cpc: 0,
             count: 0
@@ -273,12 +275,19 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         campaign.avg_ctr += Number(insight.ctr) || 0;
         campaign.avg_cpc += Number(insight.cpc) || 0;
         campaign.count += 1;
+
+        // Collect result types
+        if (insight.result_type) {
+          const types = insight.result_type.split(', ').map((t: string) => t.trim());
+          types.forEach((t: string) => campaign.result_type_set.add(t));
+        }
       });
 
       const metrics = Array.from(campaignMap.values()).map(campaign => ({
         ...campaign,
         avg_ctr: campaign.count > 0 ? campaign.avg_ctr / campaign.count : 0,
-        avg_cpc: campaign.count > 0 ? campaign.avg_cpc / campaign.count : 0
+        avg_cpc: campaign.count > 0 ? campaign.avg_cpc / campaign.count : 0,
+        result_types: Array.from(campaign.result_type_set || []).join(', ')
       }));
 
       setCampaigns(metrics);
@@ -1302,9 +1311,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                         const obj = objective.toUpperCase();
                         if (obj.includes('TRAFFIC') || obj.includes('LINK_CLICKS')) {
                           return 'Link Clicks, Landing Page Views, Outbound Clicks';
-                        } else if (obj.includes('ENGAGEMENT') || obj.includes('PAGE_LIKES')) {
+                        } else if (obj.includes('ENGAGEMENT') || obj.includes('PAGE_LIKES') || obj.includes('POST_ENGAGEMENT')) {
                           return 'Post Engagements, Page Likes, Video Views, Comments, Reactions';
-                        } else if (obj.includes('LEADS') || obj.includes('LEAD_GENERATION')) {
+                        } else if (obj.includes('LEAD') || obj === 'LEAD_GENERATION') {
                           return 'Leads, Lead Forms Submitted';
                         } else if (obj.includes('SALES') || obj.includes('CONVERSIONS')) {
                           return 'Purchases, Add to Carts, Checkouts';
@@ -1312,7 +1321,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                           return 'App Installs';
                         } else if (obj.includes('VIDEO')) {
                           return 'Video Views';
-                        } else if (obj.includes('AWARENESS') || obj.includes('REACH')) {
+                        } else if (obj === 'BRAND_AWARENESS' || obj === 'OUTCOME_AWARENESS' || obj === 'REACH') {
                           return 'Reach, Ad Recalls';
                         } else if (obj.includes('MESSAGES')) {
                           return 'Message Conversations Started';
@@ -1366,6 +1375,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                 <th className="px-4 py-3 text-right font-medium text-gray-700">
                                   Results
                                 </th>
+                                <th className="px-4 py-3 text-left font-medium text-gray-700 text-xs">
+                                  Action Types
+                                </th>
                                 <th className="px-4 py-3 text-right font-medium text-gray-700">
                                   CTR
                                 </th>
@@ -1375,7 +1387,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                               </tr>
                             </thead>
                             <tbody className="bg-white">
-                              {objectiveTotals.map(({ objective, total_spend, total_impressions, total_clicks, total_results, campaigns }) => (
+                              {objectiveTotals.map(({ objective, total_spend, total_impressions, total_clicks, total_results, campaigns }) => {
+                                const allResultTypes = Array.from(new Set(campaigns.flatMap(c => c.result_types ? c.result_types.split(', ') : []))).join(', ');
+                                return (
                                 <>
                                   <tr key={`objective-${objective}`} className="bg-blue-50 border-t-2 border-blue-200">
                                     <td className="px-4 py-3 font-bold text-blue-900 capitalize" colSpan={2}>
@@ -1392,6 +1406,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                     </td>
                                     <td className="px-4 py-3 text-right font-bold text-blue-900">
                                       {total_results.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-left font-bold text-blue-900 text-xs">
+                                      {allResultTypes || '-'}
                                     </td>
                                     <td className="px-4 py-3 text-right font-bold text-blue-900">
                                       {total_impressions > 0 ? ((total_clicks / total_impressions) * 100).toFixed(2) : '0.00'}%
@@ -1416,12 +1433,15 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_impressions.toLocaleString()}</td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_clicks.toLocaleString()}</td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_results.toLocaleString()}</td>
+                                      <td className="px-4 py-2 text-left text-gray-600 text-xs truncate max-w-xs" title={campaign.result_types}>
+                                        {campaign.result_types || '-'}
+                                      </td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.avg_ctr.toFixed(2)}%</td>
                                       <td className="px-4 py-2 text-right text-gray-700">${campaign.avg_cpc.toFixed(2)}</td>
                                     </tr>
                                   ))}
                                 </>
-                              ))}
+                              )})}
                             </tbody>
                           </table>
                           </div>
