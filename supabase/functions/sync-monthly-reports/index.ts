@@ -168,7 +168,7 @@ Deno.serve(async (req: Request) => {
         case 'OUTCOME_ENGAGEMENT':
         case 'POST_ENGAGEMENT':
         case 'PAGE_LIKES':
-          return ['post_engagement', 'page_engagement', 'like', 'onsite_conversion.post_save', 'video_view', 'post_reaction', 'comment', 'post'];
+          return ['post_engagement', 'page_engagement', 'like', 'onsite_conversion.post_net_like', 'onsite_conversion.post_save', 'video_view', 'post_reaction', 'comment', 'post'];
 
         case 'OUTCOME_LEADS':
         case 'LEAD_GENERATION':
