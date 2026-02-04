@@ -137,12 +137,12 @@ Deno.serve(async (req: Request) => {
     console.log('Fetching metadata for account...');
     const { data: allAdsets } = await supabase
       .from('meta_adsets')
-      .select('adset_id, name, client_number, marketing_reference')
+      .select('adset_id, name, client_number, marketing_reference, campaign_id')
       .eq('account_id', accountId);
 
     const { data: allCampaigns } = await supabase
       .from('meta_campaigns')
-      .select('campaign_id, name')
+      .select('campaign_id, name, objective')
       .eq('account_id', accountId);
 
     const { data: accountData } = await supabase
@@ -154,6 +154,50 @@ Deno.serve(async (req: Request) => {
     const adsetMap = new Map((allAdsets || []).map(a => [a.adset_id, a]));
     const campaignMap = new Map((allCampaigns || []).map(c => [c.campaign_id, c]));
     console.log(`Loaded ${adsetMap.size} adsets, ${campaignMap.size} campaigns\n`);
+
+    // Helper function to get result action type based on campaign objective
+    const getResultActionTypes = (objective: string | null): string[] => {
+      if (!objective) return [];
+
+      // Map campaign objectives to their primary result action types
+      switch (objective.toUpperCase()) {
+        case 'OUTCOME_TRAFFIC':
+        case 'LINK_CLICKS':
+          return ['link_click', 'landing_page_view'];
+
+        case 'OUTCOME_ENGAGEMENT':
+        case 'POST_ENGAGEMENT':
+        case 'PAGE_LIKES':
+          return ['post_engagement', 'page_engagement', 'like', 'onsite_conversion.post_save'];
+
+        case 'OUTCOME_LEADS':
+        case 'LEAD_GENERATION':
+          return ['lead', 'onsite_conversion.lead_grouped'];
+
+        case 'OUTCOME_SALES':
+        case 'CONVERSIONS':
+          return ['purchase', 'offsite_conversion.fb_pixel_purchase', 'omni_purchase'];
+
+        case 'OUTCOME_APP_PROMOTION':
+        case 'APP_INSTALLS':
+        case 'MOBILE_APP_INSTALLS':
+          return ['app_install', 'mobile_app_install'];
+
+        case 'VIDEO_VIEWS':
+          return ['video_view', 'video_p25_watched_actions', 'video_p50_watched_actions', 'video_p75_watched_actions', 'video_p100_watched_actions'];
+
+        case 'BRAND_AWARENESS':
+        case 'REACH':
+          return ['reach', 'frequency'];
+
+        case 'MESSAGES':
+          return ['onsite_conversion.messaging_conversation_started_7d'];
+
+        default:
+          // Fallback to conversion types if objective is unknown
+          return ['purchase', 'lead', 'offsite_conversion.fb_pixel_purchase', 'onsite_conversion.post_save', 'omni_purchase'];
+      }
+    };
 
     const baseFields = [
       'adset_id',
@@ -215,22 +259,25 @@ Deno.serve(async (req: Request) => {
             const monthYear = insight.date_start;
             const adsetId = insight.adset_id;
 
+            const adsetData = adsetMap.get(adsetId);
+            const campaignData = adsetData?.campaign_id ? campaignMap.get(adsetData.campaign_id) : null;
+            const campaignObjective = campaignData?.objective || null;
+
             let results = 0;
             let resultType = null;
             if (insight.actions && Array.isArray(insight.actions)) {
-              const resultAction = insight.actions.find((a: any) =>
-                a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
-                a.action_type === 'onsite_conversion.post_save' ||
-                a.action_type === 'lead' ||
-                a.action_type === 'omni_purchase'
-              );
-              if (resultAction) {
-                results = parseInt(resultAction.value || '0');
-                resultType = resultAction.action_type;
+              const validActionTypes = getResultActionTypes(campaignObjective);
+
+              // Find the first matching action type from the valid list
+              for (const actionType of validActionTypes) {
+                const resultAction = insight.actions.find((a: any) => a.action_type === actionType);
+                if (resultAction) {
+                  results = parseInt(resultAction.value || '0');
+                  resultType = resultAction.action_type;
+                  break;
+                }
               }
             }
-
-            const adsetData = adsetMap.get(adsetId);
 
             const record = {
               account_id: accountId,
@@ -341,17 +388,20 @@ Deno.serve(async (req: Request) => {
             const gender = demo.gender || 'unknown';
 
             const adsetData = adsetMap.get(adsetId);
+            const campaignData = adsetData?.campaign_id ? campaignMap.get(adsetData.campaign_id) : null;
+            const campaignObjective = campaignData?.objective || null;
 
             let results = 0;
             if (demo.actions && Array.isArray(demo.actions)) {
-              const resultAction = demo.actions.find((a: any) =>
-                a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
-                a.action_type === 'onsite_conversion.post_save' ||
-                a.action_type === 'lead' ||
-                a.action_type === 'omni_purchase'
-              );
-              if (resultAction) {
-                results = parseInt(resultAction.value || '0');
+              const validActionTypes = getResultActionTypes(campaignObjective);
+
+              // Find the first matching action type from the valid list
+              for (const actionType of validActionTypes) {
+                const resultAction = demo.actions.find((a: any) => a.action_type === actionType);
+                if (resultAction) {
+                  results = parseInt(resultAction.value || '0');
+                  break;
+                }
               }
             }
 
@@ -455,17 +505,20 @@ Deno.serve(async (req: Request) => {
             const publisherPlatform = platform.publisher_platform || 'unknown';
 
             const adsetData = adsetMap.get(adsetId);
+            const campaignData = adsetData?.campaign_id ? campaignMap.get(adsetData.campaign_id) : null;
+            const campaignObjective = campaignData?.objective || null;
 
             let results = 0;
             if (platform.actions && Array.isArray(platform.actions)) {
-              const resultAction = platform.actions.find((a: any) =>
-                a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
-                a.action_type === 'onsite_conversion.post_save' ||
-                a.action_type === 'lead' ||
-                a.action_type === 'omni_purchase'
-              );
-              if (resultAction) {
-                results = parseInt(resultAction.value || '0');
+              const validActionTypes = getResultActionTypes(campaignObjective);
+
+              // Find the first matching action type from the valid list
+              for (const actionType of validActionTypes) {
+                const resultAction = platform.actions.find((a: any) => a.action_type === actionType);
+                if (resultAction) {
+                  results = parseInt(resultAction.value || '0');
+                  break;
+                }
               }
             }
 

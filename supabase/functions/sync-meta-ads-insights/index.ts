@@ -79,6 +79,50 @@ Deno.serve(async (req: Request) => {
     const since = dateRange?.since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const until = dateRange?.until || new Date().toISOString().split('T')[0];
 
+    // Helper function to get result action type based on campaign objective
+    const getResultActionTypes = (objective: string | null): string[] => {
+      if (!objective) return [];
+
+      // Map campaign objectives to their primary result action types
+      switch (objective.toUpperCase()) {
+        case 'OUTCOME_TRAFFIC':
+        case 'LINK_CLICKS':
+          return ['link_click', 'landing_page_view'];
+
+        case 'OUTCOME_ENGAGEMENT':
+        case 'POST_ENGAGEMENT':
+        case 'PAGE_LIKES':
+          return ['post_engagement', 'page_engagement', 'like', 'onsite_conversion.post_save'];
+
+        case 'OUTCOME_LEADS':
+        case 'LEAD_GENERATION':
+          return ['lead', 'onsite_conversion.lead_grouped'];
+
+        case 'OUTCOME_SALES':
+        case 'CONVERSIONS':
+          return ['purchase', 'offsite_conversion.fb_pixel_purchase', 'omni_purchase'];
+
+        case 'OUTCOME_APP_PROMOTION':
+        case 'APP_INSTALLS':
+        case 'MOBILE_APP_INSTALLS':
+          return ['app_install', 'mobile_app_install'];
+
+        case 'VIDEO_VIEWS':
+          return ['video_view', 'video_p25_watched_actions', 'video_p50_watched_actions', 'video_p75_watched_actions', 'video_p100_watched_actions'];
+
+        case 'BRAND_AWARENESS':
+        case 'REACH':
+          return ['reach', 'frequency'];
+
+        case 'MESSAGES':
+          return ['onsite_conversion.messaging_conversation_started_7d'];
+
+        default:
+          // Fallback to conversion types if objective is unknown
+          return ['purchase', 'lead', 'offsite_conversion.fb_pixel_purchase', 'onsite_conversion.post_save', 'omni_purchase'];
+      }
+    };
+
     let campaigns: any[] = [];
 
     if (campaignIds && campaignIds.length > 0) {
@@ -300,19 +344,20 @@ Deno.serve(async (req: Request) => {
             let results = 0;
             let resultType = null;
             if (insight.actions && Array.isArray(insight.actions)) {
-              const resultAction = insight.actions.find((a: any) =>
-                a.action_type === 'offsite_conversion.fb_pixel_purchase' ||
-                a.action_type === 'onsite_conversion.post_save' ||
-                a.action_type === 'lead' ||
-                a.action_type === 'omni_purchase'
-              );
-              if (resultAction) {
-                results = parseInt(resultAction.value || '0');
-                resultType = resultAction.action_type;
+              const validActionTypes = getResultActionTypes(campaign.objective);
+
+              // Find the first matching action type from the valid list
+              for (const actionType of validActionTypes) {
+                const resultAction = insight.actions.find((a: any) => a.action_type === actionType);
+                if (resultAction) {
+                  results = parseInt(resultAction.value || '0');
+                  resultType = resultAction.action_type;
+                  break;
+                }
               }
             }
 
-            console.log(`    Ad ${ad.id} on ${insight.date_start}: spend=${insight.spend}, impressions=${insight.impressions}, clicks=${insight.clicks}, results=${results}`);
+            console.log(`    Ad ${ad.id} on ${insight.date_start}: spend=${insight.spend}, impressions=${insight.impressions}, clicks=${insight.clicks}, results=${results} (${resultType || 'none'})`);
 
             await supabase
               .from('meta_ad_insights')
