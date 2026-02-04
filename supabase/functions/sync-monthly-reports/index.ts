@@ -773,12 +773,143 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    console.log('\n=== FETCHING AD-LEVEL INSIGHTS FOR CREATIVES ===\n');
+
+    let totalAdInsightsUpserted = 0;
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,adset_id,campaign_id,impressions,reach,spend,clicks,conversions,actions,ctr,cpc,date_start,date_stop&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
+
+    const adInsightsToUpsert: any[] = [];
+    pageCount = 0;
+
+    while (nextPageUrl) {
+      try {
+        pageCount++;
+        console.log(`Fetching ad insights page ${pageCount}...`);
+
+        const response = await fetchWithRetry(nextPageUrl);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: { message: errorText } };
+          }
+          const errorMsg = `Failed to fetch ad insights (page ${pageCount}): ${errorData.error?.message || response.statusText}`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+          break;
+        }
+
+        const data = await response.json();
+        const insights = data.data || [];
+
+        console.log(`Ad insights page ${pageCount}: ${insights.length} records`);
+
+        for (const insight of insights) {
+          try {
+            const monthYear = insight.date_start?.slice(0, 7) || '';
+            if (!monthYear) continue;
+
+            const adData = adsToUpsert.find(a => a.ad_id === insight.ad_id);
+
+            const record = {
+              ad_id: insight.ad_id,
+              adset_id: insight.adset_id,
+              campaign_id: insight.campaign_id,
+              account_id: accountId,
+              date: insight.date_start,
+              impressions: parseInt(insight.impressions || '0'),
+              reach: parseInt(insight.reach || '0'),
+              clicks: parseInt(insight.clicks || '0'),
+              spend: parseFloat(insight.spend || '0'),
+              ctr: parseFloat(insight.ctr || '0'),
+              cpc: parseFloat(insight.cpc || '0'),
+              conversions: parseInt(insight.conversions || '0'),
+              client_number: adData?.client_number || null,
+              marketing_reference: adData?.marketing_reference || null,
+              updated_at: new Date().toISOString()
+            };
+
+            if (insight.actions && Array.isArray(insight.actions)) {
+              let results = 0;
+              let resultType = '';
+
+              const preferredActions = [
+                'onsite_conversion.post_save',
+                'omni_purchase',
+                'purchase',
+                'lead',
+                'complete_registration',
+                'add_to_cart',
+                'initiate_checkout',
+                'link_click',
+                'landing_page_view',
+                'post_engagement',
+                'page_engagement'
+              ];
+
+              for (const actionType of preferredActions) {
+                const action = insight.actions.find((a: any) => a.action_type === actionType);
+                if (action) {
+                  results = parseInt(action.value || '0');
+                  resultType = actionType;
+                  break;
+                }
+              }
+
+              record.results = results;
+              record.result_type = resultType;
+            }
+
+            adInsightsToUpsert.push(record);
+          } catch (error: any) {
+            console.error(`Error processing ad insight record:`, error.message);
+            errors.push(`Ad insight processing error: ${error.message}`);
+          }
+        }
+
+        nextPageUrl = data.paging?.next || null;
+
+        if (nextPageUrl) {
+          console.log(`More ad insight pages available, continuing...\n`);
+          await delay(200);
+        } else {
+          console.log(`No more pages. Ad insights sync complete.\n`);
+        }
+      } catch (pageError: any) {
+        console.error(`Error processing ad insights page ${pageCount}:`, pageError.message);
+        errors.push(`Ad insights page error: ${pageError.message}`);
+        break;
+      }
+    }
+
+    if (adInsightsToUpsert.length > 0) {
+      console.log(`Upserting ${adInsightsToUpsert.length} ad insight records...`);
+      const { error: adInsightsUpsertError } = await supabase
+        .from('meta_ad_insights')
+        .upsert(adInsightsToUpsert, {
+          onConflict: 'ad_id,date',
+          ignoreDuplicates: false
+        });
+
+      if (adInsightsUpsertError) {
+        console.error('Ad insights upsert error:', adInsightsUpsertError);
+        errors.push(`Ad insights upsert error: ${adInsightsUpsertError.message}`);
+      } else {
+        totalAdInsightsUpserted = adInsightsToUpsert.length;
+        console.log(`✓ Successfully upserted ${totalAdInsightsUpserted} ad insight records\n`);
+      }
+    }
+
     console.log(`\n========================================`);
     console.log(`MONTHLY SYNC COMPLETE`);
     console.log(`Ad Sets Processed: ${totalAdSetsProcessed}`);
     console.log(`Monthly Insights Upserted: ${totalInsightsUpserted}`);
     console.log(`Monthly Demographics Upserted: ${totalDemographicsUpserted}`);
     console.log(`Platform Insights Upserted: ${totalPlatformUpserted}`);
+    console.log(`Ad Insights Upserted: ${totalAdInsightsUpserted}`);
     console.log(`Errors: ${errors.length}`);
     console.log(`========================================\n`);
 
