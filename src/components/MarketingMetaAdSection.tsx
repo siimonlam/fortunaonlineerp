@@ -1298,8 +1298,53 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                         campaigns: campaigns.sort((a, b) => b.total_spend - a.total_spend)
                       })).sort((a, b) => b.total_spend - a.total_spend);
 
+                      const getResultTypeNote = (objective: string) => {
+                        const obj = objective.toUpperCase();
+                        if (obj.includes('TRAFFIC') || obj.includes('LINK_CLICKS')) {
+                          return 'Link Clicks, Landing Page Views, Outbound Clicks';
+                        } else if (obj.includes('ENGAGEMENT') || obj.includes('PAGE_LIKES')) {
+                          return 'Post Engagements, Page Likes, Video Views, Comments, Reactions';
+                        } else if (obj.includes('LEADS') || obj.includes('LEAD_GENERATION')) {
+                          return 'Leads, Lead Forms Submitted';
+                        } else if (obj.includes('SALES') || obj.includes('CONVERSIONS')) {
+                          return 'Purchases, Add to Carts, Checkouts';
+                        } else if (obj.includes('APP') || obj.includes('INSTALLS')) {
+                          return 'App Installs';
+                        } else if (obj.includes('VIDEO')) {
+                          return 'Video Views';
+                        } else if (obj.includes('AWARENESS') || obj.includes('REACH')) {
+                          return 'Reach, Ad Recalls';
+                        } else if (obj.includes('MESSAGES')) {
+                          return 'Message Conversations Started';
+                        }
+                        return 'Various conversion actions';
+                      };
+
                       return (
-                        <div className="overflow-x-auto">
+                        <div>
+                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-start gap-2">
+                              <div className="text-blue-600 mt-0.5">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="text-sm font-semibold text-blue-900 mb-1">What counts as Results?</h4>
+                                <p className="text-xs text-blue-800 leading-relaxed">
+                                  Results vary by campaign objective. The system counts all relevant action types:
+                                </p>
+                                <ul className="mt-2 space-y-1 text-xs text-blue-800">
+                                  {Array.from(new Set(objectiveTotals.map(o => o.objective))).map(obj => (
+                                    <li key={obj}>
+                                      <span className="font-medium">{obj.replace(/_/g, ' ')}:</span> {getResultTypeNote(obj)}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead className="bg-gray-50 border-b border-gray-200">
                               <tr>
@@ -1379,6 +1424,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                               ))}
                             </tbody>
                           </table>
+                          </div>
                         </div>
                       );
                     })()}
