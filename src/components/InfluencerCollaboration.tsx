@@ -533,6 +533,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Item</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Platforms</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Use Right</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Category</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Markets</th>
                 <th
@@ -658,6 +659,17 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                         {collab.platforms.map((platform) => (
                           <span key={platform} className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs">
                             {platform}
+                          </span>
+                        ))}
+                      </div>
+                    ) : '-'}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {collab.use_right && collab.use_right.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {collab.use_right.map((right) => (
+                          <span key={right} className="inline-block px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">
+                            {right}
                           </span>
                         ))}
                       </div>
