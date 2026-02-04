@@ -77,9 +77,8 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       const creativeIds = [...new Set(ads.map(ad => ad.creative_id).filter(Boolean))] as string[];
       const adsetIds = [...new Set(ads.map(ad => ad.adset_id).filter(Boolean))] as string[];
 
-      // Fetch monthly insights for the adsets (not individual ads)
-      // and creatives in parallel
-      const [insightsResult, creativesResult] = await Promise.all([
+      // Fetch monthly insights, adsets, and creatives in parallel
+      const [insightsResult, adsetsResult, creativesResult] = await Promise.all([
         adsetIds.length > 0
           ? supabase
               .from('meta_monthly_insights')
@@ -87,6 +86,12 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
               .eq('account_id', accountId)
               .in('adset_id', adsetIds)
               .gte('month_year', monthStart)
+          : { data: [], error: null },
+        adsetIds.length > 0
+          ? supabase
+              .from('meta_adsets')
+              .select('adset_id, name')
+              .in('adset_id', adsetIds)
           : { data: [], error: null },
         creativeIds.length > 0
           ? supabase
@@ -97,9 +102,11 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       ]);
 
       if (insightsResult.error) throw insightsResult.error;
+      if (adsetsResult.error) throw adsetsResult.error;
       if (creativesResult.error) throw creativesResult.error;
 
       const insightsData = insightsResult.data || [];
+      const adsetsData = adsetsResult.data || [];
       const creativesData = creativesResult.data || [];
 
       // Create a map of adset_id to aggregated insights
@@ -124,33 +131,27 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         });
       });
 
-      // Map ads to their adset insights
-      const adInsightsMap = new Map<string, any>();
-      ads.forEach(ad => {
-        if (ad.adset_id && adsetInsightsMap.has(ad.adset_id)) {
-          adInsightsMap.set(ad.ad_id, adsetInsightsMap.get(ad.adset_id));
-        }
-      });
-
       // Create maps for quick lookups
       const creativeMap = new Map(
         creativesData.map(c => [c.creative_id, c])
       );
+      const adsetNameMap = new Map(
+        adsetsData.map(a => [a.adset_id, a.name])
+      );
 
-      // Group ads by creative_id to avoid duplication
-      const creativeGroups = new Map<string, AdPerformance>();
-      const processedAdsets = new Set<string>();
+      // Group by adset name
+      const adsetGroups = new Map<string, AdPerformance>();
 
       ads.forEach(ad => {
-        const creativeId = ad.creative_id || `no-creative-${ad.ad_id}`;
+        const adsetName = ad.adset_id ? adsetNameMap.get(ad.adset_id) || 'Unknown AdSet' : 'Unknown AdSet';
         const creative = ad.creative_id ? creativeMap.get(ad.creative_id) : null;
 
-        if (!creativeGroups.has(creativeId)) {
-          creativeGroups.set(creativeId, {
-            ad_name: creative?.name || ad.name || 'Untitled Ad',
+        if (!adsetGroups.has(adsetName)) {
+          adsetGroups.set(adsetName, {
+            ad_name: adsetName,
             ad_ids: [],
             creative_id: ad.creative_id || null,
-            title: creative?.title || creative?.name || ad.name || 'Untitled Ad',
+            title: creative?.title || creative?.name || adsetName,
             body: creative?.body || '',
             image_url: creative?.image_url || '',
             thumbnail_url: creative?.thumbnail_url || '',
@@ -169,22 +170,32 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           });
         }
 
-        const group = creativeGroups.get(creativeId)!;
+        const group = adsetGroups.get(adsetName)!;
         group.ad_ids.push(ad.ad_id);
         group.ad_count = group.ad_ids.length;
+
+        // Use the first creative with an image/video as the representative
+        if (!group.image_url && !group.video_id && creative) {
+          group.image_url = creative.image_url || '';
+          group.thumbnail_url = creative.thumbnail_url || '';
+          group.video_id = creative.video_id || '';
+          group.ad_format = creative.ad_format || 'unknown';
+          group.title = creative.title || creative.name || adsetName;
+          group.body = creative.body || '';
+          group.creative_id = ad.creative_id;
+        }
       });
 
-      // Aggregate insights by creative, avoiding double-counting adsets
+      // Aggregate insights by adset name (each adset counted once)
+      const processedAdsets = new Set<string>();
       ads.forEach(ad => {
-        const creativeId = ad.creative_id || `no-creative-${ad.ad_id}`;
-        const group = creativeGroups.get(creativeId);
+        const adsetName = ad.adset_id ? adsetNameMap.get(ad.adset_id) || 'Unknown AdSet' : 'Unknown AdSet';
+        const group = adsetGroups.get(adsetName);
 
-        // Only count each adset once per creative to avoid duplication
-        const adsetKey = `${creativeId}-${ad.adset_id}`;
-        if (group && ad.adset_id && !processedAdsets.has(adsetKey)) {
-          processedAdsets.add(adsetKey);
+        if (group && ad.adset_id && !processedAdsets.has(ad.adset_id)) {
+          processedAdsets.add(ad.adset_id);
 
-          const insights = adInsightsMap.get(ad.ad_id);
+          const insights = adsetInsightsMap.get(ad.adset_id);
           if (insights) {
             group.spend += Number(insights.spend) || 0;
             group.impressions += Number(insights.impressions) || 0;
@@ -197,13 +208,13 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       });
 
       // Calculate derived metrics
-      creativeGroups.forEach((group) => {
+      adsetGroups.forEach((group) => {
         group.ctr = group.impressions > 0 ? (group.clicks / group.impressions) * 100 : 0;
         group.cpc = group.clicks > 0 ? group.spend / group.clicks : 0;
         group.roas = group.spend > 0 ? group.conversion_values / group.spend : 0;
       });
 
-      const sortedAds = sortCreatives(Array.from(creativeGroups.values()), sortField, sortDirection);
+      const sortedAds = sortCreatives(Array.from(adsetGroups.values()), sortField, sortDirection);
 
       setCreatives(sortedAds);
     } catch (err: any) {
