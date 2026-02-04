@@ -264,17 +264,21 @@ Deno.serve(async (req: Request) => {
             const campaignObjective = campaignData?.objective || null;
 
             let results = 0;
-            let resultType = null;
+            let resultType: string[] = [];
             if (insight.actions && Array.isArray(insight.actions)) {
               const validActionTypes = getResultActionTypes(campaignObjective);
 
-              // Find the first matching action type from the valid list
+              // Sum ALL matching action types from the valid list
               for (const actionType of validActionTypes) {
-                const resultAction = insight.actions.find((a: any) => a.action_type === actionType);
-                if (resultAction) {
-                  results = parseInt(resultAction.value || '0');
-                  resultType = resultAction.action_type;
-                  break;
+                const resultActions = insight.actions.filter((a: any) => a.action_type === actionType);
+                for (const resultAction of resultActions) {
+                  const value = parseInt(resultAction.value || '0');
+                  if (value > 0) {
+                    results += value;
+                    if (!resultType.includes(resultAction.action_type)) {
+                      resultType.push(resultAction.action_type);
+                    }
+                  }
                 }
               }
             }
@@ -296,7 +300,7 @@ Deno.serve(async (req: Request) => {
               cpm: parseFloat(insight.cpm || '0'),
               conversions: parseInt(insight.conversions || '0'),
               results: results,
-              result_type: resultType,
+              result_type: resultType.length > 0 ? resultType.join(', ') : null,
               inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
               outbound_clicks: parseInt(insight.outbound_clicks || '0'),
               actions: insight.actions ? JSON.stringify(insight.actions) : null,
@@ -395,12 +399,14 @@ Deno.serve(async (req: Request) => {
             if (demo.actions && Array.isArray(demo.actions)) {
               const validActionTypes = getResultActionTypes(campaignObjective);
 
-              // Find the first matching action type from the valid list
+              // Sum ALL matching action types from the valid list
               for (const actionType of validActionTypes) {
-                const resultAction = demo.actions.find((a: any) => a.action_type === actionType);
-                if (resultAction) {
-                  results = parseInt(resultAction.value || '0');
-                  break;
+                const resultActions = demo.actions.filter((a: any) => a.action_type === actionType);
+                for (const resultAction of resultActions) {
+                  const value = parseInt(resultAction.value || '0');
+                  if (value > 0) {
+                    results += value;
+                  }
                 }
               }
             }
@@ -632,12 +638,14 @@ Deno.serve(async (req: Request) => {
             if (platform.actions && Array.isArray(platform.actions)) {
               const validActionTypes = getResultActionTypes(campaignObjective);
 
-              // Find the first matching action type from the valid list
+              // Sum ALL matching action types from the valid list
               for (const actionType of validActionTypes) {
-                const resultAction = platform.actions.find((a: any) => a.action_type === actionType);
-                if (resultAction) {
-                  results = parseInt(resultAction.value || '0');
-                  break;
+                const resultActions = platform.actions.filter((a: any) => a.action_type === actionType);
+                for (const resultAction of resultActions) {
+                  const value = parseInt(resultAction.value || '0');
+                  if (value > 0) {
+                    results += value;
+                  }
                 }
               }
             }

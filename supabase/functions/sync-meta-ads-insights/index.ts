@@ -342,17 +342,21 @@ Deno.serve(async (req: Request) => {
             const videoAvgTime = insight.video_avg_time_watched_actions?.[0]?.value || 0;
 
             let results = 0;
-            let resultType = null;
+            let resultType: string[] = [];
             if (insight.actions && Array.isArray(insight.actions)) {
               const validActionTypes = getResultActionTypes(campaign.objective);
 
-              // Find the first matching action type from the valid list
+              // Sum ALL matching action types from the valid list
               for (const actionType of validActionTypes) {
-                const resultAction = insight.actions.find((a: any) => a.action_type === actionType);
-                if (resultAction) {
-                  results = parseInt(resultAction.value || '0');
-                  resultType = resultAction.action_type;
-                  break;
+                const resultActions = insight.actions.filter((a: any) => a.action_type === actionType);
+                for (const resultAction of resultActions) {
+                  const value = parseInt(resultAction.value || '0');
+                  if (value > 0) {
+                    results += value;
+                    if (!resultType.includes(resultAction.action_type)) {
+                      resultType.push(resultAction.action_type);
+                    }
+                  }
                 }
               }
             }
@@ -397,7 +401,7 @@ Deno.serve(async (req: Request) => {
                 engagement_rate_ranking: insight.engagement_rate_ranking || null,
                 conversion_rate_ranking: insight.conversion_rate_ranking || null,
                 results,
-                result_type: resultType,
+                result_type: resultType.length > 0 ? resultType.join(', ') : null,
                 client_number: campaign.client_number,
                 marketing_reference: campaign.marketing_reference,
                 updated_at: new Date().toISOString()
