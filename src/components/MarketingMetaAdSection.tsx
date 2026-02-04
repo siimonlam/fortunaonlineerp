@@ -35,6 +35,7 @@ interface CampaignMetrics {
   total_conversions: number;
   total_results: number;
   result_types: string;
+  action_breakdown: Record<string, number>;
   avg_ctr: number;
   avg_cpc: number;
 }
@@ -260,6 +261,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             total_conversions: 0,
             total_results: 0,
             result_type_set: new Set<string>(),
+            action_breakdown: new Map<string, number>(),
             avg_ctr: 0,
             avg_cpc: 0,
             count: 0
@@ -276,10 +278,31 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         campaign.avg_cpc += Number(insight.cpc) || 0;
         campaign.count += 1;
 
-        // Collect result types
+        // Collect result types and action breakdowns
         if (insight.result_type) {
           const types = insight.result_type.split(', ').map((t: string) => t.trim());
           types.forEach((t: string) => campaign.result_type_set.add(t));
+        }
+
+        // Parse actions JSON to get individual action counts
+        if (insight.actions) {
+          try {
+            const actions = typeof insight.actions === 'string' ? JSON.parse(insight.actions) : insight.actions;
+            if (Array.isArray(actions)) {
+              actions.forEach((action: any) => {
+                const actionType = action.action_type;
+                const value = parseInt(action.value || '0');
+
+                // Only count actions that are in the result_type (relevant actions)
+                if (insight.result_type && insight.result_type.includes(actionType) && value > 0) {
+                  const currentCount = campaign.action_breakdown.get(actionType) || 0;
+                  campaign.action_breakdown.set(actionType, currentCount + value);
+                }
+              });
+            }
+          } catch (e) {
+            console.error('Error parsing actions:', e);
+          }
         }
       });
 
@@ -287,7 +310,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         ...campaign,
         avg_ctr: campaign.count > 0 ? campaign.avg_ctr / campaign.count : 0,
         avg_cpc: campaign.count > 0 ? campaign.avg_cpc / campaign.count : 0,
-        result_types: Array.from(campaign.result_type_set || []).join(', ')
+        result_types: Array.from(campaign.result_type_set || []).join(', '),
+        action_breakdown: Object.fromEntries(campaign.action_breakdown || new Map())
       }));
 
       setCampaigns(metrics);
@@ -1312,6 +1336,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                           // Traffic actions
                           'link_click': 'Link Click',
                           'landing_page_view': 'Landing Page View',
+                          'omni_landing_page_view': 'Landing Page View',
                           'outbound_click': 'Outbound Click',
 
                           // Engagement actions
@@ -1320,6 +1345,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                           'like': 'Like',
                           'post_like': 'Post Like',
                           'page_like': 'Page Like',
+                          'onsite_conversion.post_net_like': 'Page Like',
                           'comment': 'Comment',
                           'post': 'Post',
                           'post_reaction': 'Reaction',
@@ -1370,10 +1396,15 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                         ).join(' ');
                       };
 
-                      const formatResultTypes = (resultTypes: string | null): string => {
+                      const formatResultTypes = (resultTypes: string | null, actionBreakdown?: Record<string, number>): string => {
                         if (!resultTypes) return '-';
                         const types = resultTypes.split(', ');
-                        const formatted = types.map(type => formatActionType(type.trim()));
+                        const formatted = types.map(type => {
+                          const trimmedType = type.trim();
+                          const formattedName = formatActionType(trimmedType);
+                          const count = actionBreakdown?.[trimmedType];
+                          return count ? `${formattedName} (${count.toLocaleString()})` : formattedName;
+                        });
                         return formatted.join(', ');
                       };
 
@@ -1478,7 +1509,16 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                             <tbody className="bg-white">
                               {objectiveTotals.map(({ objective, total_spend, total_impressions, total_clicks, total_results, campaigns }) => {
                                 const allResultTypes = Array.from(new Set(campaigns.flatMap(c => c.result_types ? c.result_types.split(', ') : []))).join(', ');
-                                const formattedResultTypes = formatResultTypes(allResultTypes);
+                                // Aggregate action breakdowns for all campaigns in this objective
+                                const aggregatedBreakdown: Record<string, number> = {};
+                                campaigns.forEach(c => {
+                                  if (c.action_breakdown) {
+                                    Object.entries(c.action_breakdown).forEach(([action, count]) => {
+                                      aggregatedBreakdown[action] = (aggregatedBreakdown[action] || 0) + (count as number);
+                                    });
+                                  }
+                                });
+                                const formattedResultTypes = formatResultTypes(allResultTypes, aggregatedBreakdown);
                                 return (
                                 <>
                                   <tr key={`objective-${objective}`} className="bg-blue-50 border-t-2 border-blue-200">
@@ -1523,8 +1563,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_impressions.toLocaleString()}</td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_clicks.toLocaleString()}</td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_results.toLocaleString()}</td>
-                                      <td className="px-4 py-2 text-left text-gray-600 text-xs truncate max-w-xs" title={formatResultTypes(campaign.result_types)}>
-                                        {formatResultTypes(campaign.result_types)}
+                                      <td className="px-4 py-2 text-left text-gray-600 text-xs truncate max-w-xs" title={formatResultTypes(campaign.result_types, campaign.action_breakdown)}>
+                                        {formatResultTypes(campaign.result_types, campaign.action_breakdown)}
                                       </td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.avg_ctr.toFixed(2)}%</td>
                                       <td className="px-4 py-2 text-right text-gray-700">${campaign.avg_cpc.toFixed(2)}</td>
