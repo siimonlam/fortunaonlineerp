@@ -464,6 +464,126 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    console.log('\n=== FETCHING AD-LEVEL INSIGHTS FOR CREATIVES ===\n');
+
+    // First, fetch all ads with their creatives
+    let adsNextUrl: string | null = `https://graph.facebook.com/v21.0/${formattedAccountId}/ads?fields=id,name,adset_id,campaign_id,creative{id,name,title,body,image_url,thumbnail_url,video_id,object_story_spec,effective_object_story_id}&status=[ACTIVE,PAUSED]&limit=100&access_token=${accessToken}`;
+    const adsToUpsert: any[] = [];
+    const creativesToUpsert: any[] = [];
+    const creativeIds = new Set<string>();
+    let adsPageCount = 0;
+
+    while (adsNextUrl) {
+      try {
+        adsPageCount++;
+        console.log(`Fetching ads page ${adsPageCount}...`);
+
+        const response = await fetchWithRetry(adsNextUrl);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Failed to fetch ads (page ${adsPageCount}):`, errorText);
+          break;
+        }
+
+        const data = await response.json();
+        const ads = data.data || [];
+
+        console.log(`Ads page ${adsPageCount}: ${ads.length} ads`);
+
+        for (const ad of ads) {
+          const creative = ad.creative;
+
+          // Store ad
+          adsToUpsert.push({
+            account_id: accountId,
+            ad_id: ad.id,
+            name: ad.name,
+            adset_id: ad.adset_id,
+            campaign_id: ad.campaign_id,
+            creative_id: creative?.id || null,
+            status: ad.status,
+            updated_at: new Date().toISOString()
+          });
+
+          // Store creative if present and not already added
+          if (creative && creative.id && !creativeIds.has(creative.id)) {
+            creativeIds.add(creative.id);
+
+            let adFormat = 'unknown';
+            let imageUrl = creative.image_url || '';
+            let thumbnailUrl = creative.thumbnail_url || '';
+
+            if (creative.object_story_spec) {
+              const spec = creative.object_story_spec;
+              if (spec.video_data) adFormat = 'video';
+              else if (spec.link_data) adFormat = 'link';
+              else if (spec.photo_data) adFormat = 'image';
+            }
+
+            creativesToUpsert.push({
+              account_id: accountId,
+              creative_id: creative.id,
+              name: creative.name || creative.title || 'Untitled',
+              title: creative.title || '',
+              body: creative.body || '',
+              image_url: imageUrl,
+              thumbnail_url: thumbnailUrl,
+              video_id: creative.video_id || null,
+              ad_format: adFormat,
+              updated_at: new Date().toISOString()
+            });
+          }
+        }
+
+        adsNextUrl = data.paging?.next || null;
+
+        if (adsNextUrl) {
+          await delay(200);
+        }
+      } catch (error: any) {
+        console.error(`Error fetching ads page ${adsPageCount}:`, error.message);
+        errors.push(`Ads page ${adsPageCount} error: ${error.message}`);
+        break;
+      }
+    }
+
+    // Upsert ads
+    if (adsToUpsert.length > 0) {
+      console.log(`\nUpserting ${adsToUpsert.length} ads...`);
+      const { error: adsError } = await supabase
+        .from('meta_ads')
+        .upsert(adsToUpsert, {
+          onConflict: 'ad_id',
+          ignoreDuplicates: false
+        });
+
+      if (adsError) {
+        console.error('Ads upsert error:', adsError.message);
+        errors.push(`Ads upsert error: ${adsError.message}`);
+      } else {
+        console.log(`✓ Successfully upserted ${adsToUpsert.length} ads`);
+      }
+    }
+
+    // Upsert creatives
+    if (creativesToUpsert.length > 0) {
+      console.log(`Upserting ${creativesToUpsert.length} creatives...`);
+      const { error: creativesError } = await supabase
+        .from('meta_ad_creatives')
+        .upsert(creativesToUpsert, {
+          onConflict: 'creative_id',
+          ignoreDuplicates: false
+        });
+
+      if (creativesError) {
+        console.error('Creatives upsert error:', creativesError.message);
+        errors.push(`Creatives upsert error: ${creativesError.message}`);
+      } else {
+        console.log(`✓ Successfully upserted ${creativesToUpsert.length} creatives\n`);
+      }
+    }
+
     console.log('\n=== FETCHING PLATFORM BREAKDOWNS ===\n');
 
     let totalPlatformUpserted = 0;
