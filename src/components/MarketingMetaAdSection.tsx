@@ -1307,24 +1307,94 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                         campaigns: campaigns.sort((a, b) => b.total_spend - a.total_spend)
                       })).sort((a, b) => b.total_spend - a.total_spend);
 
+                      const formatActionType = (actionType: string): string => {
+                        const typeMap: Record<string, string> = {
+                          // Traffic actions
+                          'link_click': 'Link Click',
+                          'landing_page_view': 'Landing Page View',
+                          'outbound_click': 'Outbound Click',
+
+                          // Engagement actions
+                          'post_engagement': 'Post Engagement',
+                          'page_engagement': 'Page Engagement',
+                          'like': 'Like',
+                          'post_like': 'Post Like',
+                          'page_like': 'Page Like',
+                          'comment': 'Comment',
+                          'post': 'Post',
+                          'post_reaction': 'Reaction',
+                          'video_view': 'Video View',
+                          'onsite_conversion.post_save': 'Post Save',
+                          'onsite_conversion.post_net_save': 'Post Save',
+
+                          // Sales/Conversion actions
+                          'purchase': 'Purchase',
+                          'offsite_conversion.fb_pixel_purchase': 'Purchase (Pixel)',
+                          'omni_purchase': 'Purchase (Omni)',
+                          'onsite_web_purchase': 'Purchase (Web)',
+                          'onsite_web_app_purchase': 'Purchase (Web App)',
+                          'web_in_store_purchase': 'Purchase (In-Store)',
+                          'web_app_in_store_purchase': 'Purchase (App In-Store)',
+                          'add_to_cart': 'Add to Cart',
+                          'offsite_conversion.fb_pixel_add_to_cart': 'Add to Cart (Pixel)',
+                          'omni_add_to_cart': 'Add to Cart (Omni)',
+                          'onsite_web_add_to_cart': 'Add to Cart (Web)',
+                          'onsite_web_app_add_to_cart': 'Add to Cart (Web App)',
+                          'initiate_checkout': 'Initiate Checkout',
+                          'offsite_conversion.fb_pixel_initiate_checkout': 'Initiate Checkout (Pixel)',
+                          'omni_initiated_checkout': 'Initiate Checkout (Omni)',
+                          'onsite_web_initiate_checkout': 'Initiate Checkout (Web)',
+                          'view_content': 'View Content',
+                          'offsite_conversion.fb_pixel_view_content': 'View Content (Pixel)',
+                          'omni_view_content': 'View Content (Omni)',
+
+                          // Lead actions
+                          'lead': 'Lead',
+                          'onsite_conversion.lead_grouped': 'Lead Submission',
+
+                          // App actions
+                          'app_install': 'App Install',
+                          'mobile_app_install': 'Mobile App Install',
+
+                          // Awareness actions
+                          'reach': 'Reach',
+                          'frequency': 'Frequency',
+                          'estimated_ad_recallers': 'Estimated Ad Recalls',
+
+                          // Messaging actions
+                          'onsite_conversion.messaging_conversation_started_7d': 'Conversation Started'
+                        };
+
+                        return typeMap[actionType] || actionType.split('_').map(word =>
+                          word.charAt(0).toUpperCase() + word.slice(1)
+                        ).join(' ');
+                      };
+
+                      const formatResultTypes = (resultTypes: string | null): string => {
+                        if (!resultTypes) return '-';
+                        const types = resultTypes.split(', ');
+                        const formatted = types.map(type => formatActionType(type.trim()));
+                        return formatted.join(', ');
+                      };
+
                       const getResultTypeNote = (objective: string) => {
                         const obj = objective.toUpperCase();
                         if (obj.includes('TRAFFIC') || obj.includes('LINK_CLICKS')) {
                           return 'Link Clicks, Landing Page Views, Outbound Clicks';
                         } else if (obj.includes('ENGAGEMENT') || obj.includes('PAGE_LIKES') || obj.includes('POST_ENGAGEMENT')) {
-                          return 'Post Engagements, Page Likes, Video Views, Comments, Reactions';
+                          return 'Post Engagement, Page Engagement, Likes, Video Views, Comments, Reactions, Post Saves';
                         } else if (obj.includes('LEAD') || obj === 'LEAD_GENERATION') {
-                          return 'Leads, Lead Forms Submitted';
+                          return 'Leads, Lead Form Submissions';
                         } else if (obj.includes('SALES') || obj.includes('CONVERSIONS')) {
-                          return 'Purchases, Add to Carts, Checkouts';
+                          return 'Purchase, Add to Cart, Initiate Checkout, All pixel conversion variations';
                         } else if (obj.includes('APP') || obj.includes('INSTALLS')) {
-                          return 'App Installs';
+                          return 'App Installs, Mobile App Installs';
                         } else if (obj.includes('VIDEO')) {
-                          return 'Video Views';
+                          return 'Video Views, Video Percentages Watched';
                         } else if (obj === 'BRAND_AWARENESS' || obj === 'OUTCOME_AWARENESS' || obj === 'REACH') {
-                          return 'Reach, Ad Recalls';
+                          return 'Reach, Frequency, Estimated Ad Recalls';
                         } else if (obj.includes('MESSAGES')) {
-                          return 'Message Conversations Started';
+                          return 'Messages, Conversation Started';
                         }
                         return 'Various conversion actions';
                       };
@@ -1340,16 +1410,35 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                               </div>
                               <div className="flex-1">
                                 <h4 className="text-sm font-semibold text-blue-900 mb-1">What counts as Results?</h4>
-                                <p className="text-xs text-blue-800 leading-relaxed">
+                                <p className="text-xs text-blue-800 leading-relaxed mb-2">
                                   Results vary by campaign objective. The system counts all relevant action types:
                                 </p>
-                                <ul className="mt-2 space-y-1 text-xs text-blue-800">
-                                  {Array.from(new Set(objectiveTotals.map(o => o.objective))).map(obj => (
-                                    <li key={obj}>
-                                      <span className="font-medium">{obj.replace(/_/g, ' ')}:</span> {getResultTypeNote(obj)}
-                                    </li>
-                                  ))}
-                                </ul>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-blue-800">
+                                  <div>
+                                    <div className="font-semibold">Traffic Campaigns</div>
+                                    <div className="pl-2">Link Clicks, Landing Page Views, Outbound Clicks</div>
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold">Engagement Campaigns</div>
+                                    <div className="pl-2">Post Engagement, Page Engagement, Likes, Video Views, Comments, Reactions, Post Saves</div>
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold">Sales/Conversions Campaigns</div>
+                                    <div className="pl-2">Purchase, Add to Cart, Initiate Checkout, All pixel conversion variations</div>
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold">Awareness Campaigns</div>
+                                    <div className="pl-2">Reach, Frequency, Estimated Ad Recalls</div>
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold">Lead Generation</div>
+                                    <div className="pl-2">Leads, Lead Form Submissions</div>
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold">Other Objectives</div>
+                                    <div className="pl-2">App Installs, Video Views, Messages, etc.</div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1389,6 +1478,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                             <tbody className="bg-white">
                               {objectiveTotals.map(({ objective, total_spend, total_impressions, total_clicks, total_results, campaigns }) => {
                                 const allResultTypes = Array.from(new Set(campaigns.flatMap(c => c.result_types ? c.result_types.split(', ') : []))).join(', ');
+                                const formattedResultTypes = formatResultTypes(allResultTypes);
                                 return (
                                 <>
                                   <tr key={`objective-${objective}`} className="bg-blue-50 border-t-2 border-blue-200">
@@ -1408,7 +1498,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                       {total_results.toLocaleString()}
                                     </td>
                                     <td className="px-4 py-3 text-left font-bold text-blue-900 text-xs">
-                                      {allResultTypes || '-'}
+                                      {formattedResultTypes || '-'}
                                     </td>
                                     <td className="px-4 py-3 text-right font-bold text-blue-900">
                                       {total_impressions > 0 ? ((total_clicks / total_impressions) * 100).toFixed(2) : '0.00'}%
@@ -1433,8 +1523,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_impressions.toLocaleString()}</td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_clicks.toLocaleString()}</td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_results.toLocaleString()}</td>
-                                      <td className="px-4 py-2 text-left text-gray-600 text-xs truncate max-w-xs" title={campaign.result_types}>
-                                        {campaign.result_types || '-'}
+                                      <td className="px-4 py-2 text-left text-gray-600 text-xs truncate max-w-xs" title={formatResultTypes(campaign.result_types)}>
+                                        {formatResultTypes(campaign.result_types)}
                                       </td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.avg_ctr.toFixed(2)}%</td>
                                       <td className="px-4 py-2 text-right text-gray-700">${campaign.avg_cpc.toFixed(2)}</td>
