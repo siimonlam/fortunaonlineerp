@@ -278,9 +278,20 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
           <ImageIcon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-600 font-medium mb-2">No ads found</p>
-          <p className="text-sm text-gray-500 mb-4">
-            No ads available for this account. Make sure you have synced ad insights from the Ad Sets tab first.
-          </p>
+          <div className="max-w-md mx-auto">
+            <p className="text-sm text-gray-500 mb-4">
+              No ads available for this account. Please sync your Meta Ad data first:
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+              <p className="text-sm font-medium text-blue-900 mb-2">Steps to sync:</p>
+              <ol className="text-sm text-blue-800 list-decimal list-inside space-y-1">
+                <li>Go to the <strong>Ad Sets</strong> tab</li>
+                <li>Click <strong>Sync Monthly Reports</strong></li>
+                <li>Wait for the sync to complete</li>
+                <li>Return here and see your ad performance</li>
+              </ol>
+            </div>
+          </div>
         </div>
       ) : creatives.every(c => c.spend === 0 && c.impressions === 0) ? (
         <div className="space-y-4">
@@ -289,10 +300,17 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
               <ImageIcon className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
               <div>
                 <h4 className="text-sm font-semibold text-amber-900 mb-1">No Performance Data Available</h4>
-                <p className="text-sm text-amber-800">
+                <p className="text-sm text-amber-800 mb-3">
                   {creatives.length} ad{creatives.length !== 1 ? 's' : ''} found, but no performance data for the selected time period.
-                  This means these ads haven't been active during this time range, or you need to sync ad insights first.
                 </p>
+                <div className="bg-white border border-amber-300 rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium text-amber-900">To see performance data:</p>
+                  <ol className="text-sm text-amber-800 list-decimal list-inside space-y-1">
+                    <li>Go to the <strong>Ad Sets</strong> tab</li>
+                    <li>Click <strong>Sync Monthly Reports</strong> to fetch insights data</li>
+                    <li>Return here and click <strong>Refresh</strong></li>
+                  </ol>
+                </div>
               </div>
             </div>
           </div>
