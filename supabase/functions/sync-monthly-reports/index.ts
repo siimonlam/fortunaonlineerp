@@ -499,7 +499,7 @@ Deno.serve(async (req: Request) => {
       const { error: bulkUpsertError } = await supabase
         .from('meta_monthly_demographics')
         .upsert(demographicsToUpsert, {
-          onConflict: 'adset_id,month_year,age_group,gender,country',
+          onConflict: 'adset_id,month_year,age_group,gender',
           ignoreDuplicates: false
         });
 
