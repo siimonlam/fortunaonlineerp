@@ -302,7 +302,14 @@ Deno.serve(async (req: Request) => {
             const adsetId = insight.adset_id;
 
             const adsetData = adsetMap.get(adsetId);
-            const campaignData = adsetData?.campaign_id ? campaignMap.get(adsetData.campaign_id) : null;
+            // Try to get campaign objective directly from insight.campaign_id first, fall back to adsetMap lookup
+            let campaignData = null;
+            if (insight.campaign_id) {
+              campaignData = campaignMap.get(insight.campaign_id);
+            }
+            if (!campaignData && adsetData?.campaign_id) {
+              campaignData = campaignMap.get(adsetData.campaign_id);
+            }
             const campaignObjective = campaignData?.objective || null;
 
             let results = 0;
@@ -434,7 +441,14 @@ Deno.serve(async (req: Request) => {
             const gender = demo.gender || 'unknown';
 
             const adsetData = adsetMap.get(adsetId);
-            const campaignData = adsetData?.campaign_id ? campaignMap.get(adsetData.campaign_id) : null;
+            // Try to get campaign objective directly from demo.campaign_id first, fall back to adsetMap lookup
+            let campaignData = null;
+            if (demo.campaign_id) {
+              campaignData = campaignMap.get(demo.campaign_id);
+            }
+            if (!campaignData && adsetData?.campaign_id) {
+              campaignData = campaignMap.get(adsetData.campaign_id);
+            }
             const campaignObjective = campaignData?.objective || null;
 
             let results = 0;
@@ -673,7 +687,14 @@ Deno.serve(async (req: Request) => {
             const publisherPlatform = platform.publisher_platform || 'unknown';
 
             const adsetData = adsetMap.get(adsetId);
-            const campaignData = adsetData?.campaign_id ? campaignMap.get(adsetData.campaign_id) : null;
+            // Try to get campaign objective directly from platform.campaign_id first, fall back to adsetMap lookup
+            let campaignData = null;
+            if (platform.campaign_id) {
+              campaignData = campaignMap.get(platform.campaign_id);
+            }
+            if (!campaignData && adsetData?.campaign_id) {
+              campaignData = campaignMap.get(adsetData.campaign_id);
+            }
             const campaignObjective = campaignData?.objective || null;
 
             let results = 0;
