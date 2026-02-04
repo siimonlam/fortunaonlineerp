@@ -972,33 +972,12 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Compensation Currency</label>
-                    <select
-                      value={formData.compensation_currency}
-                      onChange={(e) => setFormData({ ...formData, compensation_currency: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="USD">USD - US Dollar</option>
-                      <option value="HKD">HKD - Hong Kong Dollar</option>
-                      <option value="GBP">GBP - British Pound</option>
-                      <option value="EUR">EUR - Euro</option>
-                      <option value="CNY">CNY - Chinese Yuan</option>
-                      <option value="JPY">JPY - Japanese Yen</option>
-                      <option value="KRW">KRW - South Korean Won</option>
-                      <option value="SGD">SGD - Singapore Dollar</option>
-                      <option value="AUD">AUD - Australian Dollar</option>
-                      <option value="CAD">CAD - Canadian Dollar</option>
-                      <option value="INR">INR - Indian Rupee</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Compensation Amount</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Suggested Compensation Amount</label>
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.compensation_amount}
-                      onChange={(e) => setFormData({ ...formData, compensation_amount: e.target.value })}
+                      value={formData.suggested_price}
+                      onChange={(e) => setFormData({ ...formData, suggested_price: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min="0"
                       placeholder="0.00"
