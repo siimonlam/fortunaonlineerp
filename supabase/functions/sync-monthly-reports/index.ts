@@ -345,7 +345,7 @@ Deno.serve(async (req: Request) => {
               result_type: resultType.length > 0 ? resultType.join(', ') : null,
               inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
               outbound_clicks: parseInt(insight.outbound_clicks || '0'),
-              actions: insight.actions ? JSON.stringify(insight.actions) : null,
+              actions: insight.actions || null,
               client_number: adsetData?.client_number || null,
               marketing_reference: adsetData?.marketing_reference || null,
               updated_at: new Date().toISOString()
