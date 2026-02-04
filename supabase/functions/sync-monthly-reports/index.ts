@@ -903,13 +903,78 @@ Deno.serve(async (req: Request) => {
     if (adInsightsToUpsert.length > 0) {
       console.log(`Upserting ${adInsightsToUpsert.length} ad insight records...`);
 
-      // First, ensure all referenced ads exist in meta_ads table
+      // First, ensure all referenced campaigns, adsets, and ads exist
+      const uniqueCampaignIds = [...new Set(adInsightsToUpsert.map(r => r.campaign_id).filter(Boolean))];
+      const uniqueAdsetIds = [...new Set(adInsightsToUpsert.map(r => r.adset_id).filter(Boolean))];
       const uniqueAdIds = [...new Set(adInsightsToUpsert.map(r => r.ad_id))];
-      const missingAdStubs: any[] = [];
 
+      // Create stub campaigns first
+      const missingCampaignStubs: any[] = [];
+      for (const campaignId of uniqueCampaignIds) {
+        const insightRecord = adInsightsToUpsert.find(r => r.campaign_id === campaignId);
+        missingCampaignStubs.push({
+          campaign_id: campaignId,
+          account_id: accountId,
+          name: `Campaign ${campaignId} (Historical)`,
+          status: 'UNKNOWN',
+          client_number: insightRecord?.client_number || null,
+          marketing_reference: insightRecord?.marketing_reference || null,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      if (missingCampaignStubs.length > 0) {
+        console.log(`Creating ${missingCampaignStubs.length} stub records for missing campaigns...`);
+        const { error: campaignStubError } = await supabase
+          .from('meta_campaigns')
+          .upsert(missingCampaignStubs, {
+            onConflict: 'campaign_id',
+            ignoreDuplicates: true
+          });
+
+        if (campaignStubError) {
+          console.error(`Error creating campaign stubs:`, campaignStubError);
+        } else {
+          console.log(`✓ Created ${missingCampaignStubs.length} campaign stub records`);
+        }
+      }
+
+      // Create stub adsets second
+      const missingAdsetStubs: any[] = [];
+      for (const adsetId of uniqueAdsetIds) {
+        const insightRecord = adInsightsToUpsert.find(r => r.adset_id === adsetId);
+        missingAdsetStubs.push({
+          adset_id: adsetId,
+          campaign_id: insightRecord?.campaign_id || null,
+          account_id: accountId,
+          name: `AdSet ${adsetId} (Historical)`,
+          status: 'UNKNOWN',
+          client_number: insightRecord?.client_number || null,
+          marketing_reference: insightRecord?.marketing_reference || null,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      if (missingAdsetStubs.length > 0) {
+        console.log(`Creating ${missingAdsetStubs.length} stub records for missing adsets...`);
+        const { error: adsetStubError } = await supabase
+          .from('meta_adsets')
+          .upsert(missingAdsetStubs, {
+            onConflict: 'adset_id',
+            ignoreDuplicates: true
+          });
+
+        if (adsetStubError) {
+          console.error(`Error creating adset stubs:`, adsetStubError);
+        } else {
+          console.log(`✓ Created ${missingAdsetStubs.length} adset stub records`);
+        }
+      }
+
+      // Create stub ads last
+      const missingAdStubs: any[] = [];
       for (const adId of uniqueAdIds) {
         if (!adsMap.has(adId)) {
-          // Create stub record for missing ad
           const insightRecord = adInsightsToUpsert.find(r => r.ad_id === adId);
           missingAdStubs.push({
             ad_id: adId,
@@ -931,14 +996,14 @@ Deno.serve(async (req: Request) => {
           .from('meta_ads')
           .upsert(missingAdStubs, {
             onConflict: 'ad_id',
-            ignoreDuplicates: false
+            ignoreDuplicates: true
           });
 
         if (stubError) {
           console.error(`Error creating ad stubs:`, stubError);
           errors.push(`Ad stub creation error: ${stubError.message}`);
         } else {
-          console.log(`Successfully created ${missingAdStubs.length} ad stub records`);
+          console.log(`✓ Created ${missingAdStubs.length} ad stub records`);
         }
       }
 
