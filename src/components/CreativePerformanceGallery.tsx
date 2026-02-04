@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { RefreshCw, TrendingUp, MousePointer, Eye, DollarSign, Image as ImageIcon, Loader2, Grid3x3, Table as TableIcon, Video, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
-interface CreativePerformance {
-  creative_id: string;
-  name: string;
+interface AdPerformance {
+  ad_name: string;
+  ad_ids: string[];
+  creative_id: string | null;
   title: string;
   body: string;
   image_url: string;
@@ -20,6 +21,7 @@ interface CreativePerformance {
   ctr: number;
   cpc: number;
   roas: number;
+  results: number;
 }
 
 interface Props {
@@ -30,11 +32,11 @@ interface Props {
   };
 }
 
-type SortField = 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'roas' | 'conversions';
+type SortField = 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'roas' | 'conversions' | 'results';
 type SortDirection = 'asc' | 'desc';
 
 export default function CreativePerformanceGallery({ accountId, dateRange }: Props) {
-  const [creatives, setCreatives] = useState<CreativePerformance[]>([]);
+  const [creatives, setCreatives] = useState<AdPerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +56,11 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       const since = dateRange?.since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const until = dateRange?.until || new Date().toISOString().split('T')[0];
 
+      // Fetch all ads with their creative information
       const { data: ads, error: adsError } = await supabase
         .from('meta_ads')
-        .select('ad_id, creative_id, name')
-        .eq('account_id', accountId)
-        .not('creative_id', 'is', null);
+        .select('ad_id, creative_id, name, account_id')
+        .eq('account_id', accountId);
 
       if (adsError) throw adsError;
 
@@ -68,95 +70,110 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         return;
       }
 
-      const creativeIds = [...new Set(ads.map(ad => ad.creative_id))].filter(Boolean) as string[];
       const adIds = ads.map(ad => ad.ad_id);
+      const creativeIds = [...new Set(ads.map(ad => ad.creative_id).filter(Boolean))] as string[];
 
-      const [creativesResult, insightsResult] = await Promise.all([
-        supabase
-          .from('meta_ad_creatives')
-          .select('*')
-          .in('creative_id', creativeIds),
+      // Fetch insights and creatives in parallel
+      const [insightsResult, creativesResult] = await Promise.all([
         supabase
           .from('meta_ad_insights')
-          .select('ad_id, spend, impressions, clicks, conversions, conversion_values, ctr, cpc')
+          .select('ad_id, spend, impressions, clicks, conversions, conversion_values, results')
           .in('ad_id', adIds)
           .gte('date', since)
-          .lte('date', until)
+          .lte('date', until),
+        creativeIds.length > 0
+          ? supabase
+              .from('meta_ad_creatives')
+              .select('*')
+              .in('creative_id', creativeIds)
+          : { data: [], error: null }
       ]);
 
-      if (creativesResult.error) throw creativesResult.error;
       if (insightsResult.error) throw insightsResult.error;
+      if (creativesResult.error) throw creativesResult.error;
 
-      const creativesData = creativesResult.data || [];
       const insightsData = insightsResult.data || [];
+      const creativesData = creativesResult.data || [];
 
-      const adToCreativeMap = new Map(ads.map(ad => [ad.ad_id, ad.creative_id]));
+      // Create maps for quick lookups
+      const creativeMap = new Map(
+        creativesData.map(c => [c.creative_id, c])
+      );
 
-      const creativeMetrics = new Map<string, CreativePerformance>();
+      // Group ads by ad name
+      const adGroups = new Map<string, AdPerformance>();
 
-      creativesData.forEach(creative => {
-        creativeMetrics.set(creative.creative_id, {
-          creative_id: creative.creative_id,
-          name: creative.name || 'Untitled Creative',
-          title: creative.title || '',
-          body: creative.body || '',
-          image_url: creative.image_url || '',
-          thumbnail_url: creative.thumbnail_url || '',
-          video_id: creative.video_id || '',
-          ad_format: creative.ad_format || '',
-          ad_count: 0,
-          spend: 0,
-          impressions: 0,
-          clicks: 0,
-          conversions: 0,
-          conversion_values: 0,
-          ctr: 0,
-          cpc: 0,
-          roas: 0,
-        });
-      });
-
-      insightsData.forEach(insight => {
-        const creativeId = adToCreativeMap.get(insight.ad_id);
-        if (creativeId && creativeMetrics.has(creativeId)) {
-          const metrics = creativeMetrics.get(creativeId)!;
-          metrics.spend += Number(insight.spend) || 0;
-          metrics.impressions += Number(insight.impressions) || 0;
-          metrics.clicks += Number(insight.clicks) || 0;
-          metrics.conversions += Number(insight.conversions) || 0;
-          metrics.conversion_values += Number(insight.conversion_values) || 0;
-        }
-      });
-
-      const adsPerCreative = new Map<string, Set<string>>();
       ads.forEach(ad => {
-        if (ad.creative_id) {
-          if (!adsPerCreative.has(ad.creative_id)) {
-            adsPerCreative.set(ad.creative_id, new Set());
-          }
-          adsPerCreative.get(ad.creative_id)!.add(ad.ad_id);
+        const adName = ad.name || 'Untitled Ad';
+
+        if (!adGroups.has(adName)) {
+          const creative = ad.creative_id ? creativeMap.get(ad.creative_id) : null;
+
+          adGroups.set(adName, {
+            ad_name: adName,
+            ad_ids: [],
+            creative_id: ad.creative_id || null,
+            title: creative?.title || creative?.name || adName,
+            body: creative?.body || '',
+            image_url: creative?.image_url || '',
+            thumbnail_url: creative?.thumbnail_url || '',
+            video_id: creative?.video_id || '',
+            ad_format: creative?.ad_format || 'unknown',
+            ad_count: 0,
+            spend: 0,
+            impressions: 0,
+            clicks: 0,
+            conversions: 0,
+            conversion_values: 0,
+            results: 0,
+            ctr: 0,
+            cpc: 0,
+            roas: 0,
+          });
+        }
+
+        const group = adGroups.get(adName)!;
+        group.ad_ids.push(ad.ad_id);
+        group.ad_count = group.ad_ids.length;
+      });
+
+      // Aggregate insights by ad name
+      insightsData.forEach(insight => {
+        const ad = ads.find(a => a.ad_id === insight.ad_id);
+        if (!ad) return;
+
+        const adName = ad.name || 'Untitled Ad';
+        const group = adGroups.get(adName);
+
+        if (group) {
+          group.spend += Number(insight.spend) || 0;
+          group.impressions += Number(insight.impressions) || 0;
+          group.clicks += Number(insight.clicks) || 0;
+          group.conversions += Number(insight.conversions) || 0;
+          group.conversion_values += Number(insight.conversion_values) || 0;
+          group.results += Number(insight.results) || 0;
         }
       });
 
-      creativeMetrics.forEach((metrics, creativeId) => {
-        metrics.ad_count = adsPerCreative.get(creativeId)?.size || 0;
-        metrics.ctr = metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0;
-        metrics.cpc = metrics.clicks > 0 ? metrics.spend / metrics.clicks : 0;
-        metrics.roas = metrics.spend > 0 ? metrics.conversion_values / metrics.spend : 0;
+      // Calculate derived metrics
+      adGroups.forEach((group) => {
+        group.ctr = group.impressions > 0 ? (group.clicks / group.impressions) * 100 : 0;
+        group.cpc = group.clicks > 0 ? group.spend / group.clicks : 0;
+        group.roas = group.spend > 0 ? group.conversion_values / group.spend : 0;
       });
 
-      const sortedCreatives = sortCreatives(Array.from(creativeMetrics.values()), sortField, sortDirection);
+      const sortedAds = sortCreatives(Array.from(adGroups.values()), sortField, sortDirection);
 
-      setCreatives(sortedCreatives);
+      setCreatives(sortedAds);
     } catch (err: any) {
-      console.error('Error fetching creative performance:', err);
+      console.error('Error fetching ad performance:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const sortCreatives = (items: CreativePerformance[], field: SortField, direction: SortDirection) => {
+  const sortCreatives = (items: AdPerformance[], field: SortField, direction: SortDirection) => {
     return [...items].sort((a, b) => {
       const aValue = a[field];
       const bValue = b[field];
@@ -266,7 +283,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Creative Performance Gallery</h3>
           <p className="text-sm text-gray-600">
-            View ad creatives with performance metrics for the selected time period
+            View ads grouped by ad name with performance metrics for the selected time period
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -309,9 +326,9 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       {creatives.length === 0 ? (
         <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
           <ImageIcon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600 font-medium mb-2">No creatives found</p>
+          <p className="text-gray-600 font-medium mb-2">No ads found</p>
           <p className="text-sm text-gray-500 mb-4">
-            Click "Sync Creatives" to fetch ad creatives from your Meta account
+            Click "Sync Creatives" to fetch ads and their creatives from your Meta account
           </p>
         </div>
       ) : creatives.every(c => c.spend === 0 && c.impressions === 0) ? (
@@ -322,8 +339,8 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
               <div>
                 <h4 className="text-sm font-semibold text-amber-900 mb-1">No Performance Data Available</h4>
                 <p className="text-sm text-amber-800">
-                  {creatives.length} creative{creatives.length !== 1 ? 's' : ''} found, but no performance data for the selected time period.
-                  This means these creatives haven't been used in active ads during this time range, or you need to sync ad insights first.
+                  {creatives.length} ad{creatives.length !== 1 ? 's' : ''} found, but no performance data for the selected time period.
+                  This means these ads haven't been active during this time range, or you need to sync ad insights first.
                 </p>
               </div>
             </div>
@@ -331,7 +348,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {creatives.map((creative) => (
               <div
-                key={creative.creative_id}
+                key={creative.ad_name}
                 className="bg-white border border-gray-200 rounded-lg overflow-hidden opacity-60"
               >
                 <div className="aspect-square bg-gray-100 relative">
@@ -363,7 +380,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {creatives.map((creative) => (
             <div
-              key={creative.creative_id}
+              key={creative.ad_name}
               className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
             >
               <div className="aspect-square bg-gray-100 relative">
@@ -434,18 +451,6 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
                     </span>
                   </div>
 
-                  {creative.roas > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 flex items-center gap-1">
-                        <TrendingUp className="w-4 h-4" />
-                        ROAS
-                      </span>
-                      <span className="font-semibold text-green-600">
-                        {creative.roas.toFixed(2)}x
-                      </span>
-                    </div>
-                  )}
-
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600 flex items-center gap-1">
                       <Eye className="w-4 h-4" />
@@ -466,6 +471,18 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
                     </span>
                   </div>
 
+                  {creative.results > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4" />
+                        Results
+                      </span>
+                      <span className="font-semibold text-blue-600">
+                        {creative.results.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
                     <span className="text-gray-600">CTR</span>
                     <span className="font-medium text-gray-700">
@@ -479,6 +496,18 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
                       HK${creative.cpc.toFixed(2)}
                     </span>
                   </div>
+
+                  {creative.roas > 0 && (
+                    <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4" />
+                        ROAS
+                      </span>
+                      <span className="font-semibold text-green-600">
+                        {creative.roas.toFixed(2)}x
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -520,6 +549,14 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
                 </th>
                 <th
                   className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('results')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Results {getSortIcon('results')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('ctr')}
                 >
                   <div className="flex items-center justify-end gap-1">
@@ -554,7 +591,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
             </thead>
             <tbody className="divide-y divide-gray-200">
               {creatives.map((creative) => (
-                <tr key={creative.creative_id} className="hover:bg-gray-50">
+                <tr key={creative.ad_name} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex items-center justify-center">
                       {creative.thumbnail_url || creative.image_url ? (
@@ -604,6 +641,9 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
                   </td>
                   <td className="px-4 py-3 text-right text-sm text-gray-900">
                     {creative.clicks.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-blue-600">
+                    {creative.results.toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-right text-sm text-gray-900">
                     {creative.ctr.toFixed(2)}%
