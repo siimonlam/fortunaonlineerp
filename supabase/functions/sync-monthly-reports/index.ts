@@ -533,6 +533,8 @@ Deno.serve(async (req: Request) => {
     const adsToUpsert: any[] = [];
     const creativesToUpsert: any[] = [];
     const creativeIds = new Set<string>();
+    const encounteredAdsetIds = new Set<string>();
+    const encounteredCampaignIds = new Set<string>();
     let adsPageCount = 0;
 
     while (adsNextUrl) {
@@ -556,6 +558,10 @@ Deno.serve(async (req: Request) => {
         for (const ad of ads) {
           const creative = ad.creative;
           const adsetData = adsetMap.get(ad.adset_id);
+
+          // Track encountered adset and campaign IDs
+          if (ad.adset_id) encounteredAdsetIds.add(ad.adset_id);
+          if (ad.campaign_id) encounteredCampaignIds.add(ad.campaign_id);
 
           // Store ad with client_number and marketing_reference from adset
           adsToUpsert.push({
@@ -613,7 +619,102 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Upsert ads
+    // CRITICAL: Create stub records for missing campaigns and adsets BEFORE inserting ads
+    if (adsToUpsert.length > 0) {
+      console.log(`\nPre-processing dependencies for ${adsToUpsert.length} ads...`);
+
+      // Step 1: Create stub campaigns for any missing campaign IDs
+      const missingCampaignIds = [...encounteredCampaignIds].filter(id => !campaignMap.has(id));
+      if (missingCampaignIds.length > 0) {
+        console.log(`Creating ${missingCampaignIds.length} stub campaign records...`);
+        try {
+          const campaignStubs = missingCampaignIds.map(campaignId => ({
+            campaign_id: campaignId,
+            account_id: accountId,
+            name: `Campaign ${campaignId} (Auto-created)`,
+            status: 'UNKNOWN',
+            updated_at: new Date().toISOString()
+          }));
+
+          const { error: campaignStubError } = await supabase
+            .from('meta_campaigns')
+            .upsert(campaignStubs, {
+              onConflict: 'campaign_id',
+              ignoreDuplicates: true
+            });
+
+          if (campaignStubError) {
+            console.error('Campaign stub creation error:', campaignStubError.message);
+            errors.push(`Campaign stub creation error: ${campaignStubError.message}`);
+          } else {
+            console.log(`✓ Created ${missingCampaignIds.length} campaign stubs`);
+            // Update campaignMap to avoid re-creating
+            missingCampaignIds.forEach(id => campaignMap.set(id, { campaign_id: id, name: `Campaign ${id} (Auto-created)`, objective: null }));
+          }
+        } catch (error: any) {
+          console.error('Error creating campaign stubs:', error.message);
+          errors.push(`Campaign stub error: ${error.message}`);
+        }
+      }
+
+      // Step 2: Create stub adsets for any missing adset IDs
+      const missingAdsetIds = [...encounteredAdsetIds].filter(id => !adsetMap.has(id));
+      if (missingAdsetIds.length > 0) {
+        console.log(`Creating ${missingAdsetIds.length} stub adset records...`);
+        try {
+          const adsetStubs = missingAdsetIds.map(adsetId => {
+            // Find the ad that references this adset to get campaign_id
+            const ad = adsToUpsert.find(a => a.adset_id === adsetId);
+            return {
+              adset_id: adsetId,
+              campaign_id: ad?.campaign_id || null,
+              account_id: accountId,
+              name: `AdSet ${adsetId} (Auto-created)`,
+              status: 'UNKNOWN',
+              client_number: ad?.client_number || null,
+              marketing_reference: ad?.marketing_reference || null,
+              updated_at: new Date().toISOString()
+            };
+          });
+
+          const { error: adsetStubError } = await supabase
+            .from('meta_adsets')
+            .upsert(adsetStubs, {
+              onConflict: 'adset_id',
+              ignoreDuplicates: true
+            });
+
+          if (adsetStubError) {
+            console.error('AdSet stub creation error:', adsetStubError.message);
+            errors.push(`AdSet stub creation error: ${adsetStubError.message}`);
+            // If stub creation fails, we cannot safely insert ads - skip them
+            console.error('⚠️ Skipping ad insertion due to stub creation failure');
+            adsToUpsert.length = 0; // Clear the array to prevent insertion
+          } else {
+            console.log(`✓ Created ${missingAdsetIds.length} adset stubs`);
+            // Update adsetMap to avoid re-creating
+            missingAdsetIds.forEach(id => {
+              const ad = adsToUpsert.find(a => a.adset_id === id);
+              adsetMap.set(id, {
+                adset_id: id,
+                name: `AdSet ${id} (Auto-created)`,
+                client_number: ad?.client_number || null,
+                marketing_reference: ad?.marketing_reference || null,
+                campaign_id: ad?.campaign_id || null
+              });
+            });
+          }
+        } catch (error: any) {
+          console.error('Error creating adset stubs:', error.message);
+          errors.push(`AdSet stub error: ${error.message}`);
+          // If stub creation fails, skip ad insertion
+          console.error('⚠️ Skipping ad insertion due to stub creation failure');
+          adsToUpsert.length = 0;
+        }
+      }
+    }
+
+    // Now upsert ads (only if stub creation succeeded or wasn't needed)
     if (adsToUpsert.length > 0) {
       console.log(`\nUpserting ${adsToUpsert.length} ads...`);
       const { error: adsError } = await supabase
@@ -779,7 +880,8 @@ Deno.serve(async (req: Request) => {
     console.log('\n=== FETCHING AD-LEVEL INSIGHTS FOR CREATIVES ===\n');
 
     let totalAdInsightsUpserted = 0;
-    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,adset_id,campaign_id,impressions,reach,spend,clicks,conversions,actions,ctr,cpc,cpm,date_start,date_stop&${timeRangeParam}&time_increment=monthly&limit=100&access_token=${accessToken}`;
+    // Note: Using safe field list - removed 'conversions' as it can cause "Invalid parameter" errors in some API versions
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,adset_id,campaign_id,impressions,reach,spend,clicks,ctr,cpc,cpm,actions,date_start,date_stop&${timeRangeParam}&time_increment=monthly&limit=100&access_token=${accessToken}`;
 
     const adInsightsToUpsert: any[] = [];
     pageCount = 0;
