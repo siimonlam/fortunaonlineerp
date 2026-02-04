@@ -1046,29 +1046,6 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Platform (Select Multiple)</label>
-                    <div className="grid grid-cols-4 gap-3">
-                      {['Instagram', 'TikTok', 'Facebook', 'YouTube', 'LinkedIn', 'Twitter', 'WeChat', 'RED (Xiaohongshu)'].map((platform) => (
-                        <label key={platform} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.platforms.includes(platform)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setFormData({ ...formData, platforms: [...formData.platforms, platform] });
-                              } else {
-                                setFormData({ ...formData, platforms: formData.platforms.filter(p => p !== platform) });
-                              }
-                            }}
-                            className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-slate-700">{platform}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-2">Use Right</label>
                     <div className="grid grid-cols-4 gap-3">
                       {['KOL IG', 'KOL TIKTOK', 'KOL Facebook', 'Brand Accounts'].map((right) => (
