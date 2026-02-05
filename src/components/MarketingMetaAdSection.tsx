@@ -340,51 +340,36 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
       if (metrics.length > 0) {
         loadAdSets(monthlyData);
+        // Pass the campaign IDs to filter demographics, creatives, and platforms
+        const visibleCampaignIds = Array.from(campaignMap.keys());
+        loadDemographics(accountId, visibleCampaignIds, monthStart, monthEnd);
+        loadCreatives(accountId, visibleCampaignIds, monthStart, monthEnd);
+        loadPlatforms(accountId, visibleCampaignIds, monthStart, monthEnd);
+      } else {
+        setAdSets([]);
+        setDemographics([]);
+        setCreatives([]);
+        setPlatforms([]);
       }
-
-      loadDemographics(accountId);
-      loadCreatives(accountId);
-      loadPlatforms(accountId);
     } catch (err: any) {
       console.error('Error loading campaign metrics:', err);
     }
   };
 
-  const loadDemographics = async (accountId: string) => {
+  const loadDemographics = async (accountId: string, campaignIds?: string[], monthStart?: string, monthEnd?: string) => {
     try {
-      let monthStart: string;
-      let monthEnd: string;
-
-      // Handle special date ranges
-      if (selectedMonth === 'last_6_months') {
-        const today = new Date();
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(today.getMonth() - 6);
-        monthStart = `${sixMonthsAgo.getFullYear()}-${String(sixMonthsAgo.getMonth() + 1).padStart(2, '0')}-01`;
-        monthEnd = `${today.getFullYear()}-${String(today.getMonth() + 2).padStart(2, '0')}-01`;
-      } else if (selectedMonth === 'last_12_months') {
-        const today = new Date();
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setMonth(today.getMonth() - 12);
-        monthStart = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth() + 1).padStart(2, '0')}-01`;
-        monthEnd = `${today.getFullYear()}-${String(today.getMonth() + 2).padStart(2, '0')}-01`;
-      } else {
-        const [year, month] = selectedMonth.split('-');
-        monthStart = `${year}-${month}-01`;
-
-        // Calculate next month (handle December -> January of next year)
-        const currentMonth = Number(month);
-        const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-        const nextYear = currentMonth === 12 ? Number(year) + 1 : Number(year);
-        monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+      if (!campaignIds || campaignIds.length === 0) {
+        setDemographics([]);
+        return;
       }
 
       const { data: demographics } = await supabase
         .from('meta_monthly_demographics')
-        .select('age_group, gender, country, impressions, clicks, spend, reach, results, conversions, sales, leads, traffic, engagement, awareness, app_installs')
+        .select('campaign_id, age_group, gender, country, impressions, clicks, spend, reach, results, conversions, sales, leads, traffic, engagement, awareness, app_installs')
         .eq('account_id', accountId)
-        .gte('month_year', monthStart)
-        .lt('month_year', monthEnd)
+        .in('campaign_id', campaignIds)
+        .gte('month_year', monthStart || '2000-01-01')
+        .lt('month_year', monthEnd || '2099-12-31')
         .limit(10000);
 
       if (!demographics || demographics.length === 0) {
@@ -608,34 +593,21 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
-  const loadCreatives = async (accountId: string) => {
+  const loadCreatives = async (accountId: string, campaignIds?: string[], monthStart?: string, monthEnd?: string) => {
     try {
-      let monthStart: string;
-      let monthEnd: string;
-
-      if (selectedMonth === 'last_6_months') {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        monthStart = sixMonthsAgo.toISOString().split('T')[0];
-        monthEnd = new Date().toISOString().split('T')[0];
-      } else if (selectedMonth === 'last_12_months') {
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-        monthStart = twelveMonthsAgo.toISOString().split('T')[0];
-        monthEnd = new Date().toISOString().split('T')[0];
-      } else {
-        const [year, month] = selectedMonth.split('-').map(Number);
-        monthStart = new Date(year, month - 1, 1).toISOString().split('T')[0];
-        monthEnd = new Date(year, month, 0).toISOString().split('T')[0];
+      if (!campaignIds || campaignIds.length === 0) {
+        setCreatives([]);
+        return;
       }
 
       // Get all insights for this account in the selected period with objective-specific result columns
       const { data: insightsData } = await supabase
         .from('meta_ad_insights')
-        .select('ad_id, spend, impressions, clicks, results, sales, traffic, engagement, reach, ctr, cpc, conversions, conversion_values')
+        .select('ad_id, campaign_id, spend, impressions, clicks, results, sales, traffic, engagement, reach, ctr, cpc, conversions, conversion_values')
         .eq('account_id', accountId)
-        .gte('date', monthStart)
-        .lte('date', monthEnd)
+        .in('campaign_id', campaignIds)
+        .gte('date', monthStart || '2000-01-01')
+        .lte('date', monthEnd || '2099-12-31')
         .limit(50000);
 
       if (!insightsData || insightsData.length === 0) {
@@ -656,15 +628,6 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         setCreatives([]);
         return;
       }
-
-      // Get campaigns with their objectives
-      const campaignIds = [...new Set(adsData.map(a => a.campaign_id).filter(Boolean))];
-      const { data: campaignsData } = await supabase
-        .from('meta_ad_campaigns')
-        .select('campaign_id, objective')
-        .in('campaign_id', campaignIds);
-
-      const campaignObjectiveMap = new Map((campaignsData || []).map(c => [c.campaign_id, c.objective]));
 
       // Get unique creative IDs
       const creativeIds = [...new Set(adsData.map(a => a.creative_id).filter(Boolean))];
@@ -691,8 +654,6 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         if (!adInfo) return;
 
         const creativeId = adInfo.creative_id;
-        const campaignId = adInfo.campaign_id;
-        const objective = campaignObjectiveMap.get(campaignId);
 
         if (!creativeMetricsMap.has(creativeId)) {
           const creativeInfo = creativeMap.get(creativeId);
@@ -726,22 +687,15 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         creative.total_impressions += Number(insight.impressions) || 0;
         creative.total_clicks += Number(insight.clicks) || 0;
         creative.total_results += Number(insight.results) || 0;
+        creative.total_sales += Number(insight.sales) || 0;
+        creative.total_traffic += Number(insight.traffic) || 0;
+        creative.total_engagement += Number(insight.engagement) || 0;
         creative.total_reach += Number(insight.reach) || 0;
         creative.total_conversions += Number(insight.conversions) || 0;
         creative.total_conversion_values += Number(insight.conversion_values) || 0;
         creative.ctr_sum += Number(insight.ctr) || 0;
         creative.cpc_sum += Number(insight.cpc) || 0;
         creative.count += 1;
-
-        // Map results to objective-specific columns
-        const resultValue = Number(insight.results) || 0;
-        if (objective === 'OUTCOME_SALES' || objective === 'OUTCOME_LEADS') {
-          creative.total_sales += resultValue;
-        } else if (objective === 'OUTCOME_TRAFFIC') {
-          creative.total_traffic += resultValue;
-        } else if (objective === 'OUTCOME_ENGAGEMENT') {
-          creative.total_engagement += resultValue;
-        }
       });
 
       // Calculate averages, ROI, and ROAS
@@ -782,34 +736,20 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
-  const loadPlatforms = async (accountId: string) => {
+  const loadPlatforms = async (accountId: string, campaignIds?: string[], monthStart?: string, monthEnd?: string) => {
     try {
-      let monthStart: string;
-      let monthEnd: string;
-
-      if (selectedMonth === 'last_6_months') {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        monthStart = sixMonthsAgo.toISOString().split('T')[0];
-        monthEnd = new Date().toISOString().split('T')[0];
-      } else if (selectedMonth === 'last_12_months') {
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-        monthStart = twelveMonthsAgo.toISOString().split('T')[0];
-        monthEnd = new Date().toISOString().split('T')[0];
-      } else {
-        const [year, month] = selectedMonth.split('-');
-        monthStart = `${year}-${month}-01`;
-        const nextMonth = new Date(Number(year), Number(month), 1);
-        monthEnd = nextMonth.toISOString().split('T')[0];
+      if (!campaignIds || campaignIds.length === 0) {
+        setPlatforms([]);
+        return;
       }
 
       const { data: platformData } = await supabase
         .from('meta_platform_insights')
         .select('*')
         .eq('account_id', accountId)
-        .gte('month_year', monthStart)
-        .lt('month_year', monthEnd)
+        .in('campaign_id', campaignIds)
+        .gte('month_year', monthStart || '2000-01-01')
+        .lt('month_year', monthEnd || '2099-12-31')
         .limit(10000);
 
       if (!platformData || platformData.length === 0) {
