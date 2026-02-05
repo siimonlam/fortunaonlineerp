@@ -156,145 +156,102 @@ Deno.serve(async (req: Request) => {
     console.log(`Loaded ${adsetMap.size} adsets, ${campaignMap.size} campaigns\n`);
 
     // Priority-based result calculation system
-    const getPriorityActionTypes = (objective: string | null): { primary: string[], fallback: string[] } => {
+    // Returns a prioritized array where the most important metric is first
+    const getResultActionTypes = (objective: string | null): string[] => {
       if (!objective) {
-        return {
-          primary: ['omni_purchase', 'purchase', 'lead', 'link_click'],
-          fallback: ['post_engagement', 'page_engagement']
-        };
+        return ['omni_purchase', 'purchase', 'lead', 'link_click', 'post_engagement'];
       }
 
       switch (objective.toUpperCase()) {
         case 'OUTCOME_SALES':
         case 'CONVERSIONS':
-          return {
-            primary: [
-              'omni_purchase',
-              'purchase',
-              'offsite_conversion.fb_pixel_purchase',
-              'onsite_conversion.purchase'
-            ],
-            fallback: [
-              'initiate_checkout',
-              'omni_initiated_checkout',
-              'add_to_cart',
-              'omni_add_to_cart',
-              'offsite_conversion.fb_pixel_add_to_cart'
-            ]
-          };
+          // Priority: Omni Purchase is the total; ignore others if this exists
+          return [
+            'omni_purchase',
+            'purchase',
+            'offsite_conversion.fb_pixel_purchase',
+            'onsite_conversion.purchase',
+            'initiate_checkout',
+            'omni_initiated_checkout',
+            'add_to_cart',
+            'omni_add_to_cart'
+          ];
 
         case 'OUTCOME_LEADS':
         case 'LEAD_GENERATION':
-          return {
-            primary: [
-              'lead',
-              'onsite_conversion.lead_grouped',
-              'offsite_conversion.fb_pixel_lead'
-            ],
-            fallback: [
-              'onsite_conversion.messaging_conversation_started_7d',
-              'leadgen_grouped'
-            ]
-          };
+          return [
+            'lead',
+            'onsite_conversion.lead_grouped',
+            'offsite_conversion.fb_pixel_lead',
+            'onsite_conversion.messaging_conversation_started_7d'
+          ];
 
         case 'OUTCOME_TRAFFIC':
         case 'LINK_CLICKS':
-          return {
-            primary: [
-              'link_click',
-              'outbound_click'
-            ],
-            fallback: [
-              'landing_page_view',
-              'omni_landing_page_view',
-              'view_content'
-            ]
-          };
+          // Priority: Link Clicks first, as it's the standard result
+          return [
+            'link_click',
+            'outbound_click',
+            'landing_page_view',
+            'omni_landing_page_view',
+            'view_content'
+          ];
 
         case 'OUTCOME_ENGAGEMENT':
         case 'POST_ENGAGEMENT':
         case 'PAGE_LIKES':
-          return {
-            primary: [
-              'post_engagement',
-              'page_engagement',
-              'video_view'
-            ],
-            fallback: [
-              'like',
-              'onsite_conversion.post_net_like',
-              'post_reaction',
-              'comment'
-            ]
-          };
+          return [
+            'post_engagement',
+            'page_engagement',
+            'like',
+            'video_view',
+            'onsite_conversion.post_net_like',
+            'post_reaction',
+            'comment'
+          ];
 
         case 'OUTCOME_APP_PROMOTION':
         case 'APP_INSTALLS':
         case 'MOBILE_APP_INSTALLS':
-          return {
-            primary: ['app_install', 'mobile_app_install'],
-            fallback: []
-          };
+          return ['app_install', 'mobile_app_install'];
 
         case 'VIDEO_VIEWS':
-          return {
-            primary: ['video_view'],
-            fallback: ['video_p100_watched_actions', 'video_p75_watched_actions']
-          };
+          return ['video_view', 'video_p100_watched_actions', 'video_p75_watched_actions', 'video_p50_watched_actions'];
 
         case 'BRAND_AWARENESS':
         case 'OUTCOME_AWARENESS':
         case 'REACH':
-          return {
-            primary: ['reach', 'estimated_ad_recallers'],
-            fallback: ['frequency']
-          };
+          return ['reach', 'estimated_ad_recallers', 'frequency'];
 
         case 'MESSAGES':
-          return {
-            primary: ['onsite_conversion.messaging_conversation_started_7d'],
-            fallback: []
-          };
+          return ['onsite_conversion.messaging_conversation_started_7d'];
 
         default:
-          return {
-            primary: ['omni_purchase', 'purchase', 'lead', 'link_click'],
-            fallback: ['post_engagement']
-          };
+          return ['omni_purchase', 'purchase', 'lead', 'link_click', 'post_engagement'];
       }
     };
 
-    // Calculate results using priority system (ONE metric only, not sum)
+    // Calculate results using priority system - Find First Match (do NOT sum)
     const calculateResults = (actions: any[], objective: string | null): { value: number, type: string | null } => {
       if (!actions || !Array.isArray(actions) || actions.length === 0) {
         return { value: 0, type: null };
       }
 
-      const priorities = getPriorityActionTypes(objective);
+      const validActionTypes = getResultActionTypes(objective);
 
-      // Step 1: Try primary metrics (stop at first match with value > 0)
-      for (const actionType of priorities.primary) {
+      // Iterate through priority list and STOP at first match with value > 0
+      for (const actionType of validActionTypes) {
         const action = actions.find((a: any) => a.action_type === actionType);
         if (action) {
           const value = parseInt(action.value || '0');
           if (value > 0) {
+            // CRITICAL: Found a match - return immediately, do NOT continue
             return { value, type: actionType };
           }
         }
       }
 
-      // Step 2: If no primary metric found, try fallback metrics
-      for (const actionType of priorities.fallback) {
-        const action = actions.find((a: any) => a.action_type === actionType);
-        if (action) {
-          const value = parseInt(action.value || '0');
-          if (value > 0) {
-            return { value, type: `${actionType} (fallback)` };
-          }
-        }
-      }
-
-      // Step 3: No matches found
+      // No matches found with value > 0
       return { value: 0, type: null };
     };
 
