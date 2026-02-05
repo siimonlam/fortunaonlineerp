@@ -87,7 +87,7 @@ export async function generateInvoiceFromTemplate(
   },
   flatten: boolean = false
 ): Promise<Blob> {
-  console.log('=== Starting Invoice Generation (Chinese Support V2) ===');
+  console.log('=== Starting Invoice Generation (Chinese Support V4 - Strict Check) ===');
 
   // 1. Fetch Data
   const { data: project, error: projectError } = await supabase
@@ -107,34 +107,45 @@ export async function generateInvoiceFromTemplate(
   const pdfDoc = await PDFDocument.load(templateArrayBuffer);
   pdfDoc.registerFontkit(fontkit);
 
-  // 3. Load Chinese Font (Try .ttf first, then .otf)
+  // 3. Load Chinese Font with Strict Validation
   let customFont = null;
   try {
-    // Attempt 1: Try Loading TTF (This matches your file list)
-    console.log('Attempting to load font: /fonts/NotoSansTC-Regular.ttf');
-    let fontBytes = await fetch('/fonts/NotoSansTC-Regular.ttf').then((res) => {
-      if (res.ok) return res.arrayBuffer();
-      return null;
-    });
-
-    // Attempt 2: Try Loading OTF if TTF failed
-    if (!fontBytes) {
-      console.warn('TTF not found, trying OTF...');
-      fontBytes = await fetch('/fonts/NotoSansTC-Regular.otf').then((res) => {
-        if (res.ok) return res.arrayBuffer();
-        return null;
-      });
+    const fontPath = '/fonts/NotoSansTC-Regular.ttf';
+    console.log(`Attempting to load font from: ${fontPath}`);
+    
+    const response = await fetch(fontPath);
+    
+    // Check 1: Network Status
+    if (!response.ok) {
+      throw new Error(`Font fetch failed with status: ${response.status}`);
     }
 
-    if (fontBytes) {
-      customFont = await pdfDoc.embedFont(fontBytes);
-      console.log('✅ Custom Chinese font embedded successfully');
-    } else {
-      throw new Error('Could not find .ttf or .otf font file in /public/fonts/');
+    // Check 2: Content Type (Prevent loading HTML as Font)
+    const contentType = response.headers.get('content-type');
+    if (contentType && (contentType.includes('text/html') || contentType.includes('application/json'))) {
+      throw new Error('Server returned HTML/JSON instead of binary. File is likely missing (404).');
     }
-  } catch (fontError) {
-    console.error('❌ CRITICAL: Failed to load Chinese font:', fontError);
-    console.warn('Invoice will generate, but Chinese characters may cause errors or show as empty boxes.');
+
+    const fontBytes = await response.arrayBuffer();
+
+    // Check 3: Magic Bytes Check (Is this actually a font?)
+    const firstBytes = new Uint8Array(fontBytes.slice(0, 15));
+    const textDecoder = new TextDecoder();
+    const header = textDecoder.decode(firstBytes);
+    
+    if (header.includes('<!DOCTYPE') || header.includes('<html')) {
+      throw new Error('File content looks like HTML. Please check public/fonts folder.');
+    }
+
+    if (fontBytes.byteLength < 100000) { 
+       throw new Error(`Font file is suspiciously small (${fontBytes.byteLength} bytes). It might be corrupted.`);
+    }
+
+    customFont = await pdfDoc.embedFont(fontBytes);
+    console.log('✅ Custom Chinese font embedded successfully');
+  } catch (fontError: any) {
+    console.error('❌ CRITICAL: Failed to load Chinese font:', fontError.message);
+    console.warn('Proceeding with standard fonts. Chinese characters will NOT render correctly.');
   }
 
   const form = pdfDoc.getForm();
@@ -147,20 +158,17 @@ export async function generateInvoiceFromTemplate(
       field.setText(text);
 
       if (customFont) {
-        // Use the embedded font
         field.updateAppearances(customFont);
       } else {
-        // Fallback: If no custom font, try standard. 
-        // Wrap in try/catch because this WILL crash on Chinese chars without a custom font
+        // Safe fallback: try/catch prevents crash if standard font fails on Chinese
         try {
           field.updateAppearances();
         } catch (e) {
-          console.warn(`Skipping appearance update for "${fieldName}" because standard font cannot render this text.`);
+           console.warn(`⚠️ Could not render text for "${fieldName}" (Missing Font).`);
         }
       }
     } catch (error: any) {
-      // Often "Field not found" or "Not a text field"
-      // console.warn(`Field ${fieldName} error:`, error);
+      // Field doesn't exist in PDF, ignore
     }
   };
 
@@ -195,7 +203,7 @@ export async function generateInvoiceFromTemplate(
     await setFieldText(mapping.tag.tag_name, transformedValue);
   }
 
-  // 6. Handle NeedAppearances for Acrobat Reader compatibility
+  // 6. Handle NeedAppearances
   try {
     const acroForm = pdfDoc.catalog.lookup(PDFName.of('AcroForm'));
     if (acroForm) {
@@ -205,12 +213,12 @@ export async function generateInvoiceFromTemplate(
     console.warn('Could not set NeedAppearances flag:', error);
   }
 
-  // 7. Flatten if requested
+  // 7. Flatten
   if (flatten) {
     try {
-        form.flatten();
+      form.flatten();
     } catch (e) {
-        console.error("Error flattening PDF (likely font encoding issue):", e);
+      console.error("Error flattening PDF:", e);
     }
   }
 
@@ -225,4 +233,90 @@ export async function getPdfFieldNames(templateArrayBuffer: ArrayBuffer): Promis
   return fields.map(f => f.getName());
 }
 
-// ... keep existing uploadInvoiceToGoogleDrive function ...
+export async function uploadInvoiceToGoogleDrive(
+  pdfBlob: Blob,
+  fileName: string,
+  folderId: string
+): Promise<string> {
+  if (!import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID || !import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_SECRET) {
+    throw new Error('Google Drive API credentials not configured.');
+  }
+
+  const { data: tokenData, error: tokenError } = await supabase
+    .from('google_oauth_credentials')
+    .select('*')
+    .eq('service_name', 'google_drive')
+    .maybeSingle();
+
+  if (tokenError || !tokenData) {
+    throw new Error('Google Drive not connected. Please contact administrator.');
+  }
+
+  let accessToken = tokenData.access_token;
+
+  if (tokenData.token_expires_at && new Date(tokenData.token_expires_at) <= new Date()) {
+    if (!tokenData.refresh_token) {
+      throw new Error('Google Drive token expired. Please re-authorize.');
+    }
+
+    const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID,
+        client_secret: import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_SECRET,
+        refresh_token: tokenData.refresh_token,
+        grant_type: 'refresh_token',
+      }),
+    });
+
+    if (!refreshResponse.ok) {
+      const errorData = await refreshResponse.json().catch(() => ({}));
+      console.error('Token refresh failed:', errorData);
+      throw new Error(`Failed to refresh Google Drive token: ${errorData.error || 'Unknown error'}.`);
+    }
+
+    const refreshData = await refreshResponse.json();
+    accessToken = refreshData.access_token;
+
+    await supabase
+      .from('google_oauth_credentials')
+      .update({
+        access_token: refreshData.access_token,
+        token_expires_at: new Date(Date.now() + refreshData.expires_in * 1000).toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', tokenData.id);
+  }
+
+  const metadata = {
+    name: fileName,
+    parents: [folderId],
+    mimeType: 'application/pdf',
+  };
+
+  const formData = new FormData();
+  formData.append(
+    'metadata',
+    new Blob([JSON.stringify(metadata)], { type: 'application/json' })
+  );
+  formData.append('file', pdfBlob);
+
+  const uploadResponse = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!uploadResponse.ok) {
+    throw new Error('Failed to upload to Google Drive');
+  }
+
+  const result = await uploadResponse.json();
+  return result.id;
+}
