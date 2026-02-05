@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { PDFDocument, PDFName, PDFBool } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 
 interface FieldMapping {
   tag_id: string;
@@ -112,15 +113,27 @@ export async function generateInvoiceFromTemplate(
   console.log('Field mappings loaded:', mappings.length);
 
   const pdfDoc = await PDFDocument.load(templateArrayBuffer);
+  pdfDoc.registerFontkit(fontkit);
+
   const form = pdfDoc.getForm();
   const fields = form.getFields();
 
   console.log('Available PDF fields:', fields.map(f => f.getName()));
   console.log('Total fields in template:', fields.length);
 
-  // Note: We rely on the NeedAppearances flag set below to let PDF readers
-  // render Chinese characters using their own fonts. This is more reliable
-  // than embedding custom fonts which can cause compatibility issues.
+  // Load Chinese font
+  let customFont = null;
+  try {
+    const fontBytes = await fetch('/fonts/NotoSansTC-Regular.ttf').then((res) => {
+      if (!res.ok) throw new Error('Font file not found');
+      return res.arrayBuffer();
+    });
+    customFont = await pdfDoc.embedFont(fontBytes);
+    console.log('Custom Chinese font embedded successfully');
+  } catch (fontError) {
+    console.error('Failed to load custom font:', fontError);
+    console.warn('Falling back to standard fonts - Chinese characters may not render correctly.');
+  }
 
   // Helper function to safely set field text
   const setFieldText = async (fieldName: string, text: string) => {
@@ -133,8 +146,15 @@ export async function generateInvoiceFromTemplate(
       const field = form.getTextField(fieldName);
 
       try {
-        // Set text directly - the template should support Chinese characters
+        // Set text and update appearances with custom font if available
         field.setText(text);
+
+        if (customFont) {
+          field.updateAppearances(customFont);
+        } else {
+          field.updateAppearances();
+        }
+
         console.log(`  SUCCESS: Set field "${fieldName}" = "${text}"`);
       } catch (setTextError) {
         console.error(`  ERROR: Could not set text for field "${fieldName}":`, setTextError);
