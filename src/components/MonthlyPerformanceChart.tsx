@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, TrendingUp, DollarSign, MousePointer, Target, Users, User } from 'lucide-react';
+import { RefreshCw, TrendingUp, DollarSign, MousePointer, Target, Users, User, ArrowUpDown, ArrowUp, ArrowDown, Copy, Download } from 'lucide-react';
 
 interface MonthlyInsight {
   month_year: string;
@@ -37,6 +37,9 @@ interface Props {
   selectedMonth: string;
 }
 
+type SortColumn = 'month' | 'spend' | 'roas' | 'clicks' | 'cpc' | 'impressions' | 'results';
+type SortDirection = 'asc' | 'desc' | null;
+
 export default function MonthlyPerformanceChart({ accountId, selectedMonth }: Props) {
   const [data, setData] = useState<MonthlyData[]>([]);
   const [allMonths, setAllMonths] = useState<MonthlyData[]>([]);
@@ -44,6 +47,9 @@ export default function MonthlyPerformanceChart({ accountId, selectedMonth }: Pr
   const [syncing, setSyncing] = useState(false);
   const [demographics, setDemographics] = useState<DemographicData[]>([]);
   const [genderData, setGenderData] = useState<{ gender: string; spend: number; impressions: number; clicks: number; results: number }[]>([]);
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [copiedColumn, setCopiedColumn] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMonthlyData();
@@ -111,10 +117,6 @@ export default function MonthlyPerformanceChart({ accountId, selectedMonth }: Pr
 
       setAllMonths(processedData);
       setData(processedData.slice(-6));
-
-      if (selectedMonth === 'all' || !processedData.find(d => d.month === selectedMonth)) {
-        setSelectedMonth('all');
-      }
     } catch (error) {
       console.error('Error fetching monthly data:', error);
     } finally {
@@ -243,6 +245,135 @@ export default function MonthlyPerformanceChart({ accountId, selectedMonth }: Pr
     return num.toLocaleString();
   };
 
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      } else {
+        setSortDirection('asc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortedData = (dataToSort: MonthlyData[]): MonthlyData[] => {
+    if (!sortColumn || !sortDirection) {
+      return dataToSort;
+    }
+
+    return [...dataToSort].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortColumn) {
+        case 'month':
+          aValue = a.month;
+          bValue = b.month;
+          break;
+        case 'spend':
+          aValue = a.spend;
+          bValue = b.spend;
+          break;
+        case 'roas':
+          aValue = a.roas;
+          bValue = b.roas;
+          break;
+        case 'clicks':
+          aValue = a.clicks;
+          bValue = b.clicks;
+          break;
+        case 'cpc':
+          aValue = a.cpc;
+          bValue = b.cpc;
+          break;
+        case 'impressions':
+          aValue = a.impressions;
+          bValue = b.impressions;
+          break;
+        case 'results':
+          aValue = a.results;
+          bValue = b.results;
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aValue === 'string') {
+        return sortDirection === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+  };
+
+  const copyColumnData = (column: SortColumn, dataToExport: MonthlyData[]) => {
+    let columnData: string[] = [];
+
+    switch (column) {
+      case 'month':
+        columnData = dataToExport.map(d => d.month);
+        break;
+      case 'spend':
+        columnData = dataToExport.map(d => formatCurrency(d.spend));
+        break;
+      case 'roas':
+        columnData = dataToExport.map(d => `${d.roas.toFixed(2)}x`);
+        break;
+      case 'clicks':
+        columnData = dataToExport.map(d => formatNumber(d.clicks));
+        break;
+      case 'cpc':
+        columnData = dataToExport.map(d => formatCurrency(d.cpc));
+        break;
+      case 'impressions':
+        columnData = dataToExport.map(d => formatNumber(d.impressions));
+        break;
+      case 'results':
+        columnData = dataToExport.map(d => formatNumber(d.results));
+        break;
+    }
+
+    const text = columnData.join('\n');
+    navigator.clipboard.writeText(text);
+    setCopiedColumn(column);
+    setTimeout(() => setCopiedColumn(null), 2000);
+  };
+
+  const exportToCSV = (dataToExport: MonthlyData[]) => {
+    const headers = ['Month', 'Spend', 'ROAS', 'Clicks', 'CPC', 'Impressions', 'Results'];
+    const rows = dataToExport.map(d => [
+      d.month,
+      d.spend.toFixed(2),
+      d.roas.toFixed(2),
+      d.clicks.toString(),
+      d.cpc.toFixed(2),
+      d.impressions.toString(),
+      d.results.toString()
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `monthly-performance-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
   const maxSpend = Math.max(...data.map(d => d.spend), 1);
   const maxRoas = Math.max(...data.map(d => d.roas), 1);
 
@@ -281,6 +412,8 @@ export default function MonthlyPerformanceChart({ accountId, selectedMonth }: Pr
     displayData = data.filter(d => d.month === displayMonth);
     statsData = displayData.length > 0 ? displayData : data.slice(-6);
   }
+
+  const sortedDisplayData = getSortedData(displayData);
 
   return (
     <div className="space-y-6">
@@ -388,35 +521,178 @@ export default function MonthlyPerformanceChart({ accountId, selectedMonth }: Pr
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-gray-900">Monthly Data Table</h4>
+          <button
+            onClick={() => exportToCSV(sortedDisplayData)}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Month
+                  <div className="flex items-center gap-2 group">
+                    <button
+                      onClick={() => handleSort('month')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      Month
+                      {sortColumn === 'month' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-50" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => copyColumnData('month', sortedDisplayData)}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      title="Copy column"
+                    >
+                      <Copy className={`w-3 h-3 ${copiedColumn === 'month' ? 'text-green-600' : 'text-gray-500'}`} />
+                    </button>
+                  </div>
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Spend
+                  <div className="flex items-center justify-end gap-2 group">
+                    <button
+                      onClick={() => copyColumnData('spend', sortedDisplayData)}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      title="Copy column"
+                    >
+                      <Copy className={`w-3 h-3 ${copiedColumn === 'spend' ? 'text-green-600' : 'text-gray-500'}`} />
+                    </button>
+                    <button
+                      onClick={() => handleSort('spend')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      Spend
+                      {sortColumn === 'spend' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-50" />
+                      )}
+                    </button>
+                  </div>
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ROAS
+                  <div className="flex items-center justify-end gap-2 group">
+                    <button
+                      onClick={() => copyColumnData('roas', sortedDisplayData)}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      title="Copy column"
+                    >
+                      <Copy className={`w-3 h-3 ${copiedColumn === 'roas' ? 'text-green-600' : 'text-gray-500'}`} />
+                    </button>
+                    <button
+                      onClick={() => handleSort('roas')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      ROAS
+                      {sortColumn === 'roas' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-50" />
+                      )}
+                    </button>
+                  </div>
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Clicks
+                  <div className="flex items-center justify-end gap-2 group">
+                    <button
+                      onClick={() => copyColumnData('clicks', sortedDisplayData)}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      title="Copy column"
+                    >
+                      <Copy className={`w-3 h-3 ${copiedColumn === 'clicks' ? 'text-green-600' : 'text-gray-500'}`} />
+                    </button>
+                    <button
+                      onClick={() => handleSort('clicks')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      Clicks
+                      {sortColumn === 'clicks' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-50" />
+                      )}
+                    </button>
+                  </div>
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  CPC
+                  <div className="flex items-center justify-end gap-2 group">
+                    <button
+                      onClick={() => copyColumnData('cpc', sortedDisplayData)}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      title="Copy column"
+                    >
+                      <Copy className={`w-3 h-3 ${copiedColumn === 'cpc' ? 'text-green-600' : 'text-gray-500'}`} />
+                    </button>
+                    <button
+                      onClick={() => handleSort('cpc')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      CPC
+                      {sortColumn === 'cpc' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-50" />
+                      )}
+                    </button>
+                  </div>
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Impressions
+                  <div className="flex items-center justify-end gap-2 group">
+                    <button
+                      onClick={() => copyColumnData('impressions', sortedDisplayData)}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      title="Copy column"
+                    >
+                      <Copy className={`w-3 h-3 ${copiedColumn === 'impressions' ? 'text-green-600' : 'text-gray-500'}`} />
+                    </button>
+                    <button
+                      onClick={() => handleSort('impressions')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      Impressions
+                      {sortColumn === 'impressions' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-50" />
+                      )}
+                    </button>
+                  </div>
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Results
+                  <div className="flex items-center justify-end gap-2 group">
+                    <button
+                      onClick={() => copyColumnData('results', sortedDisplayData)}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      title="Copy column"
+                    >
+                      <Copy className={`w-3 h-3 ${copiedColumn === 'results' ? 'text-green-600' : 'text-gray-500'}`} />
+                    </button>
+                    <button
+                      onClick={() => handleSort('results')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      Results
+                      {sortColumn === 'results' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-50" />
+                      )}
+                    </button>
+                  </div>
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {displayData.map((month, index) => (
+              {sortedDisplayData.map((month, index) => (
                 <tr key={index} className={month.isCurrentMonth ? 'bg-blue-50' : 'hover:bg-gray-50'}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {month.month}
