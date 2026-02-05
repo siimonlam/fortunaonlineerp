@@ -87,7 +87,7 @@ export async function generateInvoiceFromTemplate(
   },
   flatten: boolean = false
 ): Promise<Blob> {
-  console.log('=== Starting Invoice Generation (Chinese Support V4 - Strict Check) ===');
+  console.log('=== Starting Invoice Generation (Chinese Support V5 - Safe Mode) ===');
 
   // 1. Fetch Data
   const { data: project, error: projectError } = await supabase
@@ -107,50 +107,59 @@ export async function generateInvoiceFromTemplate(
   const pdfDoc = await PDFDocument.load(templateArrayBuffer);
   pdfDoc.registerFontkit(fontkit);
 
-  // 3. Load Chinese Font with Strict Validation
+  // 3. Load Chinese Font (Prioritizing .otf)
   let customFont = null;
-  try {
-    const fontPath = '/fonts/NotoSansTC-Regular.ttf';
-    console.log(`Attempting to load font from: ${fontPath}`);
-    
-    const response = await fetch(fontPath);
-    
-    // Check 1: Network Status
-    if (!response.ok) {
-      throw new Error(`Font fetch failed with status: ${response.status}`);
+  const fontFiles = [
+    '/fonts/NotoSansTC-Regular.otf', // Check your uploaded file first
+    '/fonts/NotoSansTC-Regular.ttf'  // Check fallback
+  ];
+
+  for (const fontPath of fontFiles) {
+    try {
+      console.log(`Attempting to load font from: ${fontPath}`);
+      const response = await fetch(fontPath);
+      
+      if (response.ok) {
+        // Validation: Ensure it is not an HTML 404 page
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          console.warn(`⚠️ File at ${fontPath} is actually an HTML page (404). Skipping.`);
+          continue;
+        }
+
+        const fontBytes = await response.arrayBuffer();
+        
+        // Magic Bytes Check: Is this a binary file or text?
+        const firstBytes = new Uint8Array(fontBytes.slice(0, 15));
+        const textDecoder = new TextDecoder();
+        const header = textDecoder.decode(firstBytes);
+        if (header.includes('<!DOCTYPE') || header.includes('<html')) {
+          console.warn(`⚠️ File content at ${fontPath} looks like HTML. Skipping.`);
+          continue;
+        }
+
+        if (fontBytes.byteLength < 100000) {
+           console.warn(`⚠️ Font file at ${fontPath} is suspiciously small (${fontBytes.byteLength} bytes). Skipping.`);
+           continue;
+        }
+
+        customFont = await pdfDoc.embedFont(fontBytes);
+        console.log(`✅ Loaded font successfully from ${fontPath}`);
+        break; // Stop looking if we found one
+      }
+    } catch (e) {
+      console.warn(`Failed to load ${fontPath}`, e);
     }
+  }
 
-    // Check 2: Content Type (Prevent loading HTML as Font)
-    const contentType = response.headers.get('content-type');
-    if (contentType && (contentType.includes('text/html') || contentType.includes('application/json'))) {
-      throw new Error('Server returned HTML/JSON instead of binary. File is likely missing (404).');
-    }
-
-    const fontBytes = await response.arrayBuffer();
-
-    // Check 3: Magic Bytes Check (Is this actually a font?)
-    const firstBytes = new Uint8Array(fontBytes.slice(0, 15));
-    const textDecoder = new TextDecoder();
-    const header = textDecoder.decode(firstBytes);
-    
-    if (header.includes('<!DOCTYPE') || header.includes('<html')) {
-      throw new Error('File content looks like HTML. Please check public/fonts folder.');
-    }
-
-    if (fontBytes.byteLength < 100000) { 
-       throw new Error(`Font file is suspiciously small (${fontBytes.byteLength} bytes). It might be corrupted.`);
-    }
-
-    customFont = await pdfDoc.embedFont(fontBytes);
-    console.log('✅ Custom Chinese font embedded successfully');
-  } catch (fontError: any) {
-    console.error('❌ CRITICAL: Failed to load Chinese font:', fontError.message);
-    console.warn('Proceeding with standard fonts. Chinese characters will NOT render correctly.');
+  if (!customFont) {
+    console.error("❌ CRITICAL: No valid Chinese font found. Proceeding in Safe Mode.");
+    console.warn("Chinese characters may be missing or show as boxes, but the PDF will not crash.");
   }
 
   const form = pdfDoc.getForm();
 
-  // 4. Helper to Set Text with Font
+  // 4. Helper to Set Text with Font (CRASH PROOF)
   const setFieldText = async (fieldName: string, text: string) => {
     if (!text) return;
     try {
@@ -158,17 +167,20 @@ export async function generateInvoiceFromTemplate(
       field.setText(text);
 
       if (customFont) {
+        // Best case: Use the custom font
         field.updateAppearances(customFont);
       } else {
-        // Safe fallback: try/catch prevents crash if standard font fails on Chinese
+        // Fallback case: Try standard font, but catch errors if it fails
         try {
           field.updateAppearances();
-        } catch (e) {
-           console.warn(`⚠️ Could not render text for "${fieldName}" (Missing Font).`);
+        } catch (renderError) {
+           console.warn(`⚠️ Could not render text "${text}" for field "${fieldName}" (Missing Font).`);
+           // Note: The text is still set in the data, just not visually rendered if flattened immediately
         }
       }
     } catch (error: any) {
-      // Field doesn't exist in PDF, ignore
+      // Field doesn't exist in PDF or isn't a text field
+      // console.warn(`Field ${fieldName} not found`);
     }
   };
 
@@ -203,7 +215,7 @@ export async function generateInvoiceFromTemplate(
     await setFieldText(mapping.tag.tag_name, transformedValue);
   }
 
-  // 6. Handle NeedAppearances
+  // 6. Handle NeedAppearances for Acrobat Reader compatibility
   try {
     const acroForm = pdfDoc.catalog.lookup(PDFName.of('AcroForm'));
     if (acroForm) {
@@ -213,12 +225,13 @@ export async function generateInvoiceFromTemplate(
     console.warn('Could not set NeedAppearances flag:', error);
   }
 
-  // 7. Flatten
+  // 7. Flatten if requested (Wrapped in try/catch to be safe)
   if (flatten) {
     try {
       form.flatten();
     } catch (e) {
-      console.error("Error flattening PDF:", e);
+      console.error("Error flattening PDF (likely due to missing font):", e);
+      console.warn("Returning unflattened PDF to ensure user gets a file.");
     }
   }
 
