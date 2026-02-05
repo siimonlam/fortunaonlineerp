@@ -475,7 +475,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       setCampaigns(metrics);
 
       if (metrics.length > 0) {
-        loadAdSets(monthlyData);
+        loadAdSets(accountId, monthStart, monthEnd);
         // Pass the campaign IDs to filter demographics, creatives, and platforms
         const visibleCampaignIds = Array.from(campaignMap.keys());
         loadDemographics(accountId, visibleCampaignIds, monthStart, monthEnd);
@@ -657,9 +657,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     return getSortedData(campaignsList) as CampaignMetrics[];
   };
 
-  const loadAdSets = async (monthlyData: any[]) => {
+  const loadAdSets = async (accountId: string, monthStart: string, monthEnd: string) => {
     try {
-      if (!selectedAccount) {
+      if (!accountId) {
         setAdSets([]);
         return;
       }
@@ -668,9 +668,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       const { data: demographicsData } = await supabase
         .from('meta_monthly_demographics')
         .select('adset_id, adset_name, campaign_id, spend, impressions, clicks, reach, results, conversions, sales, sales_purchase, sales_add_to_cart, sales_initiate_checkout, leads, traffic, engagement, awareness, app_installs')
-        .eq('account_id', selectedAccount.account_id)
-        .gte('month_year', currentViewMonth + '-01')
-        .lt('month_year', getNextMonth(currentViewMonth) + '-01');
+        .eq('account_id', accountId)
+        .gte('month_year', monthStart)
+        .lt('month_year', monthEnd);
 
       if (!demographicsData || demographicsData.length === 0) {
         setAdSets([]);
