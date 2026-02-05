@@ -239,10 +239,12 @@ export async function generateInvoiceFromTemplate(
 
   console.log(`Total fields set: ${fieldsSet}`);
 
-  // If Chinese characters detected, we MUST flatten to use the embedded font
-  if (hasChineseText && !flatten) {
-    console.log('⚠️  Chinese characters detected - forcing form flattening to properly render text');
-    flatten = true;
+  // IMPORTANT: If Chinese characters detected, we CANNOT flatten
+  // because flatten() internally calls updateAppearances() which doesn't support Chinese
+  if (hasChineseText) {
+    console.log('⚠️  Chinese characters detected - disabling form flattening to avoid encoding errors');
+    console.log('⚠️  The PDF will remain as an editable form. Chinese characters will be rendered by the PDF viewer.');
+    flatten = false; // Force disable flattening
   }
 
   // Set the NeedAppearances flag to tell PDF readers to generate appearances
@@ -256,29 +258,11 @@ export async function generateInvoiceFromTemplate(
     console.warn('Could not set NeedAppearances flag:', error);
   }
 
-  // Flatten the form to make all fields non-editable and properly render with embedded font
-  if (flatten) {
-    // When flattening with custom font, we need to update appearances first
-    if (customFont) {
-      console.log('Updating field appearances with custom font before flattening...');
-      try {
-        const textFields = form.getFields().filter(f => f.constructor.name === 'PDFTextField');
-        for (const field of textFields) {
-          try {
-            (field as any).updateAppearances(customFont);
-          } catch (e) {
-            // Some fields might fail, continue with others
-            console.warn(`Could not update appearance for field:`, e);
-          }
-        }
-      } catch (e) {
-        console.warn('Error updating appearances:', e);
-      }
-    }
-
+  // Only flatten if no Chinese characters (flatten() calls updateAppearances() which doesn't support Unicode)
+  if (flatten && !hasChineseText) {
     form.flatten();
     console.log('Form fields flattened (converted to non-editable content)');
-  } else {
+  } else if (!hasChineseText) {
     console.log('Keeping form fields editable for preview');
   }
 
