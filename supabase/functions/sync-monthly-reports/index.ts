@@ -258,7 +258,17 @@ Deno.serve(async (req: Request) => {
     // Only ONE objective column should have a value - determined by the campaign objective
     const calculateObjectiveMetrics = (actions: any[], objective: string | null) => {
       // Initialize all metrics to 0
-      const metrics = { sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 };
+      const metrics = {
+        sales: 0,
+        sales_purchase: 0,
+        sales_initiate_checkout: 0,
+        sales_add_to_cart: 0,
+        leads: 0,
+        traffic: 0,
+        engagement: 0,
+        awareness: 0,
+        app_installs: 0
+      };
 
       if (!actions || !Array.isArray(actions) || actions.length === 0) {
         return metrics;
@@ -273,15 +283,30 @@ Deno.serve(async (req: Request) => {
 
       // Determine which single objective column to populate based on campaign objective
       if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
-        // Sales - Priority: purchases, then checkouts, then carts
-        const salesPriority = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'initiate_checkout', 'add_to_cart'];
-        for (const actionType of salesPriority) {
+        // Sales - Sum ALL 3 sales action types
+        // Purchase actions
+        const purchaseActions = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase'];
+        for (const actionType of purchaseActions) {
           const action = actions.find((a: any) => a.action_type === actionType);
-          if (action && parseInt(action.value || '0') > 0) {
-            metrics.sales = parseInt(action.value);
-            break;
+          if (action) {
+            metrics.sales_purchase += parseInt(action.value || '0');
           }
         }
+
+        // Initiate Checkout actions
+        const checkoutAction = actions.find((a: any) => a.action_type === 'initiate_checkout');
+        if (checkoutAction) {
+          metrics.sales_initiate_checkout = parseInt(checkoutAction.value || '0');
+        }
+
+        // Add to Cart actions
+        const cartAction = actions.find((a: any) => a.action_type === 'add_to_cart');
+        if (cartAction) {
+          metrics.sales_add_to_cart = parseInt(cartAction.value || '0');
+        }
+
+        // Sales = Sum of all 3 sales metrics
+        metrics.sales = metrics.sales_purchase + metrics.sales_initiate_checkout + metrics.sales_add_to_cart;
       } else if (upperObjective === 'OUTCOME_LEADS' || upperObjective === 'LEAD_GENERATION') {
         // Leads - Priority: on_facebook_lead, lead, pixel lead, contact
         const leadsPriority = ['on_facebook_lead', 'lead', 'offsite_conversion.fb_pixel_lead', 'contact'];
@@ -456,6 +481,9 @@ Deno.serve(async (req: Request) => {
               results: results,
               result_type: resultType,
               sales: objectiveMetrics.sales,
+              sales_purchase: objectiveMetrics.sales_purchase,
+              sales_initiate_checkout: objectiveMetrics.sales_initiate_checkout,
+              sales_add_to_cart: objectiveMetrics.sales_add_to_cart,
               leads: objectiveMetrics.leads,
               traffic: objectiveMetrics.traffic,
               engagement: objectiveMetrics.engagement,
@@ -586,6 +614,9 @@ Deno.serve(async (req: Request) => {
               result_type: resultType,
               actions: demo.actions || null,
               sales: objectiveMetrics.sales,
+              sales_purchase: objectiveMetrics.sales_purchase,
+              sales_initiate_checkout: objectiveMetrics.sales_initiate_checkout,
+              sales_add_to_cart: objectiveMetrics.sales_add_to_cart,
               leads: objectiveMetrics.leads,
               traffic: objectiveMetrics.traffic,
               engagement: objectiveMetrics.engagement,
@@ -929,6 +960,9 @@ Deno.serve(async (req: Request) => {
               spend: parseFloat(platform.spend || '0'),
               results: results,
               sales: objectiveMetrics.sales,
+              sales_purchase: objectiveMetrics.sales_purchase || 0,
+              sales_initiate_checkout: objectiveMetrics.sales_initiate_checkout || 0,
+              sales_add_to_cart: objectiveMetrics.sales_add_to_cart || 0,
               leads: objectiveMetrics.leads,
               traffic: objectiveMetrics.traffic,
               engagement: objectiveMetrics.engagement,
@@ -1073,6 +1107,9 @@ Deno.serve(async (req: Request) => {
             // Calculate objective-specific metrics (only ONE objective will have a value)
             const objectiveMetrics = calculateObjectiveMetrics(insight.actions, campaignObjective);
             record.sales = objectiveMetrics.sales;
+            record.sales_purchase = objectiveMetrics.sales_purchase;
+            record.sales_initiate_checkout = objectiveMetrics.sales_initiate_checkout;
+            record.sales_add_to_cart = objectiveMetrics.sales_add_to_cart;
             record.leads = objectiveMetrics.leads;
             record.traffic = objectiveMetrics.traffic;
             record.engagement = objectiveMetrics.engagement;
