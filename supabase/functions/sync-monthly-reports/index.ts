@@ -534,6 +534,7 @@ Deno.serve(async (req: Request) => {
 
             const resultData = calculateResults(demo.actions, campaignObjective);
             const results = resultData.value;
+            const resultType = resultData.type;
 
             // Calculate objective-specific metrics
             const objectiveMetrics = calculateObjectiveMetrics(demo.actions);
@@ -552,6 +553,8 @@ Deno.serve(async (req: Request) => {
               reach: parseInt(demo.reach || '0'),
               conversions: parseInt(demo.conversions || '0'),
               results: results,
+              result_type: resultType,
+              actions: demo.actions || null,
               sales: objectiveMetrics.sales,
               leads: objectiveMetrics.leads,
               traffic: objectiveMetrics.traffic,
