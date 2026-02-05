@@ -124,7 +124,8 @@ export async function generateInvoiceFromTemplate(
 
   // Helper function to safely set field text
   const setFieldText = async (fieldName: string, text: string) => {
-    if (!text) {
+    if (!text || text === '') {
+      console.log(`  SKIPPED: Field "${fieldName}" - empty value`);
       return; // Skip empty values
     }
 
@@ -134,53 +135,77 @@ export async function generateInvoiceFromTemplate(
       try {
         // Set text directly - the template should support Chinese characters
         field.setText(text);
-        console.log(`Set field "${fieldName}" = "${text}"`);
+        console.log(`  SUCCESS: Set field "${fieldName}" = "${text}"`);
       } catch (setTextError) {
-        console.warn(`Could not set text for field ${fieldName}:`, setTextError);
+        console.error(`  ERROR: Could not set text for field "${fieldName}":`, setTextError);
       }
     } catch (error: any) {
       // Field might not exist or not be a text field
-      console.warn(`Field ${fieldName} not found or not a text field`);
+      console.error(`  ERROR: Field "${fieldName}" not found in PDF or not a text field`);
+      console.error(`  Available fields:`, fields.map(f => f.getName()).join(', '));
     }
   };
 
   // Fill fields from mappings
   let fieldsSet = 0;
   for (const mapping of mappings) {
-    if (!mapping.tag?.tag_name) continue;
+    if (!mapping.tag?.tag_name) {
+      console.warn('Skipping mapping - no tag name found:', mapping);
+      continue;
+    }
 
     let value: any;
+
+    console.log(`Processing mapping for "${mapping.tag.tag_name}":`, {
+      source_type: mapping.source_type,
+      source_field: mapping.source_field,
+      transform: mapping.transform_function
+    });
 
     if (mapping.source_type === 'project') {
       if (mapping.source_field === 'current_date') {
         value = new Date().toISOString().split('T')[0];
       } else {
         value = project[mapping.source_field];
+        console.log(`  Retrieved from project['${mapping.source_field}']:`, value);
       }
-    } else if (mapping.source_type === 'client' && project.client) {
-      value = project.client[mapping.source_field];
-    } else if (mapping.source_type === 'invoice' && invoiceData) {
-      if (mapping.source_field === 'invoice_number') {
-        value = invoiceData.invoiceNumber;
-      } else if (mapping.source_field === 'amount') {
-        value = invoiceData.amount;
-      } else if (mapping.source_field === 'payment_type') {
-        value = invoiceData.paymentType || 'Deposit';
-      } else if (mapping.source_field === 'issue_date') {
-        value = invoiceData.issueDate;
-      } else if (mapping.source_field === 'due_date') {
-        value = invoiceData.dueDate;
-      } else if (mapping.source_field === 'remark') {
-        value = invoiceData.remark;
+    } else if (mapping.source_type === 'client') {
+      if (project.client) {
+        value = project.client[mapping.source_field];
+        console.log(`  Retrieved from project.client['${mapping.source_field}']:`, value);
+      } else {
+        console.warn(`  No client data available for project`);
+      }
+    } else if (mapping.source_type === 'invoice') {
+      if (invoiceData) {
+        if (mapping.source_field === 'invoice_number') {
+          value = invoiceData.invoiceNumber;
+        } else if (mapping.source_field === 'amount') {
+          value = invoiceData.amount;
+        } else if (mapping.source_field === 'payment_type') {
+          value = invoiceData.paymentType || 'Deposit';
+        } else if (mapping.source_field === 'issue_date') {
+          value = invoiceData.issueDate;
+        } else if (mapping.source_field === 'due_date') {
+          value = invoiceData.dueDate;
+        } else if (mapping.source_field === 'remark') {
+          value = invoiceData.remark;
+        }
+        console.log(`  Retrieved from invoiceData['${mapping.source_field}']:`, value);
+      } else {
+        console.warn(`  No invoiceData provided for invoice source type`);
       }
     }
 
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined || value === '') {
       value = mapping.default_value || '';
+      console.log(`  Using default value:`, value);
     }
 
     const transformedValue = applyTransform(value, mapping.transform_function);
-    console.log(`Setting field "${mapping.tag.tag_name}" = "${transformedValue}" (from ${mapping.source_type}.${mapping.source_field})`);
+    console.log(`  Final transformed value: "${transformedValue}"`);
+    console.log(`  Attempting to set PDF field "${mapping.tag.tag_name}"`);
+
     await setFieldText(mapping.tag.tag_name, transformedValue);
     fieldsSet++;
   }
