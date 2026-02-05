@@ -388,7 +388,6 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         campaign.total_impressions += Number(insight.impressions) || 0;
         campaign.total_clicks += Number(insight.clicks) || 0;
         campaign.total_conversions += Number(insight.conversions) || 0;
-        campaign.total_results += Number(insight.results) || 0;
         campaign.avg_ctr += Number(insight.ctr) || 0;
         campaign.avg_cpc += Number(insight.cpc) || 0;
         campaign.count += 1;
@@ -400,6 +399,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           const purchase = Number(insight.sales_purchase) || 0;
           const addToCart = Number(insight.sales_add_to_cart) || 0;
           const initiateCheckout = Number(insight.sales_initiate_checkout) || 0;
+
+          // For OUTCOME_SALES, total_results = sum of all three sales metrics
+          campaign.total_results += purchase + addToCart + initiateCheckout;
 
           if (purchase > 0) {
             const currentCount = campaign.action_breakdown.get('Purchase') || 0;
@@ -417,6 +419,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             campaign.result_type_set.add('Initiate Checkout');
           }
         } else {
+          // For non-sales objectives, use the standard results field
+          campaign.total_results += Number(insight.results) || 0;
           // For non-sales objectives: Parse actions JSON to get the PRIMARY action only
           if (insight.actions) {
             try {
