@@ -157,6 +157,7 @@ Deno.serve(async (req: Request) => {
 
     // Priority-based result calculation system
     // Returns a prioritized array where the most important metric is first
+    // Logic: Find the first metric with value > 0 and STOP (do not sum)
     const getResultActionTypes = (objective: string | null): string[] => {
       if (!objective) {
         return ['omni_purchase', 'purchase', 'lead', 'link_click', 'post_engagement'];
@@ -165,36 +166,31 @@ Deno.serve(async (req: Request) => {
       switch (objective.toUpperCase()) {
         case 'OUTCOME_SALES':
         case 'CONVERSIONS':
-          // Priority: Omni Purchase is the total; ignore others if this exists
+          // Priority: If actual Purchases exist, use that. If 0, fallback to Checkouts. If 0, fallback to Carts
           return [
             'omni_purchase',
             'purchase',
             'offsite_conversion.fb_pixel_purchase',
-            'onsite_conversion.purchase',
             'initiate_checkout',
-            'omni_initiated_checkout',
-            'add_to_cart',
-            'omni_add_to_cart'
+            'add_to_cart'
           ];
 
         case 'OUTCOME_LEADS':
         case 'LEAD_GENERATION':
           return [
+            'on_facebook_lead',
             'lead',
-            'onsite_conversion.lead_grouped',
             'offsite_conversion.fb_pixel_lead',
-            'onsite_conversion.messaging_conversation_started_7d'
+            'contact'
           ];
 
         case 'OUTCOME_TRAFFIC':
         case 'LINK_CLICKS':
-          // Priority: Link Clicks first, as it's the standard result
+          // Priority: Link Clicks is the standard volume metric
           return [
             'link_click',
             'outbound_click',
-            'landing_page_view',
-            'omni_landing_page_view',
-            'view_content'
+            'landing_page_view'
           ];
 
         case 'OUTCOME_ENGAGEMENT':
@@ -203,17 +199,17 @@ Deno.serve(async (req: Request) => {
           return [
             'post_engagement',
             'page_engagement',
-            'like',
             'video_view',
-            'onsite_conversion.post_net_like',
-            'post_reaction',
-            'comment'
+            'like'
           ];
 
         case 'OUTCOME_APP_PROMOTION':
         case 'APP_INSTALLS':
         case 'MOBILE_APP_INSTALLS':
-          return ['app_install', 'mobile_app_install'];
+          return [
+            'mobile_app_install',
+            'app_install'
+          ];
 
         case 'VIDEO_VIEWS':
           return ['video_view', 'video_p100_watched_actions', 'video_p75_watched_actions', 'video_p50_watched_actions'];
@@ -221,7 +217,10 @@ Deno.serve(async (req: Request) => {
         case 'BRAND_AWARENESS':
         case 'OUTCOME_AWARENESS':
         case 'REACH':
-          return ['reach', 'estimated_ad_recallers', 'frequency'];
+          return [
+            'estimated_ad_recallers',
+            'reach'
+          ];
 
         case 'MESSAGES':
           return ['onsite_conversion.messaging_conversation_started_7d'];
