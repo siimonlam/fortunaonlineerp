@@ -238,20 +238,26 @@ Deno.serve(async (req: Request) => {
 
       const validActionTypes = getResultActionTypes(objective);
 
-      // Iterate through priority list and STOP at first match with value > 0
+      // Sum ALL matching priority action types (not just the first one)
+      let totalValue = 0;
+      const matchedTypes: string[] = [];
+
       for (const actionType of validActionTypes) {
         const action = actions.find((a: any) => a.action_type === actionType);
         if (action) {
           const value = parseInt(action.value || '0');
           if (value > 0) {
-            // CRITICAL: Found a match - return immediately, do NOT continue
-            return { value, type: actionType };
+            totalValue += value;
+            matchedTypes.push(actionType);
           }
         }
       }
 
-      // No matches found with value > 0
-      return { value: 0, type: null };
+      // Return sum of all priority actions
+      return {
+        value: totalValue,
+        type: matchedTypes.length > 0 ? matchedTypes.join(', ') : null
+      };
     };
 
     // Calculate objective-specific metrics for all objective types

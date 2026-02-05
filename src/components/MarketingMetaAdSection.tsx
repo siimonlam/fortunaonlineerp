@@ -48,6 +48,53 @@ const getPriorityActionTypes = (objective: string | null): string[] => {
   }
 };
 
+// Helper function to get display name for action types
+const getActionDisplayName = (actionType: string): string => {
+  // Map technical action types to user-friendly display names
+  const displayNameMap: Record<string, string> = {
+    // Purchase actions - all consolidate to "Purchase"
+    'purchase': 'Purchase',
+    'offsite_conversion.fb_pixel_purchase': 'Purchase',
+    'omni_purchase': 'Purchase',
+
+    // Link clicks
+    'link_click': 'Link Click',
+    'outbound_click': 'Link Click',
+
+    // Landing page views
+    'landing_page_view': 'Landing Page View',
+
+    // Engagement actions - keep separate
+    'post_engagement': 'Post Engagement',
+    'page_engagement': 'Page Engagement',
+    'like': 'Like',
+    'post_reaction': 'Reaction',
+    'comment': 'Comment',
+    'post': 'Post',
+    'onsite_conversion.post_save': 'Post Save',
+
+    // Leads
+    'lead': 'Lead',
+    'onsite_conversion.lead_grouped': 'Lead',
+
+    // Video views
+    'video_view': 'Video View',
+
+    // App installs
+    'app_install': 'App Install',
+    'mobile_app_install': 'App Install',
+
+    // Awareness
+    'reach': 'Reach',
+    'estimated_ad_recallers': 'Estimated Ad Recalls',
+
+    // Messages
+    'onsite_conversion.messaging_conversation_started_7d': 'Messaging Conversations'
+  };
+
+  return displayNameMap[actionType] || actionType;
+};
+
 
 interface MarketingMetaAdSectionProps {
   projectId: string;
@@ -360,11 +407,13 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
                 // Only count actions that are priority actions for this objective
                 if (priorityActions.includes(actionType) && value > 0) {
-                  const currentCount = campaign.action_breakdown.get(actionType) || 0;
-                  campaign.action_breakdown.set(actionType, currentCount + value);
+                  // Use display name as the key to consolidate similar action types
+                  const displayName = getActionDisplayName(actionType);
+                  const currentCount = campaign.action_breakdown.get(displayName) || 0;
+                  campaign.action_breakdown.set(displayName, currentCount + value);
 
                   // Also add to result_type_set for display
-                  campaign.result_type_set.add(actionType);
+                  campaign.result_type_set.add(displayName);
                 }
               });
             }
@@ -1476,20 +1525,25 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                       })).sort((a, b) => b.total_spend - a.total_spend);
 
                       const formatActionType = (actionType: string): string => {
+                        // If it's already a display name (doesn't contain underscores or dots), return as-is
+                        if (!actionType.includes('_') && !actionType.includes('.')) {
+                          return actionType;
+                        }
+
                         const typeMap: Record<string, string> = {
                           // Traffic actions
                           'link_click': 'Link Click',
                           'landing_page_view': 'Landing Page View',
                           'omni_landing_page_view': 'Landing Page View',
-                          'outbound_click': 'Outbound Click',
+                          'outbound_click': 'Link Click',
 
                           // Engagement actions
                           'post_engagement': 'Post Engagement',
                           'page_engagement': 'Page Engagement',
                           'like': 'Like',
-                          'post_like': 'Post Like',
-                          'page_like': 'Page Like',
-                          'onsite_conversion.post_net_like': 'Page Like',
+                          'post_like': 'Like',
+                          'page_like': 'Like',
+                          'onsite_conversion.post_net_like': 'Like',
                           'comment': 'Comment',
                           'post': 'Post',
                           'post_reaction': 'Reaction',
@@ -1497,34 +1551,34 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                           'onsite_conversion.post_save': 'Post Save',
                           'onsite_conversion.post_net_save': 'Post Save',
 
-                          // Sales/Conversion actions
+                          // Sales/Conversion actions - ALL consolidate to "Purchase"
                           'purchase': 'Purchase',
-                          'offsite_conversion.fb_pixel_purchase': 'Purchase (Pixel)',
-                          'omni_purchase': 'Purchase (Omni)',
-                          'onsite_web_purchase': 'Purchase (Web)',
-                          'onsite_web_app_purchase': 'Purchase (Web App)',
-                          'web_in_store_purchase': 'Purchase (In-Store)',
-                          'web_app_in_store_purchase': 'Purchase (App In-Store)',
+                          'offsite_conversion.fb_pixel_purchase': 'Purchase',
+                          'omni_purchase': 'Purchase',
+                          'onsite_web_purchase': 'Purchase',
+                          'onsite_web_app_purchase': 'Purchase',
+                          'web_in_store_purchase': 'Purchase',
+                          'web_app_in_store_purchase': 'Purchase',
                           'add_to_cart': 'Add to Cart',
-                          'offsite_conversion.fb_pixel_add_to_cart': 'Add to Cart (Pixel)',
-                          'omni_add_to_cart': 'Add to Cart (Omni)',
-                          'onsite_web_add_to_cart': 'Add to Cart (Web)',
-                          'onsite_web_app_add_to_cart': 'Add to Cart (Web App)',
+                          'offsite_conversion.fb_pixel_add_to_cart': 'Add to Cart',
+                          'omni_add_to_cart': 'Add to Cart',
+                          'onsite_web_add_to_cart': 'Add to Cart',
+                          'onsite_web_app_add_to_cart': 'Add to Cart',
                           'initiate_checkout': 'Initiate Checkout',
-                          'offsite_conversion.fb_pixel_initiate_checkout': 'Initiate Checkout (Pixel)',
-                          'omni_initiated_checkout': 'Initiate Checkout (Omni)',
-                          'onsite_web_initiate_checkout': 'Initiate Checkout (Web)',
+                          'offsite_conversion.fb_pixel_initiate_checkout': 'Initiate Checkout',
+                          'omni_initiated_checkout': 'Initiate Checkout',
+                          'onsite_web_initiate_checkout': 'Initiate Checkout',
                           'view_content': 'View Content',
-                          'offsite_conversion.fb_pixel_view_content': 'View Content (Pixel)',
-                          'omni_view_content': 'View Content (Omni)',
+                          'offsite_conversion.fb_pixel_view_content': 'View Content',
+                          'omni_view_content': 'View Content',
 
-                          // Lead actions
+                          // Lead actions - ALL consolidate to "Lead"
                           'lead': 'Lead',
-                          'onsite_conversion.lead_grouped': 'Lead Submission',
+                          'onsite_conversion.lead_grouped': 'Lead',
 
-                          // App actions
+                          // App actions - ALL consolidate to "App Install"
                           'app_install': 'App Install',
-                          'mobile_app_install': 'Mobile App Install',
+                          'mobile_app_install': 'App Install',
 
                           // Awareness actions
                           'reach': 'Reach',
@@ -1555,21 +1609,21 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                       const getResultTypeNote = (objective: string) => {
                         const obj = objective.toUpperCase();
                         if (obj.includes('TRAFFIC') || obj.includes('LINK_CLICKS')) {
-                          return 'Link Clicks, Landing Page Views, Outbound Clicks';
+                          return 'Link Click, Landing Page View';
                         } else if (obj.includes('ENGAGEMENT') || obj.includes('PAGE_LIKES') || obj.includes('POST_ENGAGEMENT')) {
-                          return 'Post Engagement, Page Engagement, Likes, Video Views, Comments, Reactions, Post Saves';
+                          return 'Post Engagement, Page Engagement';
                         } else if (obj.includes('LEAD') || obj === 'LEAD_GENERATION') {
-                          return 'Leads, Lead Form Submissions';
+                          return 'Lead';
                         } else if (obj.includes('SALES') || obj.includes('CONVERSIONS')) {
-                          return 'Purchase, Add to Cart, Initiate Checkout, All pixel conversion variations';
+                          return 'Purchase';
                         } else if (obj.includes('APP') || obj.includes('INSTALLS')) {
-                          return 'App Installs, Mobile App Installs';
+                          return 'App Install';
                         } else if (obj.includes('VIDEO')) {
-                          return 'Video Views, Video Percentages Watched';
+                          return 'Video View';
                         } else if (obj === 'BRAND_AWARENESS' || obj === 'OUTCOME_AWARENESS' || obj === 'REACH') {
-                          return 'Reach, Frequency, Estimated Ad Recalls';
+                          return 'Reach, Estimated Ad Recalls';
                         } else if (obj.includes('MESSAGES')) {
-                          return 'Messages, Conversation Started';
+                          return 'Messaging Conversations';
                         }
                         return 'Various conversion actions';
                       };
