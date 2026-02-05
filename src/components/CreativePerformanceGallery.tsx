@@ -22,6 +22,12 @@ interface AdPerformance {
   cpc: number;
   roas: number;
   results: number;
+  sales: number;
+  leads: number;
+  traffic: number;
+  engagement: number;
+  awareness: number;
+  app_installs: number;
 }
 
 interface Props {
@@ -32,7 +38,7 @@ interface Props {
   };
 }
 
-type SortField = 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'roas' | 'conversions' | 'results';
+type SortField = 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'roas' | 'conversions' | 'results' | 'sales' | 'leads' | 'traffic' | 'engagement' | 'awareness' | 'app_installs';
 type SortDirection = 'asc' | 'desc';
 
 export default function CreativePerformanceGallery({ accountId, dateRange }: Props) {
@@ -82,7 +88,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         adsetIds.length > 0
           ? supabase
               .from('meta_monthly_insights')
-              .select('adset_id, spend, impressions, clicks, conversions, results')
+              .select('adset_id, spend, impressions, clicks, conversions, results, sales, leads, traffic, engagement, awareness, app_installs')
               .eq('account_id', accountId)
               .in('adset_id', adsetIds)
               .gte('month_year', monthStart)
@@ -118,7 +124,13 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           clicks: 0,
           conversions: 0,
           conversion_values: 0,
-          results: 0
+          results: 0,
+          sales: 0,
+          leads: 0,
+          traffic: 0,
+          engagement: 0,
+          awareness: 0,
+          app_installs: 0
         };
 
         adsetInsightsMap.set(insight.adset_id, {
@@ -127,7 +139,13 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           clicks: existing.clicks + (Number(insight.clicks) || 0),
           conversions: existing.conversions + (Number(insight.conversions) || 0),
           conversion_values: existing.conversion_values + (Number(insight.conversion_values) || 0),
-          results: existing.results + (Number(insight.results) || 0)
+          results: existing.results + (Number(insight.results) || 0),
+          sales: existing.sales + (Number(insight.sales) || 0),
+          leads: existing.leads + (Number(insight.leads) || 0),
+          traffic: existing.traffic + (Number(insight.traffic) || 0),
+          engagement: existing.engagement + (Number(insight.engagement) || 0),
+          awareness: existing.awareness + (Number(insight.awareness) || 0),
+          app_installs: existing.app_installs + (Number(insight.app_installs) || 0)
         });
       });
 
@@ -164,6 +182,12 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
             conversions: 0,
             conversion_values: 0,
             results: 0,
+            sales: 0,
+            leads: 0,
+            traffic: 0,
+            engagement: 0,
+            awareness: 0,
+            app_installs: 0,
             ctr: 0,
             cpc: 0,
             roas: 0,
@@ -203,6 +227,12 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
             group.conversions += Number(insights.conversions) || 0;
             group.conversion_values += Number(insights.conversion_values) || 0;
             group.results += Number(insights.results) || 0;
+            group.sales += Number(insights.sales) || 0;
+            group.leads += Number(insights.leads) || 0;
+            group.traffic += Number(insights.traffic) || 0;
+            group.engagement += Number(insights.engagement) || 0;
+            group.awareness += Number(insights.awareness) || 0;
+            group.app_installs += Number(insights.app_installs) || 0;
           }
         }
       });
@@ -579,6 +609,54 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
                 </th>
                 <th
                   className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('sales')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Sales {getSortIcon('sales')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('leads')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Leads {getSortIcon('leads')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('traffic')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Traffic {getSortIcon('traffic')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('engagement')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Engagement {getSortIcon('engagement')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('awareness')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Awareness {getSortIcon('awareness')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('app_installs')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    App Installs {getSortIcon('app_installs')}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('ctr')}
                 >
                   <div className="flex items-center justify-end gap-1">
@@ -666,6 +744,24 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
                   </td>
                   <td className="px-4 py-3 text-right text-sm font-medium text-blue-600">
                     {creative.results.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-green-600">
+                    {creative.sales.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-blue-600">
+                    {creative.leads.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-purple-600">
+                    {creative.traffic.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-orange-600">
+                    {creative.engagement.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-pink-600">
+                    {creative.awareness.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-indigo-600">
+                    {creative.app_installs.toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-right text-sm text-gray-900">
                     {creative.ctr.toFixed(2)}%
