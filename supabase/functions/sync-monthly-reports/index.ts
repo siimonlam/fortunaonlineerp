@@ -155,90 +155,147 @@ Deno.serve(async (req: Request) => {
     const campaignMap = new Map((allCampaigns || []).map(c => [c.campaign_id, c]));
     console.log(`Loaded ${adsetMap.size} adsets, ${campaignMap.size} campaigns\n`);
 
-    // Helper function to get result action type based on campaign objective
-    const getResultActionTypes = (objective: string | null): string[] => {
-      if (!objective) return [];
+    // Priority-based result calculation system
+    const getPriorityActionTypes = (objective: string | null): { primary: string[], fallback: string[] } => {
+      if (!objective) {
+        return {
+          primary: ['omni_purchase', 'purchase', 'lead', 'link_click'],
+          fallback: ['post_engagement', 'page_engagement']
+        };
+      }
 
-      // Map campaign objectives to their primary result action types
       switch (objective.toUpperCase()) {
+        case 'OUTCOME_SALES':
+        case 'CONVERSIONS':
+          return {
+            primary: [
+              'omni_purchase',
+              'purchase',
+              'offsite_conversion.fb_pixel_purchase',
+              'onsite_conversion.purchase'
+            ],
+            fallback: [
+              'initiate_checkout',
+              'omni_initiated_checkout',
+              'add_to_cart',
+              'omni_add_to_cart',
+              'offsite_conversion.fb_pixel_add_to_cart'
+            ]
+          };
+
+        case 'OUTCOME_LEADS':
+        case 'LEAD_GENERATION':
+          return {
+            primary: [
+              'lead',
+              'onsite_conversion.lead_grouped',
+              'offsite_conversion.fb_pixel_lead'
+            ],
+            fallback: [
+              'onsite_conversion.messaging_conversation_started_7d',
+              'leadgen_grouped'
+            ]
+          };
+
         case 'OUTCOME_TRAFFIC':
         case 'LINK_CLICKS':
-          return [
-            'link_click',
-            'landing_page_view',
-            'omni_landing_page_view',
-            'outbound_click',
-            'offsite_conversion.fb_pixel_view_content',
-            'onsite_conversion.flow_complete',
-            'onsite_web_view_content',
-            'view_content'
-          ];
+          return {
+            primary: [
+              'link_click',
+              'outbound_click'
+            ],
+            fallback: [
+              'landing_page_view',
+              'omni_landing_page_view',
+              'view_content'
+            ]
+          };
 
         case 'OUTCOME_ENGAGEMENT':
         case 'POST_ENGAGEMENT':
         case 'PAGE_LIKES':
-          return ['post_engagement', 'page_engagement', 'like', 'onsite_conversion.post_net_like', 'onsite_conversion.post_save', 'video_view', 'post_reaction', 'comment', 'post'];
-
-        case 'OUTCOME_LEADS':
-        case 'LEAD_GENERATION':
-          return [
-            'lead',
-            'onsite_conversion.lead_grouped',
-            'offsite_conversion.fb_pixel_lead',
-            'onsite_conversion.messaging_conversation_started_7d',
-            'leadgen_grouped'
-          ];
-
-        case 'OUTCOME_SALES':
-        case 'CONVERSIONS':
-          return [
-            // Purchase actions (including omni cross-channel)
-            'purchase',
-            'omni_purchase',
-            'web_in_store_purchase',
-            'offsite_conversion.fb_pixel_purchase',
-            'onsite_conversion.purchase',
-            'offsite_conversion.custom',
-            // Cart actions (including omni)
-            'add_to_cart',
-            'omni_add_to_cart',
-            'offsite_conversion.fb_pixel_add_to_cart',
-            'onsite_conversion.add_to_cart',
-            'onsite_web_add_to_cart',
-            'onsite_web_app_add_to_cart',
-            // Checkout actions (including omni)
-            'initiate_checkout',
-            'omni_initiated_checkout',
-            'offsite_conversion.fb_pixel_initiate_checkout',
-            // Other conversion actions
-            'offsite_conversion.fb_pixel_complete_registration',
-            'offsite_conversion.fb_pixel_add_payment_info',
-            'offsite_conversion.fb_pixel_view_content',
-            'onsite_conversion.post_save',
-            'view_content',
-            'onsite_web_view_content'
-          ];
+          return {
+            primary: [
+              'post_engagement',
+              'page_engagement',
+              'video_view'
+            ],
+            fallback: [
+              'like',
+              'onsite_conversion.post_net_like',
+              'post_reaction',
+              'comment'
+            ]
+          };
 
         case 'OUTCOME_APP_PROMOTION':
         case 'APP_INSTALLS':
         case 'MOBILE_APP_INSTALLS':
-          return ['app_install', 'mobile_app_install'];
+          return {
+            primary: ['app_install', 'mobile_app_install'],
+            fallback: []
+          };
 
         case 'VIDEO_VIEWS':
-          return ['video_view', 'video_p25_watched_actions', 'video_p50_watched_actions', 'video_p75_watched_actions', 'video_p100_watched_actions'];
+          return {
+            primary: ['video_view'],
+            fallback: ['video_p100_watched_actions', 'video_p75_watched_actions']
+          };
 
         case 'BRAND_AWARENESS':
         case 'OUTCOME_AWARENESS':
         case 'REACH':
-          return ['reach', 'frequency', 'estimated_ad_recallers'];
+          return {
+            primary: ['reach', 'estimated_ad_recallers'],
+            fallback: ['frequency']
+          };
 
         case 'MESSAGES':
-          return ['onsite_conversion.messaging_conversation_started_7d'];
+          return {
+            primary: ['onsite_conversion.messaging_conversation_started_7d'],
+            fallback: []
+          };
 
         default:
-          // Fallback to conversion types if objective is unknown
-          return ['purchase', 'lead', 'offsite_conversion.fb_pixel_purchase', 'onsite_conversion.post_save', 'omni_purchase'];
+          return {
+            primary: ['omni_purchase', 'purchase', 'lead', 'link_click'],
+            fallback: ['post_engagement']
+          };
       }
+    };
+
+    // Calculate results using priority system (ONE metric only, not sum)
+    const calculateResults = (actions: any[], objective: string | null): { value: number, type: string | null } => {
+      if (!actions || !Array.isArray(actions) || actions.length === 0) {
+        return { value: 0, type: null };
+      }
+
+      const priorities = getPriorityActionTypes(objective);
+
+      // Step 1: Try primary metrics (stop at first match with value > 0)
+      for (const actionType of priorities.primary) {
+        const action = actions.find((a: any) => a.action_type === actionType);
+        if (action) {
+          const value = parseInt(action.value || '0');
+          if (value > 0) {
+            return { value, type: actionType };
+          }
+        }
+      }
+
+      // Step 2: If no primary metric found, try fallback metrics
+      for (const actionType of priorities.fallback) {
+        const action = actions.find((a: any) => a.action_type === actionType);
+        if (action) {
+          const value = parseInt(action.value || '0');
+          if (value > 0) {
+            return { value, type: `${actionType} (fallback)` };
+          }
+        }
+      }
+
+      // Step 3: No matches found
+      return { value: 0, type: null };
     };
 
     const baseFields = [
@@ -312,25 +369,9 @@ Deno.serve(async (req: Request) => {
             }
             const campaignObjective = campaignData?.objective || null;
 
-            let results = 0;
-            let resultType: string[] = [];
-            if (insight.actions && Array.isArray(insight.actions)) {
-              const validActionTypes = getResultActionTypes(campaignObjective);
-
-              // Sum ALL matching action types from the valid list
-              for (const actionType of validActionTypes) {
-                const resultActions = insight.actions.filter((a: any) => a.action_type === actionType);
-                for (const resultAction of resultActions) {
-                  const value = parseInt(resultAction.value || '0');
-                  if (value > 0) {
-                    results += value;
-                    if (!resultType.includes(resultAction.action_type)) {
-                      resultType.push(resultAction.action_type);
-                    }
-                  }
-                }
-              }
-            }
+            const resultData = calculateResults(insight.actions, campaignObjective);
+            const results = resultData.value;
+            const resultType = resultData.type;
 
             const record = {
               account_id: accountId,
@@ -349,7 +390,7 @@ Deno.serve(async (req: Request) => {
               cpm: parseFloat(insight.cpm || '0'),
               conversions: parseInt(insight.conversions || '0'),
               results: results,
-              result_type: resultType.length > 0 ? resultType.join(', ') : null,
+              result_type: resultType,
               inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
               outbound_clicks: parseInt(insight.outbound_clicks || '0'),
               actions: insight.actions || null,
@@ -451,21 +492,8 @@ Deno.serve(async (req: Request) => {
             }
             const campaignObjective = campaignData?.objective || null;
 
-            let results = 0;
-            if (demo.actions && Array.isArray(demo.actions)) {
-              const validActionTypes = getResultActionTypes(campaignObjective);
-
-              // Sum ALL matching action types from the valid list
-              for (const actionType of validActionTypes) {
-                const resultActions = demo.actions.filter((a: any) => a.action_type === actionType);
-                for (const resultAction of resultActions) {
-                  const value = parseInt(resultAction.value || '0');
-                  if (value > 0) {
-                    results += value;
-                  }
-                }
-              }
-            }
+            const resultData = calculateResults(demo.actions, campaignObjective);
+            const results = resultData.value;
 
             const record = {
               account_id: accountId,
@@ -801,21 +829,8 @@ Deno.serve(async (req: Request) => {
             }
             const campaignObjective = campaignData?.objective || null;
 
-            let results = 0;
-            if (platform.actions && Array.isArray(platform.actions)) {
-              const validActionTypes = getResultActionTypes(campaignObjective);
-
-              // Sum ALL matching action types from the valid list
-              for (const actionType of validActionTypes) {
-                const resultActions = platform.actions.filter((a: any) => a.action_type === actionType);
-                for (const resultAction of resultActions) {
-                  const value = parseInt(resultAction.value || '0');
-                  if (value > 0) {
-                    results += value;
-                  }
-                }
-              }
-            }
+            const resultData = calculateResults(platform.actions, campaignObjective);
+            const results = resultData.value;
 
             const record = {
               account_id: accountId,
@@ -948,37 +963,21 @@ Deno.serve(async (req: Request) => {
               updated_at: new Date().toISOString()
             };
 
-            // Parse actions to get results
-            if (insight.actions && Array.isArray(insight.actions)) {
-              let results = 0;
-              let resultType = '';
-
-              const preferredActions = [
-                'onsite_conversion.post_save',
-                'omni_purchase',
-                'purchase',
-                'lead',
-                'complete_registration',
-                'add_to_cart',
-                'initiate_checkout',
-                'link_click',
-                'landing_page_view',
-                'post_engagement',
-                'page_engagement'
-              ];
-
-              for (const actionType of preferredActions) {
-                const action = insight.actions.find((a: any) => a.action_type === actionType);
-                if (action) {
-                  results = parseInt(action.value || '0');
-                  resultType = actionType;
-                  break;
-                }
-              }
-
-              record.results = results;
-              record.result_type = resultType;
+            // Parse actions to get results using priority system
+            // Get campaign objective for this ad
+            const adsetData = adsetMap.get(insight.adset_id);
+            let campaignData = null;
+            if (insight.campaign_id) {
+              campaignData = campaignMap.get(insight.campaign_id);
             }
+            if (!campaignData && adsetData?.campaign_id) {
+              campaignData = campaignMap.get(adsetData.campaign_id);
+            }
+            const campaignObjective = campaignData?.objective || null;
+
+            const resultData = calculateResults(insight.actions, campaignObjective);
+            record.results = resultData.value;
+            record.result_type = resultData.type;
 
             adInsightsToUpsert.push(record);
           } catch (error: any) {
