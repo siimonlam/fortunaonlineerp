@@ -528,15 +528,16 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
   const loadAdSets = async (monthlyData: any[]) => {
     try {
-      const adsetNameMap = new Map<string, any>();
+      const adsetIdMap = new Map<string, any>();
 
       monthlyData.forEach((insight) => {
         if (!insight.adset_id) return;
 
-        const adsetName = insight.adset_name || `Ad Set ${insight.adset_id.slice(-6)}`;
+        const adsetId = insight.adset_id;
 
-        if (!adsetNameMap.has(adsetName)) {
-          adsetNameMap.set(adsetName, {
+        if (!adsetIdMap.has(adsetId)) {
+          const adsetName = insight.adset_name || `Ad Set ${insight.adset_id.slice(-6)}`;
+          adsetIdMap.set(adsetId, {
             adset_id: insight.adset_id,
             name: adsetName,
             campaign_id: insight.campaign_id,
@@ -554,7 +555,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           });
         }
 
-        const adset = adsetNameMap.get(adsetName);
+        const adset = adsetIdMap.get(adsetId);
         adset.total_spend += Number(insight.spend) || 0;
         adset.total_impressions += Number(insight.impressions) || 0;
         adset.total_clicks += Number(insight.clicks) || 0;
@@ -567,7 +568,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         adset.total_app_installs += Number(insight.app_installs) || 0;
       });
 
-      const metrics = Array.from(adsetNameMap.values());
+      const metrics = Array.from(adsetIdMap.values());
       setAdSets(metrics);
     } catch (err: any) {
       console.error('Error loading ad sets:', err);
