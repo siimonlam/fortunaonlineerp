@@ -254,79 +254,109 @@ Deno.serve(async (req: Request) => {
       return { value: 0, type: null };
     };
 
-    // Calculate objective-specific metrics for all objective types
-    const calculateObjectiveMetrics = (actions: any[]) => {
+    // Calculate objective-specific metrics based on campaign objective
+    // Only ONE objective column should have a value - determined by the campaign objective
+    const calculateObjectiveMetrics = (actions: any[], objective: string | null) => {
+      // Initialize all metrics to 0
+      const metrics = { sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 };
+
       if (!actions || !Array.isArray(actions) || actions.length === 0) {
-        return { sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 };
+        return metrics;
       }
 
-      // Sales - Priority: purchases, then checkouts, then carts
-      let sales = 0;
-      const salesPriority = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'initiate_checkout', 'add_to_cart'];
-      for (const actionType of salesPriority) {
-        const action = actions.find((a: any) => a.action_type === actionType);
-        if (action && parseInt(action.value || '0') > 0) {
-          sales = parseInt(action.value);
-          break;
+      if (!objective) {
+        // No objective defined - default to sales
+        objective = 'OUTCOME_SALES';
+      }
+
+      const upperObjective = objective.toUpperCase();
+
+      // Determine which single objective column to populate based on campaign objective
+      if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
+        // Sales - Priority: purchases, then checkouts, then carts
+        const salesPriority = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'initiate_checkout', 'add_to_cart'];
+        for (const actionType of salesPriority) {
+          const action = actions.find((a: any) => a.action_type === actionType);
+          if (action && parseInt(action.value || '0') > 0) {
+            metrics.sales = parseInt(action.value);
+            break;
+          }
+        }
+      } else if (upperObjective === 'OUTCOME_LEADS' || upperObjective === 'LEAD_GENERATION') {
+        // Leads - Priority: on_facebook_lead, lead, pixel lead, contact
+        const leadsPriority = ['on_facebook_lead', 'lead', 'offsite_conversion.fb_pixel_lead', 'contact'];
+        for (const actionType of leadsPriority) {
+          const action = actions.find((a: any) => a.action_type === actionType);
+          if (action && parseInt(action.value || '0') > 0) {
+            metrics.leads = parseInt(action.value);
+            break;
+          }
+        }
+      } else if (upperObjective === 'OUTCOME_TRAFFIC' || upperObjective === 'LINK_CLICKS') {
+        // Traffic - Priority: link clicks, outbound clicks, landing page views
+        const trafficPriority = ['link_click', 'outbound_click', 'landing_page_view'];
+        for (const actionType of trafficPriority) {
+          const action = actions.find((a: any) => a.action_type === actionType);
+          if (action && parseInt(action.value || '0') > 0) {
+            metrics.traffic = parseInt(action.value);
+            break;
+          }
+        }
+      } else if (upperObjective === 'OUTCOME_ENGAGEMENT' || upperObjective === 'POST_ENGAGEMENT' || upperObjective === 'PAGE_LIKES') {
+        // Engagement - Priority: post engagement, page engagement, video views, likes
+        const engagementPriority = ['post_engagement', 'page_engagement', 'video_view', 'like'];
+        for (const actionType of engagementPriority) {
+          const action = actions.find((a: any) => a.action_type === actionType);
+          if (action && parseInt(action.value || '0') > 0) {
+            metrics.engagement = parseInt(action.value);
+            break;
+          }
+        }
+      } else if (upperObjective === 'BRAND_AWARENESS' || upperObjective === 'OUTCOME_AWARENESS' || upperObjective === 'REACH') {
+        // Awareness - Priority: estimated ad recallers, reach
+        const awarenessPriority = ['estimated_ad_recallers', 'reach'];
+        for (const actionType of awarenessPriority) {
+          const action = actions.find((a: any) => a.action_type === actionType);
+          if (action && parseInt(action.value || '0') > 0) {
+            metrics.awareness = parseInt(action.value);
+            break;
+          }
+        }
+      } else if (upperObjective === 'OUTCOME_APP_PROMOTION' || upperObjective === 'APP_INSTALLS' || upperObjective === 'MOBILE_APP_INSTALLS') {
+        // App Installs - Priority: mobile app install, app install
+        const appPriority = ['mobile_app_install', 'app_install'];
+        for (const actionType of appPriority) {
+          const action = actions.find((a: any) => a.action_type === actionType);
+          if (action && parseInt(action.value || '0') > 0) {
+            metrics.app_installs = parseInt(action.value);
+            break;
+          }
+        }
+      } else if (upperObjective === 'VIDEO_VIEWS') {
+        // Video views maps to engagement
+        const videoViewAction = actions.find((a: any) => a.action_type === 'video_view');
+        if (videoViewAction) {
+          metrics.engagement = parseInt(videoViewAction.value || '0');
+        }
+      } else if (upperObjective === 'MESSAGES') {
+        // Messages maps to leads
+        const messagesAction = actions.find((a: any) => a.action_type === 'onsite_conversion.messaging_conversation_started_7d');
+        if (messagesAction) {
+          metrics.leads = parseInt(messagesAction.value || '0');
+        }
+      } else {
+        // Unknown objective - default to sales
+        const salesPriority = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'initiate_checkout', 'add_to_cart'];
+        for (const actionType of salesPriority) {
+          const action = actions.find((a: any) => a.action_type === actionType);
+          if (action && parseInt(action.value || '0') > 0) {
+            metrics.sales = parseInt(action.value);
+            break;
+          }
         }
       }
 
-      // Leads - Priority: on_facebook_lead, lead, pixel lead, contact
-      let leads = 0;
-      const leadsPriority = ['on_facebook_lead', 'lead', 'offsite_conversion.fb_pixel_lead', 'contact'];
-      for (const actionType of leadsPriority) {
-        const action = actions.find((a: any) => a.action_type === actionType);
-        if (action && parseInt(action.value || '0') > 0) {
-          leads = parseInt(action.value);
-          break;
-        }
-      }
-
-      // Traffic - Priority: link clicks, outbound clicks, landing page views
-      let traffic = 0;
-      const trafficPriority = ['link_click', 'outbound_click', 'landing_page_view'];
-      for (const actionType of trafficPriority) {
-        const action = actions.find((a: any) => a.action_type === actionType);
-        if (action && parseInt(action.value || '0') > 0) {
-          traffic = parseInt(action.value);
-          break;
-        }
-      }
-
-      // Engagement - Priority: post engagement, page engagement, video views, likes
-      let engagement = 0;
-      const engagementPriority = ['post_engagement', 'page_engagement', 'video_view', 'like'];
-      for (const actionType of engagementPriority) {
-        const action = actions.find((a: any) => a.action_type === actionType);
-        if (action && parseInt(action.value || '0') > 0) {
-          engagement = parseInt(action.value);
-          break;
-        }
-      }
-
-      // Awareness - Priority: estimated ad recallers, reach
-      let awareness = 0;
-      const awarenessPriority = ['estimated_ad_recallers', 'reach'];
-      for (const actionType of awarenessPriority) {
-        const action = actions.find((a: any) => a.action_type === actionType);
-        if (action && parseInt(action.value || '0') > 0) {
-          awareness = parseInt(action.value);
-          break;
-        }
-      }
-
-      // App Installs - Priority: mobile app install, app install
-      let app_installs = 0;
-      const appPriority = ['mobile_app_install', 'app_install'];
-      for (const actionType of appPriority) {
-        const action = actions.find((a: any) => a.action_type === actionType);
-        if (action && parseInt(action.value || '0') > 0) {
-          app_installs = parseInt(action.value);
-          break;
-        }
-      }
-
-      return { sales, leads, traffic, engagement, awareness, app_installs };
+      return metrics;
     };
 
     const baseFields = [
@@ -404,8 +434,8 @@ Deno.serve(async (req: Request) => {
             const results = resultData.value;
             const resultType = resultData.type;
 
-            // Calculate objective-specific metrics
-            const objectiveMetrics = calculateObjectiveMetrics(insight.actions);
+            // Calculate objective-specific metrics (only ONE objective will have a value)
+            const objectiveMetrics = calculateObjectiveMetrics(insight.actions, campaignObjective);
 
             const record = {
               account_id: accountId,
@@ -536,8 +566,8 @@ Deno.serve(async (req: Request) => {
             const results = resultData.value;
             const resultType = resultData.type;
 
-            // Calculate objective-specific metrics
-            const objectiveMetrics = calculateObjectiveMetrics(demo.actions);
+            // Calculate objective-specific metrics (only ONE objective will have a value)
+            const objectiveMetrics = calculateObjectiveMetrics(demo.actions, campaignObjective);
 
             const record = {
               account_id: accountId,
@@ -884,8 +914,8 @@ Deno.serve(async (req: Request) => {
             const resultData = calculateResults(platform.actions, campaignObjective);
             const results = resultData.value;
 
-            // Calculate objective-specific metrics
-            const objectiveMetrics = calculateObjectiveMetrics(platform.actions);
+            // Calculate objective-specific metrics (only ONE objective will have a value)
+            const objectiveMetrics = calculateObjectiveMetrics(platform.actions, campaignObjective);
 
             const record = {
               account_id: accountId,
@@ -1040,8 +1070,8 @@ Deno.serve(async (req: Request) => {
             record.results = resultData.value;
             record.result_type = resultData.type;
 
-            // Calculate objective-specific metrics
-            const objectiveMetrics = calculateObjectiveMetrics(insight.actions);
+            // Calculate objective-specific metrics (only ONE objective will have a value)
+            const objectiveMetrics = calculateObjectiveMetrics(insight.actions, campaignObjective);
             record.sales = objectiveMetrics.sales;
             record.leads = objectiveMetrics.leads;
             record.traffic = objectiveMetrics.traffic;
