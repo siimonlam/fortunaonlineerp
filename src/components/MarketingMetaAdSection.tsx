@@ -86,6 +86,9 @@ interface CreativeMetrics {
   total_impressions: number;
   total_clicks: number;
   total_results: number;
+  total_sales: number;
+  total_traffic: number;
+  total_engagement: number;
   total_reach: number;
   avg_ctr: number;
   avg_cpc: number;
@@ -626,10 +629,10 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         monthEnd = new Date(year, month, 0).toISOString().split('T')[0];
       }
 
-      // Get all insights for this account in the selected period
+      // Get all insights for this account in the selected period with objective-specific result columns
       const { data: insightsData } = await supabase
         .from('meta_ad_insights')
-        .select('ad_id, spend, impressions, clicks, results, reach, ctr, cpc, conversions, conversion_values')
+        .select('ad_id, spend, impressions, clicks, results, sales, traffic, engagement, reach, ctr, cpc, conversions, conversion_values')
         .eq('account_id', accountId)
         .gte('date', monthStart)
         .lte('date', monthEnd)
@@ -643,16 +646,25 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       // Get unique ad IDs
       const adIds = [...new Set(insightsData.map(i => i.ad_id))];
 
-      // Get ads with their creative IDs
+      // Get ads with their creative IDs and campaign IDs
       const { data: adsData } = await supabase
         .from('meta_ads')
-        .select('ad_id, creative_id')
+        .select('ad_id, creative_id, campaign_id')
         .in('ad_id', adIds);
 
       if (!adsData || adsData.length === 0) {
         setCreatives([]);
         return;
       }
+
+      // Get campaigns with their objectives
+      const campaignIds = [...new Set(adsData.map(a => a.campaign_id).filter(Boolean))];
+      const { data: campaignsData } = await supabase
+        .from('meta_ad_campaigns')
+        .select('campaign_id, objective')
+        .in('campaign_id', campaignIds);
+
+      const campaignObjectiveMap = new Map((campaignsData || []).map(c => [c.campaign_id, c.objective]));
 
       // Get unique creative IDs
       const creativeIds = [...new Set(adsData.map(a => a.creative_id).filter(Boolean))];
@@ -669,14 +681,18 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .in('creative_id', creativeIds);
 
       const creativeMap = new Map((creativesData || []).map(c => [c.creative_id, c]));
-      const adToCreativeMap = new Map(adsData.map(a => [a.ad_id, a.creative_id]));
+      const adToCreativeMap = new Map(adsData.map(a => [a.ad_id, { creative_id: a.creative_id, campaign_id: a.campaign_id }]));
 
       // Aggregate metrics by creative
       const creativeMetricsMap = new Map<string, any>();
 
       insightsData.forEach(insight => {
-        const creativeId = adToCreativeMap.get(insight.ad_id);
-        if (!creativeId) return;
+        const adInfo = adToCreativeMap.get(insight.ad_id);
+        if (!adInfo) return;
+
+        const creativeId = adInfo.creative_id;
+        const campaignId = adInfo.campaign_id;
+        const objective = campaignObjectiveMap.get(campaignId);
 
         if (!creativeMetricsMap.has(creativeId)) {
           const creativeInfo = creativeMap.get(creativeId);
@@ -693,6 +709,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             total_impressions: 0,
             total_clicks: 0,
             total_results: 0,
+            total_sales: 0,
+            total_traffic: 0,
+            total_engagement: 0,
             total_reach: 0,
             total_conversions: 0,
             total_conversion_values: 0,
@@ -713,6 +732,16 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         creative.ctr_sum += Number(insight.ctr) || 0;
         creative.cpc_sum += Number(insight.cpc) || 0;
         creative.count += 1;
+
+        // Map results to objective-specific columns
+        const resultValue = Number(insight.results) || 0;
+        if (objective === 'OUTCOME_SALES' || objective === 'OUTCOME_LEADS') {
+          creative.total_sales += resultValue;
+        } else if (objective === 'OUTCOME_TRAFFIC') {
+          creative.total_traffic += resultValue;
+        } else if (objective === 'OUTCOME_ENGAGEMENT') {
+          creative.total_engagement += resultValue;
+        }
       });
 
       // Calculate averages, ROI, and ROAS
@@ -735,6 +764,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           total_impressions: creative.total_impressions,
           total_clicks: creative.total_clicks,
           total_results: creative.total_results,
+          total_sales: creative.total_sales,
+          total_traffic: creative.total_traffic,
+          total_engagement: creative.total_engagement,
           total_reach: creative.total_reach,
           avg_ctr: avgCtr,
           avg_cpc: avgCpc,
