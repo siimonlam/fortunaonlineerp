@@ -254,6 +254,81 @@ Deno.serve(async (req: Request) => {
       return { value: 0, type: null };
     };
 
+    // Calculate objective-specific metrics for all objective types
+    const calculateObjectiveMetrics = (actions: any[]) => {
+      if (!actions || !Array.isArray(actions) || actions.length === 0) {
+        return { sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 };
+      }
+
+      // Sales - Priority: purchases, then checkouts, then carts
+      let sales = 0;
+      const salesPriority = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'initiate_checkout', 'add_to_cart'];
+      for (const actionType of salesPriority) {
+        const action = actions.find((a: any) => a.action_type === actionType);
+        if (action && parseInt(action.value || '0') > 0) {
+          sales = parseInt(action.value);
+          break;
+        }
+      }
+
+      // Leads - Priority: on_facebook_lead, lead, pixel lead, contact
+      let leads = 0;
+      const leadsPriority = ['on_facebook_lead', 'lead', 'offsite_conversion.fb_pixel_lead', 'contact'];
+      for (const actionType of leadsPriority) {
+        const action = actions.find((a: any) => a.action_type === actionType);
+        if (action && parseInt(action.value || '0') > 0) {
+          leads = parseInt(action.value);
+          break;
+        }
+      }
+
+      // Traffic - Priority: link clicks, outbound clicks, landing page views
+      let traffic = 0;
+      const trafficPriority = ['link_click', 'outbound_click', 'landing_page_view'];
+      for (const actionType of trafficPriority) {
+        const action = actions.find((a: any) => a.action_type === actionType);
+        if (action && parseInt(action.value || '0') > 0) {
+          traffic = parseInt(action.value);
+          break;
+        }
+      }
+
+      // Engagement - Priority: post engagement, page engagement, video views, likes
+      let engagement = 0;
+      const engagementPriority = ['post_engagement', 'page_engagement', 'video_view', 'like'];
+      for (const actionType of engagementPriority) {
+        const action = actions.find((a: any) => a.action_type === actionType);
+        if (action && parseInt(action.value || '0') > 0) {
+          engagement = parseInt(action.value);
+          break;
+        }
+      }
+
+      // Awareness - Priority: estimated ad recallers, reach
+      let awareness = 0;
+      const awarenessPriority = ['estimated_ad_recallers', 'reach'];
+      for (const actionType of awarenessPriority) {
+        const action = actions.find((a: any) => a.action_type === actionType);
+        if (action && parseInt(action.value || '0') > 0) {
+          awareness = parseInt(action.value);
+          break;
+        }
+      }
+
+      // App Installs - Priority: mobile app install, app install
+      let app_installs = 0;
+      const appPriority = ['mobile_app_install', 'app_install'];
+      for (const actionType of appPriority) {
+        const action = actions.find((a: any) => a.action_type === actionType);
+        if (action && parseInt(action.value || '0') > 0) {
+          app_installs = parseInt(action.value);
+          break;
+        }
+      }
+
+      return { sales, leads, traffic, engagement, awareness, app_installs };
+    };
+
     const baseFields = [
       'adset_id',
       'adset_name',
@@ -329,6 +404,9 @@ Deno.serve(async (req: Request) => {
             const results = resultData.value;
             const resultType = resultData.type;
 
+            // Calculate objective-specific metrics
+            const objectiveMetrics = calculateObjectiveMetrics(insight.actions);
+
             const record = {
               account_id: accountId,
               campaign_id: insight.campaign_id || null,
@@ -347,6 +425,12 @@ Deno.serve(async (req: Request) => {
               conversions: parseInt(insight.conversions || '0'),
               results: results,
               result_type: resultType,
+              sales: objectiveMetrics.sales,
+              leads: objectiveMetrics.leads,
+              traffic: objectiveMetrics.traffic,
+              engagement: objectiveMetrics.engagement,
+              awareness: objectiveMetrics.awareness,
+              app_installs: objectiveMetrics.app_installs,
               inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
               outbound_clicks: parseInt(insight.outbound_clicks || '0'),
               actions: insight.actions || null,
@@ -451,6 +535,9 @@ Deno.serve(async (req: Request) => {
             const resultData = calculateResults(demo.actions, campaignObjective);
             const results = resultData.value;
 
+            // Calculate objective-specific metrics
+            const objectiveMetrics = calculateObjectiveMetrics(demo.actions);
+
             const record = {
               account_id: accountId,
               campaign_id: demo.campaign_id || null,
@@ -465,6 +552,12 @@ Deno.serve(async (req: Request) => {
               reach: parseInt(demo.reach || '0'),
               conversions: parseInt(demo.conversions || '0'),
               results: results,
+              sales: objectiveMetrics.sales,
+              leads: objectiveMetrics.leads,
+              traffic: objectiveMetrics.traffic,
+              engagement: objectiveMetrics.engagement,
+              awareness: objectiveMetrics.awareness,
+              app_installs: objectiveMetrics.app_installs,
               client_number: adsetData?.client_number || null,
               marketing_reference: adsetData?.marketing_reference || null,
               updated_at: new Date().toISOString()
@@ -788,6 +881,9 @@ Deno.serve(async (req: Request) => {
             const resultData = calculateResults(platform.actions, campaignObjective);
             const results = resultData.value;
 
+            // Calculate objective-specific metrics
+            const objectiveMetrics = calculateObjectiveMetrics(platform.actions);
+
             const record = {
               account_id: accountId,
               campaign_id: platform.campaign_id || null,
@@ -799,6 +895,12 @@ Deno.serve(async (req: Request) => {
               clicks: parseInt(platform.clicks || '0'),
               spend: parseFloat(platform.spend || '0'),
               results: results,
+              sales: objectiveMetrics.sales,
+              leads: objectiveMetrics.leads,
+              traffic: objectiveMetrics.traffic,
+              engagement: objectiveMetrics.engagement,
+              awareness: objectiveMetrics.awareness,
+              app_installs: objectiveMetrics.app_installs,
               ctr: parseFloat(platform.ctr || '0'),
               cpc: parseFloat(platform.cpc || '0'),
               cpm: parseFloat(platform.cpm || '0'),
@@ -934,6 +1036,15 @@ Deno.serve(async (req: Request) => {
             const resultData = calculateResults(insight.actions, campaignObjective);
             record.results = resultData.value;
             record.result_type = resultData.type;
+
+            // Calculate objective-specific metrics
+            const objectiveMetrics = calculateObjectiveMetrics(insight.actions);
+            record.sales = objectiveMetrics.sales;
+            record.leads = objectiveMetrics.leads;
+            record.traffic = objectiveMetrics.traffic;
+            record.engagement = objectiveMetrics.engagement;
+            record.awareness = objectiveMetrics.awareness;
+            record.app_installs = objectiveMetrics.app_installs;
 
             adInsightsToUpsert.push(record);
           } catch (error: any) {

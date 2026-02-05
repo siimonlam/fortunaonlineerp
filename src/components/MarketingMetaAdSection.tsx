@@ -48,6 +48,12 @@ interface DemographicBreakdown {
   clicks: number;
   spend: number;
   results: number;
+  sales: number;
+  leads: number;
+  traffic: number;
+  engagement: number;
+  awareness: number;
+  app_installs: number;
 }
 
 interface AdSetMetrics {
@@ -58,6 +64,12 @@ interface AdSetMetrics {
   total_impressions: number;
   total_clicks: number;
   total_results: number;
+  total_sales: number;
+  total_leads: number;
+  total_traffic: number;
+  total_engagement: number;
+  total_awareness: number;
+  total_app_installs: number;
 }
 
 interface CreativeMetrics {
@@ -90,6 +102,12 @@ interface PlatformMetrics {
   avg_ctr: number;
   avg_cpc: number;
   avg_cpm: number;
+  total_sales: number;
+  total_leads: number;
+  total_traffic: number;
+  total_engagement: number;
+  total_awareness: number;
+  total_app_installs: number;
 }
 
 export default function MarketingMetaAdSection({ projectId, clientNumber }: MarketingMetaAdSectionProps) {
@@ -359,7 +377,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
       const { data: demographics } = await supabase
         .from('meta_monthly_demographics')
-        .select('age_group, gender, country, impressions, clicks, spend, reach, results, conversions')
+        .select('age_group, gender, country, impressions, clicks, spend, reach, results, conversions, sales, leads, traffic, engagement, awareness, app_installs')
         .eq('account_id', accountId)
         .gte('month_year', monthStart)
         .lt('month_year', monthEnd)
@@ -380,13 +398,25 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             impressions: 0,
             clicks: 0,
             spend: 0,
-            results: 0
+            results: 0,
+            sales: 0,
+            leads: 0,
+            traffic: 0,
+            engagement: 0,
+            awareness: 0,
+            app_installs: 0
           };
         }
         acc[key].impressions += Number(demo.impressions) || 0;
         acc[key].clicks += Number(demo.clicks) || 0;
         acc[key].spend += Number(demo.spend) || 0;
         acc[key].results += Number(demo.results) || 0;
+        acc[key].sales += Number(demo.sales) || 0;
+        acc[key].leads += Number(demo.leads) || 0;
+        acc[key].traffic += Number(demo.traffic) || 0;
+        acc[key].engagement += Number(demo.engagement) || 0;
+        acc[key].awareness += Number(demo.awareness) || 0;
+        acc[key].app_installs += Number(demo.app_installs) || 0;
         return acc;
       }, {});
 
@@ -406,13 +436,25 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             impressions: 0,
             clicks: 0,
             spend: 0,
-            results: 0
+            results: 0,
+            sales: 0,
+            leads: 0,
+            traffic: 0,
+            engagement: 0,
+            awareness: 0,
+            app_installs: 0
           };
         }
         acc[key].impressions += demo.impressions;
         acc[key].clicks += demo.clicks;
         acc[key].spend += demo.spend;
         acc[key].results += demo.results;
+        acc[key].sales += demo.sales;
+        acc[key].leads += demo.leads;
+        acc[key].traffic += demo.traffic;
+        acc[key].engagement += demo.engagement;
+        acc[key].awareness += demo.awareness;
+        acc[key].app_installs += demo.app_installs;
         return acc;
       }, {});
       return Object.values(ageAggregated);
@@ -425,13 +467,25 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             impressions: 0,
             clicks: 0,
             spend: 0,
-            results: 0
+            results: 0,
+            sales: 0,
+            leads: 0,
+            traffic: 0,
+            engagement: 0,
+            awareness: 0,
+            app_installs: 0
           };
         }
         acc[key].impressions += demo.impressions;
         acc[key].clicks += demo.clicks;
         acc[key].spend += demo.spend;
         acc[key].results += demo.results;
+        acc[key].sales += demo.sales;
+        acc[key].leads += demo.leads;
+        acc[key].traffic += demo.traffic;
+        acc[key].engagement += demo.engagement;
+        acc[key].awareness += demo.awareness;
+        acc[key].app_installs += demo.app_installs;
         return acc;
       }, {});
       return Object.values(genderAggregated);
@@ -490,7 +544,13 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             total_spend: 0,
             total_impressions: 0,
             total_clicks: 0,
-            total_results: 0
+            total_results: 0,
+            total_sales: 0,
+            total_leads: 0,
+            total_traffic: 0,
+            total_engagement: 0,
+            total_awareness: 0,
+            total_app_installs: 0
           });
         }
 
@@ -499,6 +559,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         adset.total_impressions += Number(insight.impressions) || 0;
         adset.total_clicks += Number(insight.clicks) || 0;
         adset.total_results += Number(insight.results) || 0;
+        adset.total_sales += Number(insight.sales) || 0;
+        adset.total_leads += Number(insight.leads) || 0;
+        adset.total_traffic += Number(insight.traffic) || 0;
+        adset.total_engagement += Number(insight.engagement) || 0;
+        adset.total_awareness += Number(insight.awareness) || 0;
+        adset.total_app_installs += Number(insight.app_installs) || 0;
       });
 
       const metrics = Array.from(adsetNameMap.values());
@@ -702,6 +768,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             total_clicks: 0,
             total_results: 0,
             total_reach: 0,
+            total_sales: 0,
+            total_leads: 0,
+            total_traffic: 0,
+            total_engagement: 0,
+            total_awareness: 0,
+            total_app_installs: 0,
             ctr_sum: 0,
             cpc_sum: 0,
             cpm_sum: 0,
@@ -715,6 +787,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         p.total_clicks += Number(insight.clicks) || 0;
         p.total_results += Number(insight.results) || 0;
         p.total_reach += Number(insight.reach) || 0;
+        p.total_sales += Number(insight.sales) || 0;
+        p.total_leads += Number(insight.leads) || 0;
+        p.total_traffic += Number(insight.traffic) || 0;
+        p.total_engagement += Number(insight.engagement) || 0;
+        p.total_awareness += Number(insight.awareness) || 0;
+        p.total_app_installs += Number(insight.app_installs) || 0;
         p.ctr_sum += Number(insight.ctr) || 0;
         p.cpc_sum += Number(insight.cpc) || 0;
         p.cpm_sum += Number(insight.cpm) || 0;
@@ -728,6 +806,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         total_clicks: p.total_clicks,
         total_results: p.total_results,
         total_reach: p.total_reach,
+        total_sales: p.total_sales,
+        total_leads: p.total_leads,
+        total_traffic: p.total_traffic,
+        total_engagement: p.total_engagement,
+        total_awareness: p.total_awareness,
+        total_app_installs: p.total_app_installs,
         avg_ctr: p.count > 0 ? p.ctr_sum / p.count : 0,
         avg_cpc: p.count > 0 ? p.cpc_sum / p.count : 0,
         avg_cpm: p.count > 0 ? p.cpm_sum / p.count : 0
@@ -1680,12 +1764,78 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                           )}
                                         </div>
                                       </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('sales')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Sales
+                                          {sortConfig?.key === 'sales' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('leads')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Leads
+                                          {sortConfig?.key === 'leads' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('traffic')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Traffic
+                                          {sortConfig?.key === 'traffic' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('engagement')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Engagement
+                                          {sortConfig?.key === 'engagement' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('awareness')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Awareness
+                                          {sortConfig?.key === 'awareness' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('app_installs')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          App Installs
+                                          {sortConfig?.key === 'app_installs' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {displayData.length === 0 ? (
                                       <tr>
-                                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                        <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                                           No demographic data available. Sync monthly reports to fetch demographic insights.
                                         </td>
                                       </tr>
@@ -1697,6 +1847,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                           <td className="px-4 py-2 text-right">{demo.impressions.toLocaleString()}</td>
                                           <td className="px-4 py-2 text-right">{demo.clicks.toLocaleString()}</td>
                                           <td className="px-4 py-2 text-right">{demo.results.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-green-600 font-medium">{demo.sales.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-blue-600 font-medium">{demo.leads.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-purple-600 font-medium">{demo.traffic.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-orange-600 font-medium">{demo.engagement.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-pink-600 font-medium">{demo.awareness.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-indigo-600 font-medium">{demo.app_installs.toLocaleString()}</td>
                                         </tr>
                                       ))
                                     )}
@@ -1763,12 +1919,78 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                           )}
                                         </div>
                                       </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('sales')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Sales
+                                          {sortConfig?.key === 'sales' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('leads')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Leads
+                                          {sortConfig?.key === 'leads' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('traffic')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Traffic
+                                          {sortConfig?.key === 'traffic' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('engagement')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Engagement
+                                          {sortConfig?.key === 'engagement' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('awareness')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Awareness
+                                          {sortConfig?.key === 'awareness' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('app_installs')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          App Installs
+                                          {sortConfig?.key === 'app_installs' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {displayData.length === 0 ? (
                                       <tr>
-                                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                        <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                                           No demographic data available. Sync monthly reports to fetch demographic insights.
                                         </td>
                                       </tr>
@@ -1780,6 +2002,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                           <td className="px-4 py-2 text-right">{demo.impressions.toLocaleString()}</td>
                                           <td className="px-4 py-2 text-right">{demo.clicks.toLocaleString()}</td>
                                           <td className="px-4 py-2 text-right">{demo.results.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-green-600 font-medium">{demo.sales.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-blue-600 font-medium">{demo.leads.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-purple-600 font-medium">{demo.traffic.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-orange-600 font-medium">{demo.engagement.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-pink-600 font-medium">{demo.awareness.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-indigo-600 font-medium">{demo.app_installs.toLocaleString()}</td>
                                         </tr>
                                       ))
                                     )}
@@ -1868,12 +2096,78 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                           )}
                                         </div>
                                       </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('sales')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Sales
+                                          {sortConfig?.key === 'sales' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('leads')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Leads
+                                          {sortConfig?.key === 'leads' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('traffic')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Traffic
+                                          {sortConfig?.key === 'traffic' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('engagement')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Engagement
+                                          {sortConfig?.key === 'engagement' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('awareness')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          Awareness
+                                          {sortConfig?.key === 'awareness' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
+                                      <th
+                                        className="px-4 py-2 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                        onClick={() => handleSort('app_installs')}
+                                      >
+                                        <div className="flex items-center justify-end gap-1">
+                                          App Installs
+                                          {sortConfig?.key === 'app_installs' && (
+                                            <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                                          )}
+                                        </div>
+                                      </th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {displayData.length === 0 ? (
                                       <tr>
-                                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                                        <td colSpan={13} className="px-4 py-8 text-center text-gray-500">
                                           No demographic data available. Sync monthly reports to fetch demographic insights.
                                         </td>
                                       </tr>
@@ -1887,6 +2181,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                           <td className="px-4 py-2 text-right">{demo.impressions.toLocaleString()}</td>
                                           <td className="px-4 py-2 text-right">{demo.clicks.toLocaleString()}</td>
                                           <td className="px-4 py-2 text-right">{demo.results.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-green-600 font-medium">{demo.sales.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-blue-600 font-medium">{demo.leads.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-purple-600 font-medium">{demo.traffic.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-orange-600 font-medium">{demo.engagement.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-pink-600 font-medium">{demo.awareness.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-indigo-600 font-medium">{demo.app_installs.toLocaleString()}</td>
                                         </tr>
                                       ))
                                     )}
@@ -1945,6 +2245,42 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                 >
                                   Results {sortConfig?.key === 'total_results' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                 </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_sales')}
+                                >
+                                  Sales {sortConfig?.key === 'total_sales' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_leads')}
+                                >
+                                  Leads {sortConfig?.key === 'total_leads' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_traffic')}
+                                >
+                                  Traffic {sortConfig?.key === 'total_traffic' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_engagement')}
+                                >
+                                  Engagement {sortConfig?.key === 'total_engagement' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_awareness')}
+                                >
+                                  Awareness {sortConfig?.key === 'total_awareness' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_app_installs')}
+                                >
+                                  App Installs {sortConfig?.key === 'total_app_installs' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -1964,6 +2300,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                   <td className="px-4 py-3 text-right text-gray-700">{adset.total_impressions.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">{adset.total_clicks.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">{adset.total_results.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-green-600 font-medium">{adset.total_sales.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-blue-600 font-medium">{adset.total_leads.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-purple-600 font-medium">{adset.total_traffic.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-orange-600 font-medium">{adset.total_engagement.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-pink-600 font-medium">{adset.total_awareness.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-indigo-600 font-medium">{adset.total_app_installs.toLocaleString()}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -2033,6 +2375,42 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                 </th>
                                 <th
                                   className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_sales')}
+                                >
+                                  Sales {sortConfig?.key === 'total_sales' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_leads')}
+                                >
+                                  Leads {sortConfig?.key === 'total_leads' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_traffic')}
+                                >
+                                  Traffic {sortConfig?.key === 'total_traffic' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_engagement')}
+                                >
+                                  Engagement {sortConfig?.key === 'total_engagement' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_awareness')}
+                                >
+                                  Awareness {sortConfig?.key === 'total_awareness' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                                  onClick={() => handleSort('total_app_installs')}
+                                >
+                                  App Installs {sortConfig?.key === 'total_app_installs' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th
+                                  className="px-4 py-3 text-right font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                                   onClick={() => handleSort('avg_ctr')}
                                 >
                                   CTR {sortConfig?.key === 'avg_ctr' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
@@ -2062,6 +2440,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                   <td className="px-4 py-3 text-right text-gray-700">{platform.total_reach.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">{platform.total_clicks.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">{platform.total_results.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-green-600 font-medium">{platform.total_sales.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-blue-600 font-medium">{platform.total_leads.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-purple-600 font-medium">{platform.total_traffic.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-orange-600 font-medium">{platform.total_engagement.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-pink-600 font-medium">{platform.total_awareness.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right text-indigo-600 font-medium">{platform.total_app_installs.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">{platform.avg_ctr.toFixed(2)}%</td>
                                   <td className="px-4 py-3 text-right text-gray-700">${platform.avg_cpc.toFixed(2)}</td>
                                   <td className="px-4 py-3 text-right text-gray-700">${platform.avg_cpm.toFixed(2)}</td>
