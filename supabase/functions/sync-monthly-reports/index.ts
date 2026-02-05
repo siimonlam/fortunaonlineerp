@@ -64,7 +64,26 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { accountId, datePreset = 'last_month', customDateRange }: SyncRequest = await req.json();
+    let requestBody: SyncRequest;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid JSON in request body'
+        }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    const { accountId, datePreset = 'last_month', customDateRange } = requestBody;
 
     if (!accountId) {
       throw new Error('Account ID is required');

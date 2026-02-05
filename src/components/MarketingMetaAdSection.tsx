@@ -485,14 +485,20 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         return;
       }
 
-      const { data: demographics } = await supabase
+      const { data: demographics, error: demographicsError } = await supabase
         .from('meta_monthly_demographics')
-        .select('campaign_id, age_group, gender, country, impressions, clicks, spend, reach, results, conversions, sales, leads, traffic, engagement, awareness, app_installs')
+        .select('campaign_id, age_group, gender, country, impressions, clicks, spend, reach, results, conversions, sales, sales_purchase, sales_add_to_cart, sales_initiate_checkout, leads, traffic, engagement, awareness, app_installs')
         .eq('account_id', accountId)
         .in('campaign_id', campaignIds)
         .gte('month_year', monthStart || '2000-01-01')
         .lt('month_year', monthEnd || '2099-12-31')
         .limit(10000);
+
+      if (demographicsError) {
+        console.error('Error fetching demographic data:', demographicsError);
+        setDemographics([]);
+        return;
+      }
 
       if (!demographics || demographics.length === 0) {
         setDemographics([]);
