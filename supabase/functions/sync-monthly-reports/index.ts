@@ -618,6 +618,7 @@ Deno.serve(async (req: Request) => {
               account_id: accountId,
               campaign_id: demo.campaign_id || null,
               adset_id: adsetId,
+              adset_name: adsetData?.name || null,
               month_year: monthYear,
               age_group: ageGroup,
               gender: gender,

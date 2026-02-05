@@ -659,92 +659,35 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
   const loadAdSets = async (monthlyData: any[]) => {
     try {
-      // Fetch campaign objectives to map results to the correct objective column
-      const campaignIds = [...new Set(monthlyData.map(d => d.campaign_id).filter(Boolean))];
-      const { data: campaignData } = await supabase
-        .from('meta_campaigns')
-        .select('campaign_id, objective')
-        .in('campaign_id', campaignIds);
+      if (!selectedAccount) {
+        setAdSets([]);
+        return;
+      }
 
-      const campaignObjectiveMap = new Map(
-        (campaignData || []).map(c => [c.campaign_id, c.objective])
-      );
-
-      // Create a map for adset_id -> adset_name from monthlyData
-      const adsetIdToNameMap = new Map<string, string>();
-      monthlyData.forEach((insight) => {
-        if (insight.adset_id && insight.adset_name) {
-          adsetIdToNameMap.set(insight.adset_id, insight.adset_name);
-        }
-      });
-
-      // Get adset IDs to query demographics
-      const adsetIds = [...new Set(monthlyData.map(d => d.adset_id).filter(Boolean))];
-
-      // Query demographics data for these ad sets (aggregate all demographic breakdowns)
+      // Fetch ad sets directly from demographics table, grouping by adset_name
       const { data: demographicsData } = await supabase
         .from('meta_monthly_demographics')
-        .select('adset_id, campaign_id, spend, impressions, clicks, reach, results, conversions, sales, sales_purchase, sales_add_to_cart, sales_initiate_checkout, leads, traffic, engagement, awareness, app_installs')
-        .in('adset_id', adsetIds)
+        .select('adset_id, adset_name, campaign_id, spend, impressions, clicks, reach, results, conversions, sales, sales_purchase, sales_add_to_cart, sales_initiate_checkout, leads, traffic, engagement, awareness, app_installs')
+        .eq('account_id', selectedAccount.account_id)
         .gte('month_year', currentViewMonth + '-01')
         .lt('month_year', getNextMonth(currentViewMonth) + '-01');
 
-      // Aggregate demographics data by adset_id
-      const demographicsMap = new Map<string, any>();
-      (demographicsData || []).forEach((demo) => {
-        if (!demo.adset_id) return;
+      if (!demographicsData || demographicsData.length === 0) {
+        setAdSets([]);
+        return;
+      }
 
-        if (!demographicsMap.has(demo.adset_id)) {
-          demographicsMap.set(demo.adset_id, {
-            total_spend: 0,
-            total_impressions: 0,
-            total_clicks: 0,
-            total_reach: 0,
-            total_results: 0,
-            total_conversions: 0,
-            total_sales: 0,
-            total_sales_purchase: 0,
-            total_sales_add_to_cart: 0,
-            total_sales_initiate_checkout: 0,
-            total_leads: 0,
-            total_traffic: 0,
-            total_engagement: 0,
-            total_awareness: 0,
-            total_app_installs: 0
-          });
-        }
-
-        const agg = demographicsMap.get(demo.adset_id);
-        agg.total_spend += Number(demo.spend) || 0;
-        agg.total_impressions += Number(demo.impressions) || 0;
-        agg.total_clicks += Number(demo.clicks) || 0;
-        agg.total_reach += Number(demo.reach) || 0;
-        agg.total_results += Number(demo.results) || 0;
-        agg.total_conversions += Number(demo.conversions) || 0;
-        agg.total_sales += Number(demo.sales) || 0;
-        agg.total_sales_purchase += Number(demo.sales_purchase) || 0;
-        agg.total_sales_add_to_cart += Number(demo.sales_add_to_cart) || 0;
-        agg.total_sales_initiate_checkout += Number(demo.sales_initiate_checkout) || 0;
-        agg.total_leads += Number(demo.leads) || 0;
-        agg.total_traffic += Number(demo.traffic) || 0;
-        agg.total_engagement += Number(demo.engagement) || 0;
-        agg.total_awareness += Number(demo.awareness) || 0;
-        agg.total_app_installs += Number(demo.app_installs) || 0;
-      });
-
+      // Group by adset_name (aggregating all demographic breakdowns for each ad set)
       const adsetNameMap = new Map<string, any>();
-      const processedAdsetIds = new Set<string>();
 
-      monthlyData.forEach((insight) => {
-        if (!insight.adset_id) return;
-
-        const adsetName = insight.adset_name || `Ad Set ${insight.adset_id.slice(-6)}`;
+      demographicsData.forEach((demo) => {
+        const adsetName = demo.adset_name || `Ad Set ${demo.adset_id?.slice(-6) || 'Unknown'}`;
 
         if (!adsetNameMap.has(adsetName)) {
           adsetNameMap.set(adsetName, {
-            adset_id: insight.adset_id,
+            adset_id: demo.adset_id,
             name: adsetName,
-            campaign_id: insight.campaign_id,
+            campaign_id: demo.campaign_id,
             status: 'ACTIVE',
             total_spend: 0,
             total_impressions: 0,
@@ -761,60 +704,19 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
         const adset = adsetNameMap.get(adsetName);
 
-        // Only process each adset_id once to avoid double-counting demographics data
-        if (!processedAdsetIds.has(insight.adset_id)) {
-          processedAdsetIds.add(insight.adset_id);
+        // Aggregate metrics across all demographic segments
+        adset.total_spend += Number(demo.spend) || 0;
+        adset.total_impressions += Number(demo.impressions) || 0;
+        adset.total_clicks += Number(demo.clicks) || 0;
+        adset.total_results += Number(demo.results) || 0;
 
-          // Check if we have demographics data for this adset
-          const demoData = demographicsMap.get(insight.adset_id);
-
-          if (demoData) {
-            // Use demographics data (which includes all demographic breakdowns aggregated)
-            adset.total_spend = demoData.total_spend;
-            adset.total_impressions = demoData.total_impressions;
-            adset.total_clicks = demoData.total_clicks;
-            adset.total_results = demoData.total_results;
-
-            // Use objective-specific metrics from demographics
-            adset.total_sales = demoData.total_sales;
-            adset.total_leads = demoData.total_leads;
-            adset.total_traffic = demoData.total_traffic;
-            adset.total_engagement = demoData.total_engagement;
-            adset.total_awareness = demoData.total_awareness;
-            adset.total_app_installs = demoData.total_app_installs;
-          } else {
-            // Fallback to monthly insights data if demographics not available
-            const results = Number(insight.results) || 0;
-            const objective = campaignObjectiveMap.get(insight.campaign_id);
-
-            adset.total_spend = Number(insight.spend) || 0;
-            adset.total_impressions = Number(insight.impressions) || 0;
-            adset.total_clicks = Number(insight.clicks) || 0;
-            adset.total_results = results;
-
-            // Map results to the appropriate objective-specific column based on campaign objective
-            switch (objective) {
-              case 'OUTCOME_SALES':
-                adset.total_sales = results;
-                break;
-              case 'OUTCOME_LEADS':
-                adset.total_leads = results;
-                break;
-              case 'OUTCOME_TRAFFIC':
-                adset.total_traffic = results;
-                break;
-              case 'OUTCOME_ENGAGEMENT':
-                adset.total_engagement = results;
-                break;
-              case 'OUTCOME_AWARENESS':
-                adset.total_awareness = results;
-                break;
-              case 'OUTCOME_APP_PROMOTION':
-                adset.total_app_installs = results;
-                break;
-            }
-          }
-        }
+        // Aggregate objective-specific metrics
+        adset.total_sales += Number(demo.sales) || 0;
+        adset.total_leads += Number(demo.leads) || 0;
+        adset.total_traffic += Number(demo.traffic) || 0;
+        adset.total_engagement += Number(demo.engagement) || 0;
+        adset.total_awareness += Number(demo.awareness) || 0;
+        adset.total_app_installs += Number(demo.app_installs) || 0;
       });
 
       const metrics = Array.from(adsetNameMap.values());
