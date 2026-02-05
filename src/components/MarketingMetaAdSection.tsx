@@ -393,34 +393,59 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         campaign.avg_cpc += Number(insight.cpc) || 0;
         campaign.count += 1;
 
-        // Parse actions JSON to get the PRIMARY action only (first match in priority order)
-        if (insight.actions) {
-          try {
-            const actions = typeof insight.actions === 'string' ? JSON.parse(insight.actions) : insight.actions;
-            if (Array.isArray(actions)) {
-              // Get priority action types for this campaign's objective
-              const priorityActions = getPriorityActionTypes(campaign.objective);
+        // Special handling for OUTCOME_SALES: Show ALL THREE sales breakdown types
+        const upperObjective = campaign.objective?.toUpperCase() || '';
+        if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
+          // Use dedicated sales columns to show the breakdown
+          const purchase = Number(insight.sales_purchase) || 0;
+          const addToCart = Number(insight.sales_add_to_cart) || 0;
+          const initiateCheckout = Number(insight.sales_initiate_checkout) || 0;
 
-              // Find the FIRST priority action with value > 0 (highest priority only)
-              for (const priorityActionType of priorityActions) {
-                const action = actions.find((a: any) => a.action_type === priorityActionType);
-                if (action) {
-                  const value = parseInt(action.value || '0');
-                  if (value > 0) {
-                    // Found the primary action - use it and STOP
-                    const displayName = getActionDisplayName(priorityActionType);
-                    const currentCount = campaign.action_breakdown.get(displayName) || 0;
-                    campaign.action_breakdown.set(displayName, currentCount + value);
-                    campaign.result_type_set.add(displayName);
+          if (purchase > 0) {
+            const currentCount = campaign.action_breakdown.get('Purchase') || 0;
+            campaign.action_breakdown.set('Purchase', currentCount + purchase);
+            campaign.result_type_set.add('Purchase');
+          }
+          if (addToCart > 0) {
+            const currentCount = campaign.action_breakdown.get('Add to Cart') || 0;
+            campaign.action_breakdown.set('Add to Cart', currentCount + addToCart);
+            campaign.result_type_set.add('Add to Cart');
+          }
+          if (initiateCheckout > 0) {
+            const currentCount = campaign.action_breakdown.get('Initiate Checkout') || 0;
+            campaign.action_breakdown.set('Initiate Checkout', currentCount + initiateCheckout);
+            campaign.result_type_set.add('Initiate Checkout');
+          }
+        } else {
+          // For non-sales objectives: Parse actions JSON to get the PRIMARY action only
+          if (insight.actions) {
+            try {
+              const actions = typeof insight.actions === 'string' ? JSON.parse(insight.actions) : insight.actions;
+              if (Array.isArray(actions)) {
+                // Get priority action types for this campaign's objective
+                const priorityActions = getPriorityActionTypes(campaign.objective);
 
-                    // CRITICAL: Stop here - don't look for other actions
-                    break;
+                // Find the FIRST priority action with value > 0 (highest priority only)
+                for (const priorityActionType of priorityActions) {
+                  const action = actions.find((a: any) => a.action_type === priorityActionType);
+                  if (action) {
+                    const value = parseInt(action.value || '0');
+                    if (value > 0) {
+                      // Found the primary action - use it and STOP
+                      const displayName = getActionDisplayName(priorityActionType);
+                      const currentCount = campaign.action_breakdown.get(displayName) || 0;
+                      campaign.action_breakdown.set(displayName, currentCount + value);
+                      campaign.result_type_set.add(displayName);
+
+                      // CRITICAL: Stop here - don't look for other actions
+                      break;
+                    }
                   }
                 }
               }
+            } catch (e) {
+              console.error('Error parsing actions:', e);
             }
-          } catch (e) {
-            console.error('Error parsing actions:', e);
           }
         }
       });
