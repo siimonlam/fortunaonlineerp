@@ -393,7 +393,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         campaign.avg_cpc += Number(insight.cpc) || 0;
         campaign.count += 1;
 
-        // Parse actions JSON to get individual action counts
+        // Parse actions JSON to get the PRIMARY action only (first match in priority order)
         if (insight.actions) {
           try {
             const actions = typeof insight.actions === 'string' ? JSON.parse(insight.actions) : insight.actions;
@@ -401,21 +401,23 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
               // Get priority action types for this campaign's objective
               const priorityActions = getPriorityActionTypes(campaign.objective);
 
-              actions.forEach((action: any) => {
-                const actionType = action.action_type;
-                const value = parseInt(action.value || '0');
+              // Find the FIRST priority action with value > 0 (highest priority only)
+              for (const priorityActionType of priorityActions) {
+                const action = actions.find((a: any) => a.action_type === priorityActionType);
+                if (action) {
+                  const value = parseInt(action.value || '0');
+                  if (value > 0) {
+                    // Found the primary action - use it and STOP
+                    const displayName = getActionDisplayName(priorityActionType);
+                    const currentCount = campaign.action_breakdown.get(displayName) || 0;
+                    campaign.action_breakdown.set(displayName, currentCount + value);
+                    campaign.result_type_set.add(displayName);
 
-                // Only count actions that are priority actions for this objective
-                if (priorityActions.includes(actionType) && value > 0) {
-                  // Use display name as the key to consolidate similar action types
-                  const displayName = getActionDisplayName(actionType);
-                  const currentCount = campaign.action_breakdown.get(displayName) || 0;
-                  campaign.action_breakdown.set(displayName, currentCount + value);
-
-                  // Also add to result_type_set for display
-                  campaign.result_type_set.add(displayName);
+                    // CRITICAL: Stop here - don't look for other actions
+                    break;
+                  }
                 }
-              });
+              }
             }
           } catch (e) {
             console.error('Error parsing actions:', e);
