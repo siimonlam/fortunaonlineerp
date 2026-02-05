@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
         case 'OUTCOME_ENGAGEMENT':
         case 'POST_ENGAGEMENT':
         case 'PAGE_LIKES':
-          return ['post_engagement', 'page_engagement', 'like', 'onsite_conversion.post_save', 'video_view', 'post_reaction', 'comment', 'post'];
+          return ['post_engagement', 'page_engagement'];
 
         case 'OUTCOME_LEADS':
         case 'LEAD_GENERATION':
@@ -103,11 +103,7 @@ Deno.serve(async (req: Request) => {
           return [
             'purchase',
             'offsite_conversion.fb_pixel_purchase',
-            'omni_purchase',
-            'offsite_conversion.fb_pixel_add_to_cart',
-            'offsite_conversion.fb_pixel_initiate_checkout',
-            'add_to_cart',
-            'initiate_checkout'
+            'omni_purchase'
           ];
 
         case 'OUTCOME_APP_PROMOTION':
