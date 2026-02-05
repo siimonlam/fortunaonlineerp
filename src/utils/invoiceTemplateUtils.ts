@@ -75,6 +75,11 @@ function applyTransform(value: any, transformFunction?: string): string {
   }
 }
 
+// Helper function to detect Chinese characters
+function containsChinese(text: string): boolean {
+  return /[\u4e00-\u9fff\u3400-\u4dbf]/.test(text);
+}
+
 export async function generateInvoiceFromTemplate(
   projectId: string,
   templateArrayBuffer: ArrayBuffer,
@@ -135,6 +140,9 @@ export async function generateInvoiceFromTemplate(
     console.warn('Falling back to standard fonts - Chinese characters may not render correctly.');
   }
 
+  // Track if we found Chinese characters - if so, we must flatten
+  let hasChineseText = false;
+
   // Helper function to safely set field text
   const setFieldText = async (fieldName: string, text: string) => {
     if (!text || text === '') {
@@ -142,19 +150,18 @@ export async function generateInvoiceFromTemplate(
       return; // Skip empty values
     }
 
+    // Check for Chinese characters
+    if (containsChinese(text)) {
+      hasChineseText = true;
+      console.log(`  DETECTED: Chinese characters in field "${fieldName}"`);
+    }
+
     try {
       const field = form.getTextField(fieldName);
 
       try {
-        // Set text and update appearances with custom font if available
+        // Set text value only - we'll flatten later to properly render with custom font
         field.setText(text);
-
-        if (customFont) {
-          field.updateAppearances(customFont);
-        } else {
-          field.updateAppearances();
-        }
-
         console.log(`  SUCCESS: Set field "${fieldName}" = "${text}"`);
       } catch (setTextError) {
         console.error(`  ERROR: Could not set text for field "${fieldName}":`, setTextError);
@@ -232,6 +239,12 @@ export async function generateInvoiceFromTemplate(
 
   console.log(`Total fields set: ${fieldsSet}`);
 
+  // If Chinese characters detected, we MUST flatten to use the embedded font
+  if (hasChineseText && !flatten) {
+    console.log('⚠️  Chinese characters detected - forcing form flattening to properly render text');
+    flatten = true;
+  }
+
   // Set the NeedAppearances flag to tell PDF readers to generate appearances
   // This allows readers to use their own fonts that support Chinese characters
   try {
@@ -243,8 +256,26 @@ export async function generateInvoiceFromTemplate(
     console.warn('Could not set NeedAppearances flag:', error);
   }
 
-  // Optionally flatten the form to make all fields non-editable
+  // Flatten the form to make all fields non-editable and properly render with embedded font
   if (flatten) {
+    // When flattening with custom font, we need to update appearances first
+    if (customFont) {
+      console.log('Updating field appearances with custom font before flattening...');
+      try {
+        const textFields = form.getFields().filter(f => f.constructor.name === 'PDFTextField');
+        for (const field of textFields) {
+          try {
+            (field as any).updateAppearances(customFont);
+          } catch (e) {
+            // Some fields might fail, continue with others
+            console.warn(`Could not update appearance for field:`, e);
+          }
+        }
+      } catch (e) {
+        console.warn('Error updating appearances:', e);
+      }
+    }
+
     form.flatten();
     console.log('Form fields flattened (converted to non-editable content)');
   } else {
