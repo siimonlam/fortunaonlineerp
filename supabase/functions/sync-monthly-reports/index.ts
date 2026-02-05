@@ -557,7 +557,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('\n=== FETCHING DEMOGRAPHIC BREAKDOWNS ===\n');
 
-    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,campaign_id,impressions,reach,spend,clicks,conversions,actions,date_start,date_stop&breakdowns=age,gender&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=adset&fields=adset_id,adset_name,campaign_id,campaign_name,impressions,reach,spend,clicks,conversions,actions,date_start,date_stop&breakdowns=age,gender&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
 
     const demographicsToUpsert: any[] = [];
     pageCount = 0;
@@ -618,7 +618,7 @@ Deno.serve(async (req: Request) => {
               account_id: accountId,
               campaign_id: demo.campaign_id || null,
               adset_id: adsetId,
-              adset_name: adsetData?.name || null,
+              adset_name: demo.adset_name || adsetData?.name || null,
               month_year: monthYear,
               age_group: ageGroup,
               gender: gender,
