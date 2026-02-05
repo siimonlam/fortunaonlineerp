@@ -87,8 +87,11 @@ interface CreativeMetrics {
   total_clicks: number;
   total_results: number;
   total_sales: number;
+  total_leads: number;
   total_traffic: number;
   total_engagement: number;
+  total_awareness: number;
+  total_app_installs: number;
   total_reach: number;
   avg_ctr: number;
   avg_cpc: number;
@@ -603,7 +606,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       // Get all insights for this account in the selected period with objective-specific result columns
       const { data: insightsData } = await supabase
         .from('meta_ad_insights')
-        .select('ad_id, campaign_id, spend, impressions, clicks, results, sales, traffic, engagement, reach, ctr, cpc, conversions, conversion_values')
+        .select('ad_id, campaign_id, spend, impressions, clicks, results, sales, leads, traffic, engagement, awareness, app_installs, reach, ctr, cpc, conversions, conversion_values')
         .eq('account_id', accountId)
         .in('campaign_id', campaignIds)
         .gte('date', monthStart || '2000-01-01')
@@ -671,8 +674,11 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
             total_clicks: 0,
             total_results: 0,
             total_sales: 0,
+            total_leads: 0,
             total_traffic: 0,
             total_engagement: 0,
+            total_awareness: 0,
+            total_app_installs: 0,
             total_reach: 0,
             total_conversions: 0,
             total_conversion_values: 0,
@@ -688,8 +694,11 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         creative.total_clicks += Number(insight.clicks) || 0;
         creative.total_results += Number(insight.results) || 0;
         creative.total_sales += Number(insight.sales) || 0;
+        creative.total_leads += Number(insight.leads) || 0;
         creative.total_traffic += Number(insight.traffic) || 0;
         creative.total_engagement += Number(insight.engagement) || 0;
+        creative.total_awareness += Number(insight.awareness) || 0;
+        creative.total_app_installs += Number(insight.app_installs) || 0;
         creative.total_reach += Number(insight.reach) || 0;
         creative.total_conversions += Number(insight.conversions) || 0;
         creative.total_conversion_values += Number(insight.conversion_values) || 0;
@@ -719,8 +728,11 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           total_clicks: creative.total_clicks,
           total_results: creative.total_results,
           total_sales: creative.total_sales,
+          total_leads: creative.total_leads,
           total_traffic: creative.total_traffic,
           total_engagement: creative.total_engagement,
+          total_awareness: creative.total_awareness,
+          total_app_installs: creative.total_app_installs,
           total_reach: creative.total_reach,
           avg_ctr: avgCtr,
           avg_cpc: avgCpc,
