@@ -48,6 +48,8 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   const [expandedMeetings, setExpandedMeetings] = useState<Set<string>>(new Set());
   const [meetingTasks, setMeetingTasks] = useState<Record<string, MeetingTask[]>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -105,41 +107,69 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user) {
+      setError('You must be logged in to create a meeting');
+      return;
+    }
 
-    const meetingData = {
-      marketing_project_id: marketingProjectId,
-      title: formData.title,
-      description: formData.description,
-      meeting_date: new Date(formData.meeting_date).toISOString(),
-      location: formData.location,
-      attendees: formData.attendees,
-      created_by: user.id
-    };
+    setSubmitting(true);
+    setError(null);
 
-    if (editingMeeting) {
-      const { error } = await supabase
-        .from('marketing_meetings')
-        .update(meetingData)
-        .eq('id', editingMeeting.id);
+    try {
+      const meetingData = {
+        marketing_project_id: marketingProjectId,
+        title: formData.title,
+        description: formData.description,
+        meeting_date: new Date(formData.meeting_date).toISOString(),
+        location: formData.location,
+        attendees: formData.attendees,
+        created_by: user.id
+      };
 
-      if (!error) {
+      if (editingMeeting) {
+        const { error } = await supabase
+          .from('marketing_meetings')
+          .update(meetingData)
+          .eq('id', editingMeeting.id);
+
+        if (error) {
+          console.error('Error updating meeting:', error);
+          setError(`Failed to update meeting: ${error.message}`);
+          setSubmitting(false);
+          return;
+        }
+
         await updateTasks(editingMeeting.id);
         fetchMeetings();
         resetForm();
-      }
-    } else {
-      const { data: meeting, error } = await supabase
-        .from('marketing_meetings')
-        .insert(meetingData)
-        .select()
-        .single();
+      } else {
+        const { data: meeting, error } = await supabase
+          .from('marketing_meetings')
+          .insert(meetingData)
+          .select()
+          .single();
 
-      if (!error && meeting) {
+        if (error) {
+          console.error('Error creating meeting:', error);
+          setError(`Failed to create meeting: ${error.message}`);
+          setSubmitting(false);
+          return;
+        }
+
+        if (!meeting) {
+          setError('Failed to create meeting: No data returned');
+          setSubmitting(false);
+          return;
+        }
+
         await createTasks(meeting.id);
         fetchMeetings();
         resetForm();
       }
+    } catch (err: any) {
+      console.error('Unexpected error:', err);
+      setError(`An unexpected error occurred: ${err.message || 'Unknown error'}`);
+      setSubmitting(false);
     }
   };
 
@@ -220,6 +250,8 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
     });
     setShowModal(false);
     setEditingMeeting(null);
+    setSubmitting(false);
+    setError(null);
   };
 
   const handleEdit = async (meeting: Meeting) => {
@@ -597,6 +629,18 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-red-900 mb-1">Error</h4>
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Meeting Title *
@@ -758,15 +802,20 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={submitting}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {editingMeeting ? 'Update Meeting' : 'Create Meeting'}
+                  {submitting && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {submitting ? 'Saving...' : (editingMeeting ? 'Update Meeting' : 'Create Meeting')}
                 </button>
               </div>
             </form>
