@@ -105,7 +105,13 @@ export async function generateInvoiceFromTemplate(
 
   if (projectError || !project) {
     console.error('Failed to fetch project data:', projectError);
-    throw new Error('Failed to fetch project data');
+
+    // Check if it's a connection error
+    if (projectError?.message?.includes('fetch') || projectError?.message?.includes('Failed')) {
+      throw new Error('Cannot connect to database. If you are on Vercel, please check that VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables are configured in your Vercel project settings.');
+    }
+
+    throw new Error(`Failed to fetch project data: ${projectError?.message || 'Unknown error'}`);
   }
 
   console.log('Project fetched:', {
