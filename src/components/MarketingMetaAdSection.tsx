@@ -528,16 +528,26 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
 
   const loadAdSets = async (monthlyData: any[]) => {
     try {
-      const adsetIdMap = new Map<string, any>();
+      // Fetch campaign objectives to map results to the correct objective column
+      const campaignIds = [...new Set(monthlyData.map(d => d.campaign_id).filter(Boolean))];
+      const { data: campaignData } = await supabase
+        .from('meta_campaigns')
+        .select('campaign_id, objective')
+        .in('campaign_id', campaignIds);
+
+      const campaignObjectiveMap = new Map(
+        (campaignData || []).map(c => [c.campaign_id, c.objective])
+      );
+
+      const adsetNameMap = new Map<string, any>();
 
       monthlyData.forEach((insight) => {
         if (!insight.adset_id) return;
 
-        const adsetId = insight.adset_id;
+        const adsetName = insight.adset_name || `Ad Set ${insight.adset_id.slice(-6)}`;
 
-        if (!adsetIdMap.has(adsetId)) {
-          const adsetName = insight.adset_name || `Ad Set ${insight.adset_id.slice(-6)}`;
-          adsetIdMap.set(adsetId, {
+        if (!adsetNameMap.has(adsetName)) {
+          adsetNameMap.set(adsetName, {
             adset_id: insight.adset_id,
             name: adsetName,
             campaign_id: insight.campaign_id,
@@ -555,20 +565,39 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
           });
         }
 
-        const adset = adsetIdMap.get(adsetId);
+        const adset = adsetNameMap.get(adsetName);
+        const objective = campaignObjectiveMap.get(insight.campaign_id);
+        const results = Number(insight.results) || 0;
+
         adset.total_spend += Number(insight.spend) || 0;
         adset.total_impressions += Number(insight.impressions) || 0;
         adset.total_clicks += Number(insight.clicks) || 0;
-        adset.total_results += Number(insight.results) || 0;
-        adset.total_sales += Number(insight.sales) || 0;
-        adset.total_leads += Number(insight.leads) || 0;
-        adset.total_traffic += Number(insight.traffic) || 0;
-        adset.total_engagement += Number(insight.engagement) || 0;
-        adset.total_awareness += Number(insight.awareness) || 0;
-        adset.total_app_installs += Number(insight.app_installs) || 0;
+        adset.total_results += results;
+
+        // Map results to the appropriate objective-specific column based on campaign objective
+        switch (objective) {
+          case 'OUTCOME_SALES':
+            adset.total_sales += results;
+            break;
+          case 'OUTCOME_LEADS':
+            adset.total_leads += results;
+            break;
+          case 'OUTCOME_TRAFFIC':
+            adset.total_traffic += results;
+            break;
+          case 'OUTCOME_ENGAGEMENT':
+            adset.total_engagement += results;
+            break;
+          case 'OUTCOME_AWARENESS':
+            adset.total_awareness += results;
+            break;
+          case 'OUTCOME_APP_PROMOTION':
+            adset.total_app_installs += results;
+            break;
+        }
       });
 
-      const metrics = Array.from(adsetIdMap.values());
+      const metrics = Array.from(adsetNameMap.values());
       setAdSets(metrics);
     } catch (err: any) {
       console.error('Error loading ad sets:', err);
