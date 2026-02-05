@@ -5,6 +5,49 @@ import MonthlyPerformanceChart from './MonthlyPerformanceChart';
 import MonthlyComparison from './MonthlyComparison';
 import CreativePerformanceGallery from './CreativePerformanceGallery';
 
+// Helper function to get priority action types based on campaign objective
+const getPriorityActionTypes = (objective: string | null): string[] => {
+  if (!objective) return [];
+
+  switch (objective.toUpperCase()) {
+    case 'OUTCOME_TRAFFIC':
+    case 'LINK_CLICKS':
+      return ['link_click', 'landing_page_view'];
+
+    case 'OUTCOME_ENGAGEMENT':
+    case 'POST_ENGAGEMENT':
+    case 'PAGE_LIKES':
+      return ['post_engagement', 'page_engagement'];
+
+    case 'OUTCOME_LEADS':
+    case 'LEAD_GENERATION':
+      return ['lead', 'onsite_conversion.lead_grouped'];
+
+    case 'OUTCOME_SALES':
+    case 'CONVERSIONS':
+      return ['purchase', 'offsite_conversion.fb_pixel_purchase', 'omni_purchase'];
+
+    case 'OUTCOME_APP_PROMOTION':
+    case 'APP_INSTALLS':
+    case 'MOBILE_APP_INSTALLS':
+      return ['app_install', 'mobile_app_install'];
+
+    case 'VIDEO_VIEWS':
+      return ['video_view'];
+
+    case 'BRAND_AWARENESS':
+    case 'OUTCOME_AWARENESS':
+    case 'REACH':
+      return ['reach', 'estimated_ad_recallers'];
+
+    case 'MESSAGES':
+      return ['onsite_conversion.messaging_conversation_started_7d'];
+
+    default:
+      return [];
+  }
+};
+
 
 interface MarketingMetaAdSectionProps {
   projectId: string;
@@ -303,25 +346,25 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         campaign.avg_cpc += Number(insight.cpc) || 0;
         campaign.count += 1;
 
-        // Collect result types and action breakdowns
-        if (insight.result_type) {
-          const types = insight.result_type.split(', ').map((t: string) => t.trim());
-          types.forEach((t: string) => campaign.result_type_set.add(t));
-        }
-
         // Parse actions JSON to get individual action counts
         if (insight.actions) {
           try {
             const actions = typeof insight.actions === 'string' ? JSON.parse(insight.actions) : insight.actions;
             if (Array.isArray(actions)) {
+              // Get priority action types for this campaign's objective
+              const priorityActions = getPriorityActionTypes(campaign.objective);
+
               actions.forEach((action: any) => {
                 const actionType = action.action_type;
                 const value = parseInt(action.value || '0');
 
-                // Only count actions that are in the result_type (relevant actions)
-                if (insight.result_type && insight.result_type.includes(actionType) && value > 0) {
+                // Only count actions that are priority actions for this objective
+                if (priorityActions.includes(actionType) && value > 0) {
                   const currentCount = campaign.action_breakdown.get(actionType) || 0;
                   campaign.action_breakdown.set(actionType, currentCount + value);
+
+                  // Also add to result_type_set for display
+                  campaign.result_type_set.add(actionType);
                 }
               });
             }
