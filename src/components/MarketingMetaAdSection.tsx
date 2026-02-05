@@ -1410,23 +1410,6 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                         return formatted.join(', ');
                       };
 
-                      const getPrimaryAction = (actionBreakdown?: Record<string, number>): { type: string; count: number } | null => {
-                        if (!actionBreakdown || Object.keys(actionBreakdown).length === 0) return null;
-
-                        // Find the action with the highest count
-                        let maxAction = '';
-                        let maxCount = 0;
-
-                        Object.entries(actionBreakdown).forEach(([action, count]) => {
-                          if (count > maxCount) {
-                            maxCount = count;
-                            maxAction = action;
-                          }
-                        });
-
-                        return maxAction ? { type: maxAction, count: maxCount } : null;
-                      };
-
                       const getResultTypeNote = (objective: string) => {
                         const obj = objective.toUpperCase();
                         if (obj.includes('TRAFFIC') || obj.includes('LINK_CLICKS')) {
@@ -1514,11 +1497,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                 <th className="px-4 py-3 text-right font-medium text-gray-700">
                                   Results
                                 </th>
-                                <th className="px-4 py-3 text-left font-medium text-gray-700">
-                                  Primary Action
-                                </th>
                                 <th className="px-4 py-3 text-left font-medium text-gray-700 text-xs">
-                                  All Action Types
+                                  Action Types
                                 </th>
                                 <th className="px-4 py-3 text-right font-medium text-gray-700">
                                   CTR
@@ -1559,14 +1539,6 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                     <td className="px-4 py-3 text-right font-bold text-blue-900">
                                       {total_results.toLocaleString()}
                                     </td>
-                                    <td className="px-4 py-3 text-left font-bold text-blue-900">
-                                      {(() => {
-                                        const primaryAction = getPrimaryAction(aggregatedBreakdown);
-                                        return primaryAction
-                                          ? `${formatActionType(primaryAction.type)}: ${primaryAction.count.toLocaleString()}`
-                                          : '-';
-                                      })()}
-                                    </td>
                                     <td className="px-4 py-3 text-left font-bold text-blue-900 text-xs">
                                       {formattedResultTypes || '-'}
                                     </td>
@@ -1593,14 +1565,6 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_impressions.toLocaleString()}</td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_clicks.toLocaleString()}</td>
                                       <td className="px-4 py-2 text-right text-gray-700">{campaign.total_results.toLocaleString()}</td>
-                                      <td className="px-4 py-2 text-left text-gray-700">
-                                        {(() => {
-                                          const primaryAction = getPrimaryAction(campaign.action_breakdown);
-                                          return primaryAction
-                                            ? `${formatActionType(primaryAction.type)}: ${primaryAction.count.toLocaleString()}`
-                                            : '-';
-                                        })()}
-                                      </td>
                                       <td className="px-4 py-2 text-left text-gray-600 text-xs truncate max-w-xs" title={formatResultTypes(campaign.result_types, campaign.action_breakdown)}>
                                         {formatResultTypes(campaign.result_types, campaign.action_breakdown)}
                                       </td>
