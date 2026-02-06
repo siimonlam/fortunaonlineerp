@@ -59,6 +59,12 @@ interface PlatformComparison {
   month2: ComparisonMetrics;
 }
 
+interface ResultTypeComparison {
+  result_type: string;
+  month1: number;
+  month2: number;
+}
+
 interface Props {
   accountId: string;
 }
@@ -76,7 +82,7 @@ export default function MonthlyComparison({ accountId }: Props) {
     return `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
   };
   const [loading, setLoading] = useState(true);
-  const [comparisonType, setComparisonType] = useState<'overall' | 'objectives' | 'campaigns' | 'adsets' | 'demographics' | 'platform'>('overall');
+  const [comparisonType, setComparisonType] = useState<'overall' | 'objectives' | 'campaigns' | 'adsets' | 'demographics' | 'platform' | 'resultTypes'>('overall');
   const [demographicView, setDemographicView] = useState<'gender' | 'age' | 'combined'>('gender');
 
   const [overallMonth1, setOverallMonth1] = useState<ComparisonMetrics | null>(null);
@@ -88,6 +94,7 @@ export default function MonthlyComparison({ accountId }: Props) {
   const [genderComparisons, setGenderComparisons] = useState<GenderComparison[]>([]);
   const [ageComparisons, setAgeComparisons] = useState<AgeComparison[]>([]);
   const [platformComparisons, setPlatformComparisons] = useState<PlatformComparison[]>([]);
+  const [resultTypeComparisons, setResultTypeComparisons] = useState<ResultTypeComparison[]>([]);
 
   const [analyzingWithAI, setAnalyzingWithAI] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
@@ -159,7 +166,8 @@ export default function MonthlyComparison({ accountId }: Props) {
         fetchCampaignComparison(),
         fetchAdSetComparison(),
         fetchDemographicComparison(),
-        fetchPlatformComparison()
+        fetchPlatformComparison(),
+        fetchResultTypeComparison()
       ]);
     } catch (error) {
       console.error('Error fetching comparison data:', error);
@@ -696,6 +704,47 @@ export default function MonthlyComparison({ accountId }: Props) {
     setPlatformComparisons(Array.from(platformMap.values()));
   };
 
+  const fetchResultTypeComparison = async () => {
+    const { data: month1Data } = await supabase
+      .from('meta_monthly_insights')
+      .select('sales, leads, traffic, engagement, awareness, app_installs')
+      .eq('account_id', accountId)
+      .gte('month_year', `${month1}-01`)
+      .lt('month_year', getNextMonthStart(month1));
+
+    const { data: month2Data } = await supabase
+      .from('meta_monthly_insights')
+      .select('sales, leads, traffic, engagement, awareness, app_installs')
+      .eq('account_id', accountId)
+      .gte('month_year', `${month2}-01`)
+      .lt('month_year', getNextMonthStart(month2));
+
+    const aggregateResultTypes = (data: any[]): Record<string, number> => {
+      return data.reduce((acc, row) => ({
+        sales: acc.sales + (Number(row.sales) || 0),
+        leads: acc.leads + (Number(row.leads) || 0),
+        traffic: acc.traffic + (Number(row.traffic) || 0),
+        engagement: acc.engagement + (Number(row.engagement) || 0),
+        awareness: acc.awareness + (Number(row.awareness) || 0),
+        app_installs: acc.app_installs + (Number(row.app_installs) || 0)
+      }), { sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 });
+    };
+
+    const month1Totals = aggregateResultTypes(month1Data || []);
+    const month2Totals = aggregateResultTypes(month2Data || []);
+
+    const resultTypes: ResultTypeComparison[] = [
+      { result_type: 'Sales', month1: month1Totals.sales, month2: month2Totals.sales },
+      { result_type: 'Leads', month1: month1Totals.leads, month2: month2Totals.leads },
+      { result_type: 'Traffic', month1: month1Totals.traffic, month2: month2Totals.traffic },
+      { result_type: 'Engagement', month1: month1Totals.engagement, month2: month2Totals.engagement },
+      { result_type: 'Awareness', month1: month1Totals.awareness, month2: month2Totals.awareness },
+      { result_type: 'App Installs', month1: month1Totals.app_installs, month2: month2Totals.app_installs }
+    ];
+
+    setResultTypeComparisons(resultTypes);
+  };
+
   const handleAnalyzeWithAI = async () => {
     if (!overallMonth1 || !overallMonth2) {
       setAiError('No data available for analysis');
@@ -1061,6 +1110,16 @@ export default function MonthlyComparison({ accountId }: Props) {
           }`}
         >
           Platform
+        </button>
+        <button
+          onClick={() => setComparisonType('resultTypes')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            comparisonType === 'resultTypes'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          By Result Type
         </button>
       </div>
 
@@ -1581,6 +1640,73 @@ export default function MonthlyComparison({ accountId }: Props) {
             </table>
           </div>
         </div>
+          )}
+        </>
+      )}
+
+      {comparisonType === 'resultTypes' && (
+        <>
+          {resultTypeComparisons.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+              <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600 font-medium mb-2">No result type data available</p>
+              <p className="text-sm text-gray-500">Use "Sync Monthly Reports" to fetch data</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Result Type</th>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700">Month</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700">Total Results</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700">Change</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {resultTypeComparisons.map((resultType) => {
+                      const change = resultType.month1 > 0
+                        ? ((resultType.month2 - resultType.month1) / resultType.month1) * 100
+                        : resultType.month2 > 0 ? 100 : 0;
+                      const isPositive = change >= 0;
+
+                      return (
+                        <>
+                          <tr key={`${resultType.result_type}-m1`} className="hover:bg-gray-50">
+                            <td rowSpan={2} className="px-4 py-3 font-medium text-gray-900 border-r border-gray-200">
+                              {resultType.result_type}
+                            </td>
+                            <td className="px-4 py-2 text-center text-xs text-gray-500">{formatMonthDisplay(month1)}</td>
+                            <td className="px-4 py-2 text-right text-gray-900 font-medium text-lg">
+                              {resultType.month1.toLocaleString()}
+                            </td>
+                            <td rowSpan={2} className="px-4 py-3 text-right border-l border-gray-200">
+                              <div className="flex items-center justify-end gap-2">
+                                {isPositive ? (
+                                  <ArrowUp className="text-green-600" size={18} />
+                                ) : (
+                                  <ArrowDown className="text-red-600" size={18} />
+                                )}
+                                <span className={`font-semibold text-lg ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                  {Math.abs(change).toFixed(1)}%
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr key={`${resultType.result_type}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
+                            <td className="px-4 py-2 text-center text-xs text-gray-500">{formatMonthDisplay(month2)}</td>
+                            <td className="px-4 py-2 text-right text-gray-900 font-bold text-lg">
+                              {resultType.month2.toLocaleString()}
+                            </td>
+                          </tr>
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </>
       )}
