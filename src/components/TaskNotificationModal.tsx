@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { X, AlertCircle, CheckCircle2, Calendar, Trophy, Medal, Award } from 'lucide-react';
+import { X, AlertCircle, CheckCircle2, Calendar, Trophy, Medal, Award, Star } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -12,6 +12,7 @@ interface Task {
   project_id?: string;
   marketing_project_id?: string;
   assigned_to: string;
+  completed_at?: string;
   project?: {
     title: string;
     company_name: string;
@@ -29,6 +30,12 @@ interface UserTaskStats {
   upcomingCount: number;
 }
 
+interface UserCompletionStats {
+  userId: string;
+  fullName: string;
+  completedCount: number;
+}
+
 interface TaskNotificationModalProps {
   onClose: () => void;
 }
@@ -37,6 +44,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamStats, setTeamStats] = useState<UserTaskStats[]>([]);
+  const [completionStats, setCompletionStats] = useState<UserCompletionStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCleanupReminder, setShowCleanupReminder] = useState(false);
 
@@ -58,7 +66,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
 
     try {
       console.log('[TaskNotificationModal] Starting to load data...');
-      await Promise.all([loadUserTasks(), loadTeamStats()]);
+      await Promise.all([loadUserTasks(), loadTeamStats(), loadCompletionStats()]);
       console.log('[TaskNotificationModal] Data loaded successfully');
     } catch (error) {
       console.error('[TaskNotificationModal] Error loading data:', error);
@@ -192,6 +200,69 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
 
     console.log('[TaskNotificationModal] Computed stats for', sortedStats.length, 'staff with pending tasks');
     setTeamStats(sortedStats);
+  }
+
+  async function loadCompletionStats() {
+    console.log('[TaskNotificationModal] Loading completion stats...');
+
+    // Get date 7 days ago
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoISO = sevenDaysAgo.toISOString();
+
+    const [staffRes, regularTasksRes, marketingTasksRes] = await Promise.all([
+      supabase
+        .from('staff')
+        .select('id, full_name')
+        .order('full_name'),
+      supabase
+        .from('tasks')
+        .select('id, assigned_to, completed, completed_at')
+        .eq('completed', true)
+        .gte('completed_at', sevenDaysAgoISO)
+        .not('assigned_to', 'is', null),
+      supabase
+        .from('marketing_tasks')
+        .select('id, assigned_to, completed, completed_at')
+        .eq('completed', true)
+        .gte('completed_at', sevenDaysAgoISO)
+        .not('assigned_to', 'is', null),
+    ]);
+
+    if (staffRes.error) {
+      console.error('[TaskNotificationModal] Error loading staff for completion stats:', staffRes.error);
+    }
+    if (regularTasksRes.error) {
+      console.error('[TaskNotificationModal] Error loading completed tasks:', regularTasksRes.error);
+    }
+    if (marketingTasksRes.error) {
+      console.error('[TaskNotificationModal] Error loading completed marketing tasks:', marketingTasksRes.error);
+    }
+
+    const staff = staffRes.data || [];
+    const allCompletedTasks = [
+      ...(regularTasksRes.data || []),
+      ...(marketingTasksRes.data || []),
+    ];
+
+    console.log('[TaskNotificationModal] Loaded', allCompletedTasks.length, 'completed tasks from last 7 days');
+
+    const stats: UserCompletionStats[] = staff.map(staffMember => {
+      const userCompletedTasks = allCompletedTasks.filter(t => t.assigned_to === staffMember.id);
+
+      return {
+        userId: staffMember.id,
+        fullName: staffMember.full_name,
+        completedCount: userCompletedTasks.length,
+      };
+    });
+
+    const sortedStats = stats
+      .filter(s => s.completedCount > 0)
+      .sort((a, b) => b.completedCount - a.completedCount);
+
+    console.log('[TaskNotificationModal] Computed completion stats for', sortedStats.length, 'staff');
+    setCompletionStats(sortedStats);
   }
 
   const now = new Date();
@@ -543,6 +614,65 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                 })}
               </div>
             )}
+
+            <div className="mt-8 pt-6 border-t-2 border-slate-200">
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
+                  <Star className="w-5 h-5 text-green-500" />
+                  Top Performers
+                </h3>
+                <p className="text-xs text-slate-500">Most tasks completed (Last 7 days)</p>
+              </div>
+
+              {completionStats.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm text-slate-600">No completed tasks yet</p>
+                  <p className="text-xs text-slate-500 mt-1">in the last 7 days</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {completionStats.slice(0, 10).map((stat, index) => {
+                    const isCurrentUser = stat.userId === user?.id;
+                    return (
+                      <div
+                        key={stat.userId}
+                        className={`rounded-lg p-3 transition-all ${
+                          isCurrentUser
+                            ? 'bg-green-100 border-2 border-green-300 shadow-md'
+                            : 'bg-white border border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 pt-0.5">
+                            {getRankIcon(index)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className={`font-semibold text-sm truncate ${
+                              isCurrentUser ? 'text-green-900' : 'text-slate-900'
+                            }`}>
+                              {stat.fullName}
+                              {isCurrentUser && (
+                                <span className="ml-2 text-xs font-normal text-green-600">(You)</span>
+                              )}
+                            </h4>
+                            <div className="flex items-center gap-1 mt-2">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                              <span className="text-xs font-bold text-green-600">
+                                {stat.completedCount}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                task{stat.completedCount !== 1 ? 's' : ''} completed
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
