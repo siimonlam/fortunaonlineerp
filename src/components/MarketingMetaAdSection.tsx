@@ -348,12 +348,15 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .limit(10000);
 
       if (!monthlyData || monthlyData.length === 0) {
+        console.log(`No monthly data found for account ${accountId}, month range ${monthStart} to ${monthEnd}`);
         setCampaigns([]);
         setAdSets([]);
         setCreatives([]);
         setDemographics([]);
         return;
       }
+
+      console.log(`Found ${monthlyData.length} monthly insight records for account ${accountId}`);
 
       // Fetch campaign metadata (objective, status)
       const campaignIds = [...new Set(monthlyData.map(d => d.campaign_id).filter(Boolean))];
@@ -472,6 +475,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         action_breakdown: Object.fromEntries(campaign.action_breakdown || new Map())
       }));
 
+      console.log(`Loaded ${metrics.length} campaigns:`, metrics.map(m => ({ id: m.campaign_id, name: m.name, account: m.account_id })));
       setCampaigns(metrics);
 
       if (metrics.length > 0) {
