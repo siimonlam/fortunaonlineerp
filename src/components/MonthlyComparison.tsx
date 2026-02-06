@@ -473,20 +473,29 @@ export default function MonthlyComparison({ accountId }: Props) {
   };
 
   const fetchAdSetComparison = async () => {
-    // Query from meta_ad_monthly_insights and aggregate by adset
-    const { data: month1Data } = await supabase
-      .from('meta_ad_monthly_insights')
-      .select('adset_id, adset_name, spend, impressions, clicks, reach, results, sales, leads, traffic, engagement, awareness, app_installs')
+    console.log(`=== FETCHING AD SET COMPARISON ===`);
+    console.log(`Account: ${accountId}, Month1: ${month1}, Month2: ${month2}`);
+
+    // Query from meta_monthly_demographics and aggregate by adset
+    const { data: month1Data, error: error1 } = await supabase
+      .from('meta_monthly_demographics')
+      .select('adset_id, adset_name, spend, impressions, clicks, reach, results, conversions, sales, sales_purchase, sales_add_to_cart, sales_initiate_checkout, leads, traffic, engagement, awareness, app_installs')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
       .lt('month_year', getNextMonthStart(month1));
 
-    const { data: month2Data } = await supabase
-      .from('meta_ad_monthly_insights')
-      .select('adset_id, adset_name, spend, impressions, clicks, reach, results, sales, leads, traffic, engagement, awareness, app_installs')
+    const { data: month2Data, error: error2 } = await supabase
+      .from('meta_monthly_demographics')
+      .select('adset_id, adset_name, spend, impressions, clicks, reach, results, conversions, sales, sales_purchase, sales_add_to_cart, sales_initiate_checkout, leads, traffic, engagement, awareness, app_installs')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
       .lt('month_year', getNextMonthStart(month2));
+
+    if (error1) console.error('Error fetching month1 adset data:', error1);
+    if (error2) console.error('Error fetching month2 adset data:', error2);
+
+    console.log(`Month1 data: ${month1Data?.length || 0} records`);
+    console.log(`Month2 data: ${month2Data?.length || 0} records`);
 
     const adsetMap = new Map<string, AdSetComparison>();
 
@@ -558,23 +567,33 @@ export default function MonthlyComparison({ accountId }: Props) {
       (b.month1.spend + b.month2.spend) - (a.month1.spend + a.month2.spend)
     );
 
+    console.log(`Final adset comparisons: ${sorted.length} ad sets`);
     setAdSetComparisons(sorted);
   };
 
   const fetchDemographicComparison = async () => {
-    const { data: month1Data } = await supabase
-      .from('meta_ad_monthly_demographics')
+    console.log(`=== FETCHING DEMOGRAPHIC COMPARISON ===`);
+    console.log(`Account: ${accountId}, Month1: ${month1}, Month2: ${month2}`);
+
+    const { data: month1Data, error: error1 } = await supabase
+      .from('meta_monthly_demographics')
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
       .lt('month_year', getNextMonthStart(month1));
 
-    const { data: month2Data } = await supabase
-      .from('meta_ad_monthly_demographics')
+    const { data: month2Data, error: error2 } = await supabase
+      .from('meta_monthly_demographics')
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
       .lt('month_year', getNextMonthStart(month2));
+
+    if (error1) console.error('Error fetching month1 demographic data:', error1);
+    if (error2) console.error('Error fetching month2 demographic data:', error2);
+
+    console.log(`Month1 demographic data: ${month1Data?.length || 0} records`);
+    console.log(`Month2 demographic data: ${month2Data?.length || 0} records`);
 
     const demoMap = new Map<string, DemographicComparison>();
     const genderMap = new Map<string, GenderComparison>();
@@ -742,13 +761,19 @@ export default function MonthlyComparison({ accountId }: Props) {
       age.month2.cpm = age.month2.impressions > 0 ? (age.month2.spend / age.month2.impressions) * 1000 : 0;
     });
 
-    setDemographicComparisons(Array.from(demoMap.values()));
-    setGenderComparisons(Array.from(genderMap.values()).sort((a, b) =>
+    const demoArray = Array.from(demoMap.values());
+    const genderArray = Array.from(genderMap.values()).sort((a, b) =>
       (b.month1.spend + b.month2.spend) - (a.month1.spend + a.month2.spend)
-    ));
-    setAgeComparisons(Array.from(ageMap.values()).sort((a, b) =>
+    );
+    const ageArray = Array.from(ageMap.values()).sort((a, b) =>
       (b.month1.spend + b.month2.spend) - (a.month1.spend + a.month2.spend)
-    ));
+    );
+
+    console.log(`Final demographic comparisons: ${demoArray.length} combined, ${genderArray.length} genders, ${ageArray.length} ages`);
+
+    setDemographicComparisons(demoArray);
+    setGenderComparisons(genderArray);
+    setAgeComparisons(ageArray);
   };
 
   const fetchPlatformComparison = async () => {
