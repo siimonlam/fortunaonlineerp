@@ -199,14 +199,40 @@ export default function MonthlyComparison({ accountId }: Props) {
     console.log('Month1 (', month1, ') data rows:', month1Data?.length || 0, 'Sample:', month1Data?.[0]);
     console.log('Month2 (', month2, ') data rows:', month2Data?.length || 0, 'Sample:', month2Data?.[0]);
 
+    // Fetch campaign objectives to apply correct aggregation logic
+    const allCampaignIds = [...new Set([
+      ...(month1Data || []).map(d => d.campaign_id),
+      ...(month2Data || []).map(d => d.campaign_id)
+    ].filter(Boolean))];
+
+    const { data: campaignMeta } = await supabase
+      .from('meta_campaigns')
+      .select('campaign_id, objective')
+      .in('campaign_id', allCampaignIds);
+
+    const campaignObjectiveMap = new Map((campaignMeta || []).map(c => [c.campaign_id, c.objective]));
+
     const aggregateMetrics = (data: any[]): ComparisonMetrics => {
-      const totals = data.reduce((acc, row) => ({
-        spend: acc.spend + (Number(row.spend) || 0),
-        impressions: acc.impressions + (Number(row.impressions) || 0),
-        clicks: acc.clicks + (Number(row.clicks) || 0),
-        reach: acc.reach + (Number(row.reach) || 0),
-        results: acc.results + (Number(row.results) || 0)
-      }), { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0 });
+      const totals = data.reduce((acc, row) => {
+        const objective = campaignObjectiveMap.get(row.campaign_id) || '';
+        const upperObjective = objective.toUpperCase();
+        let results = 0;
+
+        // Match Campaigns tab logic: for OUTCOME_SALES, sum the breakdown columns
+        if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
+          results = (Number(row.sales_purchase) || 0) + (Number(row.sales_add_to_cart) || 0) + (Number(row.sales_initiate_checkout) || 0);
+        } else {
+          results = Number(row.results) || 0;
+        }
+
+        return {
+          spend: acc.spend + (Number(row.spend) || 0),
+          impressions: acc.impressions + (Number(row.impressions) || 0),
+          clicks: acc.clicks + (Number(row.clicks) || 0),
+          reach: acc.reach + (Number(row.reach) || 0),
+          results: acc.results + results
+        };
+      }, { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0 });
 
       return {
         ...totals,
@@ -254,14 +280,14 @@ export default function MonthlyComparison({ accountId }: Props) {
 
     const { data: month1Data } = await supabase
       .from('meta_monthly_insights')
-      .select('campaign_id, spend, impressions, clicks, reach, results')
+      .select('campaign_id, spend, impressions, clicks, reach, results, sales_purchase, sales_add_to_cart, sales_initiate_checkout')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
       .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
       .from('meta_monthly_insights')
-      .select('campaign_id, spend, impressions, clicks, reach, results')
+      .select('campaign_id, spend, impressions, clicks, reach, results, sales_purchase, sales_add_to_cart, sales_initiate_checkout')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
       .lt('month_year', getNextMonthStart(month2));
@@ -282,7 +308,14 @@ export default function MonthlyComparison({ accountId }: Props) {
       obj.month1.impressions += Number(row.impressions) || 0;
       obj.month1.clicks += Number(row.clicks) || 0;
       obj.month1.reach += Number(row.reach) || 0;
-      obj.month1.results += Number(row.results) || 0;
+
+      // Match Campaigns tab logic: for OUTCOME_SALES, sum the breakdown columns
+      const upperObjective = objective.toUpperCase();
+      if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
+        obj.month1.results += (Number(row.sales_purchase) || 0) + (Number(row.sales_add_to_cart) || 0) + (Number(row.sales_initiate_checkout) || 0);
+      } else {
+        obj.month1.results += Number(row.results) || 0;
+      }
     });
 
     (month2Data || []).forEach(row => {
@@ -299,7 +332,14 @@ export default function MonthlyComparison({ accountId }: Props) {
       obj.month2.impressions += Number(row.impressions) || 0;
       obj.month2.clicks += Number(row.clicks) || 0;
       obj.month2.reach += Number(row.reach) || 0;
-      obj.month2.results += Number(row.results) || 0;
+
+      // Match Campaigns tab logic: for OUTCOME_SALES, sum the breakdown columns
+      const upperObjective = objective.toUpperCase();
+      if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
+        obj.month2.results += (Number(row.sales_purchase) || 0) + (Number(row.sales_add_to_cart) || 0) + (Number(row.sales_initiate_checkout) || 0);
+      } else {
+        obj.month2.results += Number(row.results) || 0;
+      }
     });
 
     objectiveMap.forEach(obj => {
@@ -349,14 +389,14 @@ export default function MonthlyComparison({ accountId }: Props) {
 
     const { data: month1Data } = await supabase
       .from('meta_monthly_insights')
-      .select('campaign_id, campaign_name, spend, impressions, clicks, reach, results, ctr, cpc, cpm')
+      .select('campaign_id, campaign_name, spend, impressions, clicks, reach, results, ctr, cpc, cpm, sales_purchase, sales_add_to_cart, sales_initiate_checkout')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
       .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
       .from('meta_monthly_insights')
-      .select('campaign_id, campaign_name, spend, impressions, clicks, reach, results, ctr, cpc, cpm')
+      .select('campaign_id, campaign_name, spend, impressions, clicks, reach, results, ctr, cpc, cpm, sales_purchase, sales_add_to_cart, sales_initiate_checkout')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
       .lt('month_year', getNextMonthStart(month2));
@@ -378,7 +418,14 @@ export default function MonthlyComparison({ accountId }: Props) {
       campaign.month1.impressions += Number(row.impressions) || 0;
       campaign.month1.clicks += Number(row.clicks) || 0;
       campaign.month1.reach += Number(row.reach) || 0;
-      campaign.month1.results += Number(row.results) || 0;
+
+      // Match Campaigns tab logic: for OUTCOME_SALES, sum the breakdown columns
+      const upperObjective = campaign.objective.toUpperCase();
+      if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
+        campaign.month1.results += (Number(row.sales_purchase) || 0) + (Number(row.sales_add_to_cart) || 0) + (Number(row.sales_initiate_checkout) || 0);
+      } else {
+        campaign.month1.results += Number(row.results) || 0;
+      }
     });
 
     (month2Data || []).forEach(row => {
@@ -396,7 +443,14 @@ export default function MonthlyComparison({ accountId }: Props) {
       campaign.month2.impressions += Number(row.impressions) || 0;
       campaign.month2.clicks += Number(row.clicks) || 0;
       campaign.month2.reach += Number(row.reach) || 0;
-      campaign.month2.results += Number(row.results) || 0;
+
+      // Match Campaigns tab logic: for OUTCOME_SALES, sum the breakdown columns
+      const upperObjective = campaign.objective.toUpperCase();
+      if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
+        campaign.month2.results += (Number(row.sales_purchase) || 0) + (Number(row.sales_add_to_cart) || 0) + (Number(row.sales_initiate_checkout) || 0);
+      } else {
+        campaign.month2.results += Number(row.results) || 0;
+      }
     });
 
     campaignMap.forEach(campaign => {
@@ -413,15 +467,16 @@ export default function MonthlyComparison({ accountId }: Props) {
   };
 
   const fetchAdSetComparison = async () => {
+    // Use meta_monthly_demographics to match Ad Sets tab
     const { data: month1Data } = await supabase
-      .from('meta_monthly_insights')
+      .from('meta_monthly_demographics')
       .select('adset_id, adset_name, spend, impressions, clicks, reach, results')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
       .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
-      .from('meta_monthly_insights')
+      .from('meta_monthly_demographics')
       .select('adset_id, adset_name, spend, impressions, clicks, reach, results')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
@@ -705,23 +760,25 @@ export default function MonthlyComparison({ accountId }: Props) {
   };
 
   const fetchResultTypeComparison = async () => {
+    // Use meta_monthly_demographics for result types to match individual tabs
     const { data: month1Data } = await supabase
-      .from('meta_monthly_insights')
-      .select('sales, leads, traffic, engagement, awareness, app_installs')
+      .from('meta_monthly_demographics')
+      .select('sales, sales_purchase, sales_add_to_cart, sales_initiate_checkout, leads, traffic, engagement, awareness, app_installs')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
       .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
-      .from('meta_monthly_insights')
-      .select('sales, leads, traffic, engagement, awareness, app_installs')
+      .from('meta_monthly_demographics')
+      .select('sales, sales_purchase, sales_add_to_cart, sales_initiate_checkout, leads, traffic, engagement, awareness, app_installs')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
       .lt('month_year', getNextMonthStart(month2));
 
     const aggregateResultTypes = (data: any[]): Record<string, number> => {
       return data.reduce((acc, row) => ({
-        sales: acc.sales + (Number(row.sales) || 0),
+        // For sales, use the breakdown columns which are the source of truth
+        sales: acc.sales + (Number(row.sales_purchase) || 0) + (Number(row.sales_add_to_cart) || 0) + (Number(row.sales_initiate_checkout) || 0),
         leads: acc.leads + (Number(row.leads) || 0),
         traffic: acc.traffic + (Number(row.traffic) || 0),
         engagement: acc.engagement + (Number(row.engagement) || 0),
