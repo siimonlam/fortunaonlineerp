@@ -309,6 +309,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   };
 
   const loadCampaignMetrics = async (accountId: string) => {
+    console.log(`=== LOADING CAMPAIGN METRICS ===`);
+    console.log(`Account ID: ${accountId}, Selected Month: ${selectedMonth}`);
     try {
       let monthStart: string;
       let monthEnd: string;
@@ -339,6 +341,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       }
 
       // Query monthly insights for the selected time range
+      console.log(`Querying meta_monthly_insights for account ${accountId}, range ${monthStart} to ${monthEnd}`);
       const { data: monthlyData } = await supabase
         .from('meta_monthly_insights')
         .select('*')
@@ -346,6 +349,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .gte('month_year', monthStart)
         .lt('month_year', monthEnd)
         .limit(10000);
+
+      console.log(`Query returned ${monthlyData?.length || 0} records`);
 
       if (!monthlyData || monthlyData.length === 0) {
         console.log(`No monthly data found for account ${accountId}, month range ${monthStart} to ${monthEnd}`);
@@ -497,8 +502,11 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   };
 
   const loadDemographics = async (accountId: string, campaignIds?: string[], monthStart?: string, monthEnd?: string) => {
+    console.log(`=== LOADING DEMOGRAPHICS ===`);
+    console.log(`Account: ${accountId}, Campaign IDs: ${campaignIds?.length || 0}, Range: ${monthStart} to ${monthEnd}`);
     try {
       if (!campaignIds || campaignIds.length === 0) {
+        console.log('No campaign IDs, skipping demographics');
         setDemographics([]);
         return;
       }
@@ -512,6 +520,8 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .lt('month_year', monthEnd || '2099-12-31')
         .limit(10000);
 
+      console.log(`Demographics query returned ${demographics?.length || 0} records`);
+
       if (demographicsError) {
         console.error('Error fetching demographic data:', demographicsError);
         setDemographics([]);
@@ -519,6 +529,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       }
 
       if (!demographics || demographics.length === 0) {
+        console.log('No demographic data found, setting empty array');
         setDemographics([]);
         return;
       }
@@ -664,13 +675,17 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
   };
 
   const loadAdSets = async (accountId: string, campaignIds?: string[], monthStart?: string, monthEnd?: string) => {
+    console.log(`=== LOADING AD SETS ===`);
+    console.log(`Account: ${accountId}, Campaign IDs: ${campaignIds?.length || 0}, Range: ${monthStart} to ${monthEnd}`);
     try {
       if (!accountId) {
+        console.log('No account ID, skipping ad sets');
         setAdSets([]);
         return;
       }
 
       if (!campaignIds || campaignIds.length === 0) {
+        console.log('No campaign IDs, skipping ad sets');
         setAdSets([]);
         return;
       }
@@ -684,7 +699,10 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .gte('month_year', monthStart || '2000-01-01')
         .lt('month_year', monthEnd || '2099-12-31');
 
+      console.log(`Ad Sets query returned ${demographicsData?.length || 0} demographic records`);
+
       if (!demographicsData || demographicsData.length === 0) {
+        console.log('No demographic data for ad sets, setting empty array');
         setAdSets([]);
         return;
       }
