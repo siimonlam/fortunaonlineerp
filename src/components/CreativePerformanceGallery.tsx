@@ -51,12 +51,30 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
-  useEffect(() => {
-    fetchCreativePerformance();
-  }, [accountId, dateRange]);
+  // Sort function
+  const sortCreatives = (items: AdPerformance[], field: SortField, direction: SortDirection) => {
+    return [...items].sort((a, b) => {
+      const aValue = a[field];
+      const bValue = b[field];
+
+      if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
 
   // Sort creatives whenever sort field or direction changes
   const creatives = sortCreatives(rawCreatives, sortField, sortDirection);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(creatives.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCreatives = creatives.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    fetchCreativePerformance();
+  }, [accountId, dateRange]);
 
   const fetchCreativePerformance = async () => {
     try {
@@ -244,17 +262,6 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
     }
   };
 
-  const sortCreatives = (items: AdPerformance[], field: SortField, direction: SortDirection) => {
-    return [...items].sort((a, b) => {
-      const aValue = a[field];
-      const bValue = b[field];
-
-      if (aValue < bValue) return direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  };
-
   const handleSort = (field: SortField) => {
     const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
     setSortField(field);
@@ -267,23 +274,17 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
     setCurrentPage(1); // Reset to first page when changing items per page
   };
 
-  // Pagination calculations
-  const totalPages = Math.ceil(creatives.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedCreatives = creatives.slice(startIndex, endIndex);
-
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleRefresh = async () => {
+    await fetchCreativePerformance();
   };
 
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
     return sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
-  };
-
-  const handleRefresh = async () => {
-    await fetchCreativePerformance();
   };
 
   if (!accountId) {
