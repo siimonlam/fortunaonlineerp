@@ -4887,6 +4887,16 @@ export function ProjectBoard() {
                       console.log('CSV Headers:', headers);
                       console.log('Total data rows:', lines.length - 1);
 
+                      // First, fetch all existing client numbers from database
+                      const { data: existingClients } = await supabase
+                        .from('clients')
+                        .select('client_number');
+
+                      const existingClientNumbers = new Set(
+                        existingClients?.map(c => c.client_number).filter(Boolean) || []
+                      );
+                      console.log('Existing client numbers in database:', Array.from(existingClientNumbers));
+
                       for (let i = 1; i < lines.length; i++) {
                         const values = lines[i].match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => v.trim().replace(/^"(.*)"$/, '$1')) || [];
                         const client: any = {};
@@ -4900,11 +4910,14 @@ export function ProjectBoard() {
                         console.log(`Row ${i} parsed client:`, client);
 
                         if (client.name) {
-                          if (client.client_number && client.client_number.trim()) {
-                            console.log(`Row ${i}: Adding to updateClients (has client_number: ${client.client_number})`);
+                          // Check if client_number exists in DATABASE (not just in CSV)
+                          if (client.client_number && client.client_number.trim() && existingClientNumbers.has(client.client_number.trim())) {
+                            console.log(`Row ${i}: Adding to updateClients (client_number ${client.client_number} exists in DB)`);
                             updateClients.push(client);
                           } else {
-                            console.log(`Row ${i}: Adding to newClients (no client_number)`);
+                            console.log(`Row ${i}: Adding to newClients (client_number ${client.client_number || 'empty'} not in DB)`);
+                            // Remove client_number from new clients - let DB auto-generate
+                            delete client.client_number;
                             client.created_by = user?.id;
                             newClients.push(client);
                           }
@@ -4952,12 +4965,20 @@ export function ProjectBoard() {
                             }
                           });
 
-                          const { error } = await supabase
+                          const { data, error } = await supabase
                             .from('clients')
                             .update(updateData)
-                            .eq('client_number', clientNumber);
+                            .eq('client_number', clientNumber)
+                            .select();
 
-                          if (!error) updatedCount++;
+                          if (error) {
+                            console.error(`Failed to update client ${clientNumber}:`, error);
+                          } else if (data && data.length > 0) {
+                            updatedCount++;
+                            console.log(`Successfully updated client ${clientNumber}`);
+                          } else {
+                            console.warn(`Client ${clientNumber} not found - no rows updated`);
+                          }
                         }
                       }
 
@@ -4965,7 +4986,16 @@ export function ProjectBoard() {
                       if (insertedCount > 0) successMsg.push(`${insertedCount} new clients imported`);
                       if (updatedCount > 0) successMsg.push(`${updatedCount} clients updated`);
 
-                      setImportProgress(`Success! ${successMsg.join(', ')}!`);
+                      const failedUpdates = updateClients.length - updatedCount;
+                      if (failedUpdates > 0) {
+                        successMsg.push(`${failedUpdates} update(s) failed (client not found)`);
+                      }
+
+                      if (successMsg.length > 0) {
+                        setImportProgress(`Success! ${successMsg.join(', ')}!`);
+                      } else {
+                        setImportProgress('No changes made - all client numbers not found in database');
+                      }
 
                       await loadClientsViewData();
 
