@@ -4767,18 +4767,10 @@ export function ProjectBoard() {
           setSelectedTaskUser('all');
           loadMyTasks();
         }}
-        className="fixed bottom-24 left-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105 z-50"
+        className="fixed bottom-6 left-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105 z-50"
       >
         <CheckSquare className="w-5 h-5" />
         My Tasks
-      </button>
-
-      <button
-        onClick={() => setShowTaskSummary(true)}
-        className="fixed bottom-6 left-6 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105 z-50"
-      >
-        <BarChart3 className="w-5 h-5" />
-        Your Task Summary
       </button>
 
       {showImportModal && (
@@ -5035,7 +5027,16 @@ export function ProjectBoard() {
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-200">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-slate-900">{isAdmin ? 'All Tasks' : 'My Tasks'}</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold text-slate-900">{isAdmin ? 'All Tasks' : 'My Tasks'}</h2>
+                  <button
+                    onClick={() => setShowTaskSummary(true)}
+                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Your Task Summary
+                  </button>
+                </div>
                 <button
                   onClick={() => setShowMyTasks(false)}
                   className="text-slate-400 hover:text-slate-600 transition-colors"
