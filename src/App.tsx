@@ -90,19 +90,38 @@ function AppContent() {
         const currentMinutes = now.getMinutes();
         const currentSeconds = now.getSeconds();
 
-        if ((currentMinutes === 0 || currentMinutes === 30) && currentSeconds === 0) {
+        // Check if we're at :00 or :30 minutes mark (within first 5 seconds to account for timing drift)
+        if ((currentMinutes === 0 || currentMinutes === 30) && currentSeconds < 5) {
           const lastShownKey = 'task_summary_last_shown';
+          const lastCheckKey = 'task_summary_last_check';
           const lastShown = localStorage.getItem(lastShownKey);
+          const lastCheck = localStorage.getItem(lastCheckKey);
+
+          // Prevent multiple triggers within the same minute
+          const currentMinuteKey = `${now.getHours()}:${currentMinutes}`;
+          if (lastCheck === currentMinuteKey) {
+            return;
+          }
+          localStorage.setItem(lastCheckKey, currentMinuteKey);
 
           if (lastShown) {
             const lastShownTime = new Date(lastShown);
             const timeDiff = now.getTime() - lastShownTime.getTime();
             const minutesDiff = timeDiff / (1000 * 60);
 
+            console.log(`[Task Summary Check] Time: ${now.toLocaleTimeString()}, Minutes since last shown: ${minutesDiff.toFixed(1)}`);
+
             if (minutesDiff >= 30) {
+              console.log('[Task Summary] Showing task summary now');
               localStorage.setItem(lastShownKey, now.toISOString());
               setShowTaskSummary(true);
+            } else {
+              console.log(`[Task Summary] Skipping - only ${minutesDiff.toFixed(1)} minutes since last shown`);
             }
+          } else {
+            // First time - initialize but don't show (already shown on page load)
+            console.log('[Task Summary] Initializing timestamp');
+            localStorage.setItem(lastShownKey, now.toISOString());
           }
         }
       }, 1000);
