@@ -1292,6 +1292,304 @@ Deno.serve(async (req: Request) => {
       console.log(`⚠ No ad insights to upsert\n`);
     }
 
+    console.log('\n=== AGGREGATING AD-LEVEL MONTHLY INSIGHTS ===\n');
+
+    let totalAdMonthlyInsightsUpserted = 0;
+    let totalAdMonthlyDemographicsUpserted = 0;
+
+    // Fetch ad-level insights from the database and aggregate by ad_id + month
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,impressions,reach,spend,clicks,ctr,cpc,cpm,frequency,unique_clicks,unique_ctr,inline_link_clicks,inline_link_click_ctr,outbound_clicks,video_views,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,conversions,conversion_values,cost_per_conversion,quality_ranking,engagement_rate_ranking,conversion_rate_ranking,actions,date_start,date_stop&${timeRangeParam}&time_increment=monthly&limit=100&access_token=${accessToken}`;
+
+    const adMonthlyInsightsToUpsert: any[] = [];
+    pageCount = 0;
+
+    // Get ad data with creative references
+    const { data: existingAdsWithCreative } = await supabase
+      .from('meta_ads')
+      .select('ad_id, name, creative_id, client_number, marketing_reference')
+      .eq('account_id', accountId);
+
+    const adsWithCreativeMap = new Map((existingAdsWithCreative || []).map(a => [a.ad_id, a]));
+
+    while (nextPageUrl) {
+      try {
+        pageCount++;
+        console.log(`Fetching ad monthly insights page ${pageCount}...`);
+
+        const response = await fetchWithRetry(nextPageUrl);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: { message: errorText } };
+          }
+          const errorMsg = `Failed to fetch ad monthly insights (page ${pageCount}): ${errorData.error?.message || response.statusText}`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+          break;
+        }
+
+        const data = await response.json();
+        const insights = data.data || [];
+
+        console.log(`Ad monthly insights page ${pageCount}: ${insights.length} records`);
+
+        for (const insight of insights) {
+          try {
+            const monthYear = insight.date_start;
+            const adId = insight.ad_id;
+
+            const adData = adsWithCreativeMap.get(adId);
+            const adsetData = adsetMap.get(insight.adset_id);
+
+            let campaignData = null;
+            if (insight.campaign_id) {
+              campaignData = campaignMap.get(insight.campaign_id);
+            }
+            if (!campaignData && adsetData?.campaign_id) {
+              campaignData = campaignMap.get(adsetData.campaign_id);
+            }
+            const campaignObjective = campaignData?.objective || null;
+
+            const resultData = calculateResults(insight.actions, campaignObjective);
+            const results = resultData.value;
+            const resultType = resultData.type;
+
+            const objectiveMetrics = calculateObjectiveMetrics(insight.actions, campaignObjective);
+
+            const record = {
+              account_id: accountId,
+              ad_id: adId,
+              ad_name: insight.ad_name || adData?.name || null,
+              adset_id: insight.adset_id,
+              adset_name: insight.adset_name || adsetData?.name || null,
+              campaign_id: insight.campaign_id || null,
+              campaign_name: insight.campaign_name || null,
+              account_name: accountData?.account_name || null,
+              creative_id: adData?.creative_id || null,
+              month_year: monthYear,
+              impressions: parseInt(insight.impressions || '0'),
+              reach: parseInt(insight.reach || '0'),
+              frequency: parseFloat(insight.frequency || '0'),
+              clicks: parseInt(insight.clicks || '0'),
+              unique_clicks: parseInt(insight.unique_clicks || '0'),
+              ctr: parseFloat(insight.ctr || '0'),
+              unique_ctr: parseFloat(insight.unique_ctr || '0'),
+              inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
+              inline_link_click_ctr: parseFloat(insight.inline_link_click_ctr || '0'),
+              outbound_clicks: parseInt(insight.outbound_clicks || '0'),
+              spend: parseFloat(insight.spend || '0'),
+              cpc: parseFloat(insight.cpc || '0'),
+              cpm: parseFloat(insight.cpm || '0'),
+              cpp: parseFloat(insight.cpp || '0'),
+              video_views: parseInt(insight.video_views || '0'),
+              video_avg_time_watched_actions: parseFloat(insight.video_avg_time_watched_actions || '0'),
+              video_p25_watched_actions: parseInt(insight.video_p25_watched_actions || '0'),
+              video_p50_watched_actions: parseInt(insight.video_p50_watched_actions || '0'),
+              video_p75_watched_actions: parseInt(insight.video_p75_watched_actions || '0'),
+              video_p100_watched_actions: parseInt(insight.video_p100_watched_actions || '0'),
+              conversions: parseInt(insight.conversions || '0'),
+              conversion_values: parseFloat(insight.conversion_values || '0'),
+              cost_per_conversion: parseFloat(insight.cost_per_conversion || '0'),
+              results: results,
+              result_type: resultType,
+              cost_per_result: results > 0 ? parseFloat(insight.spend || '0') / results : 0,
+              quality_ranking: insight.quality_ranking || null,
+              engagement_rate_ranking: insight.engagement_rate_ranking || null,
+              conversion_rate_ranking: insight.conversion_rate_ranking || null,
+              actions: insight.actions || null,
+              sales: objectiveMetrics.sales,
+              sales_purchase: objectiveMetrics.sales_purchase,
+              sales_initiate_checkout: objectiveMetrics.sales_initiate_checkout,
+              sales_add_to_cart: objectiveMetrics.sales_add_to_cart,
+              leads: objectiveMetrics.leads,
+              traffic: objectiveMetrics.traffic,
+              engagement: objectiveMetrics.engagement,
+              awareness: objectiveMetrics.awareness,
+              app_installs: objectiveMetrics.app_installs,
+              client_number: adData?.client_number || adsetData?.client_number || null,
+              marketing_reference: adData?.marketing_reference || adsetData?.marketing_reference || null,
+              updated_at: new Date().toISOString()
+            };
+
+            adMonthlyInsightsToUpsert.push(record);
+          } catch (error: any) {
+            console.error(`Error processing ad monthly insight record:`, error.message);
+            errors.push(`Ad monthly insight processing error: ${error.message}`);
+          }
+        }
+
+        nextPageUrl = data.paging?.next || null;
+
+        if (nextPageUrl) {
+          console.log(`More ad monthly insight pages available, continuing...\n`);
+          await delay(200);
+        } else {
+          console.log(`No more pages. Ad monthly insights complete.\n`);
+        }
+      } catch (pageError: any) {
+        console.error(`Error processing ad monthly insights page ${pageCount}:`, pageError.message);
+        errors.push(`Ad monthly insights page error: ${pageError.message}`);
+        break;
+      }
+    }
+
+    if (adMonthlyInsightsToUpsert.length > 0) {
+      console.log(`Upserting ${adMonthlyInsightsToUpsert.length} ad monthly insights...`);
+      const { error: adMonthlyInsightsError } = await supabase
+        .from('meta_ad_monthly_insights')
+        .upsert(adMonthlyInsightsToUpsert, {
+          onConflict: 'ad_id,month_year',
+          ignoreDuplicates: false
+        });
+
+      if (adMonthlyInsightsError) {
+        console.error('Ad monthly insights upsert error:', adMonthlyInsightsError.message);
+        errors.push(`Ad monthly insights upsert error: ${adMonthlyInsightsError.message}`);
+      } else {
+        totalAdMonthlyInsightsUpserted = adMonthlyInsightsToUpsert.length;
+        console.log(`✓ Successfully upserted ${totalAdMonthlyInsightsUpserted} ad monthly insights\n`);
+      }
+    }
+
+    console.log('\n=== FETCHING AD-LEVEL DEMOGRAPHIC BREAKDOWNS ===\n');
+
+    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,impressions,reach,spend,clicks,conversions,actions,date_start,date_stop&breakdowns=age,gender&${timeRangeParam}&time_increment=monthly&limit=25&access_token=${accessToken}`;
+
+    const adDemographicsToUpsert: any[] = [];
+    pageCount = 0;
+
+    while (nextPageUrl) {
+      try {
+        pageCount++;
+        console.log(`Fetching ad demographics page ${pageCount}...`);
+
+        const response = await fetchWithRetry(nextPageUrl);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: { message: errorText } };
+          }
+          const errorMsg = `Failed to fetch ad demographics (page ${pageCount}): ${errorData.error?.message || response.statusText}`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+          break;
+        }
+
+        const data = await response.json();
+        const demographics = data.data || [];
+
+        console.log(`Ad demographics page ${pageCount}: ${demographics.length} records`);
+
+        for (const demo of demographics) {
+          try {
+            const monthYear = demo.date_start;
+            const adId = demo.ad_id;
+            const ageGroup = demo.age || 'unknown';
+            const gender = demo.gender || 'unknown';
+
+            const adData = adsWithCreativeMap.get(adId);
+            const adsetData = adsetMap.get(demo.adset_id);
+
+            let campaignData = null;
+            if (demo.campaign_id) {
+              campaignData = campaignMap.get(demo.campaign_id);
+            }
+            if (!campaignData && adsetData?.campaign_id) {
+              campaignData = campaignMap.get(adsetData.campaign_id);
+            }
+            const campaignObjective = campaignData?.objective || null;
+
+            const resultData = calculateResults(demo.actions, campaignObjective);
+            const results = resultData.value;
+            const resultType = resultData.type;
+
+            const objectiveMetrics = calculateObjectiveMetrics(demo.actions, campaignObjective);
+
+            const record = {
+              account_id: accountId,
+              ad_id: adId,
+              ad_name: demo.ad_name || adData?.name || null,
+              adset_id: demo.adset_id,
+              adset_name: demo.adset_name || adsetData?.name || null,
+              campaign_id: demo.campaign_id || null,
+              campaign_name: demo.campaign_name || null,
+              month_year: monthYear,
+              age_group: ageGroup,
+              gender: gender,
+              country: null,
+              spend: parseFloat(demo.spend || '0'),
+              impressions: parseInt(demo.impressions || '0'),
+              clicks: parseInt(demo.clicks || '0'),
+              reach: parseInt(demo.reach || '0'),
+              conversions: parseInt(demo.conversions || '0'),
+              results: results,
+              result_type: resultType,
+              ctr: results > 0 && parseInt(demo.impressions || '0') > 0 ? (parseInt(demo.clicks || '0') / parseInt(demo.impressions || '0')) * 100 : 0,
+              cpc: parseInt(demo.clicks || '0') > 0 ? parseFloat(demo.spend || '0') / parseInt(demo.clicks || '0') : 0,
+              cost_per_result: results > 0 ? parseFloat(demo.spend || '0') / results : 0,
+              actions: demo.actions || null,
+              sales: objectiveMetrics.sales,
+              sales_purchase: objectiveMetrics.sales_purchase,
+              sales_initiate_checkout: objectiveMetrics.sales_initiate_checkout,
+              sales_add_to_cart: objectiveMetrics.sales_add_to_cart,
+              leads: objectiveMetrics.leads,
+              traffic: objectiveMetrics.traffic,
+              engagement: objectiveMetrics.engagement,
+              awareness: objectiveMetrics.awareness,
+              app_installs: objectiveMetrics.app_installs,
+              client_number: adData?.client_number || adsetData?.client_number || null,
+              marketing_reference: adData?.marketing_reference || adsetData?.marketing_reference || null,
+              updated_at: new Date().toISOString()
+            };
+
+            adDemographicsToUpsert.push(record);
+          } catch (error: any) {
+            console.error(`Error processing ad demographic record:`, error.message);
+            errors.push(`Ad demographic processing error: ${error.message}`);
+          }
+        }
+
+        nextPageUrl = data.paging?.next || null;
+
+        if (nextPageUrl) {
+          console.log(`More ad demographics pages available, continuing...\n`);
+          await delay(200);
+        } else {
+          console.log(`No more pages. Ad demographics complete.\n`);
+        }
+      } catch (pageError: any) {
+        console.error(`Error processing ad demographics page ${pageCount}:`, pageError.message);
+        errors.push(`Ad demographics page ${pageCount} error: ${pageError.message}`);
+        break;
+      }
+    }
+
+    if (adDemographicsToUpsert.length > 0) {
+      console.log(`Upserting ${adDemographicsToUpsert.length} ad demographics...`);
+      const { error: adDemographicsError } = await supabase
+        .from('meta_ad_monthly_demographics')
+        .upsert(adDemographicsToUpsert, {
+          onConflict: 'ad_id,month_year,age_group,gender',
+          ignoreDuplicates: false
+        });
+
+      if (adDemographicsError) {
+        console.error('Ad demographics upsert error:', adDemographicsError.message);
+        errors.push(`Ad demographics upsert error: ${adDemographicsError.message}`);
+      } else {
+        totalAdMonthlyDemographicsUpserted = adDemographicsToUpsert.length;
+        console.log(`✓ Successfully upserted ${totalAdMonthlyDemographicsUpserted} ad demographics\n`);
+      }
+    }
+
     console.log(`\n========================================`);
     console.log(`MONTHLY SYNC COMPLETE`);
     console.log(`Ad Sets Processed: ${totalAdSetsProcessed}`);
@@ -1299,6 +1597,8 @@ Deno.serve(async (req: Request) => {
     console.log(`Monthly Demographics Upserted: ${totalDemographicsUpserted}`);
     console.log(`Platform Insights Upserted: ${totalPlatformUpserted}`);
     console.log(`Ad Insights Upserted: ${totalAdInsightsUpserted}`);
+    console.log(`Ad Monthly Insights Upserted: ${totalAdMonthlyInsightsUpserted}`);
+    console.log(`Ad Monthly Demographics Upserted: ${totalAdMonthlyDemographicsUpserted}`);
     console.log(`Errors: ${errors.length}`);
     console.log(`========================================\n`);
 
@@ -1313,8 +1613,8 @@ Deno.serve(async (req: Request) => {
       .eq('account_id', accountId);
 
     const message = errors.length === 0
-      ? `Successfully synced ${totalInsightsUpserted} monthly insights, ${totalDemographicsUpserted} demographic records, and ${totalPlatformUpserted} platform records for ${totalAdSetsProcessed} ad sets`
-      : `Synced ${totalInsightsUpserted} insights, ${totalDemographicsUpserted} demographics, and ${totalPlatformUpserted} platform records with ${errors.length} errors`;
+      ? `Successfully synced ${totalInsightsUpserted} adset monthly insights, ${totalDemographicsUpserted} adset demographics, ${totalAdMonthlyInsightsUpserted} ad monthly insights, ${totalAdMonthlyDemographicsUpserted} ad demographics, and ${totalPlatformUpserted} platform records for ${totalAdSetsProcessed} ad sets`
+      : `Synced ${totalInsightsUpserted} insights, ${totalDemographicsUpserted} demographics, ${totalAdMonthlyInsightsUpserted} ad insights, ${totalAdMonthlyDemographicsUpserted} ad demographics, and ${totalPlatformUpserted} platform records with ${errors.length} errors`;
 
     return new Response(
       JSON.stringify({
@@ -1325,6 +1625,8 @@ Deno.serve(async (req: Request) => {
         totalInsightsSynced: totalInsightsUpserted,
         totalDemographicsSynced: totalDemographicsUpserted,
         totalPlatformSynced: totalPlatformUpserted,
+        totalAdMonthlyInsightsSynced: totalAdMonthlyInsightsUpserted,
+        totalAdMonthlyDemographicsSynced: totalAdMonthlyDemographicsUpserted,
         datePreset: customDateRange ? 'custom' : datePreset,
         errors: errors.length > 0 ? errors : [],
         hasMoreErrors: errors.length > 10
