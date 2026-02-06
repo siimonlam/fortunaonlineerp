@@ -868,43 +868,19 @@ export function ProjectBoard() {
     if (!user) return;
 
     try {
-      const fundingType = projectTypes.find(pt => pt.name === 'Funding Project');
-      if (!fundingType) return;
-
-      const fundingStatuses = statuses.filter(s => s.project_type_id === fundingType.id);
-      const statusIds = fundingStatuses.map(s => s.id);
-
-      const { data: fundingProjectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select('id')
-        .in('status_id', statusIds);
-
-      if (projectsError) throw projectsError;
-
-      const projectIds = (fundingProjectsData || []).map(p => p.id);
-
-      const { data: meetingsData, error: meetingsError } = await supabase
-        .from('meetings')
-        .select('id')
-        .in('project_id', projectIds);
-
-      if (meetingsError) throw meetingsError;
-
-      const meetingIds = (meetingsData || []).map(m => m.id);
-
-      if (meetingIds.length === 0) {
-        setMeetingTaskCounts({ pastDue: 0, upcoming: 0 });
-        return;
-      }
-
+      // Query all meeting tasks directly without filtering by project type
+      // This ensures we catch all meeting tasks regardless of project type
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
-        .select('id, deadline, completed')
-        .in('meeting_id', meetingIds)
+        .select('id, deadline, completed, meeting_id')
+        .not('meeting_id', 'is', null)
         .eq('completed', false)
         .not('deadline', 'is', null);
 
-      if (tasksError) throw tasksError;
+      if (tasksError) {
+        console.error('[loadMeetingTaskCounts] Tasks query error:', tasksError);
+        throw tasksError;
+      }
 
       const now = new Date();
       now.setHours(0, 0, 0, 0);
@@ -921,6 +897,7 @@ export function ProjectBoard() {
         return deadline >= now;
       }).length;
 
+      console.log('[loadMeetingTaskCounts] Meeting task counts:', { pastDue, upcoming, totalTasks: tasksData?.length });
       setMeetingTaskCounts({ pastDue, upcoming });
     } catch (error: any) {
       console.error('[loadMeetingTaskCounts] Error:', error.message);
