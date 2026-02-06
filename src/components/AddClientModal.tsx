@@ -324,13 +324,14 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 <User className="w-4 h-4 inline mr-2" />
-                Contact Person
+                Contact Person *
               </label>
               <input
                 type="text"
                 name="contactPerson"
                 value={formData.contactPerson}
                 onChange={handleChange}
+                required
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -338,13 +339,14 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 <Mail className="w-4 h-4 inline mr-2" />
-                Email
+                Email *
               </label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
+                required
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -352,13 +354,14 @@ export function AddClientModal({ clientType, onClose, onSuccess }: AddClientModa
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 <Phone className="w-4 h-4 inline mr-2" />
-                Phone
+                Phone *
               </label>
               <input
                 type="tel"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
+                required
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
