@@ -473,16 +473,16 @@ export default function MonthlyComparison({ accountId }: Props) {
   };
 
   const fetchAdSetComparison = async () => {
-    // Use meta_ad_monthly_demographics to match Ad Sets tab
+    // Query from meta_ad_monthly_insights and aggregate by adset
     const { data: month1Data } = await supabase
-      .from('meta_ad_monthly_demographics')
+      .from('meta_ad_monthly_insights')
       .select('adset_id, adset_name, spend, impressions, clicks, reach, results, sales, leads, traffic, engagement, awareness, app_installs')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
       .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
-      .from('meta_ad_monthly_demographics')
+      .from('meta_ad_monthly_insights')
       .select('adset_id, adset_name, spend, impressions, clicks, reach, results, sales, leads, traffic, engagement, awareness, app_installs')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
