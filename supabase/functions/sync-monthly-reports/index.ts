@@ -1297,162 +1297,201 @@ Deno.serve(async (req: Request) => {
     let totalAdMonthlyInsightsUpserted = 0;
     let totalAdMonthlyDemographicsUpserted = 0;
 
-    // Fetch ad-level insights from the database and aggregate by ad_id + month
-    nextPageUrl = `https://graph.facebook.com/v21.0/${formattedAccountId}/insights?level=ad&fields=ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,impressions,reach,spend,clicks,ctr,cpc,cpm,frequency,unique_clicks,unique_ctr,inline_link_clicks,inline_link_click_ctr,outbound_clicks,video_views,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,conversions,conversion_values,cost_per_conversion,quality_ranking,engagement_rate_ranking,conversion_rate_ranking,actions,date_start,date_stop&${timeRangeParam}&time_increment=monthly&limit=100&access_token=${accessToken}`;
-
-    const adMonthlyInsightsToUpsert: any[] = [];
-    pageCount = 0;
+    // Aggregate ad-level insights from existing daily data instead of fetching from API
+    // Meta API doesn't always support time_increment=monthly at level=ad
+    console.log(`Aggregating ad-level daily insights into monthly insights from database...`);
 
     // Get ad data with creative references
     const { data: existingAdsWithCreative } = await supabase
       .from('meta_ads')
-      .select('ad_id, name, creative_id, client_number, marketing_reference')
+      .select('ad_id, name, creative_id, client_number, marketing_reference, adset_id')
       .eq('account_id', accountId);
 
     const adsWithCreativeMap = new Map((existingAdsWithCreative || []).map(a => [a.ad_id, a]));
 
-    while (nextPageUrl) {
-      try {
-        pageCount++;
-        console.log(`Fetching ad monthly insights page ${pageCount}...`);
+    // Get date range for filtering
+    let startDate: string;
+    let endDate: string;
 
-        const response = await fetchWithRetry(nextPageUrl);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch {
-            errorData = { error: { message: errorText } };
-          }
-          const errorMsg = `Failed to fetch ad monthly insights (page ${pageCount}): ${errorData.error?.message || response.statusText}`;
-          console.error(errorMsg);
-          errors.push(errorMsg);
-          break;
-        }
-
-        const data = await response.json();
-        const insights = data.data || [];
-
-        console.log(`Ad monthly insights page ${pageCount}: ${insights.length} records`);
-
-        for (const insight of insights) {
-          try {
-            const monthYear = insight.date_start;
-            const adId = insight.ad_id;
-
-            const adData = adsWithCreativeMap.get(adId);
-            const adsetData = adsetMap.get(insight.adset_id);
-
-            let campaignData = null;
-            if (insight.campaign_id) {
-              campaignData = campaignMap.get(insight.campaign_id);
-            }
-            if (!campaignData && adsetData?.campaign_id) {
-              campaignData = campaignMap.get(adsetData.campaign_id);
-            }
-            const campaignObjective = campaignData?.objective || null;
-
-            const resultData = calculateResults(insight.actions, campaignObjective);
-            const results = resultData.value;
-            const resultType = resultData.type;
-
-            const objectiveMetrics = calculateObjectiveMetrics(insight.actions, campaignObjective);
-
-            const record = {
-              account_id: accountId,
-              ad_id: adId,
-              ad_name: insight.ad_name || adData?.name || null,
-              adset_id: insight.adset_id,
-              adset_name: insight.adset_name || adsetData?.name || null,
-              campaign_id: insight.campaign_id || null,
-              campaign_name: insight.campaign_name || null,
-              account_name: accountData?.account_name || null,
-              creative_id: adData?.creative_id || null,
-              month_year: monthYear,
-              impressions: parseInt(insight.impressions || '0'),
-              reach: parseInt(insight.reach || '0'),
-              frequency: parseFloat(insight.frequency || '0'),
-              clicks: parseInt(insight.clicks || '0'),
-              unique_clicks: parseInt(insight.unique_clicks || '0'),
-              ctr: parseFloat(insight.ctr || '0'),
-              unique_ctr: parseFloat(insight.unique_ctr || '0'),
-              inline_link_clicks: parseInt(insight.inline_link_clicks || '0'),
-              inline_link_click_ctr: parseFloat(insight.inline_link_click_ctr || '0'),
-              outbound_clicks: parseInt(insight.outbound_clicks || '0'),
-              spend: parseFloat(insight.spend || '0'),
-              cpc: parseFloat(insight.cpc || '0'),
-              cpm: parseFloat(insight.cpm || '0'),
-              cpp: parseFloat(insight.cpp || '0'),
-              video_views: parseInt(insight.video_views || '0'),
-              video_avg_time_watched_actions: parseFloat(insight.video_avg_time_watched_actions || '0'),
-              video_p25_watched_actions: parseInt(insight.video_p25_watched_actions || '0'),
-              video_p50_watched_actions: parseInt(insight.video_p50_watched_actions || '0'),
-              video_p75_watched_actions: parseInt(insight.video_p75_watched_actions || '0'),
-              video_p100_watched_actions: parseInt(insight.video_p100_watched_actions || '0'),
-              conversions: parseInt(insight.conversions || '0'),
-              conversion_values: parseFloat(insight.conversion_values || '0'),
-              cost_per_conversion: parseFloat(insight.cost_per_conversion || '0'),
-              results: results,
-              result_type: resultType,
-              cost_per_result: results > 0 ? parseFloat(insight.spend || '0') / results : 0,
-              quality_ranking: insight.quality_ranking || null,
-              engagement_rate_ranking: insight.engagement_rate_ranking || null,
-              conversion_rate_ranking: insight.conversion_rate_ranking || null,
-              actions: insight.actions || null,
-              sales: objectiveMetrics.sales,
-              sales_purchase: objectiveMetrics.sales_purchase,
-              sales_initiate_checkout: objectiveMetrics.sales_initiate_checkout,
-              sales_add_to_cart: objectiveMetrics.sales_add_to_cart,
-              leads: objectiveMetrics.leads,
-              traffic: objectiveMetrics.traffic,
-              engagement: objectiveMetrics.engagement,
-              awareness: objectiveMetrics.awareness,
-              app_installs: objectiveMetrics.app_installs,
-              client_number: adData?.client_number || adsetData?.client_number || null,
-              marketing_reference: adData?.marketing_reference || adsetData?.marketing_reference || null,
-              updated_at: new Date().toISOString()
-            };
-
-            adMonthlyInsightsToUpsert.push(record);
-          } catch (error: any) {
-            console.error(`Error processing ad monthly insight record:`, error.message);
-            errors.push(`Ad monthly insight processing error: ${error.message}`);
-          }
-        }
-
-        nextPageUrl = data.paging?.next || null;
-
-        if (nextPageUrl) {
-          console.log(`More ad monthly insight pages available, continuing...\n`);
-          await delay(200);
-        } else {
-          console.log(`No more pages. Ad monthly insights complete.\n`);
-        }
-      } catch (pageError: any) {
-        console.error(`Error processing ad monthly insights page ${pageCount}:`, pageError.message);
-        errors.push(`Ad monthly insights page error: ${pageError.message}`);
-        break;
-      }
+    if (customDateRange) {
+      startDate = customDateRange.since;
+      endDate = customDateRange.until;
+    } else if (datePreset === 'last_6_months') {
+      const today = new Date();
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(today.getMonth() - 6);
+      startDate = sixMonthsAgo.toISOString().split('T')[0];
+      endDate = today.toISOString().split('T')[0];
+    } else if (datePreset === 'last_12_months') {
+      const today = new Date();
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setMonth(today.getMonth() - 12);
+      startDate = twelveMonthsAgo.toISOString().split('T')[0];
+      endDate = today.toISOString().split('T')[0];
+    } else {
+      // For other presets, get last 3 months of data
+      const today = new Date();
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(today.getMonth() - 3);
+      startDate = threeMonthsAgo.toISOString().split('T')[0];
+      endDate = today.toISOString().split('T')[0];
     }
 
-    if (adMonthlyInsightsToUpsert.length > 0) {
-      console.log(`Upserting ${adMonthlyInsightsToUpsert.length} ad monthly insights...`);
-      const { error: adMonthlyInsightsError } = await supabase
-        .from('meta_ad_monthly_insights')
-        .upsert(adMonthlyInsightsToUpsert, {
-          onConflict: 'ad_id,month_year',
-          ignoreDuplicates: false
-        });
+    // Fetch daily ad insights for aggregation
+    const { data: dailyAdInsights, error: dailyInsightsError } = await supabase
+      .from('meta_ad_insights')
+      .select('*')
+      .eq('account_id', accountId)
+      .gte('date', startDate)
+      .lte('date', endDate);
 
-      if (adMonthlyInsightsError) {
-        console.error('Ad monthly insights upsert error:', adMonthlyInsightsError.message);
-        errors.push(`Ad monthly insights upsert error: ${adMonthlyInsightsError.message}`);
-      } else {
-        totalAdMonthlyInsightsUpserted = adMonthlyInsightsToUpsert.length;
-        console.log(`✓ Successfully upserted ${totalAdMonthlyInsightsUpserted} ad monthly insights\n`);
+    if (dailyInsightsError) {
+      console.error('Error fetching daily ad insights:', dailyInsightsError);
+      errors.push(`Daily ad insights fetch error: ${dailyInsightsError.message}`);
+    } else if (dailyAdInsights && dailyAdInsights.length > 0) {
+      console.log(`Found ${dailyAdInsights.length} daily ad insight records to aggregate`);
+
+      // Group by ad_id and month
+      const monthlyAggregates = new Map<string, any>();
+
+      for (const insight of dailyAdInsights) {
+        const date = new Date(insight.date);
+        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+        const key = `${insight.ad_id}_${monthYear}`;
+
+        const adData = adsWithCreativeMap.get(insight.ad_id);
+        const adsetData = adsetMap.get(insight.adset_id);
+
+        let campaignData = null;
+        if (insight.campaign_id) {
+          campaignData = campaignMap.get(insight.campaign_id);
+        }
+        if (!campaignData && adsetData?.campaign_id) {
+          campaignData = campaignMap.get(adsetData.campaign_id);
+        }
+
+        if (!monthlyAggregates.has(key)) {
+          monthlyAggregates.set(key, {
+            account_id: accountId,
+            ad_id: insight.ad_id,
+            ad_name: insight.ad_name || adData?.name || null,
+            adset_id: insight.adset_id,
+            adset_name: insight.adset_name || adsetData?.name || null,
+            campaign_id: insight.campaign_id || null,
+            campaign_name: insight.campaign_name || null,
+            account_name: accountData?.account_name || null,
+            creative_id: adData?.creative_id || null,
+            month_year: monthYear,
+            impressions: 0,
+            reach: 0,
+            frequency: 0,
+            clicks: 0,
+            unique_clicks: 0,
+            ctr: 0,
+            unique_ctr: 0,
+            inline_link_clicks: 0,
+            inline_link_click_ctr: 0,
+            outbound_clicks: 0,
+            spend: 0,
+            cpc: 0,
+            cpm: 0,
+            cpp: 0,
+            video_views: 0,
+            video_avg_time_watched_actions: 0,
+            video_p25_watched_actions: 0,
+            video_p50_watched_actions: 0,
+            video_p75_watched_actions: 0,
+            video_p100_watched_actions: 0,
+            conversions: 0,
+            conversion_values: 0,
+            cost_per_conversion: 0,
+            results: 0,
+            result_type: insight.result_type || null,
+            cost_per_result: 0,
+            quality_ranking: null,
+            engagement_rate_ranking: null,
+            conversion_rate_ranking: null,
+            actions: null,
+            sales: 0,
+            sales_purchase: 0,
+            sales_initiate_checkout: 0,
+            sales_add_to_cart: 0,
+            leads: 0,
+            traffic: 0,
+            engagement: 0,
+            awareness: 0,
+            app_installs: 0,
+            client_number: adData?.client_number || adsetData?.client_number || null,
+            marketing_reference: adData?.marketing_reference || adsetData?.marketing_reference || null,
+            updated_at: new Date().toISOString(),
+            dayCount: 0
+          });
+        }
+
+        const agg = monthlyAggregates.get(key);
+        agg.impressions += parseInt(insight.impressions || '0');
+        agg.reach += parseInt(insight.reach || '0');
+        agg.clicks += parseInt(insight.clicks || '0');
+        agg.unique_clicks += parseInt(insight.unique_clicks || '0');
+        agg.inline_link_clicks += parseInt(insight.inline_link_clicks || '0');
+        agg.outbound_clicks += parseInt(insight.outbound_clicks || '0');
+        agg.spend += parseFloat(insight.spend || '0');
+        agg.video_views += parseInt(insight.video_views || '0');
+        agg.video_p25_watched_actions += parseInt(insight.video_p25_watched_actions || '0');
+        agg.video_p50_watched_actions += parseInt(insight.video_p50_watched_actions || '0');
+        agg.video_p75_watched_actions += parseInt(insight.video_p75_watched_actions || '0');
+        agg.video_p100_watched_actions += parseInt(insight.video_p100_watched_actions || '0');
+        agg.conversions += parseInt(insight.conversions || '0');
+        agg.conversion_values += parseFloat(insight.conversion_values || '0');
+        agg.results += parseInt(insight.results || '0');
+        agg.sales += parseInt(insight.sales || '0');
+        agg.sales_purchase += parseInt(insight.sales_purchase || '0');
+        agg.sales_initiate_checkout += parseInt(insight.sales_initiate_checkout || '0');
+        agg.sales_add_to_cart += parseInt(insight.sales_add_to_cart || '0');
+        agg.leads += parseInt(insight.leads || '0');
+        agg.traffic += parseInt(insight.traffic || '0');
+        agg.engagement += parseInt(insight.engagement || '0');
+        agg.awareness += parseInt(insight.awareness || '0');
+        agg.app_installs += parseInt(insight.app_installs || '0');
+        agg.dayCount++;
       }
+
+      // Calculate averages and derived metrics
+      const adMonthlyInsightsToUpsert: any[] = [];
+      for (const [key, agg] of monthlyAggregates) {
+        agg.frequency = agg.reach > 0 ? agg.impressions / agg.reach : 0;
+        agg.ctr = agg.impressions > 0 ? (agg.clicks / agg.impressions) * 100 : 0;
+        agg.unique_ctr = agg.impressions > 0 ? (agg.unique_clicks / agg.impressions) * 100 : 0;
+        agg.inline_link_click_ctr = agg.impressions > 0 ? (agg.inline_link_clicks / agg.impressions) * 100 : 0;
+        agg.cpc = agg.clicks > 0 ? agg.spend / agg.clicks : 0;
+        agg.cpm = agg.impressions > 0 ? (agg.spend / agg.impressions) * 1000 : 0;
+        agg.cpp = agg.reach > 0 ? (agg.spend / agg.reach) * 1000 : 0;
+        agg.cost_per_conversion = agg.conversions > 0 ? agg.spend / agg.conversions : 0;
+        agg.cost_per_result = agg.results > 0 ? agg.spend / agg.results : 0;
+
+        delete agg.dayCount;
+        adMonthlyInsightsToUpsert.push(agg);
+      }
+
+      if (adMonthlyInsightsToUpsert.length > 0) {
+        console.log(`Upserting ${adMonthlyInsightsToUpsert.length} aggregated ad monthly insights...`);
+        const { error: adMonthlyInsightsError } = await supabase
+          .from('meta_ad_monthly_insights')
+          .upsert(adMonthlyInsightsToUpsert, {
+            onConflict: 'ad_id,month_year',
+            ignoreDuplicates: false
+          });
+
+        if (adMonthlyInsightsError) {
+          console.error('Ad monthly insights upsert error:', adMonthlyInsightsError.message);
+          errors.push(`Ad monthly insights upsert error: ${adMonthlyInsightsError.message}`);
+        } else {
+          totalAdMonthlyInsightsUpserted = adMonthlyInsightsToUpsert.length;
+          console.log(`✓ Successfully upserted ${totalAdMonthlyInsightsUpserted} ad monthly insights\n`);
+        }
+      }
+    } else {
+      console.log('No daily ad insights found for aggregation');
     }
 
     console.log('\n=== FETCHING AD-LEVEL DEMOGRAPHIC BREAKDOWNS ===\n');
