@@ -89,6 +89,12 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       const sinceDate = new Date(since);
       const monthStart = `${sinceDate.getFullYear()}-${String(sinceDate.getMonth() + 1).padStart(2, '0')}-01`;
 
+      // Calculate monthEnd (first day of next month) to properly filter the month range
+      const currentMonth = sinceDate.getMonth() + 1;
+      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+      const nextYear = currentMonth === 12 ? sinceDate.getFullYear() + 1 : sinceDate.getFullYear();
+      const monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
       // Fetch all ads with their creative information
       const { data: ads, error: adsError } = await supabase
         .from('meta_ads')
@@ -98,7 +104,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       if (adsError) throw adsError;
 
       if (!ads || ads.length === 0) {
-        setCreatives([]);
+        setRawCreatives([]);
         setLoading(false);
         return;
       }
@@ -116,6 +122,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
               .eq('account_id', accountId)
               .in('ad_id', adIds)
               .gte('month_year', monthStart)
+              .lt('month_year', monthEnd)
           : { data: [], error: null },
         creativeIds.length > 0
           ? supabase
