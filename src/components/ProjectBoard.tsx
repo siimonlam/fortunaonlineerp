@@ -27,7 +27,6 @@ import { TaskNotificationModal } from './TaskNotificationModal';
 import { CreateMarketingProjectModal } from './CreateMarketingProjectModal';
 import MarketingProjectDetail from './MarketingProjectDetail';
 import { AddMarketingProjectButtonModal } from './AddMarketingProjectButtonModal';
-import { TaskDueSummaryModal } from './TaskDueSummaryModal';
 
 interface Status {
   id: string;
@@ -5358,8 +5357,7 @@ export function ProjectBoard() {
       )}
 
       {showTaskSummary && user && (
-        <TaskDueSummaryModal
-          userId={user.id}
+        <TaskNotificationModal
           onClose={() => setShowTaskSummary(false)}
         />
       )}
