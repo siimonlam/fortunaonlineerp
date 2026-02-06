@@ -11,6 +11,12 @@ interface ComparisonMetrics {
   ctr: number;
   cpc: number;
   cpm: number;
+  sales: number;
+  leads: number;
+  traffic: number;
+  engagement: number;
+  awareness: number;
+  app_installs: number;
 }
 
 interface CampaignComparison {
@@ -467,17 +473,17 @@ export default function MonthlyComparison({ accountId }: Props) {
   };
 
   const fetchAdSetComparison = async () => {
-    // Use meta_monthly_demographics to match Ad Sets tab
+    // Use meta_ad_monthly_demographics to match Ad Sets tab
     const { data: month1Data } = await supabase
-      .from('meta_monthly_demographics')
-      .select('adset_id, adset_name, spend, impressions, clicks, reach, results')
+      .from('meta_ad_monthly_demographics')
+      .select('adset_id, adset_name, spend, impressions, clicks, reach, results, sales, leads, traffic, engagement, awareness, app_installs')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
       .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
-      .from('meta_monthly_demographics')
-      .select('adset_id, adset_name, spend, impressions, clicks, reach, results')
+      .from('meta_ad_monthly_demographics')
+      .select('adset_id, adset_name, spend, impressions, clicks, reach, results, sales, leads, traffic, engagement, awareness, app_installs')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
       .lt('month_year', getNextMonthStart(month2));
@@ -490,8 +496,8 @@ export default function MonthlyComparison({ accountId }: Props) {
         adsetMap.set(name, {
           name,
           adset_ids: [],
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const adset = adsetMap.get(name)!;
@@ -503,6 +509,12 @@ export default function MonthlyComparison({ accountId }: Props) {
       adset.month1.clicks += Number(row.clicks) || 0;
       adset.month1.reach += Number(row.reach) || 0;
       adset.month1.results += Number(row.results) || 0;
+      adset.month1.sales += Number(row.sales) || 0;
+      adset.month1.leads += Number(row.leads) || 0;
+      adset.month1.traffic += Number(row.traffic) || 0;
+      adset.month1.engagement += Number(row.engagement) || 0;
+      adset.month1.awareness += Number(row.awareness) || 0;
+      adset.month1.app_installs += Number(row.app_installs) || 0;
     });
 
     (month2Data || []).forEach(row => {
@@ -511,8 +523,8 @@ export default function MonthlyComparison({ accountId }: Props) {
         adsetMap.set(name, {
           name,
           adset_ids: [],
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const adset = adsetMap.get(name)!;
@@ -524,6 +536,12 @@ export default function MonthlyComparison({ accountId }: Props) {
       adset.month2.clicks += Number(row.clicks) || 0;
       adset.month2.reach += Number(row.reach) || 0;
       adset.month2.results += Number(row.results) || 0;
+      adset.month2.sales += Number(row.sales) || 0;
+      adset.month2.leads += Number(row.leads) || 0;
+      adset.month2.traffic += Number(row.traffic) || 0;
+      adset.month2.engagement += Number(row.engagement) || 0;
+      adset.month2.awareness += Number(row.awareness) || 0;
+      adset.month2.app_installs += Number(row.app_installs) || 0;
     });
 
     adsetMap.forEach(adset => {
@@ -545,14 +563,14 @@ export default function MonthlyComparison({ accountId }: Props) {
 
   const fetchDemographicComparison = async () => {
     const { data: month1Data } = await supabase
-      .from('meta_monthly_demographics')
+      .from('meta_ad_monthly_demographics')
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month1}-01`)
       .lt('month_year', getNextMonthStart(month1));
 
     const { data: month2Data } = await supabase
-      .from('meta_monthly_demographics')
+      .from('meta_ad_monthly_demographics')
       .select('*')
       .eq('account_id', accountId)
       .gte('month_year', `${month2}-01`)
@@ -568,8 +586,8 @@ export default function MonthlyComparison({ accountId }: Props) {
         demoMap.set(combKey, {
           age_group: row.age_group || 'unknown',
           gender: row.gender || 'unknown',
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const demo = demoMap.get(combKey)!;
@@ -578,13 +596,19 @@ export default function MonthlyComparison({ accountId }: Props) {
       demo.month1.clicks += Number(row.clicks) || 0;
       demo.month1.reach += Number(row.reach) || 0;
       demo.month1.results += Number(row.results) || 0;
+      demo.month1.sales += Number(row.sales) || 0;
+      demo.month1.leads += Number(row.leads) || 0;
+      demo.month1.traffic += Number(row.traffic) || 0;
+      demo.month1.engagement += Number(row.engagement) || 0;
+      demo.month1.awareness += Number(row.awareness) || 0;
+      demo.month1.app_installs += Number(row.app_installs) || 0;
 
       const gender = row.gender || 'unknown';
       if (!genderMap.has(gender)) {
         genderMap.set(gender, {
           gender,
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const genderData = genderMap.get(gender)!;
@@ -593,13 +617,19 @@ export default function MonthlyComparison({ accountId }: Props) {
       genderData.month1.clicks += Number(row.clicks) || 0;
       genderData.month1.reach += Number(row.reach) || 0;
       genderData.month1.results += Number(row.results) || 0;
+      genderData.month1.sales += Number(row.sales) || 0;
+      genderData.month1.leads += Number(row.leads) || 0;
+      genderData.month1.traffic += Number(row.traffic) || 0;
+      genderData.month1.engagement += Number(row.engagement) || 0;
+      genderData.month1.awareness += Number(row.awareness) || 0;
+      genderData.month1.app_installs += Number(row.app_installs) || 0;
 
       const age = row.age_group || 'unknown';
       if (!ageMap.has(age)) {
         ageMap.set(age, {
           age_group: age,
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const ageData = ageMap.get(age)!;
@@ -608,6 +638,12 @@ export default function MonthlyComparison({ accountId }: Props) {
       ageData.month1.clicks += Number(row.clicks) || 0;
       ageData.month1.reach += Number(row.reach) || 0;
       ageData.month1.results += Number(row.results) || 0;
+      ageData.month1.sales += Number(row.sales) || 0;
+      ageData.month1.leads += Number(row.leads) || 0;
+      ageData.month1.traffic += Number(row.traffic) || 0;
+      ageData.month1.engagement += Number(row.engagement) || 0;
+      ageData.month1.awareness += Number(row.awareness) || 0;
+      ageData.month1.app_installs += Number(row.app_installs) || 0;
     });
 
     (month2Data || []).forEach(row => {
@@ -616,8 +652,8 @@ export default function MonthlyComparison({ accountId }: Props) {
         demoMap.set(combKey, {
           age_group: row.age_group || 'unknown',
           gender: row.gender || 'unknown',
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const demo = demoMap.get(combKey)!;
@@ -626,13 +662,19 @@ export default function MonthlyComparison({ accountId }: Props) {
       demo.month2.clicks += Number(row.clicks) || 0;
       demo.month2.reach += Number(row.reach) || 0;
       demo.month2.results += Number(row.results) || 0;
+      demo.month2.sales += Number(row.sales) || 0;
+      demo.month2.leads += Number(row.leads) || 0;
+      demo.month2.traffic += Number(row.traffic) || 0;
+      demo.month2.engagement += Number(row.engagement) || 0;
+      demo.month2.awareness += Number(row.awareness) || 0;
+      demo.month2.app_installs += Number(row.app_installs) || 0;
 
       const gender = row.gender || 'unknown';
       if (!genderMap.has(gender)) {
         genderMap.set(gender, {
           gender,
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const genderData = genderMap.get(gender)!;
@@ -641,13 +683,19 @@ export default function MonthlyComparison({ accountId }: Props) {
       genderData.month2.clicks += Number(row.clicks) || 0;
       genderData.month2.reach += Number(row.reach) || 0;
       genderData.month2.results += Number(row.results) || 0;
+      genderData.month2.sales += Number(row.sales) || 0;
+      genderData.month2.leads += Number(row.leads) || 0;
+      genderData.month2.traffic += Number(row.traffic) || 0;
+      genderData.month2.engagement += Number(row.engagement) || 0;
+      genderData.month2.awareness += Number(row.awareness) || 0;
+      genderData.month2.app_installs += Number(row.app_installs) || 0;
 
       const age = row.age_group || 'unknown';
       if (!ageMap.has(age)) {
         ageMap.set(age, {
           age_group: age,
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const ageData = ageMap.get(age)!;
@@ -656,6 +704,12 @@ export default function MonthlyComparison({ accountId }: Props) {
       ageData.month2.clicks += Number(row.clicks) || 0;
       ageData.month2.reach += Number(row.reach) || 0;
       ageData.month2.results += Number(row.results) || 0;
+      ageData.month2.sales += Number(row.sales) || 0;
+      ageData.month2.leads += Number(row.leads) || 0;
+      ageData.month2.traffic += Number(row.traffic) || 0;
+      ageData.month2.engagement += Number(row.engagement) || 0;
+      ageData.month2.awareness += Number(row.awareness) || 0;
+      ageData.month2.app_installs += Number(row.app_installs) || 0;
     });
 
     demoMap.forEach(demo => {
@@ -718,8 +772,8 @@ export default function MonthlyComparison({ accountId }: Props) {
       if (!platformMap.has(row.publisher_platform)) {
         platformMap.set(row.publisher_platform, {
           publisher_platform: row.publisher_platform,
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const platform = platformMap.get(row.publisher_platform)!;
@@ -728,14 +782,20 @@ export default function MonthlyComparison({ accountId }: Props) {
       platform.month1.clicks += Number(row.clicks) || 0;
       platform.month1.reach += Number(row.reach) || 0;
       platform.month1.results += Number(row.results) || 0;
+      platform.month1.sales += Number(row.sales) || 0;
+      platform.month1.leads += Number(row.leads) || 0;
+      platform.month1.traffic += Number(row.traffic) || 0;
+      platform.month1.engagement += Number(row.engagement) || 0;
+      platform.month1.awareness += Number(row.awareness) || 0;
+      platform.month1.app_installs += Number(row.app_installs) || 0;
     });
 
     (month2Data || []).forEach(row => {
       if (!platformMap.has(row.publisher_platform)) {
         platformMap.set(row.publisher_platform, {
           publisher_platform: row.publisher_platform,
-          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 },
-          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0 }
+          month1: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 },
+          month2: { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, ctr: 0, cpc: 0, cpm: 0, sales: 0, leads: 0, traffic: 0, engagement: 0, awareness: 0, app_installs: 0 }
         });
       }
       const platform = platformMap.get(row.publisher_platform)!;
@@ -744,6 +804,12 @@ export default function MonthlyComparison({ accountId }: Props) {
       platform.month2.clicks += Number(row.clicks) || 0;
       platform.month2.reach += Number(row.reach) || 0;
       platform.month2.results += Number(row.results) || 0;
+      platform.month2.sales += Number(row.sales) || 0;
+      platform.month2.leads += Number(row.leads) || 0;
+      platform.month2.traffic += Number(row.traffic) || 0;
+      platform.month2.engagement += Number(row.engagement) || 0;
+      platform.month2.awareness += Number(row.awareness) || 0;
+      platform.month2.app_installs += Number(row.app_installs) || 0;
     });
 
     platformMap.forEach(platform => {
@@ -1401,6 +1467,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                   <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Sales</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Leads</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Traffic</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Engagement</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Awareness</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">App Installs</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">CPC</th>
                 </tr>
@@ -1422,6 +1494,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month1.impressions.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month1.clicks.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month1.results.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month1.sales.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month1.leads.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month1.traffic.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month1.engagement.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month1.awareness.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month1.app_installs.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month1.ctr.toFixed(2)}%</td>
                       <td className="px-4 py-2 text-right text-gray-700">HK${adset.month1.cpc.toFixed(2)}</td>
                     </tr>
@@ -1431,6 +1509,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month2.impressions.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month2.clicks.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month2.results.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month2.sales.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month2.leads.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month2.traffic.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month2.engagement.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month2.awareness.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{adset.month2.app_installs.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{adset.month2.ctr.toFixed(2)}%</td>
                       <td className="px-4 py-2 text-right text-gray-700">HK${adset.month2.cpc.toFixed(2)}</td>
                     </tr>
@@ -1493,6 +1577,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                           <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Sales</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Leads</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Traffic</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Engagement</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Awareness</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">App Installs</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">CPC</th>
                         </tr>
@@ -1515,6 +1605,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                               <td className="px-4 py-2 text-right text-gray-700">{gender.month1.impressions.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{gender.month1.clicks.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{gender.month1.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.sales.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.leads.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.traffic.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.engagement.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.awareness.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month1.app_installs.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{gender.month1.ctr.toFixed(2)}%</td>
                               <td className="px-4 py-2 text-right text-gray-700">HK${gender.month1.cpc.toFixed(2)}</td>
                             </tr>
@@ -1524,6 +1620,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                               <td className="px-4 py-2 text-right text-gray-700">{gender.month2.impressions.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{gender.month2.clicks.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{gender.month2.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.sales.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.leads.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.traffic.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.engagement.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.awareness.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{gender.month2.app_installs.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{gender.month2.ctr.toFixed(2)}%</td>
                               <td className="px-4 py-2 text-right text-gray-700">HK${gender.month2.cpc.toFixed(2)}</td>
                             </tr>
@@ -1547,6 +1649,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                           <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Sales</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Leads</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Traffic</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Engagement</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Awareness</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">App Installs</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">CPC</th>
                         </tr>
@@ -1561,6 +1669,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                               <td className="px-4 py-2 text-right text-gray-700">{age.month1.impressions.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{age.month1.clicks.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{age.month1.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.sales.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.leads.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.traffic.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.engagement.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.awareness.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month1.app_installs.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{age.month1.ctr.toFixed(2)}%</td>
                               <td className="px-4 py-2 text-right text-gray-700">HK${age.month1.cpc.toFixed(2)}</td>
                             </tr>
@@ -1570,6 +1684,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                               <td className="px-4 py-2 text-right text-gray-700">{age.month2.impressions.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{age.month2.clicks.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{age.month2.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.sales.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.leads.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.traffic.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.engagement.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.awareness.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{age.month2.app_installs.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{age.month2.ctr.toFixed(2)}%</td>
                               <td className="px-4 py-2 text-right text-gray-700">HK${age.month2.cpc.toFixed(2)}</td>
                             </tr>
@@ -1594,6 +1714,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                           <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Sales</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Leads</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Traffic</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Engagement</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">Awareness</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-700">App Installs</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
                         </tr>
                       </thead>
@@ -1616,6 +1742,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                               <td className="px-4 py-2 text-right text-gray-700">{demo.month1.impressions.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{demo.month1.clicks.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{demo.month1.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.sales.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.leads.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.traffic.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.engagement.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.awareness.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month1.app_installs.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{demo.month1.ctr.toFixed(2)}%</td>
                             </tr>
                             <tr key={`${idx}-m2`} className="hover:bg-gray-50 border-b-2 border-gray-300">
@@ -1624,6 +1756,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                               <td className="px-4 py-2 text-right text-gray-700">{demo.month2.impressions.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{demo.month2.clicks.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{demo.month2.results.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.sales.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.leads.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.traffic.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.engagement.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.awareness.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{demo.month2.app_installs.toLocaleString()}</td>
                               <td className="px-4 py-2 text-right text-gray-700">{demo.month2.ctr.toFixed(2)}%</td>
                             </tr>
                           </>
@@ -1663,6 +1801,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                   <th className="px-4 py-3 text-right font-medium text-gray-700">Impressions</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">Clicks</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">Results</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Sales</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Leads</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Traffic</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Engagement</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">Awareness</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">App Installs</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">CTR</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">CPC</th>
                 </tr>
@@ -1679,6 +1823,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                       <td className="px-4 py-2 text-right text-gray-700">{platform.month1.impressions.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{platform.month1.clicks.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{platform.month1.results.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month1.sales.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month1.leads.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month1.traffic.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month1.engagement.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month1.awareness.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month1.app_installs.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{platform.month1.ctr.toFixed(2)}%</td>
                       <td className="px-4 py-2 text-right text-gray-700">HK${platform.month1.cpc.toFixed(2)}</td>
                     </tr>
@@ -1688,6 +1838,12 @@ export default function MonthlyComparison({ accountId }: Props) {
                       <td className="px-4 py-2 text-right text-gray-700">{platform.month2.impressions.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{platform.month2.clicks.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{platform.month2.results.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month2.sales.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month2.leads.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month2.traffic.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month2.engagement.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month2.awareness.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{platform.month2.app_installs.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{platform.month2.ctr.toFixed(2)}%</td>
                       <td className="px-4 py-2 text-right text-gray-700">HK${platform.month2.cpc.toFixed(2)}</td>
                     </tr>
