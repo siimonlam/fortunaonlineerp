@@ -27,6 +27,7 @@ import { TaskNotificationModal } from './TaskNotificationModal';
 import { CreateMarketingProjectModal } from './CreateMarketingProjectModal';
 import MarketingProjectDetail from './MarketingProjectDetail';
 import { AddMarketingProjectButtonModal } from './AddMarketingProjectButtonModal';
+import { TaskDueSummaryModal } from './TaskDueSummaryModal';
 
 interface Status {
   id: string;
@@ -243,6 +244,7 @@ export function ProjectBoard() {
   const [showMyTasks, setShowMyTasks] = useState(false);
   const [myTasks, setMyTasks] = useState<any[]>([]);
   const [selectedTaskUser, setSelectedTaskUser] = useState<string>('all');
+  const [showTaskSummary, setShowTaskSummary] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importProgress, setImportProgress] = useState<string>('');
@@ -5025,7 +5027,16 @@ export function ProjectBoard() {
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-200">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-slate-900">{isAdmin ? 'All Tasks' : 'My Tasks'}</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold text-slate-900">{isAdmin ? 'All Tasks' : 'My Tasks'}</h2>
+                  <button
+                    onClick={() => setShowTaskSummary(true)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Your Task Summary
+                  </button>
+                </div>
                 <button
                   onClick={() => setShowMyTasks(false)}
                   className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -5344,6 +5355,13 @@ export function ProjectBoard() {
             </div>
           </div>
         </div>
+      )}
+
+      {showTaskSummary && user && (
+        <TaskDueSummaryModal
+          userId={user.id}
+          onClose={() => setShowTaskSummary(false)}
+        />
       )}
 
       {showAddMarketingProjectButtonModal && (
