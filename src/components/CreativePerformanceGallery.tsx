@@ -83,21 +83,15 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       const creativeIds = [...new Set(ads.map(ad => ad.creative_id).filter(Boolean))] as string[];
       const adsetIds = [...new Set(ads.map(ad => ad.adset_id).filter(Boolean))] as string[];
 
-      // Fetch monthly insights, adsets, and creatives in parallel
-      const [insightsResult, adsetsResult, creativesResult] = await Promise.all([
-        adsetIds.length > 0
+      // Fetch ad-level monthly insights and creatives in parallel
+      const [insightsResult, creativesResult] = await Promise.all([
+        adIds.length > 0
           ? supabase
-              .from('meta_monthly_insights')
-              .select('adset_id, spend, impressions, clicks, conversions, results, sales, leads, traffic, engagement, awareness, app_installs')
+              .from('meta_ad_monthly_insights')
+              .select('ad_id, ad_name, creative_id, spend, impressions, clicks, conversions, conversion_values, results, sales, leads, traffic, engagement, awareness, app_installs')
               .eq('account_id', accountId)
-              .in('adset_id', adsetIds)
+              .in('ad_id', adIds)
               .gte('month_year', monthStart)
-          : { data: [], error: null },
-        adsetIds.length > 0
-          ? supabase
-              .from('meta_adsets')
-              .select('adset_id, name')
-              .in('adset_id', adsetIds)
           : { data: [], error: null },
         creativeIds.length > 0
           ? supabase
@@ -108,17 +102,17 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       ]);
 
       if (insightsResult.error) throw insightsResult.error;
-      if (adsetsResult.error) throw adsetsResult.error;
       if (creativesResult.error) throw creativesResult.error;
 
       const insightsData = insightsResult.data || [];
-      const adsetsData = adsetsResult.data || [];
       const creativesData = creativesResult.data || [];
 
-      // Create a map of adset_id to aggregated insights
-      const adsetInsightsMap = new Map<string, any>();
+      // Create a map of ad_id to aggregated insights
+      const adInsightsMap = new Map<string, any>();
       insightsData.forEach((insight: any) => {
-        const existing = adsetInsightsMap.get(insight.adset_id) || {
+        const existing = adInsightsMap.get(insight.ad_id) || {
+          ad_name: insight.ad_name || '',
+          creative_id: insight.creative_id || null,
           spend: 0,
           impressions: 0,
           clicks: 0,
@@ -133,7 +127,9 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           app_installs: 0
         };
 
-        adsetInsightsMap.set(insight.adset_id, {
+        adInsightsMap.set(insight.ad_id, {
+          ad_name: existing.ad_name || insight.ad_name,
+          creative_id: existing.creative_id || insight.creative_id,
           spend: existing.spend + (Number(insight.spend) || 0),
           impressions: existing.impressions + (Number(insight.impressions) || 0),
           clicks: existing.clicks + (Number(insight.clicks) || 0),
@@ -153,23 +149,26 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       const creativeMap = new Map(
         creativesData.map(c => [c.creative_id, c])
       );
-      const adsetNameMap = new Map(
-        adsetsData.map(a => [a.adset_id, a.name])
-      );
 
-      // Group by adset name
-      const adsetGroups = new Map<string, AdPerformance>();
+      // Group by creative_id (ads with same creative are grouped together)
+      const creativeGroups = new Map<string, AdPerformance>();
 
       ads.forEach(ad => {
-        const adsetName = ad.adset_id ? adsetNameMap.get(ad.adset_id) || 'Unknown AdSet' : 'Unknown AdSet';
-        const creative = ad.creative_id ? creativeMap.get(ad.creative_id) : null;
+        const insights = adInsightsMap.get(ad.ad_id);
 
-        if (!adsetGroups.has(adsetName)) {
-          adsetGroups.set(adsetName, {
-            ad_name: adsetName,
+        // Skip ads without insights data
+        if (!insights) return;
+
+        const creativeKey = ad.creative_id || ad.ad_id;
+        const creative = ad.creative_id ? creativeMap.get(ad.creative_id) : null;
+        const adName = insights.ad_name || ad.name || 'Unnamed Ad';
+
+        if (!creativeGroups.has(creativeKey)) {
+          creativeGroups.set(creativeKey, {
+            ad_name: adName,
             ad_ids: [],
             creative_id: ad.creative_id || null,
-            title: creative?.title || creative?.name || adsetName,
+            title: creative?.title || creative?.name || adName,
             body: creative?.body || '',
             image_url: creative?.image_url || '',
             thumbnail_url: creative?.thumbnail_url || '',
@@ -194,9 +193,23 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           });
         }
 
-        const group = adsetGroups.get(adsetName)!;
+        const group = creativeGroups.get(creativeKey)!;
         group.ad_ids.push(ad.ad_id);
         group.ad_count = group.ad_ids.length;
+
+        // Aggregate insights from this ad
+        group.spend += Number(insights.spend) || 0;
+        group.impressions += Number(insights.impressions) || 0;
+        group.clicks += Number(insights.clicks) || 0;
+        group.conversions += Number(insights.conversions) || 0;
+        group.conversion_values += Number(insights.conversion_values) || 0;
+        group.results += Number(insights.results) || 0;
+        group.sales += Number(insights.sales) || 0;
+        group.leads += Number(insights.leads) || 0;
+        group.traffic += Number(insights.traffic) || 0;
+        group.engagement += Number(insights.engagement) || 0;
+        group.awareness += Number(insights.awareness) || 0;
+        group.app_installs += Number(insights.app_installs) || 0;
 
         // Use the first creative with an image/video as the representative
         if (!group.image_url && !group.video_id && creative) {
@@ -204,47 +217,19 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
           group.thumbnail_url = creative.thumbnail_url || '';
           group.video_id = creative.video_id || '';
           group.ad_format = creative.ad_format || 'unknown';
-          group.title = creative.title || creative.name || adsetName;
+          group.title = creative.title || creative.name || adName;
           group.body = creative.body || '';
-          group.creative_id = ad.creative_id;
-        }
-      });
-
-      // Aggregate insights by adset name (each adset counted once)
-      const processedAdsets = new Set<string>();
-      ads.forEach(ad => {
-        const adsetName = ad.adset_id ? adsetNameMap.get(ad.adset_id) || 'Unknown AdSet' : 'Unknown AdSet';
-        const group = adsetGroups.get(adsetName);
-
-        if (group && ad.adset_id && !processedAdsets.has(ad.adset_id)) {
-          processedAdsets.add(ad.adset_id);
-
-          const insights = adsetInsightsMap.get(ad.adset_id);
-          if (insights) {
-            group.spend += Number(insights.spend) || 0;
-            group.impressions += Number(insights.impressions) || 0;
-            group.clicks += Number(insights.clicks) || 0;
-            group.conversions += Number(insights.conversions) || 0;
-            group.conversion_values += Number(insights.conversion_values) || 0;
-            group.results += Number(insights.results) || 0;
-            group.sales += Number(insights.sales) || 0;
-            group.leads += Number(insights.leads) || 0;
-            group.traffic += Number(insights.traffic) || 0;
-            group.engagement += Number(insights.engagement) || 0;
-            group.awareness += Number(insights.awareness) || 0;
-            group.app_installs += Number(insights.app_installs) || 0;
-          }
         }
       });
 
       // Calculate derived metrics
-      adsetGroups.forEach((group) => {
+      creativeGroups.forEach((group) => {
         group.ctr = group.impressions > 0 ? (group.clicks / group.impressions) * 100 : 0;
         group.cpc = group.clicks > 0 ? group.spend / group.clicks : 0;
         group.roas = group.spend > 0 ? group.conversion_values / group.spend : 0;
       });
 
-      const sortedAds = sortCreatives(Array.from(adsetGroups.values()), sortField, sortDirection);
+      const sortedAds = sortCreatives(Array.from(creativeGroups.values()), sortField, sortDirection);
 
       setCreatives(sortedAds);
     } catch (err: any) {
@@ -325,7 +310,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Creative Performance Gallery</h3>
           <p className="text-sm text-gray-600">
-            View ads grouped by ad name with performance metrics for the selected time period
+            View ads grouped by creative with performance metrics for the selected time period
           </p>
         </div>
         <div className="flex items-center gap-2">
