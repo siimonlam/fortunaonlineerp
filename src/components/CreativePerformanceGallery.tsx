@@ -42,7 +42,7 @@ type SortField = 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'roas' | '
 type SortDirection = 'asc' | 'desc';
 
 export default function CreativePerformanceGallery({ accountId, dateRange }: Props) {
-  const [creatives, setCreatives] = useState<AdPerformance[]>([]);
+  const [rawCreatives, setRawCreatives] = useState<AdPerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'gallery' | 'table'>('gallery');
@@ -54,6 +54,9 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
   useEffect(() => {
     fetchCreativePerformance();
   }, [accountId, dateRange]);
+
+  // Sort creatives whenever sort field or direction changes
+  const creatives = sortCreatives(rawCreatives, sortField, sortDirection);
 
   const fetchCreativePerformance = async () => {
     try {
@@ -232,9 +235,7 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
         group.roas = group.spend > 0 ? group.conversion_values / group.spend : 0;
       });
 
-      const sortedAds = sortCreatives(Array.from(creativeGroups.values()), sortField, sortDirection);
-
-      setCreatives(sortedAds);
+      setRawCreatives(Array.from(creativeGroups.values()));
     } catch (err: any) {
       console.error('Error fetching ad performance:', err);
       setError(err.message);
@@ -258,7 +259,6 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
     const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
     setSortField(field);
     setSortDirection(newDirection);
-    setCreatives(sortCreatives(creatives, field, newDirection));
     setCurrentPage(1); // Reset to first page when sorting
   };
 
