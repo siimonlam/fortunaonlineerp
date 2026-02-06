@@ -475,9 +475,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       setCampaigns(metrics);
 
       if (metrics.length > 0) {
-        loadAdSets(accountId, monthStart, monthEnd);
-        // Pass the campaign IDs to filter demographics, creatives, and platforms
+        // Pass the campaign IDs to filter ad sets, demographics, creatives, and platforms
         const visibleCampaignIds = Array.from(campaignMap.keys());
+        loadAdSets(accountId, visibleCampaignIds, monthStart, monthEnd);
         loadDemographics(accountId, visibleCampaignIds, monthStart, monthEnd);
         loadCreatives(accountId, visibleCampaignIds, monthStart, monthEnd);
         loadPlatforms(accountId, visibleCampaignIds, monthStart, monthEnd);
@@ -551,7 +551,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         return acc;
       }, {});
 
-      setDemographics(Object.values(aggregated));
+      const data = Object.values(aggregated);
+      console.log(`Loaded ${data.length} demographic records for ${campaignIds?.length || 0} campaigns`);
+      setDemographics(data);
     } catch (err: any) {
       console.error('Error loading demographics:', err);
     }
@@ -657,9 +659,14 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     return getSortedData(campaignsList) as CampaignMetrics[];
   };
 
-  const loadAdSets = async (accountId: string, monthStart: string, monthEnd: string) => {
+  const loadAdSets = async (accountId: string, campaignIds?: string[], monthStart?: string, monthEnd?: string) => {
     try {
       if (!accountId) {
+        setAdSets([]);
+        return;
+      }
+
+      if (!campaignIds || campaignIds.length === 0) {
         setAdSets([]);
         return;
       }
@@ -669,8 +676,9 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
         .from('meta_monthly_demographics')
         .select('adset_id, adset_name, campaign_id, spend, impressions, clicks, reach, results, conversions, sales, sales_purchase, sales_add_to_cart, sales_initiate_checkout, leads, traffic, engagement, awareness, app_installs')
         .eq('account_id', accountId)
-        .gte('month_year', monthStart)
-        .lt('month_year', monthEnd);
+        .in('campaign_id', campaignIds)
+        .gte('month_year', monthStart || '2000-01-01')
+        .lt('month_year', monthEnd || '2099-12-31');
 
       if (!demographicsData || demographicsData.length === 0) {
         setAdSets([]);
@@ -720,6 +728,7 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       });
 
       const metrics = Array.from(adsetNameMap.values());
+      console.log(`Loaded ${metrics.length} ad sets for ${campaignIds?.length || 0} campaigns`);
       setAdSets(metrics);
     } catch (err: any) {
       console.error('Error loading ad sets:', err);
