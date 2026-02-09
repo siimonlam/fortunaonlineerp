@@ -39,6 +39,7 @@ interface InfluencerCollab {
   post_date: string;
   sales: number;
   use_right: string[];
+  ad_boosted: boolean;
   created_at: string;
 }
 
@@ -97,6 +98,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     post_date: '',
     sales: '',
     use_right: [] as string[],
+    ad_boosted: false,
   });
 
   useEffect(() => {
@@ -248,6 +250,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         post_date: formData.post_date || null,
         sales: formData.sales ? parseFloat(formData.sales) : 0,
         use_right: formData.use_right.length > 0 ? formData.use_right : null,
+        ad_boosted: formData.ad_boosted,
         created_by: staffData?.id,
       };
 
@@ -310,6 +313,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       post_date: collab.post_date || '',
       sales: collab.sales?.toString() || '',
       use_right: collab.use_right || [],
+      ad_boosted: collab.ad_boosted || false,
     });
     setShowModal(true);
   };
@@ -413,6 +417,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       post_date: '',
       sales: '',
       use_right: [] as string[],
+      ad_boosted: false,
     });
   };
 
@@ -572,6 +577,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                     Post Date {getSortIcon('post_date')}
                   </div>
                 </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-slate-700 uppercase">Ad Boosted</th>
                 <th
                   className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase cursor-pointer hover:bg-slate-200"
                   onClick={() => handleSort('post_views')}
@@ -706,6 +712,16 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.collaboration_type || '-'}</td>
                   <td className="px-4 py-3 text-sm text-slate-900">
                     {collab.post_date ? new Date(collab.post_date).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {collab.ad_boosted ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">
+                        <TrendingUp className="w-3 h-3" />
+                        Boosted
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">-</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-900">
                     {collab.post_views?.toLocaleString() || '-'}
@@ -1164,6 +1180,21 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                       onChange={(e) => setFormData({ ...formData, post_date: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                  </div>
+
+                  <div className="flex items-center pt-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.ad_boosted}
+                        onChange={(e) => setFormData({ ...formData, ad_boosted: e.target.checked })}
+                        className="w-4 h-4 text-orange-600 border-slate-300 rounded focus:ring-orange-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4 text-orange-600" />
+                        Ad Boosted
+                      </span>
+                    </label>
                   </div>
 
                   <div>
