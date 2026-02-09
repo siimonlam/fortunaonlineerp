@@ -40,6 +40,7 @@ interface InfluencerCollab {
   sales: number;
   use_right: string[];
   ad_boosted: boolean;
+  compensation_paid: boolean;
   created_at: string;
 }
 
@@ -99,6 +100,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     sales: '',
     use_right: [] as string[],
     ad_boosted: false,
+    compensation_paid: false,
   });
 
   useEffect(() => {
@@ -251,6 +253,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         sales: formData.sales ? parseFloat(formData.sales) : 0,
         use_right: formData.use_right.length > 0 ? formData.use_right : null,
         ad_boosted: formData.ad_boosted,
+        compensation_paid: formData.compensation_paid,
         created_by: staffData?.id,
       };
 
@@ -314,6 +317,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       sales: collab.sales?.toString() || '',
       use_right: collab.use_right || [],
       ad_boosted: collab.ad_boosted || false,
+      compensation_paid: collab.compensation_paid || false,
     });
     setShowModal(true);
   };
@@ -418,6 +422,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       sales: '',
       use_right: [] as string[],
       ad_boosted: false,
+      compensation_paid: false,
     });
   };
 
@@ -699,10 +704,20 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   <td className="px-4 py-3 text-sm text-slate-900">
                     {collab.engagement ? `${collab.engagement}%` : '-'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-900">
-                    {collab.compensation_amount ?
-                      `${collab.compensation_currency || 'USD'} ${collab.compensation_amount.toLocaleString()}` :
-                      '-'}
+                  <td className="px-4 py-3 text-sm">
+                    {collab.compensation_amount ? (
+                      <div className="space-y-1">
+                        <div className="text-slate-900">
+                          {collab.compensation_currency || 'USD'} {collab.compensation_amount.toLocaleString()}
+                        </div>
+                        {collab.compensation_paid && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                            <DollarSign className="w-3 h-3" />
+                            Paid
+                          </span>
+                        )}
+                      </div>
+                    ) : '-'}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(collab.status)}`}>
@@ -1119,6 +1134,20 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                           placeholder="Type (Product, Commission...)"
                         />
                       </div>
+                    </div>
+                    <div className="mt-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.compensation_paid}
+                          onChange={(e) => setFormData({ ...formData, compensation_paid: e.target.checked })}
+                          className="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500"
+                        />
+                        <span className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                          <DollarSign className="w-4 h-4 text-green-600" />
+                          Compensation Paid
+                        </span>
+                      </label>
                     </div>
                   </div>
 
