@@ -185,6 +185,7 @@ export function ProjectBoard() {
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel' | 'inquiries'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
   const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources'>('clients');
+  const [mainSidebarCollapsed, setMainSidebarCollapsed] = useState(false);
   const [showCreateMarketingProjectModal, setShowCreateMarketingProjectModal] = useState(false);
   const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
   const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
@@ -2260,47 +2261,28 @@ export function ProjectBoard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="px-8">
-          <div className="flex justify-between items-center h-16">
-            <button
-              onClick={() => setSelectedView('projects')}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
-              title="Go to Home"
-            >
-              <img src="/512x512.jpg" alt="Logo" className="w-10 h-10 rounded-lg" />
-              <div className="flex flex-col items-start">
-                <h1 className="text-xl font-bold text-slate-900">Project Manager</h1>
-                <span className="text-xs text-slate-500">{APP_VERSION}</span>
-              </div>
-            </button>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <User className="w-4 h-4" />
-                {user?.email}
-              </div>
-              <button
-                onClick={signOut}
-                className="text-slate-600 hover:text-slate-900 p-2 rounded-lg hover:bg-slate-100 transition-colors"
-                title="Sign out"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
+    <div className="min-h-screen bg-slate-50 flex">
+      {mainSidebarCollapsed ? (
+        <div className="w-16 bg-white border-r border-slate-200 flex flex-col items-center py-4 gap-2">
+          <button
+            onClick={() => setMainSidebarCollapsed(false)}
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors mb-4"
+            title="Expand sidebar"
+          >
+            <ChevronRight size={20} />
+          </button>
+          <div className="w-10 h-10 rounded-lg overflow-hidden mb-4">
+            <img src="/512x512.jpg" alt="Logo" className="w-full h-full object-cover" />
           </div>
-        </div>
-
-        <div className="px-8 py-3 bg-slate-50 border-t border-slate-200">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 flex-1">
             {projectTypes
               .filter((type) => type.name !== 'Com Sec')
               .filter((type) => isAdmin || projectTypePermissions.includes(type.id))
               .map((type) => {
                 const getIcon = () => {
-                  if (type.name === 'Funding Project') return <DollarSign className="w-4 h-4" />;
-                  if (type.name === 'Marketing') return <TrendingUp className="w-4 h-4" />;
-                  return <LayoutGrid className="w-4 h-4" />;
+                  if (type.name === 'Funding Project') return <DollarSign className="w-5 h-5" />;
+                  if (type.name === 'Marketing') return <TrendingUp className="w-5 h-5" />;
+                  return <LayoutGrid className="w-5 h-5" />;
                 };
 
                 const isMarketing = type.name === 'Marketing';
@@ -2313,27 +2295,18 @@ export function ProjectBoard() {
                   <button
                     key={type.id}
                     onClick={() => handleProjectTypeChange(type.id)}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
+                    className={`relative p-3 rounded-lg transition-all ${
                       selectedProjectType === type.id && selectedView === 'projects'
                         ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                        : 'text-slate-700 hover:bg-slate-100'
                     }`}
+                    title={type.name}
                   >
                     {getIcon()}
-                    <span>{type.name}</span>
                     {(hasPastDue || hasUpcoming) && (
-                      <span className="flex items-center gap-1">
+                      <span className="absolute -top-1 -right-1 flex items-center gap-0.5">
                         {hasPastDue && (
-                          <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
-                            <AlertCircle className="w-3 h-3" />
-                            {taskCounts.pastDue}
-                          </span>
-                        )}
-                        {hasUpcoming && (
-                          <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
-                            <Bell className="w-3 h-3" />
-                            {taskCounts.upcoming}
-                          </span>
+                          <span className="w-2 h-2 bg-red-600 rounded-full"></span>
                         )}
                       </span>
                     )}
@@ -2342,14 +2315,14 @@ export function ProjectBoard() {
               })}
             <button
               onClick={() => handleViewChange('clients')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
+              className={`p-3 rounded-lg transition-all ${
                 selectedView === 'clients'
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                  : 'text-slate-700 hover:bg-slate-100'
               }`}
+              title="Clients"
             >
-              <Users className="w-4 h-4" />
-              Clients
+              <Users className="w-5 h-5" />
             </button>
             {(() => {
               const comSecProjectType = projectTypes.find(pt => pt.name === 'Com Sec');
@@ -2357,40 +2330,196 @@ export function ProjectBoard() {
               const hasComSecPermission = projectTypePermissions.includes(comSecId);
               const canSeeComSec = isAdmin || hasComSecPermission;
 
-
               return canSeeComSec && (
                 <button
                   onClick={() => handleViewChange('comsec')}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+                  className={`p-3 rounded-lg transition-all ${
                     selectedView === 'comsec'
                       ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                      : 'text-slate-700 hover:bg-slate-100'
                   }`}
+                  title="Com Sec"
                 >
-                  <Building2 className="w-4 h-4" />
-                  Com Sec
+                  <Building2 className="w-5 h-5" />
                 </button>
               );
             })()}
             {isAdmin && (
               <button
                 onClick={() => handleViewChange('admin')}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+                className={`p-3 rounded-lg transition-all ${
                   selectedView === 'admin'
                     ? 'bg-red-600 text-white shadow-sm'
-                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    : 'text-slate-700 hover:bg-slate-100'
                 }`}
+                title="Admin"
               >
-                <Shield className="w-4 h-4" />
-                Admin
+                <Shield className="w-5 h-5" />
               </button>
             )}
           </div>
+          <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-2">
+            <button
+              onClick={signOut}
+              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
-      </header>
+      ) : (
+        <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={() => setSelectedView('projects')}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+                title="Go to Home"
+              >
+                <img src="/512x512.jpg" alt="Logo" className="w-10 h-10 rounded-lg" />
+                <div className="flex flex-col items-start">
+                  <h1 className="text-lg font-bold text-slate-900">Project Manager</h1>
+                  <span className="text-xs text-slate-500">{APP_VERSION}</span>
+                </div>
+              </button>
+              <button
+                onClick={() => setMainSidebarCollapsed(true)}
+                className="p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors"
+                title="Collapse sidebar"
+              >
+                <ChevronDown className="rotate-90" size={18} />
+              </button>
+            </div>
+            <nav className="space-y-2 flex-1">
+              {projectTypes
+                .filter((type) => type.name !== 'Com Sec')
+                .filter((type) => isAdmin || projectTypePermissions.includes(type.id))
+                .map((type) => {
+                  const getIcon = () => {
+                    if (type.name === 'Funding Project') return <DollarSign className="w-4 h-4" />;
+                    if (type.name === 'Marketing') return <TrendingUp className="w-4 h-4" />;
+                    return <LayoutGrid className="w-4 h-4" />;
+                  };
 
-      <div className="flex flex-1 overflow-hidden">
+                  const isMarketing = type.name === 'Marketing';
+                  const isFunding = type.name === 'Funding Project';
+                  const taskCounts = isMarketing ? marketingTaskCounts : (isFunding ? fundingTaskCounts : { pastDue: 0, upcoming: 0 });
+                  const hasPastDue = (isMarketing || isFunding) && taskCounts.pastDue > 0;
+                  const hasUpcoming = (isMarketing || isFunding) && taskCounts.upcoming > 0;
+
+                  return (
+                    <button
+                      key={type.id}
+                      onClick={() => handleProjectTypeChange(type.id)}
+                      className={`w-full px-4 py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-between ${
+                        selectedProjectType === type.id && selectedView === 'projects'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        {getIcon()}
+                        <span>{type.name}</span>
+                      </span>
+                      {(hasPastDue || hasUpcoming) && (
+                        <span className="flex items-center gap-1">
+                          {hasPastDue && (
+                            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-sm">
+                              <AlertCircle className="w-3 h-3" />
+                              {taskCounts.pastDue}
+                            </span>
+                          )}
+                          {hasUpcoming && (
+                            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-md border border-orange-300">
+                              <Bell className="w-3 h-3" />
+                              {taskCounts.upcoming}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              <button
+                onClick={() => handleViewChange('clients')}
+                className={`w-full px-4 py-3 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                  selectedView === 'clients'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Clients
+              </button>
+              {(() => {
+                const comSecProjectType = projectTypes.find(pt => pt.name === 'Com Sec');
+                const comSecId = comSecProjectType?.id || '';
+                const hasComSecPermission = projectTypePermissions.includes(comSecId);
+                const canSeeComSec = isAdmin || hasComSecPermission;
+
+                return canSeeComSec && (
+                  <button
+                    onClick={() => handleViewChange('comsec')}
+                    className={`w-full px-4 py-3 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                      selectedView === 'comsec'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4" />
+                    Com Sec
+                  </button>
+                );
+              })()}
+              {isAdmin && (
+                <button
+                  onClick={() => handleViewChange('admin')}
+                  className={`w-full px-4 py-3 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                    selectedView === 'admin'
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Shield className="w-4 h-4" />
+                  Admin
+                </button>
+              )}
+            </nav>
+          </div>
+          <div className="mt-auto p-4 border-t border-slate-200">
+            <div className="flex items-center justify-between px-2 py-2 text-sm text-slate-600">
+              <div className="flex items-center gap-2 truncate">
+                <User className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{user?.email}</span>
+              </div>
+              <button
+                onClick={signOut}
+                className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0"
+                title="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-8 py-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-slate-900">
+              {selectedView === 'clients' ? 'Clients' :
+               selectedView === 'admin' ? 'Admin' :
+               selectedView === 'comsec' ? 'Com Sec' :
+               projectTypes.find(pt => pt.id === selectedProjectType)?.name || 'Projects'}
+            </h2>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto bg-slate-50">
         {isComSecSection ? (
+          <div className="flex h-full">
           <aside className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
             <div className="p-4">
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Modules</h2>
@@ -2756,8 +2885,8 @@ export function ProjectBoard() {
               )}
             </div>
           </aside>
-        )}
-
+          </div>
+        ) : null}
         <main className="flex-1 overflow-y-auto bg-slate-50">
           <div className="p-8">
             <div className="flex justify-between items-center mb-6">
@@ -4622,6 +4751,7 @@ export function ProjectBoard() {
             ) : null}
           </div>
         </main>
+        </div>
       </div>
 
       {isAddClientModalOpen && (
