@@ -869,12 +869,12 @@ export function ProjectBoard() {
     if (!user) return;
 
     try {
-      // Query all meeting tasks directly without filtering by project type
-      // This ensures we catch all meeting tasks regardless of project type
+      // Query meeting tasks assigned to the current user only
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select('id, deadline, completed, meeting_id')
         .not('meeting_id', 'is', null)
+        .eq('assigned_to', user.id)
         .eq('completed', false)
         .not('deadline', 'is', null);
 
