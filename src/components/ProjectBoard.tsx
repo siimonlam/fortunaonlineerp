@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns2 as Columns, Scan, Share2, Mail } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns2 as Columns, Scan, Share2, Mail, ChevronLeft, Menu } from 'lucide-react';
 import { APP_VERSION } from '../version';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
@@ -179,6 +179,7 @@ export function ProjectBoard() {
   const [statusManagers, setStatusManagers] = useState<StatusManager[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [expandedStatuses, setExpandedStatuses] = useState<Set<string>>(new Set());
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin' | 'comsec'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list' | 'substatus'>('grid');
@@ -2391,8 +2392,19 @@ export function ProjectBoard() {
 
       <div className="flex flex-1 overflow-hidden">
         {isComSecSection ? (
-          <aside className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
-            <div className="p-4">
+          <aside className={`bg-white border-r border-slate-200 overflow-y-auto transition-all duration-300 relative ${isSidebarCollapsed ? 'w-12' : 'w-64'}`}>
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="absolute top-4 right-2 z-10 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isSidebarCollapsed ? (
+                <Menu className="w-5 h-5 text-slate-600" />
+              ) : (
+                <ChevronLeft className="w-5 h-5 text-slate-600" />
+              )}
+            </button>
+            <div className={`p-4 ${isSidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'} transition-opacity duration-200`}>
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Modules</h2>
               <nav className="space-y-2">
                 <button
@@ -2459,8 +2471,19 @@ export function ProjectBoard() {
             </div>
           </aside>
         ) : !isClientSection && !isAdminSection && (
-          <aside className="w-64 bg-white border-r border-slate-200 overflow-y-auto">
-            <div className="p-4">
+          <aside className={`bg-white border-r border-slate-200 overflow-y-auto transition-all duration-300 relative ${isSidebarCollapsed ? 'w-12' : 'w-64'}`}>
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="absolute top-4 right-2 z-10 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isSidebarCollapsed ? (
+                <Menu className="w-5 h-5 text-slate-600" />
+              ) : (
+                <ChevronLeft className="w-5 h-5 text-slate-600" />
+              )}
+            </button>
+            <div className={`p-4 ${isSidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'} transition-opacity duration-200`}>
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Status</h2>
               <nav className="space-y-2">
                 {filteredStatuses.filter(s => !s.is_substatus).map((status) => (
