@@ -99,7 +99,7 @@ interface Staff {
   email: string;
 }
 
-type TabType = 'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources';
+type TabType = 'hi-po' | 'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources';
 
 interface ComSecPageProps {
   activeModule: TabType;
@@ -596,10 +596,16 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   }
 
   function renderClientsTab() {
-    const filteredClients = comSecClients.filter(client =>
-      (client.company_name && client.company_name.toLowerCase().includes(searchTermClients.toLowerCase())) ||
-      (client.company_code && client.company_code.toLowerCase().includes(searchTermClients.toLowerCase()))
-    );
+    const filteredClients = comSecClients.filter(client => {
+      // Filter based on module
+      const moduleFilter = activeModule === 'hi-po' ? !client.client_id : client.client_id;
+
+      // Filter based on search term
+      const searchFilter = (client.company_name && client.company_name.toLowerCase().includes(searchTermClients.toLowerCase())) ||
+        (client.company_code && client.company_code.toLowerCase().includes(searchTermClients.toLowerCase()));
+
+      return moduleFilter && searchFilter;
+    });
 
     return (
       <div className="space-y-4">
@@ -1689,7 +1695,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   }
 
   async function handleSave(formData: any) {
-    const table = activeModule === 'clients' ? 'comsec_clients' :
+    const table = (activeModule === 'clients' || activeModule === 'hi-po') ? 'comsec_clients' :
                   activeModule === 'invoices' ? 'comsec_invoices' :
                   activeModule === 'virtual_office' ? 'comsec_virtual_office' :
                   activeModule === 'knowledge_base' ? 'comsec_knowledge_base' :
@@ -1717,7 +1723,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
         return;
       }
 
-      if (activeModule === 'clients' && data && data.company_code) {
+      if ((activeModule === 'clients' || activeModule === 'hi-po') && data && data.company_code) {
         console.log('Attempting to create folders for company code:', data.company_code);
         try {
           const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-comsec-folders`;
@@ -1750,7 +1756,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
           console.error('Error creating folders:', folderError);
           alert(`⚠️ Warning: Client created but folder creation encountered an error.\n\nError: ${folderError.message}\n\nCheck console for details.`);
         }
-      } else if (activeModule === 'clients' && data && !data.company_code) {
+      } else if ((activeModule === 'clients' || activeModule === 'hi-po') && data && !data.company_code) {
         console.warn('⚠️ Company code is required to create folders. Skipping folder creation.');
         alert('⚠️ Note: Company code is required to create document folders.\n\nPlease edit the client and add a company code to create folders.');
       }
@@ -1763,6 +1769,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
   return (
     <div className="p-6">
+      {activeModule === 'hi-po' && renderClientsTab()}
       {activeModule === 'clients' && renderClientsTab()}
       {activeModule === 'invoices' && renderInvoicesTab()}
       {activeModule === 'virtual_office' && renderVirtualOfficeTab()}
@@ -1775,14 +1782,14 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-semibold text-slate-900">
-                {editingItem ? 'Edit' : 'Add'} {activeModule === 'clients' ? 'Client' :
+                {editingItem ? 'Edit' : 'Add'} {(activeModule === 'clients' || activeModule === 'hi-po') ? 'Client' :
                   activeModule === 'invoices' ? 'Invoice' :
                   activeModule === 'virtual_office' ? 'Virtual Office' :
                   activeModule === 'knowledge_base' ? 'Knowledge Base Article' :
                   'Reminder'}
               </h2>
               <div className="flex items-center gap-2">
-                {activeModule === 'clients' && editingItem && (
+                {(activeModule === 'clients' || activeModule === 'hi-po') && editingItem && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1824,7 +1831,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
               });
               handleSave(data);
             }} className="p-6 space-y-4">
-              {activeModule === 'clients' && (
+              {(activeModule === 'clients' || activeModule === 'hi-po') && (
                 <>
                   {editingItem && editingItem.company_code && (
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">

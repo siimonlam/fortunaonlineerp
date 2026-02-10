@@ -777,6 +777,50 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     }
   }
 
+  async function handleConvertToClient() {
+    if (!window.confirm('Are you sure you want to convert this Hi-Po client to a regular client? This will create a new client record in the main Clients database.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: newClient, error: clientError } = await supabase
+        .from('clients')
+        .insert([{
+          name: client.company_name,
+          company_name_chinese: client.company_name_chinese,
+          contact_person: client.contact_person,
+          email: client.email,
+          phone: client.phone,
+          address: client.address,
+          sales_source: client.sales_source || 'Com Sec',
+          sales_person_id: client.sales_person_id,
+          created_by: client.created_by,
+        }])
+        .select()
+        .single();
+
+      if (clientError) throw clientError;
+
+      const { error: updateError } = await supabase
+        .from('comsec_clients')
+        .update({ client_id: newClient.id })
+        .eq('id', client.id);
+
+      if (updateError) throw updateError;
+
+      await logHistory('converted_to_client', undefined, undefined, `Converted to regular client (Client #${newClient.client_number})`);
+
+      alert(`Successfully converted to regular client!\n\nClient Number: ${newClient.client_number}\nCompany: ${newClient.name}`);
+      onSuccess();
+    } catch (error: any) {
+      console.error('Error converting to client:', error);
+      alert(`Failed to convert to client: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex">
@@ -1322,21 +1366,37 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               )}
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Saving...' : 'Save Changes'}
-              </button>
+            <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+              <div>
+                {!client.client_id && (
+                  <button
+                    type="button"
+                    onClick={handleConvertToClient}
+                    disabled={loading}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    title="Convert this Hi-Po client to a regular client"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Convert to Client
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
             </div>
           </form>
         </div>

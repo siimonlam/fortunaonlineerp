@@ -185,7 +185,7 @@ export function ProjectBoard() {
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list' | 'substatus'>('grid');
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel' | 'inquiries'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
-  const [comSecModule, setComSecModule] = useState<'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources'>('clients');
+  const [comSecModule, setComSecModule] = useState<'hi-po' | 'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources'>('hi-po');
   const [showCreateMarketingProjectModal, setShowCreateMarketingProjectModal] = useState(false);
   const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
   const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
@@ -2407,6 +2407,16 @@ export function ProjectBoard() {
             <div className={`p-4 ${isSidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'} transition-opacity duration-200`}>
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Modules</h2>
               <nav className="space-y-2">
+                <button
+                  onClick={() => setComSecModule('hi-po')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'hi-po'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Hi-Po
+                </button>
                 <button
                   onClick={() => setComSecModule('clients')}
                   className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
