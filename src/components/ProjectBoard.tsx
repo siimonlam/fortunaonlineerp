@@ -1222,9 +1222,12 @@ export function ProjectBoard() {
         supabase
           .from(tasksTableName)
           .select(`*, assigned_user:staff!${tasksTableName}_assigned_to_fkey(id, full_name, email)`)
-          .in(projectIdField, projectsRes.data.map(p => p.id)),
+          .in(projectIdField, projectsRes.data.map(p => p.id))
+          .eq('completed', false),
         tasksTableName
       );
+
+      console.log('[loadProjectsViewData] Loaded', tasksData?.length || 0, 'incomplete tasks for', projectsRes.data.length, 'projects');
 
       const projectsWithLabels = projectsRes.data.map((project) => {
         const projectLabels = projectLabelsRes.data
