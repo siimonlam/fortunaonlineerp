@@ -387,12 +387,12 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const overdueTasks = allTasks.filter(
-      task => !task.completed && task.deadline && new Date(task.deadline) < now
+      task => !task.completed && task.deadline && new Date(task.deadline) < now && task.assigned_to === user?.id
     );
 
     const upcomingTasks = allTasks.filter(
       task => !task.completed && task.deadline &&
-      new Date(task.deadline) >= now && new Date(task.deadline) <= sevenDaysFromNow
+      new Date(task.deadline) >= now && new Date(task.deadline) <= sevenDaysFromNow && task.assigned_to === user?.id
     );
 
     return { overdueTasks, upcomingTasks };
@@ -404,12 +404,12 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const pastDue = tasks.filter(
-      task => !task.completed && task.deadline && new Date(task.deadline) < now
+      task => !task.completed && task.deadline && new Date(task.deadline) < now && task.assigned_to === user?.id
     ).length;
 
     const upcoming = tasks.filter(
       task => !task.completed && task.deadline &&
-      new Date(task.deadline) >= now && new Date(task.deadline) <= sevenDaysFromNow
+      new Date(task.deadline) >= now && new Date(task.deadline) <= sevenDaysFromNow && task.assigned_to === user?.id
     ).length;
 
     return { pastDue, upcoming };
