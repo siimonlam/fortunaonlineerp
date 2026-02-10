@@ -1983,6 +1983,15 @@ export function ProjectBoard() {
       }
 
       if (isFundingProjectType) {
+        if (filterMyTasks) {
+          const hasUrgentUserTasks = p.tasks?.some(task => {
+            if (!task.assigned_to || task.assigned_to !== user?.id) return false;
+            if (task.completed || !task.deadline) return false;
+            const daysUntilDue = Math.ceil((new Date(task.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            return daysUntilDue <= 7;
+          });
+          if (!hasUrgentUserTasks) return false;
+        }
         if (quickFilterSalesPerson && p.sales_person_id !== quickFilterSalesPerson) {
           return false;
         }
