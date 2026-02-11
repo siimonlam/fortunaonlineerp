@@ -71,6 +71,23 @@ interface CompanySecretary {
   is_first_secretary?: boolean;
 }
 
+interface DesignatedRepresentative {
+  id?: string;
+  designated_type: 'individual' | 'corporation';
+  name_chinese?: string;
+  name_english?: string;
+  correspondence_address?: string;
+  hkid?: string;
+  company_name_chinese?: string;
+  company_name_english?: string;
+  registered_office_address?: string;
+  brn?: string;
+  capacity?: string;
+  tel_fax_no?: string;
+  becoming_date?: string;
+  cessation_date?: string;
+}
+
 interface MasterService {
   id: string;
   service_name: string;
@@ -170,6 +187,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const [directors, setDirectors] = useState<Director[]>([{ director_type: 'individual' }]);
   const [members, setMembers] = useState<Member[]>([{ member_type: 'individual' }]);
   const [companySecretaries, setCompanySecretaries] = useState<CompanySecretary[]>([{ secretary_type: 'individual' }]);
+  const [designatedRepresentatives, setDesignatedRepresentatives] = useState<DesignatedRepresentative[]>([{ designated_type: 'individual' }]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'history' | 'notes'>('history');
   const [comments, setComments] = useState<any[]>([]);
@@ -220,6 +238,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     loadDirectors();
     loadMembers();
     loadCompanySecretaries();
+    loadDesignatedRepresentatives();
     loadComments();
     loadHistory();
     loadMasterServices();
@@ -320,6 +339,33 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         date_of_appointment: s.date_of_appointment,
         date_of_resignation: s.date_of_resignation,
         is_first_secretary: s.is_first_secretary || false,
+      })));
+    }
+  }
+
+  async function loadDesignatedRepresentatives() {
+    const { data } = await supabase
+      .from('comsec_designated_representatives')
+      .select('*')
+      .eq('comsec_client_id', client.id)
+      .order('created_at');
+
+    if (data && data.length > 0) {
+      setDesignatedRepresentatives(data.map(d => ({
+        id: d.id,
+        designated_type: d.designated_type || 'individual',
+        name_chinese: d.name_chinese,
+        name_english: d.name_english,
+        correspondence_address: d.correspondence_address,
+        hkid: d.hkid,
+        company_name_chinese: d.company_name_chinese,
+        company_name_english: d.company_name_english,
+        registered_office_address: d.registered_office_address,
+        brn: d.brn,
+        capacity: d.capacity,
+        tel_fax_no: d.tel_fax_no,
+        becoming_date: d.becoming_date,
+        cessation_date: d.cessation_date,
       })));
     }
   }
@@ -997,6 +1043,52 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         }
       }
 
+      // Save designated representatives
+      const existingDesignatedIds = designatedRepresentatives.filter(d => d.id).map(d => d.id!);
+      await supabase
+        .from('comsec_designated_representatives')
+        .delete()
+        .eq('comsec_client_id', client.id)
+        .not('id', 'in', `(${existingDesignatedIds.length > 0 ? existingDesignatedIds.join(',') : "'none'"})`);
+
+      for (const designated of designatedRepresentatives) {
+        const hasData = designated.designated_type === 'individual'
+          ? (designated.name_english?.trim() || designated.name_chinese?.trim())
+          : (designated.company_name_english?.trim() || designated.company_name_chinese?.trim());
+
+        if (!hasData) continue;
+
+        const designatedData = {
+          designated_type: designated.designated_type,
+          name_chinese: designated.name_chinese?.trim() || null,
+          name_english: designated.name_english?.trim() || null,
+          correspondence_address: designated.correspondence_address?.trim() || null,
+          hkid: designated.hkid?.trim() || null,
+          company_name_chinese: designated.company_name_chinese?.trim() || null,
+          company_name_english: designated.company_name_english?.trim() || null,
+          registered_office_address: designated.registered_office_address?.trim() || null,
+          brn: designated.brn?.trim() || null,
+          capacity: designated.capacity?.trim() || null,
+          tel_fax_no: designated.tel_fax_no?.trim() || null,
+          becoming_date: designated.becoming_date || null,
+          cessation_date: designated.cessation_date || null,
+        };
+
+        if (designated.id) {
+          await supabase
+            .from('comsec_designated_representatives')
+            .update(designatedData)
+            .eq('id', designated.id);
+        } else {
+          await supabase
+            .from('comsec_designated_representatives')
+            .insert({
+              comsec_client_id: client.id,
+              ...designatedData,
+            });
+        }
+      }
+
       await logHistory('updated', undefined, undefined, 'Client information updated');
 
       alert('Com Sec client updated successfully!');
@@ -1068,6 +1160,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     { id: 'directors', label: 'Directors', icon: 'Users' },
     { id: 'members', label: 'Members', icon: 'Users' },
     { id: 'company-secretaries', label: 'Company Secretaries', icon: 'UserCheck' },
+    { id: 'designated', label: 'Designated', icon: 'UserCheck' },
     { id: 'services', label: 'Services', icon: 'Package' },
     { id: 'invoice-summary', label: 'Invoice Summary', icon: 'Receipt' }
   ];
@@ -2384,6 +2477,245 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                 >
                   <Plus className="w-4 h-4" />
                   Add Corporation Secretary
+                </button>
+              </div>
+            </div>
+
+            <div id="designated" className="border-b border-slate-200 pb-4 scroll-mt-6">
+              <h3 className="text-base font-semibold text-slate-900 mb-3">Designated Representatives</h3>
+              <div className="space-y-4">
+                {designatedRepresentatives.map((designated, index) => (
+                  <div key={index} className="border border-slate-300 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <select
+                        value={designated.designated_type}
+                        onChange={(e) => {
+                          const updated = [...designatedRepresentatives];
+                          updated[index].designated_type = e.target.value as 'individual' | 'corporation';
+                          setDesignatedRepresentatives(updated);
+                        }}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      >
+                        <option value="individual">Individual</option>
+                        <option value="corporation">Corporation</option>
+                      </select>
+                      {designatedRepresentatives.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setDesignatedRepresentatives(designatedRepresentatives.filter((_, i) => i !== index))}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {designated.designated_type === 'individual' ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Name (English)</label>
+                            <input
+                              type="text"
+                              value={designated.name_english || ''}
+                              onChange={(e) => {
+                                const updated = [...designatedRepresentatives];
+                                updated[index].name_english = e.target.value;
+                                setDesignatedRepresentatives(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="English name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Name (Chinese)</label>
+                            <input
+                              type="text"
+                              value={designated.name_chinese || ''}
+                              onChange={(e) => {
+                                const updated = [...designatedRepresentatives];
+                                updated[index].name_chinese = e.target.value;
+                                setDesignatedRepresentatives(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="中文姓名"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Correspondence Address</label>
+                          <textarea
+                            value={designated.correspondence_address || ''}
+                            onChange={(e) => {
+                              const updated = [...designatedRepresentatives];
+                              updated[index].correspondence_address = e.target.value;
+                              setDesignatedRepresentatives(updated);
+                            }}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Correspondence address"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">HKID</label>
+                          <input
+                            type="text"
+                            value={designated.hkid || ''}
+                            onChange={(e) => {
+                              const updated = [...designatedRepresentatives];
+                              updated[index].hkid = e.target.value;
+                              setDesignatedRepresentatives(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="HKID number"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (English)</label>
+                            <input
+                              type="text"
+                              value={designated.company_name_english || ''}
+                              onChange={(e) => {
+                                const updated = [...designatedRepresentatives];
+                                updated[index].company_name_english = e.target.value;
+                                setDesignatedRepresentatives(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="English company name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (Chinese)</label>
+                            <input
+                              type="text"
+                              value={designated.company_name_chinese || ''}
+                              onChange={(e) => {
+                                const updated = [...designatedRepresentatives];
+                                updated[index].company_name_chinese = e.target.value;
+                                setDesignatedRepresentatives(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="中文公司名稱"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Registered Office Address</label>
+                          <textarea
+                            value={designated.registered_office_address || ''}
+                            onChange={(e) => {
+                              const updated = [...designatedRepresentatives];
+                              updated[index].registered_office_address = e.target.value;
+                              setDesignatedRepresentatives(updated);
+                            }}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Registered office address"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">BRN</label>
+                          <input
+                            type="text"
+                            value={designated.brn || ''}
+                            onChange={(e) => {
+                              const updated = [...designatedRepresentatives];
+                              updated[index].brn = e.target.value;
+                              setDesignatedRepresentatives(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Business Registration Number"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border-t border-slate-300 pt-3 mt-3">
+                      <h4 className="text-sm font-semibold text-slate-700 mb-3">Common Information</h4>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Capacity</label>
+                            <input
+                              type="text"
+                              value={designated.capacity || ''}
+                              onChange={(e) => {
+                                const updated = [...designatedRepresentatives];
+                                updated[index].capacity = e.target.value;
+                                setDesignatedRepresentatives(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Capacity"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Tel / Fax No.</label>
+                            <input
+                              type="text"
+                              value={designated.tel_fax_no || ''}
+                              onChange={(e) => {
+                                const updated = [...designatedRepresentatives];
+                                updated[index].tel_fax_no = e.target.value;
+                                setDesignatedRepresentatives(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Telephone / Fax number"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Becoming Date</label>
+                            <input
+                              type="date"
+                              value={designated.becoming_date || ''}
+                              onChange={(e) => {
+                                const updated = [...designatedRepresentatives];
+                                updated[index].becoming_date = e.target.value;
+                                setDesignatedRepresentatives(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Cessation Date</label>
+                            <input
+                              type="date"
+                              value={designated.cessation_date || ''}
+                              onChange={(e) => {
+                                const updated = [...designatedRepresentatives];
+                                updated[index].cessation_date = e.target.value;
+                                setDesignatedRepresentatives(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setDesignatedRepresentatives([...designatedRepresentatives, { designated_type: 'individual' }])}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Individual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDesignatedRepresentatives([...designatedRepresentatives, { designated_type: 'corporation' }])}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Corporation
                 </button>
               </div>
             </div>
