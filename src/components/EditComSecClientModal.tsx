@@ -961,10 +961,46 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     }
   }
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const navigationItems = [
+    { id: 'basic-info', label: 'Basic Information', icon: 'FileText' },
+    { id: 'contact-info', label: 'Contact Information', icon: 'User' },
+    { id: 'sales-info', label: 'Sales Information', icon: 'DollarSign' },
+    { id: 'company-details', label: 'Company Details', icon: 'Building' },
+    { id: 'directors', label: 'Directors', icon: 'Users' },
+    { id: 'members', label: 'Members', icon: 'Users' },
+    { id: 'services', label: 'Services', icon: 'Package' },
+    { id: 'invoice-summary', label: 'Invoice Summary', icon: 'Receipt' }
+  ];
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex">
-        <div className="flex-1 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex">
+        <div className="w-64 bg-slate-50 border-r border-slate-200 overflow-y-auto flex-shrink-0">
+          <div className="sticky top-0 bg-slate-50 border-b border-slate-200 px-4 py-4">
+            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Quick Navigation</h3>
+          </div>
+          <nav className="p-3 space-y-1">
+            {navigationItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => scrollToSection(item.id)}
+                className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-900 transition-colors flex items-center gap-3"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+        <div className="flex-1 overflow-y-auto" id="modal-content">
           <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
             <h2 className="text-xl font-semibold text-slate-900">Edit Com Sec Client</h2>
             <div className="flex items-center gap-2">
@@ -1055,7 +1091,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               </div>
             )}
 
-            <div className="border-b border-slate-200 pb-4">
+            <div id="basic-info" className="border-b border-slate-200 pb-4 scroll-mt-6">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Basic Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1122,7 +1158,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               )}
             </div>
 
-            <div className="border-b border-slate-200 pb-4">
+            <div id="contact-info" className="border-b border-slate-200 pb-4 scroll-mt-6">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Contact Information</h3>
               <div className="grid grid-cols-3 gap-4 mb-4">
                 <div>
@@ -1161,7 +1197,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               </div>
             </div>
 
-            <div className="border-b border-slate-200 pb-4">
+            <div id="sales-info" className="border-b border-slate-200 pb-4 scroll-mt-6">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Sales Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1186,7 +1222,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               </div>
             </div>
 
-            <div className="border-b border-slate-200 pb-4">
+            <div id="company-details" className="border-b border-slate-200 pb-4 scroll-mt-6">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Company Details</h3>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
@@ -1299,7 +1335,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               </div>
             </div>
 
-            <div className="border-b border-slate-200 pb-4">
+            <div id="directors" className="border-b border-slate-200 pb-4 scroll-mt-6">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Directors</h3>
               <div className="space-y-4">
                 {directors.map((director, index) => (
@@ -1628,7 +1664,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               </div>
             </div>
 
-            <div className="border-b border-slate-200 pb-4">
+            <div id="members" className="border-b border-slate-200 pb-4 scroll-mt-6">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Members</h3>
               <div className="space-y-4">
                 {members.map((member, index) => (
@@ -2033,7 +2069,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               />
             </div>
 
-            <div className="border-t border-slate-200 pt-4">
+            <div id="services" className="border-t border-slate-200 pt-4 scroll-mt-6">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Services</h3>
 
               <div className="space-y-2">
@@ -2093,7 +2129,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               </div>
             </div>
 
-            <div className="border-t border-slate-200 pt-4">
+            <div id="invoice-summary" className="border-t border-slate-200 pt-4 scroll-mt-6">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Invoice Summary</h3>
               {invoices.length > 0 ? (
                 <div className="bg-slate-50 rounded-lg p-4 space-y-2">
