@@ -637,14 +637,11 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
   function renderClientsTab() {
     const filteredClients = comSecClients.filter(client => {
-      // Filter based on module
-      const moduleFilter = activeModule === 'hi-po' ? !client.client_id : client.client_id;
-
-      // Filter based on search term
+      // Filter based on search term only (status filtering is done at database level)
       const searchFilter = (client.company_name && client.company_name.toLowerCase().includes(searchTermClients.toLowerCase())) ||
         (client.company_code && client.company_code.toLowerCase().includes(searchTermClients.toLowerCase()));
 
-      return moduleFilter && searchFilter;
+      return searchFilter;
     });
 
     return (
