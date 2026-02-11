@@ -185,7 +185,7 @@ export function ProjectBoard() {
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list' | 'substatus'>('grid');
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel' | 'inquiries'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
-  const [comSecModule, setComSecModule] = useState<'hi-po' | 'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources'>('hi-po');
+  const [comSecModule, setComSecModule] = useState<'hi-po' | 'clients' | 'pending_renewal' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources'>('hi-po');
   const [showCreateMarketingProjectModal, setShowCreateMarketingProjectModal] = useState(false);
   const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
   const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
@@ -2438,6 +2438,16 @@ export function ProjectBoard() {
                   }`}
                 >
                   Clients
+                </button>
+                <button
+                  onClick={() => setComSecModule('pending_renewal')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'pending_renewal'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Pending Renewal
                 </button>
                 <button
                   onClick={() => setComSecModule('invoices')}

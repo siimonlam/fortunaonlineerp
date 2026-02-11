@@ -31,10 +31,12 @@ interface ComSecClient {
   sales_person_id: string | null;
   client_id: string | null;
   parent_client_id: string | null;
+  status_id: string | null;
   created_at: string;
   created_by: string;
   case_officer?: { full_name: string };
   sales_person?: { full_name: string };
+  status?: { name: string };
 }
 
 interface Invoice {
@@ -99,7 +101,7 @@ interface Staff {
   email: string;
 }
 
-type TabType = 'hi-po' | 'clients' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources';
+type TabType = 'hi-po' | 'clients' | 'pending_renewal' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources';
 
 interface ComSecPageProps {
   activeModule: TabType;
@@ -166,7 +168,9 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
   async function loadData() {
     switch (activeModule) {
+      case 'hi-po':
       case 'clients':
+      case 'pending_renewal':
         await loadComSecClients();
         break;
       case 'invoices':
@@ -186,11 +190,47 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   }
 
   async function loadComSecClients() {
-    console.log('Loading ComSec clients...');
-    const { data, error } = await supabase
+    console.log('Loading ComSec clients for module:', activeModule);
+
+    const { data: comSecProjectType } = await supabase
+      .from('project_types')
+      .select('id')
+      .eq('name', 'Com Sec')
+      .maybeSingle();
+
+    if (!comSecProjectType) {
+      console.error('Com Sec project type not found');
+      return;
+    }
+
+    const { data: statuses } = await supabase
+      .from('statuses')
+      .select('id, name')
+      .eq('project_type_id', comSecProjectType.id);
+
+    if (!statuses) {
+      console.error('Statuses not found');
+      return;
+    }
+
+    const hiPoStatus = statuses.find(s => s.name === 'Hi-Po');
+    const activeStatus = statuses.find(s => s.name === 'Active');
+    const pendingRenewalStatus = statuses.find(s => s.name === 'Pending Renewal');
+
+    let query = supabase
       .from('comsec_clients')
-      .select('*, case_officer:staff!case_officer_id(full_name), sales_person:staff!sales_person_id(full_name)')
-      .order('created_at', { ascending: false });
+      .select('*, case_officer:staff!case_officer_id(full_name), sales_person:staff!sales_person_id(full_name), status:statuses(name)');
+
+    if (activeModule === 'hi-po' && hiPoStatus) {
+      query = query.eq('status_id', hiPoStatus.id);
+    } else if (activeModule === 'clients' && activeStatus) {
+      query = query.eq('status_id', activeStatus.id);
+    } else if (activeModule === 'pending_renewal' && pendingRenewalStatus) {
+      query = query.eq('status_id', pendingRenewalStatus.id);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
     if (error) {
       console.error('Error loading ComSec clients:', error);
     } else {
