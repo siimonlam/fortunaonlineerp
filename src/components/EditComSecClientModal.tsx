@@ -151,6 +151,8 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     phone: client.phone || '',
     email: client.email || '',
     address: client.address || '',
+    registered_office_address: (client as any).registered_office_address || '',
+    statutory_records_kept_with_secretary: (client as any).statutory_records_kept_with_secretary || false,
     sales_source: client.sales_source || '',
     sales_person_id: client.sales_person_id || '',
     remarks: client.remarks || '',
@@ -697,6 +699,8 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
           phone: formData.phone.trim() || null,
           email: formData.email.trim() || null,
           address: formData.address.trim() || null,
+          registered_office_address: formData.registered_office_address.trim() || null,
+          statutory_records_kept_with_secretary: formData.statutory_records_kept_with_secretary,
           sales_source: formData.sales_source.trim() || null,
           sales_person_id: formData.sales_person_id || null,
           remarks: formData.remarks.trim() || null,
@@ -1047,7 +1051,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
             </div>
 
             <div className="border-b border-slate-200 pb-4">
-              <h3 className="text-base font-semibold text-slate-900 mb-3">Company Secretary Details</h3>
+              <h3 className="text-base font-semibold text-slate-900 mb-3">Company Details</h3>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">BRN</label>
@@ -1066,6 +1070,27 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Registered Office Address</label>
+                <textarea
+                  value={formData.registered_office_address}
+                  onChange={(e) => setFormData({ ...formData, registered_office_address: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Enter registered office address"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.statutory_records_kept_with_secretary}
+                    onChange={(e) => setFormData({ ...formData, statutory_records_kept_with_secretary: e.target.checked })}
+                    className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm font-medium text-slate-700">Statutory Records Kept with Company Secretary</span>
+                </label>
               </div>
               <div className="grid grid-cols-3 gap-4 mb-4">
                 <div>
