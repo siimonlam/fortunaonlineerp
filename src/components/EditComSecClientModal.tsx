@@ -27,8 +27,18 @@ interface Director {
 
 interface Member {
   id?: string;
-  name: string;
-  id_number: string;
+  member_type: 'individual' | 'corporation';
+  name?: string;
+  id_number?: string;
+  name_chinese?: string;
+  name_english?: string;
+  address?: string;
+  hkid?: string;
+  passport?: string;
+  company_name_chinese?: string;
+  company_name_english?: string;
+  registered_office_address?: string;
+  company_number?: string;
 }
 
 interface MasterService {
@@ -128,7 +138,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [directors, setDirectors] = useState<Director[]>([{ director_type: 'individual' }]);
-  const [members, setMembers] = useState<Member[]>([{name: '', id_number: ''}]);
+  const [members, setMembers] = useState<Member[]>([{ member_type: 'individual' }]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'history' | 'notes'>('history');
   const [comments, setComments] = useState<any[]>([]);
@@ -224,7 +234,21 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
       .order('created_at');
 
     if (data && data.length > 0) {
-      setMembers(data.map(m => ({ id: m.id, name: m.name, id_number: m.id_number || '' })));
+      setMembers(data.map(m => ({
+        id: m.id,
+        member_type: m.member_type || 'individual',
+        name: m.name,
+        id_number: m.id_number,
+        name_chinese: m.name_chinese,
+        name_english: m.name_english,
+        address: m.address,
+        hkid: m.hkid,
+        passport: m.passport,
+        company_name_chinese: m.company_name_chinese,
+        company_name_english: m.company_name_english,
+        registered_office_address: m.registered_office_address,
+        company_number: m.company_number,
+      })));
     }
   }
 
@@ -804,23 +828,40 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         .not('id', 'in', `(${existingMemberIds.length > 0 ? existingMemberIds.join(',') : "'none'"})`);
 
       for (const member of members) {
-        if (!member.name.trim()) continue;
+        const hasData = member.member_type === 'individual'
+          ? (member.name_english?.trim() || member.name_chinese?.trim())
+          : (member.company_name_english?.trim() || member.company_name_chinese?.trim());
+
+        if (!hasData) continue;
+
+        const memberData = {
+          member_type: member.member_type,
+          name: member.member_type === 'individual'
+            ? (member.name_english?.trim() || member.name_chinese?.trim() || null)
+            : (member.company_name_english?.trim() || member.company_name_chinese?.trim() || null),
+          id_number: member.id_number?.trim() || null,
+          name_chinese: member.name_chinese?.trim() || null,
+          name_english: member.name_english?.trim() || null,
+          address: member.address?.trim() || null,
+          hkid: member.hkid?.trim() || null,
+          passport: member.passport?.trim() || null,
+          company_name_chinese: member.company_name_chinese?.trim() || null,
+          company_name_english: member.company_name_english?.trim() || null,
+          registered_office_address: member.registered_office_address?.trim() || null,
+          company_number: member.company_number?.trim() || null,
+        };
 
         if (member.id) {
           await supabase
             .from('comsec_members')
-            .update({
-              name: member.name.trim(),
-              id_number: member.id_number.trim() || null,
-            })
+            .update(memberData)
             .eq('id', member.id);
         } else {
           await supabase
             .from('comsec_members')
             .insert({
               comsec_client_id: client.id,
-              name: member.name.trim(),
-              id_number: member.id_number.trim() || null,
+              ...memberData,
             });
         }
       }
@@ -1550,51 +1591,193 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
             <div className="border-b border-slate-200 pb-4">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Members</h3>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {members.map((member, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={member.name}
-                      onChange={(e) => {
-                        const updated = [...members];
-                        updated[index].name = e.target.value;
-                        setMembers(updated);
-                      }}
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="Member name"
-                    />
-                    <input
-                      type="text"
-                      value={member.id_number}
-                      onChange={(e) => {
-                        const updated = [...members];
-                        updated[index].id_number = e.target.value;
-                        setMembers(updated);
-                      }}
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="ID / Passport number"
-                    />
-                    {members.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setMembers(members.filter((_, i) => i !== index))}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  <div key={index} className="border border-slate-300 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <select
+                        value={member.member_type}
+                        onChange={(e) => {
+                          const updated = [...members];
+                          updated[index].member_type = e.target.value as 'individual' | 'corporation';
+                          setMembers(updated);
+                        }}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                       >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                        <option value="individual">Individual Member</option>
+                        <option value="corporation">Corporation Member</option>
+                      </select>
+                      {members.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setMembers(members.filter((_, i) => i !== index))}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {member.member_type === 'individual' ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Name (English)</label>
+                            <input
+                              type="text"
+                              value={member.name_english || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].name_english = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="English name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Name (Chinese)</label>
+                            <input
+                              type="text"
+                              value={member.name_chinese || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].name_chinese = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="中文姓名"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                          <textarea
+                            value={member.address || ''}
+                            onChange={(e) => {
+                              const updated = [...members];
+                              updated[index].address = e.target.value;
+                              setMembers(updated);
+                            }}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Address"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">HKID</label>
+                            <input
+                              type="text"
+                              value={member.hkid || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].hkid = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="HKID number"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Passport</label>
+                            <input
+                              type="text"
+                              value={member.passport || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].passport = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Passport number"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (English)</label>
+                            <input
+                              type="text"
+                              value={member.company_name_english || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].company_name_english = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="English company name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (Chinese)</label>
+                            <input
+                              type="text"
+                              value={member.company_name_chinese || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].company_name_chinese = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="中文公司名稱"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Registered Office Address</label>
+                          <textarea
+                            value={member.registered_office_address || ''}
+                            onChange={(e) => {
+                              const updated = [...members];
+                              updated[index].registered_office_address = e.target.value;
+                              setMembers(updated);
+                            }}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Registered office address"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Company Number</label>
+                          <input
+                            type="text"
+                            value={member.company_number || ''}
+                            onChange={(e) => {
+                              const updated = [...members];
+                              updated[index].company_number = e.target.value;
+                              setMembers(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Company number"
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={() => setMembers([...members, {name: '', id_number: ''}])}
-                className="mt-3 text-emerald-600 hover:text-emerald-700 text-sm font-medium flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" />
-                Add Member
-              </button>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMembers([...members, { member_type: 'individual' }])}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Individual Member
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMembers([...members, { member_type: 'corporation' }])}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Corporation Member
+                </button>
+              </div>
             </div>
 
             <div>
