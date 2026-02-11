@@ -39,6 +39,19 @@ interface Member {
   company_name_english?: string;
   registered_office_address?: string;
   company_number?: string;
+  country_region?: string;
+  class_of_share?: string;
+  issued_shares?: number;
+  total_consideration?: number;
+  current_shareholding?: number;
+  current_shareholding_percentage?: number;
+  certificate_no?: string;
+  distinctive_no?: string;
+  folio_no?: string;
+  date_entered_as_member?: string;
+  date_ceased_member?: string;
+  is_founder_member?: boolean;
+  significant_controller?: string;
 }
 
 interface MasterService {
@@ -248,6 +261,19 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         company_name_english: m.company_name_english,
         registered_office_address: m.registered_office_address,
         company_number: m.company_number,
+        country_region: m.country_region,
+        class_of_share: m.class_of_share,
+        issued_shares: m.issued_shares,
+        total_consideration: m.total_consideration,
+        current_shareholding: m.current_shareholding,
+        current_shareholding_percentage: m.current_shareholding_percentage,
+        certificate_no: m.certificate_no,
+        distinctive_no: m.distinctive_no,
+        folio_no: m.folio_no,
+        date_entered_as_member: m.date_entered_as_member,
+        date_ceased_member: m.date_ceased_member,
+        is_founder_member: m.is_founder_member || false,
+        significant_controller: m.significant_controller,
       })));
     }
   }
@@ -849,6 +875,19 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
           company_name_english: member.company_name_english?.trim() || null,
           registered_office_address: member.registered_office_address?.trim() || null,
           company_number: member.company_number?.trim() || null,
+          country_region: member.country_region?.trim() || null,
+          class_of_share: member.class_of_share?.trim() || null,
+          issued_shares: member.issued_shares || null,
+          total_consideration: member.total_consideration || null,
+          current_shareholding: member.current_shareholding || null,
+          current_shareholding_percentage: member.current_shareholding_percentage || null,
+          certificate_no: member.certificate_no?.trim() || null,
+          distinctive_no: member.distinctive_no?.trim() || null,
+          folio_no: member.folio_no?.trim() || null,
+          date_entered_as_member: member.date_entered_as_member || null,
+          date_ceased_member: member.date_ceased_member || null,
+          is_founder_member: member.is_founder_member || false,
+          significant_controller: member.significant_controller?.trim() || null,
         };
 
         if (member.id) {
@@ -1757,6 +1796,210 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                         </div>
                       </div>
                     )}
+
+                    <div className="border-t border-slate-300 pt-3 mt-3">
+                      <h4 className="text-sm font-semibold text-slate-700 mb-3">Shareholding Information</h4>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Country / Region</label>
+                            <input
+                              type="text"
+                              value={member.country_region || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].country_region = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="e.g., Hong Kong, China"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Class of Share</label>
+                            <input
+                              type="text"
+                              value={member.class_of_share || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].class_of_share = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Class of share"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Issued Shares</label>
+                            <input
+                              type="number"
+                              value={member.issued_shares || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].issued_shares = parseFloat(e.target.value) || undefined;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Issued shares"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Total Consideration of Shares</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={member.total_consideration || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].total_consideration = parseFloat(e.target.value) || undefined;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Total consideration"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Current Shareholding</label>
+                            <input
+                              type="number"
+                              value={member.current_shareholding || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].current_shareholding = parseFloat(e.target.value) || undefined;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Current shareholding"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Current Shareholding %</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={member.current_shareholding_percentage || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].current_shareholding_percentage = parseFloat(e.target.value) || undefined;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Percentage"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Certificate No.</label>
+                            <input
+                              type="text"
+                              value={member.certificate_no || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].certificate_no = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Certificate no."
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Distinctive No.</label>
+                            <input
+                              type="text"
+                              value={member.distinctive_no || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].distinctive_no = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Distinctive no."
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Folio No.</label>
+                            <input
+                              type="text"
+                              value={member.folio_no || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].folio_no = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Folio no."
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Date Entered as Member</label>
+                            <input
+                              type="date"
+                              value={member.date_entered_as_member || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].date_entered_as_member = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Date Ceased to be a Member</label>
+                            <input
+                              type="date"
+                              value={member.date_ceased_member || ''}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].date_ceased_member = e.target.value;
+                                setMembers(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={member.is_founder_member || false}
+                              onChange={(e) => {
+                                const updated = [...members];
+                                updated[index].is_founder_member = e.target.checked;
+                                setMembers(updated);
+                              }}
+                              className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
+                            />
+                            <span className="text-sm font-medium text-slate-700">Founder Member</span>
+                          </label>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Significant Controllers</label>
+                          <select
+                            value={member.significant_controller || ''}
+                            onChange={(e) => {
+                              const updated = [...members];
+                              updated[index].significant_controller = e.target.value;
+                              setMembers(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          >
+                            <option value="">Not a Significant Controller</option>
+                            <option value="shares_25">Holds directly or indirectly more than 25% of the issued shares in the company</option>
+                            <option value="voting_rights_25">Holds directly or indirectly more than 25% of the voting rights in the company</option>
+                            <option value="appoint_remove_directors">Holds directly or indirectly the right to appoint or remove a majority of the board of directors of the company</option>
+                            <option value="significant_influence">Has the right to exercise, or actually exercises, significant influence or control over the company</option>
+                            <option value="trust_firm_influence">Has the right to exercise, or actually exercises, significant influence or control over the activities of a trust or a firm that is not a legal person, but whose trustees or members satisfy any of the first four conditions (in their capacity as such) in relation to a company</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
