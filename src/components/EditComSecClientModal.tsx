@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit, Camera, QrCode } from 'lucide-react';
+import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit, Camera, QrCode, UserCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PDFDocument } from 'pdf-lib';
 
@@ -52,6 +52,23 @@ interface Member {
   date_ceased_member?: string;
   is_founder_member?: boolean;
   significant_controller?: string;
+}
+
+interface CompanySecretary {
+  id?: string;
+  secretary_type: 'individual' | 'corporation';
+  name_chinese?: string;
+  name_english?: string;
+  correspondence_address?: string;
+  hkid?: string;
+  company_name_chinese?: string;
+  company_name_english?: string;
+  registered_office_address?: string;
+  company_number?: string;
+  tcsp_no?: string;
+  date_of_appointment?: string;
+  date_of_resignation?: string;
+  is_first_secretary?: boolean;
 }
 
 interface MasterService {
@@ -152,6 +169,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const [loading, setLoading] = useState(false);
   const [directors, setDirectors] = useState<Director[]>([{ director_type: 'individual' }]);
   const [members, setMembers] = useState<Member[]>([{ member_type: 'individual' }]);
+  const [companySecretaries, setCompanySecretaries] = useState<CompanySecretary[]>([{ secretary_type: 'individual' }]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'history' | 'notes'>('history');
   const [comments, setComments] = useState<any[]>([]);
@@ -201,6 +219,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   useEffect(() => {
     loadDirectors();
     loadMembers();
+    loadCompanySecretaries();
     loadComments();
     loadHistory();
     loadMasterServices();
@@ -274,6 +293,33 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         date_ceased_member: m.date_ceased_member,
         is_founder_member: m.is_founder_member || false,
         significant_controller: m.significant_controller,
+      })));
+    }
+  }
+
+  async function loadCompanySecretaries() {
+    const { data } = await supabase
+      .from('comsec_company_secretaries')
+      .select('*')
+      .eq('comsec_client_id', client.id)
+      .order('created_at');
+
+    if (data && data.length > 0) {
+      setCompanySecretaries(data.map(s => ({
+        id: s.id,
+        secretary_type: s.secretary_type || 'individual',
+        name_chinese: s.name_chinese,
+        name_english: s.name_english,
+        correspondence_address: s.correspondence_address,
+        hkid: s.hkid,
+        company_name_chinese: s.company_name_chinese,
+        company_name_english: s.company_name_english,
+        registered_office_address: s.registered_office_address,
+        company_number: s.company_number,
+        tcsp_no: s.tcsp_no,
+        date_of_appointment: s.date_of_appointment,
+        date_of_resignation: s.date_of_resignation,
+        is_first_secretary: s.is_first_secretary || false,
       })));
     }
   }
@@ -905,6 +951,52 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         }
       }
 
+      // Save company secretaries
+      const existingSecretaryIds = companySecretaries.filter(s => s.id).map(s => s.id!);
+      await supabase
+        .from('comsec_company_secretaries')
+        .delete()
+        .eq('comsec_client_id', client.id)
+        .not('id', 'in', `(${existingSecretaryIds.length > 0 ? existingSecretaryIds.join(',') : "'none'"})`);
+
+      for (const secretary of companySecretaries) {
+        const hasData = secretary.secretary_type === 'individual'
+          ? (secretary.name_english?.trim() || secretary.name_chinese?.trim())
+          : (secretary.company_name_english?.trim() || secretary.company_name_chinese?.trim());
+
+        if (!hasData) continue;
+
+        const secretaryData = {
+          secretary_type: secretary.secretary_type,
+          name_chinese: secretary.name_chinese?.trim() || null,
+          name_english: secretary.name_english?.trim() || null,
+          correspondence_address: secretary.correspondence_address?.trim() || null,
+          hkid: secretary.hkid?.trim() || null,
+          company_name_chinese: secretary.company_name_chinese?.trim() || null,
+          company_name_english: secretary.company_name_english?.trim() || null,
+          registered_office_address: secretary.registered_office_address?.trim() || null,
+          company_number: secretary.company_number?.trim() || null,
+          tcsp_no: secretary.tcsp_no?.trim() || null,
+          date_of_appointment: secretary.date_of_appointment || null,
+          date_of_resignation: secretary.date_of_resignation || null,
+          is_first_secretary: secretary.is_first_secretary || false,
+        };
+
+        if (secretary.id) {
+          await supabase
+            .from('comsec_company_secretaries')
+            .update(secretaryData)
+            .eq('id', secretary.id);
+        } else {
+          await supabase
+            .from('comsec_company_secretaries')
+            .insert({
+              comsec_client_id: client.id,
+              ...secretaryData,
+            });
+        }
+      }
+
       await logHistory('updated', undefined, undefined, 'Client information updated');
 
       alert('Com Sec client updated successfully!');
@@ -975,6 +1067,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     { id: 'company-details', label: 'Company Details', icon: 'Building' },
     { id: 'directors', label: 'Directors', icon: 'Users' },
     { id: 'members', label: 'Members', icon: 'Users' },
+    { id: 'company-secretaries', label: 'Company Secretaries', icon: 'UserCheck' },
     { id: 'services', label: 'Services', icon: 'Package' },
     { id: 'invoice-summary', label: 'Invoice Summary', icon: 'Receipt' }
   ];
@@ -2055,6 +2148,242 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                 >
                   <Plus className="w-4 h-4" />
                   Add Corporation Member
+                </button>
+              </div>
+            </div>
+
+            <div id="company-secretaries" className="border-b border-slate-200 pb-4 scroll-mt-6">
+              <h3 className="text-base font-semibold text-slate-900 mb-3">Company Secretaries</h3>
+              <div className="space-y-4">
+                {companySecretaries.map((secretary, index) => (
+                  <div key={index} className="border border-slate-300 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <select
+                        value={secretary.secretary_type}
+                        onChange={(e) => {
+                          const updated = [...companySecretaries];
+                          updated[index].secretary_type = e.target.value as 'individual' | 'corporation';
+                          setCompanySecretaries(updated);
+                        }}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      >
+                        <option value="individual">Individual Secretary</option>
+                        <option value="corporation">Corporation Secretary</option>
+                      </select>
+                      {companySecretaries.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setCompanySecretaries(companySecretaries.filter((_, i) => i !== index))}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {secretary.secretary_type === 'individual' ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Name (English)</label>
+                            <input
+                              type="text"
+                              value={secretary.name_english || ''}
+                              onChange={(e) => {
+                                const updated = [...companySecretaries];
+                                updated[index].name_english = e.target.value;
+                                setCompanySecretaries(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="English name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Name (Chinese)</label>
+                            <input
+                              type="text"
+                              value={secretary.name_chinese || ''}
+                              onChange={(e) => {
+                                const updated = [...companySecretaries];
+                                updated[index].name_chinese = e.target.value;
+                                setCompanySecretaries(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="中文姓名"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Correspondence Address</label>
+                          <textarea
+                            value={secretary.correspondence_address || ''}
+                            onChange={(e) => {
+                              const updated = [...companySecretaries];
+                              updated[index].correspondence_address = e.target.value;
+                              setCompanySecretaries(updated);
+                            }}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Correspondence address"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">HKID</label>
+                          <input
+                            type="text"
+                            value={secretary.hkid || ''}
+                            onChange={(e) => {
+                              const updated = [...companySecretaries];
+                              updated[index].hkid = e.target.value;
+                              setCompanySecretaries(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="HKID number"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (English)</label>
+                            <input
+                              type="text"
+                              value={secretary.company_name_english || ''}
+                              onChange={(e) => {
+                                const updated = [...companySecretaries];
+                                updated[index].company_name_english = e.target.value;
+                                setCompanySecretaries(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="English company name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (Chinese)</label>
+                            <input
+                              type="text"
+                              value={secretary.company_name_chinese || ''}
+                              onChange={(e) => {
+                                const updated = [...companySecretaries];
+                                updated[index].company_name_chinese = e.target.value;
+                                setCompanySecretaries(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="中文公司名稱"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Registered Office Address</label>
+                          <textarea
+                            value={secretary.registered_office_address || ''}
+                            onChange={(e) => {
+                              const updated = [...companySecretaries];
+                              updated[index].registered_office_address = e.target.value;
+                              setCompanySecretaries(updated);
+                            }}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Registered office address"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Company Number</label>
+                          <input
+                            type="text"
+                            value={secretary.company_number || ''}
+                            onChange={(e) => {
+                              const updated = [...companySecretaries];
+                              updated[index].company_number = e.target.value;
+                              setCompanySecretaries(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Company number"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border-t border-slate-300 pt-3 mt-3">
+                      <h4 className="text-sm font-semibold text-slate-700 mb-3">Common Information</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">TCSP No.</label>
+                          <input
+                            type="text"
+                            value={secretary.tcsp_no || ''}
+                            onChange={(e) => {
+                              const updated = [...companySecretaries];
+                              updated[index].tcsp_no = e.target.value;
+                              setCompanySecretaries(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Trust or Company Service Provider License Number"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Date of Appointment</label>
+                            <input
+                              type="date"
+                              value={secretary.date_of_appointment || ''}
+                              onChange={(e) => {
+                                const updated = [...companySecretaries];
+                                updated[index].date_of_appointment = e.target.value;
+                                setCompanySecretaries(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Date of Resignation</label>
+                            <input
+                              type="date"
+                              value={secretary.date_of_resignation || ''}
+                              onChange={(e) => {
+                                const updated = [...companySecretaries];
+                                updated[index].date_of_resignation = e.target.value;
+                                setCompanySecretaries(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={secretary.is_first_secretary || false}
+                            onChange={(e) => {
+                              const updated = [...companySecretaries];
+                              updated[index].is_first_secretary = e.target.checked;
+                              setCompanySecretaries(updated);
+                            }}
+                            className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                          />
+                          <label className="ml-2 text-sm font-medium text-slate-700">First Company Secretary</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setCompanySecretaries([...companySecretaries, { secretary_type: 'individual' }])}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Individual Secretary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCompanySecretaries([...companySecretaries, { secretary_type: 'corporation' }])}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Corporation Secretary
                 </button>
               </div>
             </div>
