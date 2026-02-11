@@ -169,6 +169,21 @@ export function CreateProjectModal({ client, projectTypeId, projectTypeName, ini
       }
     }
 
+    if (projectTypeName === 'Com Sec') {
+      const { data } = await supabase
+        .from('statuses')
+        .select('*')
+        .eq('project_type_id', projectTypeId)
+        .eq('name', 'Hi-Po')
+        .eq('is_substatus', false)
+        .maybeSingle();
+
+      if (data) {
+        setDefaultStatus(data);
+        return;
+      }
+    }
+
     const { data } = await supabase
       .from('statuses')
       .select('*')
