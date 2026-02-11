@@ -6,8 +6,19 @@ import { PDFDocument } from 'pdf-lib';
 
 interface Director {
   id?: string;
-  name: string;
-  id_number: string;
+  director_type: 'individual' | 'corporation';
+  name?: string;
+  id_number?: string;
+  name_chinese?: string;
+  name_english?: string;
+  correspondence_address?: string;
+  residential_address?: string;
+  hkid?: string;
+  passport?: string;
+  company_name_chinese?: string;
+  company_name_english?: string;
+  registered_office_address?: string;
+  br_number?: string;
 }
 
 interface Member {
@@ -112,7 +123,7 @@ interface EditComSecClientModalProps {
 export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCreateInvoice, onOpenDocuments, onClientClick }: EditComSecClientModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [directors, setDirectors] = useState<Director[]>([{name: '', id_number: ''}]);
+  const [directors, setDirectors] = useState<Director[]>([{ director_type: 'individual' }]);
   const [members, setMembers] = useState<Member[]>([{name: '', id_number: ''}]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'history' | 'notes'>('history');
@@ -178,7 +189,22 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
       .order('created_at');
 
     if (data && data.length > 0) {
-      setDirectors(data.map(d => ({ id: d.id, name: d.name, id_number: d.id_number || '' })));
+      setDirectors(data.map(d => ({
+        id: d.id,
+        director_type: d.director_type || 'individual',
+        name: d.name,
+        id_number: d.id_number,
+        name_chinese: d.name_chinese,
+        name_english: d.name_english,
+        correspondence_address: d.correspondence_address,
+        residential_address: d.residential_address,
+        hkid: d.hkid,
+        passport: d.passport,
+        company_name_chinese: d.company_name_chinese,
+        company_name_english: d.company_name_english,
+        registered_office_address: d.registered_office_address,
+        br_number: d.br_number,
+      })));
     }
   }
 
@@ -719,23 +745,41 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         .not('id', 'in', `(${existingDirectorIds.length > 0 ? existingDirectorIds.join(',') : "'none'"})`);
 
       for (const director of directors) {
-        if (!director.name.trim()) continue;
+        const hasData = director.director_type === 'individual'
+          ? (director.name_english?.trim() || director.name_chinese?.trim())
+          : (director.company_name_english?.trim() || director.company_name_chinese?.trim());
+
+        if (!hasData) continue;
+
+        const directorData = {
+          director_type: director.director_type,
+          name: director.director_type === 'individual'
+            ? (director.name_english?.trim() || director.name_chinese?.trim() || null)
+            : (director.company_name_english?.trim() || director.company_name_chinese?.trim() || null),
+          id_number: director.id_number?.trim() || null,
+          name_chinese: director.name_chinese?.trim() || null,
+          name_english: director.name_english?.trim() || null,
+          correspondence_address: director.correspondence_address?.trim() || null,
+          residential_address: director.residential_address?.trim() || null,
+          hkid: director.hkid?.trim() || null,
+          passport: director.passport?.trim() || null,
+          company_name_chinese: director.company_name_chinese?.trim() || null,
+          company_name_english: director.company_name_english?.trim() || null,
+          registered_office_address: director.registered_office_address?.trim() || null,
+          br_number: director.br_number?.trim() || null,
+        };
 
         if (director.id) {
           await supabase
             .from('comsec_directors')
-            .update({
-              name: director.name.trim(),
-              id_number: director.id_number.trim() || null,
-            })
+            .update(directorData)
             .eq('id', director.id);
         } else {
           await supabase
             .from('comsec_directors')
             .insert({
               comsec_client_id: client.id,
-              name: director.name.trim(),
-              id_number: director.id_number.trim() || null,
+              ...directorData,
             });
         }
       }
@@ -1165,51 +1209,207 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
             <div className="border-b border-slate-200 pb-4">
               <h3 className="text-base font-semibold text-slate-900 mb-3">Directors</h3>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {directors.map((director, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={director.name}
-                      onChange={(e) => {
-                        const updated = [...directors];
-                        updated[index].name = e.target.value;
-                        setDirectors(updated);
-                      }}
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="Director name"
-                    />
-                    <input
-                      type="text"
-                      value={director.id_number}
-                      onChange={(e) => {
-                        const updated = [...directors];
-                        updated[index].id_number = e.target.value;
-                        setDirectors(updated);
-                      }}
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="ID / Passport number"
-                    />
-                    {directors.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setDirectors(directors.filter((_, i) => i !== index))}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  <div key={index} className="bg-slate-50 border border-slate-300 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <select
+                        value={director.director_type}
+                        onChange={(e) => {
+                          const updated = [...directors];
+                          updated[index].director_type = e.target.value as 'individual' | 'corporation';
+                          setDirectors(updated);
+                        }}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                       >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                        <option value="individual">Individual Director</option>
+                        <option value="corporation">Corporation Director</option>
+                      </select>
+                      {directors.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setDirectors(directors.filter((_, i) => i !== index))}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {director.director_type === 'individual' ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Name (English)</label>
+                            <input
+                              type="text"
+                              value={director.name_english || ''}
+                              onChange={(e) => {
+                                const updated = [...directors];
+                                updated[index].name_english = e.target.value;
+                                setDirectors(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="English name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Name (Chinese)</label>
+                            <input
+                              type="text"
+                              value={director.name_chinese || ''}
+                              onChange={(e) => {
+                                const updated = [...directors];
+                                updated[index].name_chinese = e.target.value;
+                                setDirectors(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="中文姓名"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Correspondence Address</label>
+                          <textarea
+                            value={director.correspondence_address || ''}
+                            onChange={(e) => {
+                              const updated = [...directors];
+                              updated[index].correspondence_address = e.target.value;
+                              setDirectors(updated);
+                            }}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Correspondence address"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Residential Address</label>
+                          <textarea
+                            value={director.residential_address || ''}
+                            onChange={(e) => {
+                              const updated = [...directors];
+                              updated[index].residential_address = e.target.value;
+                              setDirectors(updated);
+                            }}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Residential address"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">HKID</label>
+                            <input
+                              type="text"
+                              value={director.hkid || ''}
+                              onChange={(e) => {
+                                const updated = [...directors];
+                                updated[index].hkid = e.target.value;
+                                setDirectors(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="HKID number"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Passport</label>
+                            <input
+                              type="text"
+                              value={director.passport || ''}
+                              onChange={(e) => {
+                                const updated = [...directors];
+                                updated[index].passport = e.target.value;
+                                setDirectors(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="Passport number"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (English)</label>
+                            <input
+                              type="text"
+                              value={director.company_name_english || ''}
+                              onChange={(e) => {
+                                const updated = [...directors];
+                                updated[index].company_name_english = e.target.value;
+                                setDirectors(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="English company name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Company Name (Chinese)</label>
+                            <input
+                              type="text"
+                              value={director.company_name_chinese || ''}
+                              onChange={(e) => {
+                                const updated = [...directors];
+                                updated[index].company_name_chinese = e.target.value;
+                                setDirectors(updated);
+                              }}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              placeholder="中文公司名稱"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Registered Office Address</label>
+                          <textarea
+                            value={director.registered_office_address || ''}
+                            onChange={(e) => {
+                              const updated = [...directors];
+                              updated[index].registered_office_address = e.target.value;
+                              setDirectors(updated);
+                            }}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Registered office address"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Business Registration Number (BR)</label>
+                          <input
+                            type="text"
+                            value={director.br_number || ''}
+                            onChange={(e) => {
+                              const updated = [...directors];
+                              updated[index].br_number = e.target.value;
+                              setDirectors(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="BR number"
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={() => setDirectors([...directors, {name: '', id_number: ''}])}
-                className="mt-3 text-emerald-600 hover:text-emerald-700 text-sm font-medium flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" />
-                Add Director
-              </button>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDirectors([...directors, { director_type: 'individual' }])}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Individual Director
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDirectors([...directors, { director_type: 'corporation' }])}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Corporation Director
+                </button>
+              </div>
             </div>
 
             <div className="border-b border-slate-200 pb-4">
