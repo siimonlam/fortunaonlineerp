@@ -19,6 +19,10 @@ interface Director {
   company_name_english?: string;
   registered_office_address?: string;
   br_number?: string;
+  country_region?: string;
+  date_of_appointment?: string;
+  date_of_resignation?: string;
+  is_first_director?: boolean;
 }
 
 interface Member {
@@ -204,6 +208,10 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         company_name_english: d.company_name_english,
         registered_office_address: d.registered_office_address,
         br_number: d.br_number,
+        country_region: d.country_region,
+        date_of_appointment: d.date_of_appointment,
+        date_of_resignation: d.date_of_resignation,
+        is_first_director: d.is_first_director || false,
       })));
     }
   }
@@ -767,6 +775,10 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
           company_name_english: director.company_name_english?.trim() || null,
           registered_office_address: director.registered_office_address?.trim() || null,
           br_number: director.br_number?.trim() || null,
+          country_region: director.country_region?.trim() || null,
+          date_of_appointment: director.date_of_appointment || null,
+          date_of_resignation: director.date_of_resignation || null,
+          is_first_director: director.is_first_director || false,
         };
 
         if (director.id) {
@@ -1326,6 +1338,68 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                             />
                           </div>
                         </div>
+                        <div className="border-t border-slate-300 pt-3 mt-3">
+                          <h4 className="text-sm font-semibold text-slate-700 mb-3">Additional Information</h4>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Country / Region</label>
+                              <input
+                                type="text"
+                                value={director.country_region || ''}
+                                onChange={(e) => {
+                                  const updated = [...directors];
+                                  updated[index].country_region = e.target.value;
+                                  setDirectors(updated);
+                                }}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                placeholder="e.g., Hong Kong, China"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Date of Appointment</label>
+                                <input
+                                  type="date"
+                                  value={director.date_of_appointment || ''}
+                                  onChange={(e) => {
+                                    const updated = [...directors];
+                                    updated[index].date_of_appointment = e.target.value;
+                                    setDirectors(updated);
+                                  }}
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Date of Resignation</label>
+                                <input
+                                  type="date"
+                                  value={director.date_of_resignation || ''}
+                                  onChange={(e) => {
+                                    const updated = [...directors];
+                                    updated[index].date_of_resignation = e.target.value;
+                                    setDirectors(updated);
+                                  }}
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={director.is_first_director || false}
+                                  onChange={(e) => {
+                                    const updated = [...directors];
+                                    updated[index].is_first_director = e.target.checked;
+                                    setDirectors(updated);
+                                  }}
+                                  className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
+                                />
+                                <span className="text-sm font-medium text-slate-700">First Director</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -1386,6 +1460,68 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             placeholder="BR number"
                           />
+                        </div>
+                        <div className="border-t border-slate-300 pt-3 mt-3">
+                          <h4 className="text-sm font-semibold text-slate-700 mb-3">Additional Information</h4>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Country / Region</label>
+                              <input
+                                type="text"
+                                value={director.country_region || ''}
+                                onChange={(e) => {
+                                  const updated = [...directors];
+                                  updated[index].country_region = e.target.value;
+                                  setDirectors(updated);
+                                }}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                placeholder="e.g., Hong Kong, China"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Date of Appointment</label>
+                                <input
+                                  type="date"
+                                  value={director.date_of_appointment || ''}
+                                  onChange={(e) => {
+                                    const updated = [...directors];
+                                    updated[index].date_of_appointment = e.target.value;
+                                    setDirectors(updated);
+                                  }}
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Date of Resignation</label>
+                                <input
+                                  type="date"
+                                  value={director.date_of_resignation || ''}
+                                  onChange={(e) => {
+                                    const updated = [...directors];
+                                    updated[index].date_of_resignation = e.target.value;
+                                    setDirectors(updated);
+                                  }}
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={director.is_first_director || false}
+                                  onChange={(e) => {
+                                    const updated = [...directors];
+                                    updated[index].is_first_director = e.target.checked;
+                                    setDirectors(updated);
+                                  }}
+                                  className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
+                                />
+                                <span className="text-sm font-medium text-slate-700">First Director</span>
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
