@@ -72,8 +72,10 @@ Deno.serve(async (req: Request) => {
           let invoiceQuery = supabase
             .from('funding_invoice')
             .select('id, invoice_number, issue_date, project_id, projects(id, title, sales_person_id, status_id)')
-            .in('payment_status', ['unpaid', 'Pending', 'pending', 'Overdue'])
+            .in('payment_status', ['Unpaid', 'unpaid', 'Pending', 'pending', 'Overdue', 'overdue'])
             .not('issue_date', 'is', null);
+
+          let allowedProjectIds: string[] | null = null;
 
           if (rule.project_type_id && rule.main_status !== 'All') {
             const statusIds = [];
@@ -108,8 +110,7 @@ Deno.serve(async (req: Request) => {
                 .in('status_id', statusIds);
 
               if (projectsInStatus && projectsInStatus.length > 0) {
-                const projectIds = projectsInStatus.map(p => p.id);
-                invoiceQuery = invoiceQuery.in('project_id', projectIds);
+                allowedProjectIds = projectsInStatus.map(p => p.id);
               } else {
                 console.log('No projects found in specified status');
                 return;
@@ -122,8 +123,7 @@ Deno.serve(async (req: Request) => {
               .eq('project_type_id', rule.project_type_id);
 
             if (projectsForType && projectsForType.length > 0) {
-              const projectIds = projectsForType.map(p => p.id);
-              invoiceQuery = invoiceQuery.in('project_id', projectIds);
+              allowedProjectIds = projectsForType.map(p => p.id);
             } else {
               console.log('No projects found for project type');
               return;
@@ -134,11 +134,17 @@ Deno.serve(async (req: Request) => {
 
           if (invoicesError) throw invoicesError;
 
-          console.log(`Found ${invoices?.length || 0} unpaid invoices`);
+          console.log(`Found ${invoices?.length || 0} unpaid invoices (before filtering)`);
 
           if (!invoices || invoices.length === 0) return;
 
-          for (const invoice of invoices) {
+          const filteredInvoices = allowedProjectIds
+            ? invoices.filter(inv => allowedProjectIds.includes(inv.project_id))
+            : invoices;
+
+          console.log(`Processing ${filteredInvoices.length} invoices after project type filtering`);
+
+          for (const invoice of filteredInvoices) {
             if (!invoice.issue_date || !invoice.project_id) {
               console.log(`Invoice ${invoice.invoice_number} missing issue_date or project_id, skipping`);
               continue;
