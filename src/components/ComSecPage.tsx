@@ -481,6 +481,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
               service_name: serviceData.service_name,
               description: serviceData.description || null,
               price: parseFloat(serviceData.price) || 0,
+              cost_revenue_type: serviceData.cost_revenue_type || 'Revenue',
             })
             .eq('id', serviceData.id);
 
@@ -493,6 +494,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
               service_type: serviceData.service_name.toLowerCase().replace(/\s+/g, '_'),
               description: serviceData.description || null,
               price: parseFloat(serviceData.price) || 0,
+              cost_revenue_type: serviceData.cost_revenue_type || 'Revenue',
               is_active: true,
             });
 
@@ -524,7 +526,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
           <h3 className="text-lg font-semibold text-slate-900">Manage Services</h3>
           <button
             onClick={() => {
-              setEditingService({ service_name: '', description: '', price: 0 });
+              setEditingService({ service_name: '', description: '', price: 0, cost_revenue_type: 'Revenue' });
               setShowServiceForm(true);
             }}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -559,16 +561,32 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Price (HKD) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={editingService.price}
-                  onChange={(e) => setEditingService({ ...editingService, price: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Price (HKD) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editingService.price}
+                    onChange={(e) => setEditingService({ ...editingService, price: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Cost / Revenue *</label>
+                  <select
+                    value={editingService.cost_revenue_type || 'Revenue'}
+                    onChange={(e) => setEditingService({ ...editingService, cost_revenue_type: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="Revenue">Revenue</option>
+                    <option value="Cost">Cost</option>
+                    <option value="Revenue (incl. cost)">Revenue (incl. cost)</option>
+                    <option value="Prepayment">Prepayment</option>
+                  </select>
+                </div>
               </div>
               <div className="flex gap-3">
                 <button
@@ -598,6 +616,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Service Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Description</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Price (HKD)</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Cost / Revenue</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Actions</th>
               </tr>
             </thead>
@@ -606,7 +625,17 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 <tr key={service.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 text-sm font-medium text-slate-900">{service.service_name}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{service.description || '-'}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900">${service.price.toFixed(2)}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900">${service.price?.toFixed(2) || '0.00'}</td>
+                  <td className="px-6 py-4 text-sm">
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded ${
+                      service.cost_revenue_type === 'Revenue' ? 'bg-green-100 text-green-700' :
+                      service.cost_revenue_type === 'Cost' ? 'bg-red-100 text-red-700' :
+                      service.cost_revenue_type === 'Prepayment' ? 'bg-purple-100 text-purple-700' :
+                      'bg-blue-100 text-blue-700'
+                    }`}>
+                      {service.cost_revenue_type || 'Revenue'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex gap-2">
                       <button
