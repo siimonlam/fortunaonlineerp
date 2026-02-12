@@ -2720,6 +2720,19 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
   onPreview: (data: any) => void;
 }) {
   const [selectedServices, setSelectedServices] = useState<Record<string, { checked: boolean; startDate: string; endDate: string }>>({});
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('');
+
+  useEffect(() => {
+    async function fetchNextInvoiceNumber() {
+      const { data, error } = await supabase.rpc('generate_comsec_invoice_number');
+      if (error) {
+        console.error('Error generating invoice number:', error);
+      } else if (data) {
+        setNextInvoiceNumber(data);
+      }
+    }
+    fetchNextInvoiceNumber();
+  }, []);
 
   const handleServiceToggle = (serviceId: string) => {
     setSelectedServices(prev => ({
@@ -2799,7 +2812,16 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <input name="invoice_number" placeholder="Invoice Number *" required className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Number</label>
+            <input
+              name="invoice_number"
+              value={nextInvoiceNumber}
+              readOnly
+              required
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+            />
+          </div>
           <input name="issue_date" type="date" required placeholder="Issue Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
           <input name="due_date" type="date" required placeholder="Due Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
 
