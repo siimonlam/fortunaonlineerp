@@ -160,7 +160,7 @@ Deno.serve(async (req: Request) => {
 
     const invoiceFolderId = '13RVRV1SWVsUcG6vMre_DrouWIVbsGF99';
 
-    const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy`, {
+    const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
