@@ -1101,6 +1101,48 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     }
   }
 
+  async function handleConvertHiPoToClient() {
+    if (!window.confirm('Are you sure you want to convert this Hi-Po to Client status? This will move the client from Hi-Po to the Active Clients list.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: activeStatus } = await supabase
+        .from('statuses')
+        .select('id')
+        .eq('name', 'Active')
+        .eq('project_type_id', (await supabase
+          .from('project_types')
+          .select('id')
+          .eq('name', 'Com Sec')
+          .single()
+        ).data?.id)
+        .single();
+
+      if (!activeStatus) {
+        throw new Error('Active status not found');
+      }
+
+      const { error: updateError } = await supabase
+        .from('comsec_clients')
+        .update({ status_id: activeStatus.id })
+        .eq('id', client.id);
+
+      if (updateError) throw updateError;
+
+      await logHistory('status_changed', 'Hi-Po', 'Active', 'Converted from Hi-Po to Client status');
+
+      alert('Successfully converted to Client status!');
+      onSuccess();
+    } catch (error: any) {
+      console.error('Error converting to client status:', error);
+      alert(`Failed to convert to client status: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleConvertToClient() {
     if (!window.confirm('Are you sure you want to convert this Hi-Po client to a regular client? This will create a new client record in the main Clients database.')) {
       return;
@@ -2791,7 +2833,21 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
             </div>
 
             <div id="invoice-summary" className="border-t border-slate-200 pt-4 scroll-mt-6">
-              <h3 className="text-base font-semibold text-slate-900 mb-3">Invoice Summary</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-slate-900">Invoice Summary</h3>
+                {(client as any).status?.name === 'Hi-Po' && (
+                  <button
+                    type="button"
+                    onClick={handleConvertHiPoToClient}
+                    disabled={loading}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm"
+                    title="Convert this Hi-Po to Client status"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Convert Hi-Po to Client
+                  </button>
+                )}
+              </div>
               {invoices.length > 0 ? (
                 <div className="bg-slate-50 rounded-lg p-4 space-y-2">
                   {invoices.map((invoice) => (
