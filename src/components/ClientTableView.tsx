@@ -264,37 +264,39 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
       {activeTab === 'channel' && (
-        <div className="border-b border-slate-200 bg-slate-50 px-6 py-2 flex gap-2">
-          <button
-            onClick={() => setChannelPartnerSubTab('partners')}
-            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-              channelPartnerSubTab === 'partners'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Channel Partners
-          </button>
-          <button
-            onClick={() => setChannelPartnerSubTab('projects')}
-            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-              channelPartnerSubTab === 'projects'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Partner Projects
-          </button>
-          <button
-            onClick={() => setChannelPartnerSubTab('reference')}
-            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-              channelPartnerSubTab === 'reference'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Reference Projects
-          </button>
+        <div className="border-b border-slate-200 bg-slate-50 px-6 py-2">
+          <div className="flex gap-2 overflow-x-auto">
+            <button
+              onClick={() => setChannelPartnerSubTab('partners')}
+              className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
+                channelPartnerSubTab === 'partners'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Channel Partners
+            </button>
+            <button
+              onClick={() => setChannelPartnerSubTab('projects')}
+              className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
+                channelPartnerSubTab === 'projects'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Partner Projects
+            </button>
+            <button
+              onClick={() => setChannelPartnerSubTab('reference')}
+              className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
+                channelPartnerSubTab === 'reference'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Reference Projects
+            </button>
+          </div>
         </div>
       )}
 
