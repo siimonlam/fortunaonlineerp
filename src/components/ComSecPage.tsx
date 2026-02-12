@@ -2937,6 +2937,21 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
 
           <textarea name="notes" placeholder="Notes (optional)" rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
 
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+            <h4 className="text-sm font-semibold text-blue-900 mb-2">Available Template Placeholders</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{INVOICE_NUMBER}}`}</code> - Invoice number</div>
+              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_NAME}}`}</code> - Client company name</div>
+              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_ADDRESS}}`}</code> - Client address</div>
+              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{ISSUE_DATE}}`}</code> - Invoice date</div>
+              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{DUE_DATE}}`}</code> - Payment due date</div>
+              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{ITEMS}}`}</code> - Selected services list</div>
+              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{TOTAL}}`}</code> - Total amount (HKD)</div>
+              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{NOTES}}`}</code> - Additional notes</div>
+            </div>
+            <p className="text-xs text-blue-700 mt-2">Add these placeholders to your Google Doc template and they will be replaced automatically.</p>
+          </div>
+
           <div className="flex gap-3 pt-4">
             <button type="submit" className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
               Preview Invoice
