@@ -297,6 +297,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
           </button>
         </div>
       )}
+
       {activeTab === 'company' && (
         <>
           <div className="flex justify-end items-center gap-2 px-6 py-3 border-b border-slate-200 bg-slate-50">
