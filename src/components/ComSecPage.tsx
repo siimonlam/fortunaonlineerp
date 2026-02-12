@@ -2401,9 +2401,10 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
             setInvoicePreviewData(null);
             setSelectedClientForInvoice(null);
           }}
-          onSave={async (pdfBlob) => {
+          onSave={async (documentId: string) => {
             try {
               const totalAmount = invoicePreviewData.items.reduce((sum: number, item: any) => sum + item.amount, 0);
+              const googleDriveUrl = `https://docs.google.com/document/d/${documentId}/edit`;
 
               // Insert multiple invoice records - one for each service item
               const invoiceRecords = invoicePreviewData.items.map((item: any) => ({
@@ -2419,6 +2420,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 start_date: item.startDate || null,
                 end_date: item.endDate || null,
                 remarks: invoicePreviewData.notes,
+                google_drive_url: googleDriveUrl,
                 created_by: user?.id
               }));
 
@@ -2463,18 +2465,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
               if (voError) {
                 console.error('Error saving to virtual_office:', voError);
-                // Don't fail the whole operation if virtual_office insert fails
               }
-
-              const fileName = `invoices/${invoicePreviewData.clientId}/${invoicePreviewData.invoiceNumber}.pdf`;
-              const { error: storageError } = await supabase.storage
-                .from('comsec-documents')
-                .upload(fileName, pdfBlob, {
-                  contentType: 'application/pdf',
-                  upsert: true
-                });
-
-              if (storageError) throw storageError;
 
               alert('Invoice saved successfully!');
               loadInvoices();
@@ -3021,17 +3012,18 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
 function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave }: {
   invoiceData: any;
   onClose: () => void;
-  onSave: (pdfBlob: Blob) => Promise<void>;
+  onSave: (documentId: string) => Promise<void>;
 }) {
-  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+  const [documentId, setDocumentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    generatePdfFromTemplate();
+    generateDocumentFromTemplate();
   }, []);
 
-  const generatePdfFromTemplate = async () => {
+  const generateDocumentFromTemplate = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -3047,15 +3039,15 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave }: {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate PDF');
+        throw new Error(errorData.error || 'Failed to generate invoice');
       }
 
-      const pdfBuffer = await response.arrayBuffer();
-      const blob = new Blob([pdfBuffer], { type: 'application/pdf' });
-      setPdfBlob(blob);
+      const result = await response.json();
+      setDocumentUrl(result.previewUrl);
+      setDocumentId(result.documentId);
     } catch (error: any) {
-      console.error('Error generating PDF:', error);
-      setError(error.message || 'Failed to generate invoice PDF');
+      console.error('Error generating invoice:', error);
+      setError(error.message || 'Failed to generate invoice document');
     } finally {
       setLoading(false);
     }
@@ -3066,7 +3058,7 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave }: {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="text-slate-700 font-medium">Generating invoice from template...</p>
+          <p className="text-slate-700 font-medium">Creating invoice document...</p>
         </div>
       </div>
     );
@@ -3080,7 +3072,7 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave }: {
           <p className="text-slate-700 mb-6">{error}</p>
           <div className="flex gap-3">
             <button
-              onClick={generatePdfFromTemplate}
+              onClick={generateDocumentFromTemplate}
               className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Try Again
@@ -3097,17 +3089,55 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave }: {
     );
   }
 
-  if (!pdfBlob) {
+  if (!documentUrl || !documentId) {
     return null;
   }
 
   return (
-    <InvoicePreview
-      pdfBlob={pdfBlob}
-      onClose={onClose}
-      onSave={async (finalBlob) => {
-        await onSave(finalBlob || pdfBlob);
-      }}
-    />
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">Invoice Preview</h3>
+            <p className="text-sm text-slate-600 mt-1">
+              {invoiceData.invoiceNumber} - {invoiceData.clientName}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <a
+              href={`https://docs.google.com/document/d/${documentId}/edit`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              Open in Google Docs
+            </a>
+            <button
+              onClick={async () => {
+                await onSave(documentId);
+              }}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              Save Invoice
+            </button>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden">
+          <iframe
+            src={documentUrl}
+            className="w-full h-full border-0"
+            title="Invoice Preview"
+          />
+        </div>
+      </div>
+    </div>
   );
 }

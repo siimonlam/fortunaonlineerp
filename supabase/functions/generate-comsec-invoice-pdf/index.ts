@@ -158,6 +158,8 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = await getServiceAccountToken();
 
+    const invoiceFolderId = '13RVRV1SWVsUcG6vMre_DrouWIVbsGF99';
+
     const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy`, {
       method: 'POST',
       headers: {
@@ -165,7 +167,8 @@ Deno.serve(async (req: Request) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: `Invoice_${invoiceNumber}_${companyCode}`,
+        name: `${invoiceNumber} - ${clientName}`,
+        parents: [invoiceFolderId],
       }),
     });
 
@@ -245,41 +248,28 @@ Deno.serve(async (req: Request) => {
 
     console.log('Updated document with invoice data');
 
-    const exportResponse = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${newDocId}/export?mimeType=application/pdf`,
+    const googleDocUrl = `https://docs.google.com/document/d/${newDocId}/edit`;
+    const previewUrl = `https://docs.google.com/document/d/${newDocId}/preview`;
+
+    console.log('Invoice document created:', googleDocUrl);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        documentId: newDocId,
+        googleDocUrl,
+        previewUrl,
+        invoiceNumber,
+        clientName,
+      }),
       {
+        status: 200,
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          ...corsHeaders,
+          'Content-Type': 'application/json',
         },
       }
     );
-
-    if (!exportResponse.ok) {
-      const error = await exportResponse.text();
-      throw new Error(`Failed to export PDF: ${error}`);
-    }
-
-    const pdfBuffer = await exportResponse.arrayBuffer();
-
-    console.log('Exported PDF, size:', pdfBuffer.byteLength);
-
-    await fetch(`https://www.googleapis.com/drive/v3/files/${newDocId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
-
-    console.log('Deleted temporary Google Doc');
-
-    return new Response(pdfBuffer, {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="Invoice_${invoiceNumber}.pdf"`,
-      },
-    });
 
   } catch (error) {
     console.error('Error generating invoice PDF:', error);
