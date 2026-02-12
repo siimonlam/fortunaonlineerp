@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail, LayoutGrid, List, Download, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail, LayoutGrid, List, Download, Upload, Table, Columns } from 'lucide-react';
 import { InvoicePreview } from './InvoicePreview';
 import { DocumentFolderModal } from './DocumentFolderModal';
 import { EditComSecClientModal } from './EditComSecClientModal';
@@ -138,7 +138,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const [clientsSubTab, setClientsSubTab] = useState<'list' | 'autofill_settings'>('list');
   const [virtualOfficeSubTab, setVirtualOfficeSubTab] = useState<'virtual_office' | 'letters'>('virtual_office');
   const [showLetterModal, setShowLetterModal] = useState(false);
-  const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
+  const [clientViewMode, setClientViewMode] = useState<'grid' | 'list' | 'substatus'>('grid');
   const [selectedVOClient, setSelectedVOClient] = useState<{ id: string; code: string; name: string } | null>(null);
   const [letters, setLetters] = useState<any[]>([]);
   const [showAddMappingModal, setShowAddMappingModal] = useState(false);
@@ -735,31 +735,42 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
               </label>
               <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
                 <button
-                  onClick={() => setClientViewMode('card')}
+                  onClick={() => setClientViewMode('grid')}
                   className={`p-2 rounded transition-colors ${
-                    clientViewMode === 'card'
+                    clientViewMode === 'grid'
                       ? 'bg-white text-blue-600 shadow-sm'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
-                  title="Card View"
+                  title="Grid View"
                 >
                   <LayoutGrid className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setClientViewMode('table')}
+                  onClick={() => setClientViewMode('list')}
                   className={`p-2 rounded transition-colors ${
-                    clientViewMode === 'table'
+                    clientViewMode === 'list'
                       ? 'bg-white text-blue-600 shadow-sm'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
-                  title="Table View"
+                  title="List View"
                 >
-                  <List className="w-4 h-4" />
+                  <Table className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setClientViewMode('substatus')}
+                  className={`p-2 rounded transition-colors ${
+                    clientViewMode === 'substatus'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Substatus View"
+                >
+                  <Columns className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {clientViewMode === 'card' ? (
+            {clientViewMode === 'grid' ? (
               <div className="grid gap-4">
           {filteredClients.map(client => {
             return (
@@ -823,7 +834,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
             );
           })}
               </div>
-            ) : (
+            ) : clientViewMode === 'list' ? (
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-slate-50 border-b border-slate-200">
@@ -891,6 +902,96 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            ) : (
+              <div className="flex gap-4 overflow-x-auto pb-4">
+                {(() => {
+                  const statusGroups: { [key: string]: ComSecClient[] } = {
+                    'Hi-Po': [],
+                    'Active': [],
+                    'Pending Renewal': [],
+                    'Dormant': [],
+                    'Other': []
+                  };
+
+                  filteredClients.forEach(client => {
+                    const statusName = client.status?.name || 'Other';
+                    if (statusGroups[statusName]) {
+                      statusGroups[statusName].push(client);
+                    } else {
+                      statusGroups['Other'].push(client);
+                    }
+                  });
+
+                  return Object.entries(statusGroups).map(([statusName, clients]) => {
+                    if (clients.length === 0) return null;
+
+                    const statusColor =
+                      statusName === 'Hi-Po' ? 'bg-red-900 text-white' :
+                      statusName === 'Active' ? 'bg-green-600 text-white' :
+                      statusName === 'Pending Renewal' ? 'bg-yellow-600 text-white' :
+                      statusName === 'Dormant' ? 'bg-gray-600 text-white' :
+                      'bg-slate-600 text-white';
+
+                    return (
+                      <div key={statusName} className="flex-shrink-0 w-80">
+                        <div className={`${statusColor} px-4 py-3 rounded-t-lg flex items-center justify-between`}>
+                          <h3 className="font-semibold">{statusName}</h3>
+                          <span className="text-sm opacity-90">{clients.length}</span>
+                        </div>
+                        <div className="bg-slate-50 p-2 space-y-2 rounded-b-lg border border-t-0 border-slate-200 max-h-[calc(100vh-300px)] overflow-y-auto">
+                          {clients.map(client => (
+                            <div
+                              key={client.id}
+                              className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                              onClick={() => { setEditingClient(client); setShowEditClientModal(true); }}
+                            >
+                              <div className="space-y-2">
+                                <div>
+                                  <h4 className="font-semibold text-slate-900 text-sm mb-1">{client.company_name}</h4>
+                                  {client.company_code && (
+                                    <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium">
+                                      {client.company_code}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="space-y-1 text-xs text-slate-600">
+                                  {client.brn && <div><span className="font-medium">BRN:</span> {client.brn}</div>}
+                                  {client.case_officer && <div><span className="font-medium">Officer:</span> {client.case_officer.full_name}</div>}
+                                  {client.anniversary_month && <div><span className="font-medium">Anniversary:</span> {client.anniversary_month}</div>}
+                                  {client.ar_due_date && <div><span className="font-medium">AR Due:</span> {new Date(client.ar_due_date).toLocaleDateString()}</div>}
+                                </div>
+                                <div className="flex gap-1 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => { setSelectedClientForInvoice(client); setShowInvoiceModal(true); }}
+                                    className="flex-1 p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors text-xs"
+                                    title="Create Invoice"
+                                  >
+                                    <Receipt className="w-3.5 h-3.5 mx-auto" />
+                                  </button>
+                                  <button
+                                    onClick={() => { setEditingClient(client); setShowEditClientModal(true); }}
+                                    className="flex-1 p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors text-xs"
+                                    title="Edit"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5 mx-auto" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete('comsec_clients', client.id)}
+                                    className="flex-1 p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors text-xs"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 mx-auto" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }).filter(Boolean);
+                })()}
               </div>
             )}
           </>
