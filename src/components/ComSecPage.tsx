@@ -2779,6 +2779,7 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
     const issueDate = formData.get('issue_date') as string;
     const dueDate = formData.get('due_date') as string;
     const notes = formData.get('notes') as string;
+    const discount = formData.get('discount') as string;
 
     const selectedItems: any[] = [];
     masterServices.forEach(service => {
@@ -2815,7 +2816,8 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
       items: selectedItems,
       notes,
       clientId: client.id,
-      companyCode: client.company_code
+      companyCode: client.company_code,
+      discount: parseFloat(discount) || 0
     });
   };
 
@@ -2935,20 +2937,66 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
             )}
           </div>
 
-          <textarea name="notes" placeholder="Notes (optional)" rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Discount (HKD)</label>
+            <input
+              name="discount"
+              type="number"
+              step="0.01"
+              min="0"
+              defaultValue="0"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+            />
+          </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+          <textarea name="notes" placeholder="Notes / Remark (optional)" rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
             <h4 className="text-sm font-semibold text-blue-900 mb-2">Available Template Placeholders</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
-              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{INVOICE_NUMBER}}`}</code> - Invoice number</div>
-              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_NAME}}`}</code> - Client company name</div>
-              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_ADDRESS}}`}</code> - Client address</div>
-              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{ISSUE_DATE}}`}</code> - Invoice date</div>
-              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{DUE_DATE}}`}</code> - Payment due date</div>
-              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{ITEMS}}`}</code> - Selected services list</div>
-              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{TOTAL}}`}</code> - Total amount (HKD)</div>
-              <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{NOTES}}`}</code> - Additional notes</div>
+
+            <div>
+              <p className="text-xs font-semibold text-blue-900 mb-1">Basic Information:</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{INVOICE_NUMBER}}`}</code> - Invoice number</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_NAME}}`}</code> - Client company name</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_ADDRESS}}`}</code> - Client address</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{ISSUE_DATE}}`}</code> - Invoice date</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{DUE_DATE}}`}</code> - Payment due date</div>
+              </div>
             </div>
+
+            <div>
+              <p className="text-xs font-semibold text-blue-900 mb-1">Items (All Selected):</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{ITEMS}}`}</code> - All items (numbered list)</div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-blue-900 mb-1">Individual Items (Up to 10):</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{ITEM_1}}`}</code> to <code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{ITEM_10}}`}</code> - Item descriptions</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{TOTAL_1}}`}</code> to <code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{TOTAL_10}}`}</code> - Item amounts</div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-blue-900 mb-1">Financial Summary:</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{SUBTOTAL}}`}</code> - Sum of all items</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{DISCOUNT}}`}</code> - Discount amount</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{TOTAL}}`}</code> - Final total (subtotal - discount)</div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-blue-900 mb-1">Additional:</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{NOTES}}`}</code> - Additional notes</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{REMARK}}`}</code> - Same as notes/remark</div>
+              </div>
+            </div>
+
             <p className="text-xs text-blue-700 mt-2">Add these placeholders to your Google Doc template and they will be replaced automatically.</p>
           </div>
 

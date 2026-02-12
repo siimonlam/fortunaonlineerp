@@ -131,6 +131,7 @@ Deno.serve(async (req: Request) => {
       notes,
       clientId,
       companyCode,
+      discount = 0,
     } = await req.json();
 
     console.log('Generating invoice PDF for:', clientName);
@@ -177,23 +178,40 @@ Deno.serve(async (req: Request) => {
     console.log('Created copy of template:', newDocId);
 
     const itemsTable: string[] = [];
-    let totalAmount = 0;
+    let subtotal = 0;
 
     items.forEach((item: any, index: number) => {
-      totalAmount += item.amount;
+      subtotal += item.amount;
       itemsTable.push(`${index + 1}. ${item.description} - HKD $${item.amount.toFixed(2)}`);
     });
 
-    const replacements = {
+    const discountAmount = parseFloat(discount) || 0;
+    const totalAmount = subtotal - discountAmount;
+
+    const replacements: Record<string, string> = {
       '{{INVOICE_NUMBER}}': invoiceNumber,
       '{{CLIENT_NAME}}': clientName,
       '{{CLIENT_ADDRESS}}': clientAddress,
       '{{ISSUE_DATE}}': new Date(issueDate).toLocaleDateString('en-GB'),
       '{{DUE_DATE}}': new Date(dueDate).toLocaleDateString('en-GB'),
       '{{ITEMS}}': itemsTable.join('\n'),
+      '{{SUBTOTAL}}': `HKD $${subtotal.toFixed(2)}`,
+      '{{DISCOUNT}}': `HKD $${discountAmount.toFixed(2)}`,
       '{{TOTAL}}': `HKD $${totalAmount.toFixed(2)}`,
       '{{NOTES}}': notes || '',
+      '{{REMARK}}': notes || '',
     };
+
+    // Add individual item placeholders ({{ITEM_1}} to {{ITEM_10}})
+    for (let i = 1; i <= 10; i++) {
+      if (items[i - 1]) {
+        replacements[`{{ITEM_${i}}}`] = items[i - 1].description;
+        replacements[`{{TOTAL_${i}}}`] = `HKD $${items[i - 1].amount.toFixed(2)}`;
+      } else {
+        replacements[`{{ITEM_${i}}}`] = '';
+        replacements[`{{TOTAL_${i}}}`] = '';
+      }
+    }
 
     const requests = Object.entries(replacements).map(([placeholder, value]) => ({
       replaceAllText: {
