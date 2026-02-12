@@ -2719,8 +2719,9 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
   onClose: () => void;
   onPreview: (data: any) => void;
 }) {
-  const [selectedServices, setSelectedServices] = useState<Record<string, { checked: boolean; startDate: string; endDate: string }>>({});
+  const [selectedServices, setSelectedServices] = useState<Record<string, { checked: boolean; startDate: string; endDate: string; price: number }>>({});
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const today = new Date().toISOString().split('T')[0];
   const dueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -2737,13 +2738,22 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
     fetchNextInvoiceNumber();
   }, []);
 
-  const handleServiceToggle = (serviceId: string) => {
+  const filteredServices = masterServices
+    .filter(service => service.cost_revenue_type !== 'Cost')
+    .filter(service => {
+      if (!searchQuery) return true;
+      return service.service_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             (service.description && service.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    });
+
+  const handleServiceToggle = (serviceId: string, defaultPrice: number) => {
     setSelectedServices(prev => ({
       ...prev,
       [serviceId]: {
         checked: !prev[serviceId]?.checked,
         startDate: prev[serviceId]?.startDate || '',
-        endDate: prev[serviceId]?.endDate || ''
+        endDate: prev[serviceId]?.endDate || '',
+        price: prev[serviceId]?.price !== undefined ? prev[serviceId].price : defaultPrice
       }
     }));
   };
@@ -2754,6 +2764,16 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
       [serviceId]: {
         ...prev[serviceId],
         [field]: value
+      }
+    }));
+  };
+
+  const handlePriceChange = (serviceId: string, price: number) => {
+    setSelectedServices(prev => ({
+      ...prev,
+      [serviceId]: {
+        ...prev[serviceId],
+        price
       }
     }));
   };
@@ -2779,7 +2799,7 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
 
         selectedItems.push({
           description,
-          amount: parseFloat(service.price) || 0,
+          amount: serviceData.price !== undefined ? serviceData.price : parseFloat(service.price) || 0,
           serviceId: service.id,
           startDate: serviceData.startDate,
           endDate: serviceData.endDate
@@ -2847,23 +2867,47 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
           </div>
 
           <div className="border border-slate-300 rounded-lg p-4 space-y-4">
-            <h3 className="font-semibold text-slate-800 mb-2">Select Services</h3>
-            {masterServices.map(service => {
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-slate-800">Select Services</h3>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search services..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            {filteredServices.map(service => {
               const needsDates = service.service_type === 'company_secretary' || service.service_type === 'virtual_office';
               const isChecked = selectedServices[service.id]?.checked || false;
+              const currentPrice = selectedServices[service.id]?.price !== undefined ? selectedServices[service.id].price : service.price;
 
               return (
                 <div key={service.id} className="border border-slate-200 rounded-lg p-3">
-                  <label className="flex items-center gap-3 cursor-pointer">
+                  <div className="flex items-center gap-3">
                     <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={() => handleServiceToggle(service.id)}
+                      onChange={() => handleServiceToggle(service.id, service.price)}
                       className="w-4 h-4"
                     />
                     <span className="flex-1 font-medium">{service.service_name}</span>
-                    <span className="font-semibold text-slate-800">HKD ${service.price.toFixed(2)}</span>
-                  </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600">HKD $</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={currentPrice}
+                        onChange={(e) => handlePriceChange(service.id, parseFloat(e.target.value) || 0)}
+                        disabled={!isChecked}
+                        className="w-28 px-2 py-1 text-sm border border-slate-300 rounded text-right disabled:bg-slate-50 disabled:text-slate-500"
+                      />
+                    </div>
+                  </div>
 
                   {needsDates && isChecked && (
                     <div className="mt-3 grid grid-cols-2 gap-3 pl-7">
@@ -2890,8 +2934,10 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
                 </div>
               );
             })}
-            {masterServices.length === 0 && (
-              <p className="text-sm text-slate-500 text-center py-2">No services available. Add services in Invoice → Service Settings</p>
+            {filteredServices.length === 0 && (
+              <p className="text-sm text-slate-500 text-center py-2">
+                {searchQuery ? 'No services match your search' : 'No services available. Add services in Invoice → Service Settings'}
+              </p>
             )}
           </div>
 
