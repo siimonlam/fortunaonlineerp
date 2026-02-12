@@ -82,11 +82,25 @@ interface Inquiry {
   from_website: string | null;
 }
 
+interface ReferenceProjectSummary {
+  channel_partner_id: string;
+  channel_partner_name: string;
+  channel_partner_reference: string | null;
+  total_projects: number;
+  total_amount: number;
+  total_commission: number;
+  paid_projects: number;
+  unpaid_projects: number;
+  commission_rate: number;
+}
+
 export function ClientTableView({ clients, channelPartners, projectTypes, onClientClick, onCreateProject, onChannelPartnerClick, onAddClient, activeTab, selectedClientIds, onToggleClientSelection, onSelectAll }: ClientTableViewProps) {
-  const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects' | 'inquiries'>('partners');
+  const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects' | 'reference' | 'inquiries'>('partners');
   const [partnerProjects, setPartnerProjects] = useState<PartnerProject[]>([]);
+  const [referenceProjects, setReferenceProjects] = useState<ReferenceProjectSummary[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingReference, setLoadingReference] = useState(false);
   const [loadingInquiries, setLoadingInquiries] = useState(false);
   const [showAddPartnerProjectModal, setShowAddPartnerProjectModal] = useState(false);
   const [selectedPartnerProject, setSelectedPartnerProject] = useState<PartnerProject | null>(null);
@@ -102,6 +116,9 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
   useEffect(() => {
     if (activeTab === 'channel' && channelPartnerSubTab === 'projects') {
       loadPartnerProjects();
+    }
+    if (activeTab === 'channel' && channelPartnerSubTab === 'reference') {
+      loadReferenceProjects();
     }
     if (activeTab === 'inquiries') {
       loadInquiries();
@@ -139,6 +156,58 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
       console.error('Error loading inquiries:', error);
     } finally {
       setLoadingInquiries(false);
+    }
+  }
+
+  async function loadReferenceProjects() {
+    setLoadingReference(true);
+    try {
+      // Query to aggregate partner projects by channel partner
+      const { data: projectsData, error } = await supabase
+        .from('partner_projects')
+        .select('channel_partner_id, channel_partner_name, channel_partner_reference, project_amount, commission_rate, commission_amount, paid_status');
+
+      if (error) throw error;
+
+      // Aggregate data by channel partner
+      const aggregated = projectsData?.reduce((acc, project) => {
+        const partnerId = project.channel_partner_id || 'unknown';
+
+        if (!acc[partnerId]) {
+          acc[partnerId] = {
+            channel_partner_id: partnerId,
+            channel_partner_name: project.channel_partner_name || 'Unknown',
+            channel_partner_reference: project.channel_partner_reference,
+            total_projects: 0,
+            total_amount: 0,
+            total_commission: 0,
+            paid_projects: 0,
+            unpaid_projects: 0,
+            commission_rate: project.commission_rate || 0,
+          };
+        }
+
+        acc[partnerId].total_projects += 1;
+        acc[partnerId].total_amount += project.project_amount || 0;
+        acc[partnerId].total_commission += project.commission_amount || 0;
+
+        if (project.paid_status) {
+          acc[partnerId].paid_projects += 1;
+        } else {
+          acc[partnerId].unpaid_projects += 1;
+        }
+
+        return acc;
+      }, {} as Record<string, ReferenceProjectSummary>) || {};
+
+      // Convert to array and sort by total_amount descending
+      const sortedResults = Object.values(aggregated).sort((a, b) => b.total_amount - a.total_amount);
+
+      setReferenceProjects(sortedResults);
+    } catch (error) {
+      console.error('Error loading reference projects:', error);
+    } finally {
+      setLoadingReference(false);
     }
   }
 
@@ -215,6 +284,16 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
             }`}
           >
             Partner Projects
+          </button>
+          <button
+            onClick={() => setChannelPartnerSubTab('reference')}
+            className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+              channelPartnerSubTab === 'reference'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Reference Project
           </button>
         </div>
       )}
@@ -966,6 +1045,130 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                 ))}
               </tbody>
               </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'channel' && channelPartnerSubTab === 'reference' && (
+        <div>
+          <div className="px-6 py-4 border-b border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-900">Reference Project Summary</h3>
+            <p className="text-sm text-slate-600 mt-1">
+              Projects grouped by channel partner, sorted by total project size
+            </p>
+          </div>
+
+          <div className="p-6">
+            {loadingReference ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : referenceProjects.length === 0 ? (
+              <div className="p-12 text-center">
+                <p className="text-slate-500 text-lg">No Reference Data Available</p>
+                <p className="text-slate-400 text-sm mt-2">Partner projects will appear here once created</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Partner Reference
+                      </th>
+                      <th className="text-left px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Partner Name
+                      </th>
+                      <th className="text-center px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Total Projects
+                      </th>
+                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Total Project Size
+                      </th>
+                      <th className="text-center px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Commission Rate
+                      </th>
+                      <th className="text-right px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Total Commission
+                      </th>
+                      <th className="text-center px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Paid
+                      </th>
+                      <th className="text-center px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Unpaid
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {referenceProjects.map((summary) => (
+                      <tr key={summary.channel_partner_id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-medium text-blue-600">
+                            {summary.channel_partner_reference || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-slate-900">
+                            {summary.channel_partner_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                            {summary.total_projects}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <span className="text-sm font-bold text-slate-900">
+                            ${summary.total_amount?.toLocaleString() || '0'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-slate-600">
+                          {summary.commission_rate}%
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <span className="text-sm font-semibold text-amber-600">
+                            ${summary.total_commission?.toLocaleString() || '0'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {summary.paid_projects}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            {summary.unpaid_projects}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-50 border-t-2 border-slate-300">
+                    <tr className="font-semibold">
+                      <td colSpan={2} className="px-6 py-4 text-sm text-slate-900">
+                        Total
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-slate-900">
+                        {referenceProjects.reduce((sum, s) => sum + s.total_projects, 0)}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm font-bold text-slate-900">
+                        ${referenceProjects.reduce((sum, s) => sum + s.total_amount, 0).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4"></td>
+                      <td className="px-6 py-4 text-right text-sm font-bold text-amber-700">
+                        ${referenceProjects.reduce((sum, s) => sum + s.total_commission, 0).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-slate-900">
+                        {referenceProjects.reduce((sum, s) => sum + s.paid_projects, 0)}
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-slate-900">
+                        {referenceProjects.reduce((sum, s) => sum + s.unpaid_projects, 0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             )}
           </div>
         </div>
