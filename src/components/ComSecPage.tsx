@@ -2722,6 +2722,9 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
   const [selectedServices, setSelectedServices] = useState<Record<string, { checked: boolean; startDate: string; endDate: string }>>({});
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('');
 
+  const today = new Date().toISOString().split('T')[0];
+  const dueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
   useEffect(() => {
     async function fetchNextInvoiceNumber() {
       const { data, error } = await supabase.rpc('generate_comsec_invoice_number');
@@ -2822,8 +2825,26 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
             />
           </div>
-          <input name="issue_date" type="date" required placeholder="Issue Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-          <input name="due_date" type="date" required placeholder="Due Date *" className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Date</label>
+            <input
+              name="issue_date"
+              type="date"
+              defaultValue={today}
+              required
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
+            <input
+              name="due_date"
+              type="date"
+              defaultValue={dueDate}
+              required
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+            />
+          </div>
 
           <div className="border border-slate-300 rounded-lg p-4 space-y-4">
             <h3 className="font-semibold text-slate-800 mb-2">Select Services</h3>
