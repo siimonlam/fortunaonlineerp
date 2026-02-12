@@ -2394,20 +2394,14 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
       )}
 
       {showInvoicePreview && invoicePreviewData && (
-        <InvoicePreview
-          invoiceNumber={invoicePreviewData.invoiceNumber}
-          clientName={invoicePreviewData.clientName}
-          clientAddress={invoicePreviewData.clientAddress}
-          issueDate={invoicePreviewData.issueDate}
-          dueDate={invoicePreviewData.dueDate}
-          items={invoicePreviewData.items}
-          notes={invoicePreviewData.notes}
+        <ComSecInvoicePreviewWrapper
+          invoiceData={invoicePreviewData}
           onClose={() => {
             setShowInvoicePreview(false);
             setInvoicePreviewData(null);
             setSelectedClientForInvoice(null);
           }}
-          onSave={async (invoiceId, pdfBlob) => {
+          onSave={async (pdfBlob) => {
             try {
               const totalAmount = invoicePreviewData.items.reduce((sum: number, item: any) => sum + item.amount, 0);
 
@@ -2954,5 +2948,99 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
         </form>
       </div>
     </div>
+  );
+}
+
+function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave }: {
+  invoiceData: any;
+  onClose: () => void;
+  onSave: (pdfBlob: Blob) => Promise<void>;
+}) {
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    generatePdfFromTemplate();
+  }, []);
+
+  const generatePdfFromTemplate = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-invoice-pdf`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(invoiceData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate PDF');
+      }
+
+      const pdfBuffer = await response.arrayBuffer();
+      const blob = new Blob([pdfBuffer], { type: 'application/pdf' });
+      setPdfBlob(blob);
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      setError(error.message || 'Failed to generate invoice PDF');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-slate-700 font-medium">Generating invoice from template...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md">
+          <h3 className="text-xl font-semibold text-red-600 mb-4">Error Generating Invoice</h3>
+          <p className="text-slate-700 mb-6">{error}</p>
+          <div className="flex gap-3">
+            <button
+              onClick={generatePdfFromTemplate}
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 bg-slate-200 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!pdfBlob) {
+    return null;
+  }
+
+  return (
+    <InvoicePreview
+      pdfBlob={pdfBlob}
+      onClose={onClose}
+      onSave={async (finalBlob) => {
+        await onSave(finalBlob || pdfBlob);
+      }}
+    />
   );
 }
