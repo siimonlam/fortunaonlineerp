@@ -2811,6 +2811,8 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
       invoiceNumber,
       clientName: client.company_name,
       clientAddress: client.address || '',
+      clientContactPerson: client.contact_person || '',
+      clientPhone: client.phone || '',
       issueDate,
       dueDate,
       items: selectedItems,
@@ -2960,6 +2962,8 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
                 <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{INVOICE_NUMBER}}`}</code> - Invoice number</div>
                 <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_NAME}}`}</code> - Client company name</div>
                 <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_ADDRESS}}`}</code> - Client address</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_CONTACT_PERSON}}`}</code> - Contact person</div>
+                <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{CLIENT_PHONE}}`}</code> - Client phone number</div>
                 <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{ISSUE_DATE}}`}</code> - Invoice date</div>
                 <div><code className="bg-white px-2 py-1 rounded border border-blue-200">{`{{DUE_DATE}}`}</code> - Payment due date</div>
               </div>
