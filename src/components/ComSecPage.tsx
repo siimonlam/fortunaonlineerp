@@ -12,6 +12,7 @@ interface ComSecClient {
   id: string;
   company_code: string | null;
   company_name: string;
+  company_name_chinese: string | null;
   brn: string | null;
   incorporation_date: string | null;
   case_officer_id: string | null;
@@ -667,8 +668,14 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   function renderClientsTab() {
     const filteredClients = comSecClients.filter(client => {
       // Filter based on search term only (status filtering is done at database level)
-      const searchFilter = (client.company_name && client.company_name.toLowerCase().includes(searchTermClients.toLowerCase())) ||
-        (client.company_code && client.company_code.toLowerCase().includes(searchTermClients.toLowerCase()));
+      const searchLower = searchTermClients.toLowerCase();
+      const searchFilter =
+        (client.company_name && client.company_name.toLowerCase().includes(searchLower)) ||
+        (client.company_name_chinese && client.company_name_chinese.toLowerCase().includes(searchLower)) ||
+        (client.company_code && client.company_code.toLowerCase().includes(searchLower)) ||
+        (client.brn && client.brn.toLowerCase().includes(searchLower)) ||
+        (client.phone && client.phone.toLowerCase().includes(searchLower)) ||
+        (client.email && client.email.toLowerCase().includes(searchLower));
 
       return searchFilter;
     });
@@ -709,7 +716,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search companies..."
+                  placeholder="Search by company name, BRN, phone, email..."
                   value={searchTermClients}
                   onChange={(e) => setSearchTermClients(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
