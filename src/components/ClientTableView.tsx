@@ -293,7 +293,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
                 : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
-            Reference Project
+            Reference Projects
           </button>
         </div>
       )}
@@ -1054,7 +1054,7 @@ export function ClientTableView({ clients, channelPartners, projectTypes, onClie
       {activeTab === 'channel' && channelPartnerSubTab === 'reference' && (
         <div>
           <div className="px-6 py-4 border-b border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900">Reference Project Summary</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Reference Projects Summary</h3>
             <p className="text-sm text-slate-600 mt-1">
               Projects grouped by channel partner, sorted by total project size
             </p>
