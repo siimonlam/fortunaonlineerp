@@ -2283,7 +2283,6 @@ export function ProjectBoard() {
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
                 title="Go to Home"
               >
-                <img src="/512x512.jpg" alt="Logo" className="w-10 h-10 rounded-lg" />
                 <div className="flex flex-col items-start">
                   <h1 className="text-xl font-bold text-slate-900">Project Manager</h1>
                   <span className="text-xs text-slate-500">{APP_VERSION}</span>
