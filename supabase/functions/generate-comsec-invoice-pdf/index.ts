@@ -182,6 +182,27 @@ Deno.serve(async (req: Request) => {
 
     console.log('Created copy of template:', newDocId);
 
+    // Verify the copied document is a Google Doc
+    const fileMetadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${newDocId}?fields=mimeType,name&supportsAllDrives=true`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!fileMetadataResponse.ok) {
+      throw new Error('Failed to verify copied document');
+    }
+
+    const fileMetadata = await fileMetadataResponse.json();
+    console.log('Copied document metadata:', fileMetadata);
+
+    if (fileMetadata.mimeType !== 'application/vnd.google-apps.document') {
+      throw new Error(`Template must be a Google Doc, but got: ${fileMetadata.mimeType}. Please ensure the template is a Google Doc (not Sheets, Slides, or PDF).`);
+    }
+
+    // Wait for Google Drive to finish processing the copy
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     const itemsTable: string[] = [];
     let subtotal = 0;
 
