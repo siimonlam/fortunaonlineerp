@@ -1,14 +1,15 @@
 /*
-  # Create ComSec Invoice Number Auto-Generation Function
+  # Fix ComSec Invoice Number Generator
 
-  1. New Function
-    - `generate_comsec_invoice_number()` - Generates invoice numbers in format A2026001, A2026002, etc.
-    - Global counter starting from A2026001
-    - Increments by 1 for each new invoice
-
-  2. Changes
-    - Creates a reusable function for ComSec invoice number generation
-    - Ensures unique invoice numbers with sequential numbering
+  1. Changes
+    - Updates `generate_comsec_invoice_number()` function to use MAX sequence instead of COUNT
+    - This ensures invoice numbers continue from the highest existing number
+    - Fixes issue where A2026002 was generated when A2026004 already exists
+    
+  2. Logic
+    - Extracts numeric part from existing invoice numbers (e.g., "004" from "A2026004")
+    - Finds the maximum sequence number
+    - Increments by 1 to get the next number
 */
 
 CREATE OR REPLACE FUNCTION generate_comsec_invoice_number()

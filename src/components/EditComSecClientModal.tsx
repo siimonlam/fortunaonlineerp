@@ -525,27 +525,95 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
         const issueDate = subscriptionData.start_date || subscriptionData.service_date || new Date().toISOString().split('T')[0];
         const dueDate = subscriptionData.end_date || subscriptionData.start_date || subscriptionData.service_date || new Date().toISOString().split('T')[0];
 
-        const { error } = await supabase
+        // Generate proper invoice number using database function
+        let invoiceNumber = subscriptionData.invoice_number;
+        if (!invoiceNumber) {
+          const { data: generatedNumber, error: numberError } = await supabase.rpc('generate_comsec_invoice_number');
+          if (numberError) {
+            console.error('Error generating invoice number:', numberError);
+            throw new Error('Failed to generate invoice number');
+          }
+          invoiceNumber = generatedNumber;
+        }
+
+        // Create the invoice record first
+        const { data: newInvoice, error } = await supabase
           .from('comsec_invoices')
           .insert({
             comsec_client_id: client.id,
             service_id: subscriptionData.service_id,
             company_code: subscriptionData.company_code || null,
-            invoice_number: subscriptionData.invoice_number || 'SVC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+            invoice_number: invoiceNumber,
             service_date: subscriptionData.service_date || null,
             start_date: subscriptionData.start_date || null,
             end_date: subscriptionData.end_date || null,
             issue_date: issueDate,
             due_date: dueDate,
-            amount: 0,
+            amount: service?.price || 0,
             status: subscriptionData.is_paid ? 'Paid' : 'Draft',
             description: service?.service_name || 'Service',
             payment_date: subscriptionData.paid_date || null,
             remarks: subscriptionData.remarks || null,
             created_by: user.id,
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Generate Google Doc for the invoice
+        try {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+          const items = [{
+            description: service?.service_name || 'Service',
+            amount: service?.price || 0,
+          }];
+
+          const response = await fetch(`${supabaseUrl}/functions/v1/generate-comsec-invoice-pdf`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              invoiceNumber,
+              clientName: client.company_name,
+              clientAddress: client.address || '',
+              clientContactPerson: client.contact_person || '',
+              clientPhone: client.contact_number || '',
+              issueDate,
+              dueDate,
+              items,
+              notes: subscriptionData.remarks || '',
+              clientId: client.id,
+              companyCode: client.company_code,
+              discount: 0,
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+
+            // Update the invoice with the Google Doc URL
+            await supabase
+              .from('comsec_invoices')
+              .update({
+                google_drive_url: result.googleDocUrl,
+              })
+              .eq('id', newInvoice.id);
+
+            console.log('Invoice Google Doc created:', result.googleDocUrl);
+          } else {
+            const errorText = await response.text();
+            console.error('Failed to generate invoice doc:', errorText);
+          }
+        } catch (docError) {
+          console.error('Error generating invoice doc:', docError);
+          // Don't throw - invoice is created, just without the doc
+        }
+
         await logHistory('service_added', undefined, undefined, 'Service subscription added');
       }
 
