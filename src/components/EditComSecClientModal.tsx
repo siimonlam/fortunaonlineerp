@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit, Camera, QrCode, UserCheck, Download, Mail } from 'lucide-react';
+import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit, Camera, QrCode, UserCheck, Download, Mail, ExternalLink, Ban } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PDFDocument } from 'pdf-lib';
 import { ComSecInvoicePreviewModal } from './ComSecInvoicePreviewModal';
@@ -2854,30 +2854,34 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                             </h4>
                             <div className="bg-slate-50 rounded-lg p-4 space-y-2">
                               {draftInvoices.map((invoice) => (
-                                <div key={invoice.id} className="flex items-center justify-between py-3 px-3 bg-white rounded-lg border border-slate-200 hover:shadow-md transition-shadow">
-                                  <div className="flex-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (invoice.google_drive_url) {
-                                          window.open(invoice.google_drive_url, '_blank');
-                                        }
-                                      }}
-                                      className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left flex items-center gap-2"
-                                    >
-                                      {invoice.invoice_number}
-                                      <FileText className="w-3 h-3" />
-                                    </button>
-                                    <div className="text-xs text-slate-500 mt-1">
-                                      Issue: {new Date(invoice.issue_date).toLocaleDateString()} | Due: {new Date(invoice.due_date).toLocaleDateString()}
+                                <div key={invoice.id} className="py-3 px-3 bg-white rounded-lg border border-slate-200 hover:shadow-md transition-shadow">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex-1">
+                                      <div className="font-medium text-slate-900">{invoice.invoice_number}</div>
+                                      <div className="text-xs text-slate-500 mt-1">
+                                        Issue: {new Date(invoice.issue_date).toLocaleDateString()} | Due: {new Date(invoice.due_date).toLocaleDateString()}
+                                      </div>
+                                      {invoice.description && <div className="text-xs text-slate-600 mt-1">{invoice.description}</div>}
                                     </div>
-                                    {invoice.description && <div className="text-xs text-slate-600 mt-1">{invoice.description}</div>}
+                                    <div className="text-right ml-4">
+                                      <div className="font-semibold text-slate-900">${invoice.amount.toFixed(2)}</div>
+                                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-700">
+                                        Draft
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div className="text-right ml-4">
-                                    <div className="font-semibold text-slate-900">${invoice.amount.toFixed(2)}</div>
-                                    <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-700">
-                                      Draft
-                                    </span>
+                                  <div className="flex items-center gap-2">
+                                    {invoice.google_drive_url && (
+                                      <a
+                                        href={invoice.google_drive_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                      >
+                                        <FileEdit className="w-3 h-3" />
+                                        Edit in Google Docs
+                                      </a>
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -2898,18 +2902,9 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
                                 return (
                                   <div key={invoice.id} className="py-3 px-3 bg-white rounded-lg border border-slate-200 hover:shadow-md transition-shadow">
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between mb-2">
                                       <div className="flex-1">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setSelectedInvoice(invoice);
-                                            setShowInvoicePreview(true);
-                                          }}
-                                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
-                                        >
-                                          {invoice.invoice_number}
-                                        </button>
+                                        <div className="font-medium text-slate-900">{invoice.invoice_number}</div>
                                         <div className="text-xs text-slate-500 mt-1">
                                           Issue: {new Date(invoice.issue_date).toLocaleDateString()} | Due: {new Date(invoice.due_date).toLocaleDateString()}
                                         </div>
@@ -2927,44 +2922,120 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                                         </span>
                                       </div>
                                     </div>
-                                    {invoice.pdf_url && (
-                                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {invoice.status === 'Unpaid' && (
                                         <button
                                           type="button"
                                           onClick={async () => {
+                                            const paymentDate = prompt('Enter payment date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+                                            if (!paymentDate) return;
+
+                                            const paymentMethod = prompt('Enter payment method (optional):');
+
                                             try {
-                                              const response = await fetch(invoice.pdf_url!);
-                                              const blob = await response.blob();
-                                              const url = window.URL.createObjectURL(blob);
-                                              const a = document.createElement('a');
-                                              a.href = url;
-                                              a.download = `${invoice.invoice_number}.pdf`;
-                                              document.body.appendChild(a);
-                                              a.click();
-                                              window.URL.revokeObjectURL(url);
-                                              document.body.removeChild(a);
+                                              const { error } = await supabase
+                                                .from('comsec_invoices')
+                                                .update({
+                                                  status: 'Paid',
+                                                  payment_date: paymentDate,
+                                                  payment_method: paymentMethod || null,
+                                                  updated_at: new Date().toISOString()
+                                                })
+                                                .eq('id', invoice.id);
+
+                                              if (error) throw error;
+                                              alert('Invoice marked as paid');
+                                              loadInvoices();
                                             } catch (error) {
-                                              console.error('Error downloading PDF:', error);
-                                              alert('Failed to download PDF');
+                                              console.error('Error marking as paid:', error);
+                                              alert('Failed to mark invoice as paid');
                                             }
                                           }}
-                                          className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                          className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                                         >
-                                          <Download className="w-3 h-3" />
-                                          Download
+                                          <CheckCircle className="w-3 h-3" />
+                                          Mark as Paid
                                         </button>
+                                      )}
+                                      {invoice.pdf_url && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              try {
+                                                const response = await fetch(invoice.pdf_url!);
+                                                const blob = await response.blob();
+                                                const url = window.URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = `${invoice.invoice_number}.pdf`;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                window.URL.revokeObjectURL(url);
+                                                document.body.removeChild(a);
+                                              } catch (error) {
+                                                console.error('Error downloading PDF:', error);
+                                                alert('Failed to download PDF');
+                                              }
+                                            }}
+                                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                          >
+                                            <Download className="w-3 h-3" />
+                                            Download
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              alert('Email sending feature will be implemented. This will send the invoice PDF to the client.');
+                                            }}
+                                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
+                                          >
+                                            <Mail className="w-3 h-3" />
+                                            Email
+                                          </button>
+                                          <a
+                                            href={invoice.pdf_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 px-3 py-1.5 text-xs border border-slate-300 text-slate-700 rounded hover:bg-slate-50 transition-colors"
+                                          >
+                                            <ExternalLink className="w-3 h-3" />
+                                            View
+                                          </a>
+                                        </>
+                                      )}
+                                      {invoice.status === 'Unpaid' && (
                                         <button
                                           type="button"
-                                          onClick={() => {
-                                            alert('Email sending feature will be implemented. This will send the invoice PDF to the client.');
+                                          onClick={async () => {
+                                            const reason = prompt('Enter reason for voiding (optional):');
+                                            if (!confirm('Are you sure you want to void this invoice?')) return;
+
+                                            try {
+                                              const { error } = await supabase
+                                                .from('comsec_invoices')
+                                                .update({
+                                                  status: 'Void',
+                                                  remarks: reason ? `VOIDED: ${reason}` : 'VOIDED',
+                                                  updated_at: new Date().toISOString()
+                                                })
+                                                .eq('id', invoice.id);
+
+                                              if (error) throw error;
+                                              alert('Invoice voided');
+                                              loadInvoices();
+                                            } catch (error) {
+                                              console.error('Error voiding invoice:', error);
+                                              alert('Failed to void invoice');
+                                            }
                                           }}
-                                          className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                                          className="flex items-center gap-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                                         >
-                                          <Mail className="w-3 h-3" />
-                                          Email
+                                          <Ban className="w-3 h-3" />
+                                          Void
                                         </button>
-                                      </div>
-                                    )}
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })}
