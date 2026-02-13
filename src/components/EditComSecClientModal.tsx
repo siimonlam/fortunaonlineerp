@@ -1232,24 +1232,6 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
           <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
             <h2 className="text-xl font-semibold text-slate-900">Edit Com Sec Client</h2>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleGenerateAR1}
-                disabled={isGeneratingAR1 || !client.company_code}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <FileEdit className="w-4 h-4" />
-                {isGeneratingAR1 ? 'Generating...' : 'Update AR1'}
-              </button>
-              <button
-                type="button"
-                onClick={handleGenerateNAR1}
-                disabled={isGeneratingNAR1 || !client.company_name}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <FileEdit className="w-4 h-4" />
-                {isGeneratingNAR1 ? 'Generating...' : 'Update NAR1'}
-              </button>
               {onCreateInvoice && (
                 <button
                   type="button"
@@ -1260,31 +1242,6 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                   Create Invoice
                 </button>
               )}
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!confirm('Are you sure you want to delete this Com Sec client? This action cannot be undone.')) return;
-
-                  try {
-                    const { error } = await supabase
-                      .from('comsec_clients')
-                      .delete()
-                      .eq('id', client.id);
-
-                    if (error) throw error;
-
-                    alert('Com Sec client deleted successfully');
-                    onSuccess();
-                  } catch (error: any) {
-                    console.error('Error deleting client:', error);
-                    alert(`Error deleting client: ${error.message}`);
-                  }
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
               <button
                 onClick={onClose}
                 className="text-slate-400 hover:text-slate-600"
