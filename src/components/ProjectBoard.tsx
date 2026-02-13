@@ -2277,17 +2277,25 @@ export function ProjectBoard() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="px-8">
           <div className="flex justify-between items-center h-16">
-            <button
-              onClick={() => setSelectedView('projects')}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
-              title="Go to Home"
-            >
-              <img src="/512x512.jpg" alt="Logo" className="w-10 h-10 rounded-lg" />
-              <div className="flex flex-col items-start">
-                <h1 className="text-xl font-bold text-slate-900">Project Manager</h1>
-                <span className="text-xs text-slate-500">{APP_VERSION}</span>
+            <div className="flex items-center gap-6">
+              <button
+                onClick={() => setSelectedView('projects')}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+                title="Go to Home"
+              >
+                <img src="/512x512.jpg" alt="Logo" className="w-10 h-10 rounded-lg" />
+                <div className="flex flex-col items-start">
+                  <h1 className="text-xl font-bold text-slate-900">Project Manager</h1>
+                  <span className="text-xs text-slate-500">{APP_VERSION}</span>
+                </div>
+              </button>
+              <div className="flex items-center gap-4 pl-6 border-l border-slate-200">
+                <img src="/logo_HKFUND.png" alt="HK Fund Logo" className="h-8 object-contain" />
+                <img src="/logo-orange-slogan.jpg" alt="Orange Slogan Logo" className="h-8 object-contain" />
+                <img src="/GW's_logo.jpeg" alt="GW Logo" className="h-8 object-contain" />
+                <img src="/Amazing_Channel_official_LOGO.ps.png" alt="Amazing Channel Logo" className="h-8 object-contain" />
               </div>
-            </button>
+            </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <User className="w-4 h-4" />
