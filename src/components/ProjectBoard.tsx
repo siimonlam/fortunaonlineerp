@@ -185,7 +185,7 @@ export function ProjectBoard() {
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list' | 'substatus'>('grid');
   const [activeClientTab, setActiveClientTab] = useState<'company' | 'channel' | 'inquiries'>('company');
   const [channelPartnerSubTab, setChannelPartnerSubTab] = useState<'partners' | 'projects'>('partners');
-  const [comSecModule, setComSecModule] = useState<'hi-po' | 'clients' | 'pending_renewal' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources'>('hi-po');
+  const [comSecModule, setComSecModule] = useState<'dashboard' | 'hi-po' | 'clients' | 'pending_renewal' | 'company_secretary' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources'>('dashboard');
   const [showCreateMarketingProjectModal, setShowCreateMarketingProjectModal] = useState(false);
   const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
   const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
@@ -2428,6 +2428,16 @@ export function ProjectBoard() {
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Modules</h2>
               <nav className="space-y-2">
                 <button
+                  onClick={() => setComSecModule('dashboard')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'dashboard'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Dashboard
+                </button>
+                <button
                   onClick={() => setComSecModule('hi-po')}
                   className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
                     comSecModule === 'hi-po'
@@ -2456,6 +2466,16 @@ export function ProjectBoard() {
                   }`}
                 >
                   Pending Renewal
+                </button>
+                <button
+                  onClick={() => setComSecModule('company_secretary')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'company_secretary'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Company Secretary
                 </button>
                 <button
                   onClick={() => setComSecModule('invoices')}

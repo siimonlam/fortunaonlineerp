@@ -102,7 +102,7 @@ interface Staff {
   email: string;
 }
 
-type TabType = 'hi-po' | 'clients' | 'pending_renewal' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources';
+type TabType = 'dashboard' | 'hi-po' | 'clients' | 'pending_renewal' | 'company_secretary' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources';
 
 interface ComSecPageProps {
   activeModule: TabType;
@@ -169,10 +169,18 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
   async function loadData() {
     switch (activeModule) {
+      case 'dashboard':
+        await loadInvoices();
+        await loadMasterServices();
+        break;
       case 'hi-po':
       case 'clients':
       case 'pending_renewal':
         await loadComSecClients();
+        break;
+      case 'company_secretary':
+        await loadComSecClients();
+        await loadVirtualOffices();
         break;
       case 'invoices':
         await loadInvoices();
@@ -2060,10 +2068,164 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     loadData();
   }
 
+  function renderDashboard() {
+    const serviceRevenue = masterServices
+      .map(service => {
+        const totalRevenue = invoices
+          .filter(inv => inv.status === 'Paid')
+          .reduce((sum, inv) => {
+            const serviceItems = inv.services?.filter((s: any) => s.service_id === service.id) || [];
+            return sum + serviceItems.reduce((itemSum: number, item: any) => itemSum + (item.amount || 0), 0);
+          }, 0);
+        return { ...service, revenue: totalRevenue };
+      })
+      .filter(s => s.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const totalRevenue = serviceRevenue.reduce((sum, s) => sum + s.revenue, 0);
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-slate-900">Service Revenue Dashboard</h2>
+          <div className="text-right">
+            <div className="text-sm text-slate-600">Total Revenue</div>
+            <div className="text-3xl font-bold text-emerald-600">${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {serviceRevenue.map(service => (
+            <div key={service.id} className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-slate-900 mb-1">{service.service_name}</h3>
+                  <p className="text-xs text-slate-500">{service.description || 'No description'}</p>
+                </div>
+                <div className={`px-2 py-1 rounded text-xs font-medium ${
+                  service.type === 'Revenue' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {service.type}
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-2xl font-bold text-emerald-600">
+                  ${service.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className="text-sm text-slate-500">
+                  ({((service.revenue / totalRevenue) * 100).toFixed(1)}%)
+                </div>
+              </div>
+              {service.price && (
+                <div className="mt-2 text-xs text-slate-600">
+                  Unit Price: ${service.price.toFixed(2)}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {serviceRevenue.length === 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+            <DollarSign className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <p className="text-slate-600">No revenue data available yet</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderCompanySecretary() {
+    const secretaryClients = comSecClients.filter(client => {
+      return virtualOffices.some(vo =>
+        vo.comsec_client_id === client.id &&
+        vo.service?.service_name?.toLowerCase().includes('secretary')
+      );
+    });
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-slate-900">Company Secretary Services</h2>
+          <div className="text-sm text-slate-600">
+            {secretaryClients.length} {secretaryClients.length === 1 ? 'Client' : 'Clients'}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Code</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Company Name</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Service</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Start Date</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">End Date</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {secretaryClients.map(client => {
+                const secretaryServices = virtualOffices.filter(vo =>
+                  vo.comsec_client_id === client.id &&
+                  vo.service?.service_name?.toLowerCase().includes('secretary')
+                );
+
+                return secretaryServices.map(vo => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const endDate = new Date(vo.end_date);
+                  endDate.setHours(0, 0, 0, 0);
+                  const isActive = endDate >= today;
+
+                  return (
+                    <tr key={vo.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                        {client.company_code || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-900">
+                        {client.company_name}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {vo.service?.service_name || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {new Date(vo.start_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {new Date(vo.end_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          isActive
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-slate-100 text-slate-800'
+                        }`}>
+                          {isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                });
+              })}
+            </tbody>
+          </table>
+          {secretaryClients.length === 0 && (
+            <div className="text-center py-12 text-slate-500">
+              No company secretary services found
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
+      {activeModule === 'dashboard' && renderDashboard()}
       {activeModule === 'hi-po' && renderClientsTab()}
       {activeModule === 'clients' && renderClientsTab()}
+      {activeModule === 'company_secretary' && renderCompanySecretary()}
       {activeModule === 'invoices' && renderInvoicesTab()}
       {activeModule === 'virtual_office' && renderVirtualOfficeTab()}
       {activeModule === 'knowledge_base' && renderKnowledgeBaseTab()}

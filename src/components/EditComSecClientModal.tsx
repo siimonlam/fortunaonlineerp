@@ -1310,6 +1310,18 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
           <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
             <h2 className="text-xl font-semibold text-slate-900">Edit Com Sec Client</h2>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                  isSidebarOpen
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+                }`}
+                title={isSidebarOpen ? "Close History & Notes" : "Open History & Notes"}
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span className="text-sm font-medium">History & Notes</span>
+              </button>
               {onCreateInvoice && (
                 <button
                   type="button"
@@ -3275,26 +3287,6 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
           )}
         </div>
 
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className={`absolute right-0 top-1/2 -translate-y-1/2 text-white p-3 rounded-l-xl hover:scale-105 transition-all duration-300 shadow-lg ${
-            !isSidebarOpen
-              ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 animate-pulse'
-              : 'bg-slate-700 hover:bg-slate-800'
-          }`}
-          style={{
-            marginRight: isSidebarOpen ? '384px' : '8px',
-            boxShadow: !isSidebarOpen ? '0 4px 14px 0 rgba(59, 130, 246, 0.4)' : '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-          }}
-          title={isSidebarOpen ? "Close History & Notes" : "Open History & Notes"}
-        >
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5" />
-            {!isSidebarOpen && (
-              <span className="text-xs font-medium whitespace-nowrap">History & Notes</span>
-            )}
-          </div>
-        </button>
       </div>
 
       {showAR1Preview && ar1PdfUrl && (
