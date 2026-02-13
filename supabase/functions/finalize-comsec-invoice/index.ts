@@ -128,6 +128,67 @@ Deno.serve(async (req: Request) => {
     // Get service account token
     const accessToken = await getServiceAccountToken();
 
+    // First, read the Google Doc content to extract the total amount
+    const docContentUrl = `https://docs.googleapis.com/v1/documents/${documentId}`;
+    const docResponse = await fetch(docContentUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!docResponse.ok) {
+      const error = await docResponse.text();
+      throw new Error(`Failed to read document content: ${error}`);
+    }
+
+    const docData = await docResponse.json();
+
+    // Extract text content from the document
+    let documentText = '';
+    if (docData.body && docData.body.content) {
+      for (const element of docData.body.content) {
+        if (element.paragraph && element.paragraph.elements) {
+          for (const textElement of element.paragraph.elements) {
+            if (textElement.textRun && textElement.textRun.content) {
+              documentText += textElement.textRun.content;
+            }
+          }
+        }
+      }
+    }
+
+    console.log('Document text extracted, length:', documentText.length);
+
+    // Extract total amount from document
+    // Looking for patterns like "HKD $700.00" or "Total HKD $700.00" near the end of the document
+    let extractedAmount: number | null = null;
+
+    // Try multiple patterns to find the total
+    const patterns = [
+      /Total\s*HKD\s*\$?\s*([\d,]+\.?\d*)/i,
+      /HKD\s*\$?\s*([\d,]+\.?\d*)\s*$/i,
+      /Total.*?HKD\s*\$?\s*([\d,]+\.?\d*)/i,
+      /總額.*?HKD\s*\$?\s*([\d,]+\.?\d*)/i,
+      /\$\s*([\d,]+\.?\d*)\s*HK[DS]?\s*$/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = documentText.match(pattern);
+      if (match && match[1]) {
+        const amountStr = match[1].replace(/,/g, '');
+        const amount = parseFloat(amountStr);
+        if (!isNaN(amount) && amount > 0) {
+          extractedAmount = amount;
+          console.log('Extracted amount from pattern:', pattern, '=', amount);
+          break;
+        }
+      }
+    }
+
+    if (!extractedAmount) {
+      console.warn('Could not extract amount from document, will keep existing amount');
+    }
+
     // Export Google Doc as PDF
     const exportUrl = `https://www.googleapis.com/drive/v3/files/${documentId}/export?mimeType=application/pdf`;
 
@@ -171,20 +232,29 @@ Deno.serve(async (req: Request) => {
       .from('comsec-documents')
       .getPublicUrl(filePath);
 
-    // Update invoice record
+    // Update invoice record with PDF URL and optionally the amount
+    const updateData: any = {
+      status: 'Unpaid',
+      pdf_url: urlData.publicUrl,
+      updated_at: new Date().toISOString(),
+    };
+
+    // If we successfully extracted an amount from the document, update it
+    if (extractedAmount !== null) {
+      updateData.amount = extractedAmount;
+      console.log('Updating invoice amount to:', extractedAmount);
+    }
+
     const { error: updateError } = await supabase
       .from('comsec_invoices')
-      .update({
-        status: 'Unpaid',
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', invoiceId);
 
     if (updateError) {
       throw new Error(`Failed to update invoice: ${updateError.message}`);
     }
 
-    console.log('Invoice status updated to Unpaid');
+    console.log('Invoice updated successfully - Status: Unpaid, PDF URL set' + (extractedAmount ? `, Amount: ${extractedAmount}` : ''));
 
     return new Response(
       JSON.stringify({
