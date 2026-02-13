@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail, LayoutGrid, List, Download, Upload, Table, Columns, Building2, User } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail, LayoutGrid, List, Download, Upload, Table, Columns, Building2, User, Ban, ExternalLink } from 'lucide-react';
 import { InvoicePreview } from './InvoicePreview';
 import { DocumentFolderModal } from './DocumentFolderModal';
 import { EditComSecClientModal } from './EditComSecClientModal';
@@ -1265,29 +1265,126 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                           invoice.status === 'Draft' ? 'bg-slate-100 text-slate-700' :
                           invoice.status === 'Overdue' ? 'bg-red-100 text-red-700' :
                           invoice.status === 'Pending' ? 'bg-blue-100 text-blue-700' :
+                          invoice.status === 'Void' ? 'bg-gray-100 text-gray-700' :
                           'bg-yellow-100 text-yellow-700'
                         }`}>
                           {invoice.status}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          {invoice.status !== 'Paid' && (
+                        <div className="flex gap-2 flex-wrap">
+                          {invoice.status === 'Unpaid' && invoice.pdf_url && (
                             <button
-                              onClick={() => { setEditingItem(invoice); setShowAddModal(true); }}
-                              className="p-1 text-slate-600 hover:bg-slate-100 rounded transition-colors"
-                              title="Edit invoice"
+                              type="button"
+                              onClick={async () => {
+                                if (!confirm('Mark this invoice as paid?')) return;
+
+                                try {
+                                  const { error } = await supabase
+                                    .from('comsec_invoices')
+                                    .update({
+                                      status: 'Paid',
+                                      updated_at: new Date().toISOString()
+                                    })
+                                    .eq('id', invoice.id);
+
+                                  if (error) throw error;
+                                  alert('Invoice marked as paid');
+                                  loadInvoices();
+                                } catch (error) {
+                                  console.error('Error marking as paid:', error);
+                                  alert('Failed to mark invoice as paid');
+                                }
+                              }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                              title="Mark as Paid"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <CheckCircle className="w-3 h-3" />
+                              Paid
                             </button>
                           )}
-                          <button
-                            onClick={() => handleDelete('comsec_invoices', invoice.id)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Delete invoice"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {invoice.pdf_url && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(invoice.pdf_url!);
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `${invoice.invoice_number}.pdf`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                    document.body.removeChild(a);
+                                  } catch (error) {
+                                    console.error('Error downloading PDF:', error);
+                                    alert('Failed to download PDF');
+                                  }
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                title="Download PDF"
+                              >
+                                <Download className="w-3 h-3" />
+                                Download
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  alert('Email sending feature will be implemented. This will send the invoice PDF to the client.');
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
+                                title="Email PDF"
+                              >
+                                <Mail className="w-3 h-3" />
+                                Email
+                              </button>
+                              <a
+                                href={invoice.pdf_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs border border-slate-300 text-slate-700 rounded hover:bg-slate-50 transition-colors"
+                                title="View PDF"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                View
+                              </a>
+                            </>
+                          )}
+                          {invoice.status === 'Unpaid' && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const reason = prompt('Enter reason for voiding (optional):');
+                                if (!confirm('Are you sure you want to void this invoice?')) return;
+
+                                try {
+                                  const { error } = await supabase
+                                    .from('comsec_invoices')
+                                    .update({
+                                      status: 'Void',
+                                      remarks: reason ? `VOIDED: ${reason}` : 'VOIDED',
+                                      updated_at: new Date().toISOString()
+                                    })
+                                    .eq('id', invoice.id);
+
+                                  if (error) throw error;
+                                  alert('Invoice voided');
+                                  loadInvoices();
+                                } catch (error) {
+                                  console.error('Error voiding invoice:', error);
+                                  alert('Failed to void invoice');
+                                }
+                              }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                              title="Void Invoice"
+                            >
+                              <Ban className="w-3 h-3" />
+                              Void
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
