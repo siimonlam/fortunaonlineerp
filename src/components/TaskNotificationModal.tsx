@@ -550,128 +550,132 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
           )}
           </div>
 
-          <div className="w-80 overflow-y-auto bg-gradient-to-b from-slate-50 to-white p-6">
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
-                <Trophy className="w-5 h-5 text-amber-500" />
-                Team Leaderboard
-              </h3>
-              <p className="text-xs text-slate-500">Ranked by past due tasks</p>
-            </div>
-
-            {teamStats.length === 0 ? (
-              <div className="text-center py-8">
-                <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <p className="text-sm text-slate-600">Everyone is on track!</p>
-                <p className="text-xs text-slate-500 mt-1">No overdue tasks</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {teamStats.map((stat, index) => {
-                  const isCurrentUser = stat.userId === user?.id;
-                  return (
-                    <div
-                      key={stat.userId}
-                      className={`rounded-lg p-3 transition-all ${
-                        isCurrentUser
-                          ? 'bg-blue-100 border-2 border-blue-300 shadow-md'
-                          : 'bg-white border border-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 pt-0.5">
-                          {getRankIcon(index)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className={`font-semibold text-sm truncate ${
-                            isCurrentUser ? 'text-blue-900' : 'text-slate-900'
-                          }`}>
-                            {stat.fullName}
-                            {isCurrentUser && (
-                              <span className="ml-2 text-xs font-normal text-blue-600">(You)</span>
-                            )}
-                          </h4>
-                          <div className="flex items-center gap-3 mt-2">
-                            <div className="flex items-center gap-1">
-                              <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                              <span className="text-xs font-bold text-red-600">
-                                {stat.pastDueCount}
-                              </span>
-                              <span className="text-xs text-slate-500">past due</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                              <span className="text-xs font-bold text-blue-600">
-                                {stat.upcomingCount}
-                              </span>
-                              <span className="text-xs text-slate-500">upcoming</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="mt-8 pt-6 border-t-2 border-slate-200">
-              <div className="mb-4">
-                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
-                  <Star className="w-5 h-5 text-green-500" />
-                  Top Performers
-                </h3>
-                <p className="text-xs text-slate-500">Most tasks completed (Last 7 days)</p>
-              </div>
-
-              {completionStats.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-sm text-slate-600">No completed tasks yet</p>
-                  <p className="text-xs text-slate-500 mt-1">in the last 7 days</p>
+          <div className="w-96 overflow-y-auto bg-gradient-to-b from-slate-50 to-white p-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
+                    <Trophy className="w-5 h-5 text-amber-500" />
+                    Past due Leader
+                  </h3>
+                  <p className="text-xs text-slate-500">Ranked by past due tasks</p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {completionStats.slice(0, 10).map((stat, index) => {
-                    const isCurrentUser = stat.userId === user?.id;
-                    return (
-                      <div
-                        key={stat.userId}
-                        className={`rounded-lg p-3 transition-all ${
-                          isCurrentUser
-                            ? 'bg-green-100 border-2 border-green-300 shadow-md'
-                            : 'bg-white border border-slate-200'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 pt-0.5">
-                            {getRankIcon(index)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`font-semibold text-sm truncate ${
-                              isCurrentUser ? 'text-green-900' : 'text-slate-900'
-                            }`}>
-                              {stat.fullName}
-                              {isCurrentUser && (
-                                <span className="ml-2 text-xs font-normal text-green-600">(You)</span>
-                              )}
-                            </h4>
-                            <div className="flex items-center gap-1 mt-2">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-                              <span className="text-xs font-bold text-green-600">
-                                {stat.completedCount}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                task{stat.completedCount !== 1 ? 's' : ''} completed
-                              </span>
+
+                {teamStats.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                    <p className="text-sm text-slate-600">Everyone is on track!</p>
+                    <p className="text-xs text-slate-500 mt-1">No overdue tasks</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {teamStats.map((stat, index) => {
+                      const isCurrentUser = stat.userId === user?.id;
+                      return (
+                        <div
+                          key={stat.userId}
+                          className={`rounded-lg p-3 transition-all ${
+                            isCurrentUser
+                              ? 'bg-blue-100 border-2 border-blue-300 shadow-md'
+                              : 'bg-white border border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 pt-0.5">
+                              {getRankIcon(index)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className={`font-semibold text-sm truncate ${
+                                isCurrentUser ? 'text-blue-900' : 'text-slate-900'
+                              }`}>
+                                {stat.fullName}
+                                {isCurrentUser && (
+                                  <span className="ml-2 text-xs font-normal text-blue-600">(You)</span>
+                                )}
+                              </h4>
+                              <div className="flex items-center gap-3 mt-2">
+                                <div className="flex items-center gap-1">
+                                  <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                                  <span className="text-xs font-bold text-red-600">
+                                    {stat.pastDueCount}
+                                  </span>
+                                  <span className="text-xs text-slate-500">past due</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                                  <span className="text-xs font-bold text-blue-600">
+                                    {stat.upcomingCount}
+                                  </span>
+                                  <span className="text-xs text-slate-500">upcoming</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
+                    <Star className="w-5 h-5 text-green-500" />
+                    Top Performers
+                  </h3>
+                  <p className="text-xs text-slate-500">Most tasks completed (Last 7 days)</p>
                 </div>
-              )}
+
+                {completionStats.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm text-slate-600">No completed tasks yet</p>
+                    <p className="text-xs text-slate-500 mt-1">in the last 7 days</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {completionStats.slice(0, 10).map((stat, index) => {
+                      const isCurrentUser = stat.userId === user?.id;
+                      return (
+                        <div
+                          key={stat.userId}
+                          className={`rounded-lg p-3 transition-all ${
+                            isCurrentUser
+                              ? 'bg-green-100 border-2 border-green-300 shadow-md'
+                              : 'bg-white border border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 pt-0.5">
+                              {getRankIcon(index)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className={`font-semibold text-sm truncate ${
+                                isCurrentUser ? 'text-green-900' : 'text-slate-900'
+                              }`}>
+                                {stat.fullName}
+                                {isCurrentUser && (
+                                  <span className="ml-2 text-xs font-normal text-green-600">(You)</span>
+                                )}
+                              </h4>
+                              <div className="flex items-center gap-1 mt-2">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                                <span className="text-xs font-bold text-green-600">
+                                  {stat.completedCount}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  task{stat.completedCount !== 1 ? 's' : ''} completed
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
