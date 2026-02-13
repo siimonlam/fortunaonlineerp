@@ -1261,6 +1261,31 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                 </button>
               )}
               <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Are you sure you want to delete this Com Sec client? This action cannot be undone.')) return;
+
+                  try {
+                    const { error } = await supabase
+                      .from('comsec_clients')
+                      .delete()
+                      .eq('id', client.id);
+
+                    if (error) throw error;
+
+                    alert('Com Sec client deleted successfully');
+                    onSuccess();
+                  } catch (error: any) {
+                    console.error('Error deleting client:', error);
+                    alert(`Error deleting client: ${error.message}`);
+                  }
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+              <button
                 onClick={onClose}
                 className="text-slate-400 hover:text-slate-600"
               >

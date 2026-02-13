@@ -1199,34 +1199,43 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                   {filteredInvoices.map(invoice => (
                     <tr key={invoice.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4">
-                        <button
-                          onClick={async () => {
-                            try {
-                              const fileName = `invoices/${invoice.comsec_client_id}/${invoice.invoice_number}.pdf`;
-                              const { data, error } = await supabase.storage
-                                .from('comsec-documents')
-                                .createSignedUrl(fileName, 3600);
+                        {invoice.google_drive_url ? (
+                          <a
+                            href={invoice.google_drive_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                          >
+                            {invoice.invoice_number}
+                          </a>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const fileName = `invoices/${invoice.comsec_client_id}/${invoice.invoice_number}.pdf`;
+                                const { data, error } = await supabase.storage
+                                  .from('comsec-documents')
+                                  .createSignedUrl(fileName, 3600);
 
-                              if (error || !data) {
-                                alert('Invoice PDF not found');
-                                return;
+                                if (error || !data) {
+                                  alert('Invoice PDF not found');
+                                  return;
+                                }
+
+                                window.open(data.signedUrl, '_blank');
+                              } catch (error) {
+                                console.error('Error opening invoice:', error);
+                                alert('Failed to open invoice');
                               }
-
-                              window.open(data.signedUrl, '_blank');
-                            } catch (error) {
-                              console.error('Error opening invoice:', error);
-                              alert('Failed to open invoice');
-                            }
-                          }}
-                          className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
-                        >
-                          {invoice.invoice_number}
-                        </button>
+                            }}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
+                          >
+                            {invoice.invoice_number}
+                          </button>
+                        )}
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-slate-600">
-                          {invoice.items?.length || 1} {invoice.items?.length === 1 ? 'item' : 'items'}
-                        </span>
+                        <span className="text-sm text-slate-600">{invoice.description || '-'}</span>
                       </td>
                       <td className="px-6 py-4">
                         <button
@@ -1239,7 +1248,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                           }}
                           className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors font-medium"
                         >
-                          {invoice.comsec_client?.company_code || '-'}
+                          {invoice.company_code || '-'}
                         </button>
                       </td>
                       <td className="px-6 py-4">
@@ -1257,12 +1266,14 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                         </button>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">{new Date(invoice.issue_date).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{new Date(invoice.due_date).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-slate-900">${invoice.amount.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-slate-900">${invoice.amount?.toFixed(2) || '0.00'}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded ${
                           invoice.status === 'Paid' ? 'bg-green-100 text-green-700' :
+                          invoice.status === 'Draft' ? 'bg-slate-100 text-slate-700' :
                           invoice.status === 'Overdue' ? 'bg-red-100 text-red-700' :
+                          invoice.status === 'Pending' ? 'bg-blue-100 text-blue-700' :
                           'bg-yellow-100 text-yellow-700'
                         }`}>
                           {invoice.status}
@@ -2400,41 +2411,25 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
             setShowInvoicePreview(false);
             setInvoicePreviewData(null);
             setSelectedClientForInvoice(null);
+            loadInvoices();
+          }}
+          onDraftSaved={() => {
+            loadInvoices();
           }}
           onSave={async (documentId: string) => {
             try {
-              const totalAmount = invoicePreviewData.items.reduce((sum: number, item: any) => sum + item.amount, 0);
               const googleDriveUrl = `https://docs.google.com/document/d/${documentId}/edit`;
 
-              // Insert multiple invoice records - one for each service item
-              const invoiceRecords = invoicePreviewData.items.map((item: any) => ({
-                invoice_number: invoicePreviewData.invoiceNumber,
-                comsec_client_id: invoicePreviewData.clientId,
-                company_code: invoicePreviewData.companyCode || null,
-                service_id: item.serviceId || null,
-                issue_date: invoicePreviewData.issueDate,
-                due_date: invoicePreviewData.dueDate,
-                amount: item.amount,
-                status: 'Draft',
-                description: item.description,
-                start_date: item.startDate || null,
-                end_date: item.endDate || null,
-                remarks: invoicePreviewData.notes,
-                google_drive_url: googleDriveUrl,
-                created_by: user?.id
-              }));
-
-              const { data: invoiceData, error: invoiceError } = await supabase
+              const { error: updateError } = await supabase
                 .from('comsec_invoices')
-                .insert(invoiceRecords)
-                .select();
+                .update({ status: 'Pending' })
+                .eq('invoice_number', invoicePreviewData.invoiceNumber)
+                .eq('status', 'Draft');
 
-              if (invoiceError) throw invoiceError;
+              if (updateError) throw updateError;
 
-              // Get service details for each item and insert into virtual_office table
               const virtualOfficeRecords = await Promise.all(
                 invoicePreviewData.items.map(async (item: any) => {
-                  // Fetch service details from master services
                   const { data: serviceData } = await supabase
                     .from('comsec_services')
                     .select('service_name, service_description, service_type')
@@ -3009,15 +3004,18 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
   );
 }
 
-function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave }: {
+function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSaved }: {
   invoiceData: any;
   onClose: () => void;
   onSave: (documentId: string) => Promise<void>;
+  onDraftSaved?: (draftInvoiceIds: string[]) => void;
 }) {
+  const { user } = useAuth();
   const [documentUrl, setDocumentUrl] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [draftSaved, setDraftSaved] = useState(false);
 
   useEffect(() => {
     generateDocumentFromTemplate();
@@ -3045,11 +3043,50 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave }: {
       const result = await response.json();
       setDocumentUrl(result.previewUrl);
       setDocumentId(result.documentId);
+
+      await saveDraftInvoice(result.documentId);
     } catch (error: any) {
       console.error('Error generating invoice:', error);
       setError(error.message || 'Failed to generate invoice document');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveDraftInvoice = async (docId: string) => {
+    try {
+      const googleDriveUrl = `https://docs.google.com/document/d/${docId}/edit`;
+
+      const invoiceRecords = invoiceData.items.map((item: any) => ({
+        invoice_number: invoiceData.invoiceNumber,
+        comsec_client_id: invoiceData.clientId,
+        company_code: invoiceData.companyCode || null,
+        service_id: item.serviceId || null,
+        issue_date: invoiceData.issueDate,
+        due_date: invoiceData.dueDate,
+        amount: item.amount,
+        status: 'Draft',
+        description: item.description,
+        start_date: item.startDate || null,
+        end_date: item.endDate || null,
+        remarks: invoiceData.notes,
+        google_drive_url: googleDriveUrl,
+        created_by: user?.id
+      }));
+
+      const { data, error } = await supabase
+        .from('comsec_invoices')
+        .insert(invoiceRecords)
+        .select('id');
+
+      if (error) throw error;
+
+      setDraftSaved(true);
+      if (data && onDraftSaved) {
+        onDraftSaved(data.map(d => d.id));
+      }
+    } catch (error: any) {
+      console.error('Error saving draft invoice:', error);
     }
   };
 
