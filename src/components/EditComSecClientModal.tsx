@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit, Camera, QrCode, UserCheck } from 'lucide-react';
+import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit, Camera, QrCode, UserCheck, Download, Mail } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PDFDocument } from 'pdf-lib';
 import { ComSecInvoicePreviewModal } from './ComSecInvoicePreviewModal';
@@ -2897,40 +2897,74 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                                 const displayStatus = isOverdue ? 'Overdue' : invoice.status;
 
                                 return (
-                                  <div key={invoice.id} className="flex items-center justify-between py-3 px-3 bg-white rounded-lg border border-slate-200 hover:shadow-md transition-shadow">
-                                    <div className="flex-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setSelectedInvoice(invoice);
-                                          setShowInvoicePreview(true);
-                                        }}
-                                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
-                                      >
-                                        {invoice.invoice_number}
-                                      </button>
-                                      <div className="text-xs text-slate-500 mt-1">
-                                        Issue: {new Date(invoice.issue_date).toLocaleDateString()} | Due: {new Date(invoice.due_date).toLocaleDateString()}
-                                      </div>
-                                      {invoice.description && <div className="text-xs text-slate-600 mt-1">{invoice.description}</div>}
-                                      {invoice.pdf_url && (
-                                        <div className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                          <FileText className="w-3 h-3" />
-                                          PDF Available
+                                  <div key={invoice.id} className="py-3 px-3 bg-white rounded-lg border border-slate-200 hover:shadow-md transition-shadow">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedInvoice(invoice);
+                                            setShowInvoicePreview(true);
+                                          }}
+                                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
+                                        >
+                                          {invoice.invoice_number}
+                                        </button>
+                                        <div className="text-xs text-slate-500 mt-1">
+                                          Issue: {new Date(invoice.issue_date).toLocaleDateString()} | Due: {new Date(invoice.due_date).toLocaleDateString()}
                                         </div>
-                                      )}
+                                        {invoice.description && <div className="text-xs text-slate-600 mt-1">{invoice.description}</div>}
+                                      </div>
+                                      <div className="text-right ml-4">
+                                        <div className="font-semibold text-slate-900">${invoice.amount.toFixed(2)}</div>
+                                        <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
+                                          displayStatus === 'Paid' ? 'bg-green-100 text-green-700' :
+                                          displayStatus === 'Overdue' ? 'bg-red-100 text-red-700' :
+                                          displayStatus === 'Void' ? 'bg-gray-100 text-gray-600' :
+                                          'bg-yellow-100 text-yellow-700'
+                                        }`}>
+                                          {displayStatus}
+                                        </span>
+                                      </div>
                                     </div>
-                                    <div className="text-right ml-4">
-                                      <div className="font-semibold text-slate-900">${invoice.amount.toFixed(2)}</div>
-                                      <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
-                                        displayStatus === 'Paid' ? 'bg-green-100 text-green-700' :
-                                        displayStatus === 'Overdue' ? 'bg-red-100 text-red-700' :
-                                        displayStatus === 'Void' ? 'bg-gray-100 text-gray-600' :
-                                        'bg-yellow-100 text-yellow-700'
-                                      }`}>
-                                        {displayStatus}
-                                      </span>
-                                    </div>
+                                    {invoice.pdf_url && (
+                                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            try {
+                                              const response = await fetch(invoice.pdf_url!);
+                                              const blob = await response.blob();
+                                              const url = window.URL.createObjectURL(blob);
+                                              const a = document.createElement('a');
+                                              a.href = url;
+                                              a.download = `${invoice.invoice_number}.pdf`;
+                                              document.body.appendChild(a);
+                                              a.click();
+                                              window.URL.revokeObjectURL(url);
+                                              document.body.removeChild(a);
+                                            } catch (error) {
+                                              console.error('Error downloading PDF:', error);
+                                              alert('Failed to download PDF');
+                                            }
+                                          }}
+                                          className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                        >
+                                          <Download className="w-3 h-3" />
+                                          Download
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            alert('Email sending feature will be implemented. This will send the invoice PDF to the client.');
+                                          }}
+                                          className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                                        >
+                                          <Mail className="w-3 h-3" />
+                                          Email
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}

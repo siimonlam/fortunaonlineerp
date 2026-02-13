@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, ExternalLink, FileText, DollarSign, Ban, CheckCircle, Receipt as ReceiptIcon, Calendar, AlertCircle } from 'lucide-react';
+import { X, ExternalLink, FileText, DollarSign, Ban, CheckCircle, Receipt as ReceiptIcon, Calendar, AlertCircle, Download, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ComSecInvoicePreviewModalProps {
@@ -96,6 +96,38 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
     }
 
     alert('Receipt generation feature will be implemented');
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!invoice.pdf_url) {
+      alert('PDF not available. Please generate PDF first.');
+      return;
+    }
+
+    try {
+      const response = await fetch(invoice.pdf_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${invoice.invoice_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert('Failed to download PDF');
+    }
+  };
+
+  const handleEmailInvoice = async () => {
+    if (!invoice.pdf_url) {
+      alert('PDF not available. Please generate PDF first.');
+      return;
+    }
+
+    alert('Email sending feature will be implemented. This will send the invoice PDF to the client.');
   };
 
   const handleMarkAsUnpaid = async () => {
@@ -358,20 +390,36 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
                     <div className="text-sm text-green-700">Ready to send version</div>
                   </div>
                 </div>
-                <a
-                  href={invoice.pdf_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  View PDF
-                </a>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
+                  <button
+                    onClick={handleEmailInvoice}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </button>
+                  <a
+                    href={invoice.pdf_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    View
+                  </a>
+                </div>
               </div>
             </div>
           )}
 
-          {invoice.google_drive_url && (
+          {invoice.google_drive_url && !invoice.pdf_url && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
