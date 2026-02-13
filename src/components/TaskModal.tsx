@@ -164,9 +164,14 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
 
   async function handleToggleComplete(taskId: string, completed: boolean) {
     const newCompletedStatus = !completed;
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from(tasksTable)
-      .update({ completed: newCompletedStatus, updated_at: new Date().toISOString() })
+      .update({
+        completed: newCompletedStatus,
+        completed_at: newCompletedStatus ? now : null,
+        updated_at: now
+      })
       .eq('id', taskId);
 
     if (!error) {

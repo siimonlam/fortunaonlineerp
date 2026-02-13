@@ -133,9 +133,15 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
 
   async function handleToggleComplete(taskId: string, currentStatus: boolean) {
     try {
+      const newStatus = !currentStatus;
+      const now = new Date().toISOString();
       const { error } = await supabase
         .from('marketing_tasks')
-        .update({ completed: !currentStatus })
+        .update({
+          completed: newStatus,
+          completed_at: newStatus ? now : null,
+          updated_at: now
+        })
         .eq('id', taskId);
 
       if (error) throw error;

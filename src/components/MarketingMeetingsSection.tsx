@@ -305,9 +305,15 @@ export default function MarketingMeetingsSection({ marketingProjectId }: Marketi
   };
 
   const toggleTaskComplete = async (task: MeetingTask) => {
+    const newStatus = !task.completed;
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from('tasks')
-      .update({ completed: !task.completed })
+      .update({
+        completed: newStatus,
+        completed_at: newStatus ? now : null,
+        updated_at: now
+      })
       .eq('id', task.id);
 
     if (!error) {

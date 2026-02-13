@@ -248,9 +248,15 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
   };
 
   const toggleTaskComplete = async (task: MeetingTask) => {
+    const newStatus = !task.completed;
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from('tasks')
-      .update({ completed: !task.completed })
+      .update({
+        completed: newStatus,
+        completed_at: newStatus ? now : null,
+        updated_at: now
+      })
       .eq('id', task.id);
 
     if (!error) {
@@ -308,9 +314,15 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
   const toggleTaskCompleteInModal = async (index: number) => {
     const task = formData.tasks[index];
     if (task.id) {
+      const newStatus = !task.completed;
+      const now = new Date().toISOString();
       const { error } = await supabase
         .from('tasks')
-        .update({ completed: !task.completed })
+        .update({
+          completed: newStatus,
+          completed_at: newStatus ? now : null,
+          updated_at: now
+        })
         .eq('id', task.id);
 
       if (!error) {
@@ -444,9 +456,14 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
                     <div key={task.id} className="flex items-start gap-2 text-xs">
                       <button
                         onClick={async () => {
+                          const now = new Date().toISOString();
                           const { error } = await supabase
                             .from('tasks')
-                            .update({ completed: true })
+                            .update({
+                              completed: true,
+                              completed_at: now,
+                              updated_at: now
+                            })
                             .eq('id', task.id);
                           if (!error && task.meeting_id) {
                             fetchMeetingTasks(task.meeting_id);
@@ -482,9 +499,14 @@ export function MeetingsPage({ projects, initialMeetingId }: MeetingsPageProps) 
                     <div key={task.id} className="flex items-start gap-2 text-xs">
                       <button
                         onClick={async () => {
+                          const now = new Date().toISOString();
                           const { error } = await supabase
                             .from('tasks')
-                            .update({ completed: true })
+                            .update({
+                              completed: true,
+                              completed_at: now,
+                              updated_at: now
+                            })
                             .eq('id', task.id);
                           if (!error && task.meeting_id) {
                             fetchMeetingTasks(task.meeting_id);

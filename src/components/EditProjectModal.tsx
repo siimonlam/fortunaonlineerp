@@ -1269,9 +1269,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
       console.log(`[handleToggleTask] Updating task "${task.title}" to completed=${completed} in table:`, tasksTable);
 
+      const now = new Date().toISOString();
       const { error } = await supabase
         .from(tasksTable)
-        .update({ completed, updated_at: new Date().toISOString() })
+        .update({
+          completed,
+          completed_at: completed ? now : null,
+          updated_at: now
+        })
         .eq('id', taskId);
 
       if (error) throw error;
