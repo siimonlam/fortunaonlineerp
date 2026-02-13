@@ -561,57 +561,59 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
         if (error) throw error;
 
-        // Generate Google Doc for the invoice
-        try {
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        // Generate Google Doc for the invoice (only for Draft invoices)
+        if (!subscriptionData.is_paid) {
+          try {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-          const items = [{
-            description: service?.service_name || 'Service',
-            amount: service?.price || 0,
-          }];
+            const items = [{
+              description: service?.service_name || 'Service',
+              amount: service?.price || 0,
+            }];
 
-          const response = await fetch(`${supabaseUrl}/functions/v1/generate-comsec-invoice-pdf`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${supabaseKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              invoiceNumber,
-              clientName: client.company_name,
-              clientAddress: client.address || '',
-              clientContactPerson: client.contact_person || '',
-              clientPhone: client.contact_number || '',
-              issueDate,
-              dueDate,
-              items,
-              notes: subscriptionData.remarks || '',
-              clientId: client.id,
-              companyCode: client.company_code,
-              discount: 0,
-            }),
-          });
+            const response = await fetch(`${supabaseUrl}/functions/v1/generate-comsec-invoice-pdf`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                invoiceNumber,
+                clientName: client.company_name,
+                clientAddress: client.address || '',
+                clientContactPerson: client.contact_person || '',
+                clientPhone: client.contact_number || '',
+                issueDate,
+                dueDate,
+                items,
+                notes: subscriptionData.remarks || '',
+                clientId: client.id,
+                companyCode: client.company_code,
+                discount: 0,
+              }),
+            });
 
-          if (response.ok) {
-            const result = await response.json();
+            if (response.ok) {
+              const result = await response.json();
 
-            // Update the invoice with the Google Doc URL
-            await supabase
-              .from('comsec_invoices')
-              .update({
-                google_drive_url: result.googleDocUrl,
-              })
-              .eq('id', newInvoice.id);
+              // Update the invoice with the Google Doc URL
+              await supabase
+                .from('comsec_invoices')
+                .update({
+                  google_drive_url: result.googleDocUrl,
+                })
+                .eq('id', newInvoice.id);
 
-            console.log('Invoice Google Doc created:', result.googleDocUrl);
-          } else {
-            const errorText = await response.text();
-            console.error('Failed to generate invoice doc:', errorText);
+              console.log('Invoice Google Doc created:', result.googleDocUrl);
+            } else {
+              const errorText = await response.text();
+              console.error('Failed to generate invoice doc:', errorText);
+            }
+          } catch (docError) {
+            console.error('Error generating invoice doc:', docError);
+            // Don't throw - invoice is created, just without the doc
           }
-        } catch (docError) {
-          console.error('Error generating invoice doc:', docError);
-          // Don't throw - invoice is created, just without the doc
         }
 
         await logHistory('service_added', undefined, undefined, 'Service subscription added');
@@ -2991,7 +2993,18 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      {invoice.status === 'Unpaid' && (
+                                      {!invoice.pdf_url && invoice.google_drive_url && (
+                                        <a
+                                          href={invoice.google_drive_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                        >
+                                          <FileEdit className="w-3 h-3" />
+                                          Edit & Finalize
+                                        </a>
+                                      )}
+                                      {invoice.status === 'Unpaid' && invoice.pdf_url && (
                                         <button
                                           type="button"
                                           onClick={async () => {
