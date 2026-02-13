@@ -3034,7 +3034,9 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
       }
 
       const result = await response.json();
-      setDocumentUrl(result.previewUrl);
+      // Use edit URL instead of preview URL for editable iframe
+      const editUrl = `https://docs.google.com/document/d/${result.documentId}/edit?embedded=true`;
+      setDocumentUrl(editUrl);
       setDocumentId(result.documentId);
 
       await saveDraftInvoice(result.documentId);
@@ -3167,9 +3169,12 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
       <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">Invoice Preview</h3>
+            <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+              Invoice Preview
+              <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded">Editable</span>
+            </h3>
             <p className="text-sm text-slate-600 mt-1">
-              {invoiceData.invoiceNumber} - {invoiceData.clientName}
+              {invoiceData.invoiceNumber} - {invoiceData.clientName} • Edit directly in the document below
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -3177,10 +3182,11 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
               href={`https://docs.google.com/document/d/${documentId}/edit`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm"
+              title="Open in new tab for full Google Docs features"
             >
               <FileText className="w-4 h-4" />
-              Open in Google Docs
+              Open in New Tab
             </a>
             {!draftSaved ? (
               <button
@@ -3223,7 +3229,8 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
           <iframe
             src={documentUrl}
             className="w-full h-full border-0"
-            title="Invoice Preview"
+            title="Editable Invoice Document"
+            allow="clipboard-write"
           />
         </div>
       </div>
