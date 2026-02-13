@@ -2467,6 +2467,9 @@ export function ProjectBoard() {
                 >
                   Pending Renewal
                 </button>
+
+                <div className="border-t border-slate-300 my-3"></div>
+
                 <button
                   onClick={() => setComSecModule('invoices')}
                   className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
@@ -2497,8 +2500,6 @@ export function ProjectBoard() {
                 >
                   Company Secretary
                 </button>
-
-                <div className="border-t border-slate-300 my-3"></div>
                 <button
                   onClick={() => setComSecModule('knowledge_base')}
                   className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
