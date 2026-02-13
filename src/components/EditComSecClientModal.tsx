@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit, Camera, QrCode, UserCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PDFDocument } from 'pdf-lib';
+import { ComSecInvoicePreviewModal } from './ComSecInvoicePreviewModal';
 
 interface Director {
   id?: string;
@@ -113,12 +114,16 @@ interface ServiceSubscription {
 interface Invoice {
   id: string;
   invoice_number: string;
+  comsec_client_id: string;
   issue_date: string;
   due_date: string;
   amount: number;
   status: string;
   description: string | null;
   payment_date: string | null;
+  payment_method: string | null;
+  google_drive_url: string | null;
+  remarks: string | null;
 }
 
 interface HistoryItem {
@@ -201,6 +206,8 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const [showAR1Preview, setShowAR1Preview] = useState(false);
   const [ar1PdfUrl, setAr1PdfUrl] = useState<string | null>(null);
   const [ar1PdfBytes, setAr1PdfBytes] = useState<Uint8Array | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [isGeneratingAR1, setIsGeneratingAR1] = useState(false);
   const [showNAR1Preview, setShowNAR1Preview] = useState(false);
   const [nar1PdfUrl, setNar1PdfUrl] = useState<string | null>(null);
@@ -2832,51 +2839,50 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
               </div>
               {invoices.length > 0 ? (
                 <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-                  {invoices.map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between py-2 border-b border-slate-200 last:border-0">
-                      <div className="flex-1">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              const fileName = `invoices/${client.id}/${invoice.invoice_number}.pdf`;
-                              const { data, error } = await supabase.storage
-                                .from('comsec-documents')
-                                .createSignedUrl(fileName, 3600);
+                  {invoices.map((invoice) => {
+                    const isOverdue = invoice.status === 'Unpaid' && new Date(invoice.due_date) < new Date();
+                    const displayStatus = isOverdue ? 'Overdue' : invoice.status;
 
-                              if (error || !data) {
-                                alert('Invoice PDF not found');
-                                return;
-                              }
-
-                              window.open(data.signedUrl, '_blank');
-                            } catch (error) {
-                              console.error('Error opening invoice:', error);
-                              alert('Failed to open invoice');
-                            }
-                          }}
-                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
-                        >
-                          {invoice.invoice_number}
-                        </button>
-                        <div className="text-xs text-slate-500">
-                          Issue: {new Date(invoice.issue_date).toLocaleDateString()} | Due: {new Date(invoice.due_date).toLocaleDateString()}
+                    return (
+                      <div key={invoice.id} className="flex items-center justify-between py-3 px-3 bg-white rounded-lg border border-slate-200 hover:shadow-md transition-shadow">
+                        <div className="flex-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedInvoice(invoice);
+                              setShowInvoicePreview(true);
+                            }}
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
+                          >
+                            {invoice.invoice_number}
+                          </button>
+                          <div className="text-xs text-slate-500 mt-1">
+                            Issue: {new Date(invoice.issue_date).toLocaleDateString()} | Due: {new Date(invoice.due_date).toLocaleDateString()}
+                          </div>
+                          {invoice.description && <div className="text-xs text-slate-600 mt-1">{invoice.description}</div>}
+                          {invoice.google_drive_url && (
+                            <div className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                              <FileText className="w-3 h-3" />
+                              Google Docs
+                            </div>
+                          )}
                         </div>
-                        {invoice.description && <div className="text-xs text-slate-600 mt-1">{invoice.description}</div>}
+                        <div className="text-right ml-4">
+                          <div className="font-semibold text-slate-900">${invoice.amount.toFixed(2)}</div>
+                          <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
+                            displayStatus === 'Paid' ? 'bg-green-100 text-green-700' :
+                            displayStatus === 'Overdue' ? 'bg-red-100 text-red-700' :
+                            displayStatus === 'Void' ? 'bg-gray-100 text-gray-600' :
+                            displayStatus === 'Draft' ? 'bg-slate-100 text-slate-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {displayStatus}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right ml-4">
-                        <div className="font-semibold text-slate-900">${invoice.amount.toFixed(2)}</div>
-                        <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
-                          invoice.status === 'Paid' ? 'bg-green-100 text-green-700' :
-                          invoice.status === 'Overdue' ? 'bg-red-100 text-red-700' :
-                          'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {invoice.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="pt-2 flex justify-between items-center border-t-2 border-slate-300">
+                    );
+                  })}
+                  <div className="pt-2 flex justify-between items-center border-t-2 border-slate-300 mt-2">
                     <span className="font-semibold text-slate-700">Total</span>
                     <span className="font-bold text-lg text-slate-900">
                       ${invoices.reduce((sum, inv) => sum + inv.amount, 0).toFixed(2)}
@@ -3152,6 +3158,22 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
             </div>
           </div>
         </div>
+      )}
+
+      {showInvoicePreview && selectedInvoice && (
+        <ComSecInvoicePreviewModal
+          invoice={selectedInvoice}
+          clientName={client.company_name}
+          onClose={() => {
+            setShowInvoicePreview(false);
+            setSelectedInvoice(null);
+          }}
+          onUpdate={() => {
+            loadInvoices();
+            loadServiceSubscriptions();
+            loadHistory();
+          }}
+        />
       )}
     </div>
   );
