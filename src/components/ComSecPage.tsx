@@ -3114,8 +3114,10 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
       }
 
       const result = await response.json();
-      alert(`PDF generated successfully and saved to:\n${result.pdfPath}`);
-      await onSave(documentId);
+      alert(`PDF generated successfully!\nInvoice Number: ${result.invoiceNumber}\nStatus: Unpaid`);
+
+      // Close the modal and reload invoices
+      onClose();
     } catch (error: any) {
       console.error('Error generating PDF:', error);
       alert(`Failed to generate PDF: ${error.message}`);
