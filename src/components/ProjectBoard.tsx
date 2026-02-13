@@ -2468,16 +2468,6 @@ export function ProjectBoard() {
                   Pending Renewal
                 </button>
                 <button
-                  onClick={() => setComSecModule('company_secretary')}
-                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
-                    comSecModule === 'company_secretary'
-                      ? 'bg-emerald-600 text-white shadow-md'
-                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
-                  }`}
-                >
-                  Company Secretary
-                </button>
-                <button
                   onClick={() => setComSecModule('invoices')}
                   className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
                     comSecModule === 'invoices'
@@ -2497,6 +2487,18 @@ export function ProjectBoard() {
                 >
                   Virtual Office
                 </button>
+                <button
+                  onClick={() => setComSecModule('company_secretary')}
+                  className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+                    comSecModule === 'company_secretary'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                  }`}
+                >
+                  Company Secretary
+                </button>
+
+                <div className="border-t border-slate-300 my-3"></div>
                 <button
                   onClick={() => setComSecModule('knowledge_base')}
                   className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${

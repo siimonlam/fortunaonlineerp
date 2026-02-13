@@ -8,6 +8,15 @@ import { EditComSecClientModal } from './EditComSecClientModal';
 import { LetterReceivedModal } from './LetterReceivedModal';
 import { ComSecShareResourcesSection } from './ComSecShareResourcesSection';
 
+// Format date as DD-MMM-YYYY
+function formatDate(date: string | Date): string {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
 interface ComSecClient {
   id: string;
   company_code: string | null;
@@ -836,7 +845,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                       <div className="flex items-center gap-2 text-blue-600">
                         <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
                         <span className="font-medium">Next Task:</span>
-                        <span>{new Date(client.ar_due_date).toLocaleDateString()} 09:00:00</span>
+                        <span>{formatDate(client.ar_due_date)} 09:00:00</span>
                       </div>
                     )}
 
@@ -860,7 +869,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                       <div className="flex items-center gap-2 text-slate-600">
                         <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
                         <span className="font-medium">Incorporated:</span>
-                        <span>{new Date(client.incorporation_date).toLocaleDateString()}</span>
+                        <span>{formatDate(client.incorporation_date)}</span>
                       </div>
                     )}
                   </div>
@@ -906,7 +915,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                         <td className="py-3 px-4 text-sm text-slate-600">{client.case_officer?.full_name || '-'}</td>
                         <td className="py-3 px-4 text-sm text-slate-600">{client.anniversary_month || '-'}</td>
                         <td className="py-3 px-4 text-sm text-slate-600">
-                          {client.ar_due_date ? new Date(client.ar_due_date).toLocaleDateString() : '-'}
+                          {client.ar_due_date ? formatDate(client.ar_due_date) : '-'}
                         </td>
                         <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-2">
@@ -994,7 +1003,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                                   {client.brn && <div><span className="font-medium">BRN:</span> {client.brn}</div>}
                                   {client.case_officer && <div><span className="font-medium">Officer:</span> {client.case_officer.full_name}</div>}
                                   {client.anniversary_month && <div><span className="font-medium">Anniversary:</span> {client.anniversary_month}</div>}
-                                  {client.ar_due_date && <div><span className="font-medium">AR Due:</span> {new Date(client.ar_due_date).toLocaleDateString()}</div>}
+                                  {client.ar_due_date && <div><span className="font-medium">AR Due:</span> {formatDate(client.ar_due_date)}</div>}
                                 </div>
                                 <div className="flex gap-1 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                                   <button
@@ -1264,8 +1273,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                           {invoice.comsec_client?.company_name}
                         </button>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{new Date(invoice.issue_date).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{formatDate(invoice.issue_date)}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{invoice.due_date ? formatDate(invoice.due_date) : '-'}</td>
                       <td className="px-6 py-4 text-sm font-medium text-slate-900">${invoice.amount?.toFixed(2) || '0.00'}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded ${
@@ -1496,10 +1505,10 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                           {vo.service?.service_name || '-'}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600">
-                          {new Date(vo.start_date).toLocaleDateString()}
+                          {formatDate(vo.start_date)}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600">
-                          {new Date(vo.end_date).toLocaleDateString()}
+                          {formatDate(vo.end_date)}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1576,7 +1585,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                         {letter.company_name}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {new Date(letter.letter_received_date).toLocaleDateString()}
+                        {formatDate(letter.letter_received_date)}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {letter.sender_name}
@@ -1772,7 +1781,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                       </div>
                       <p className="text-sm text-slate-600 mb-1">Annual Return submission is overdue</p>
                       <div className="flex items-center gap-4 text-sm text-red-700 font-semibold">
-                        <span>Due Date: {dueDate.toLocaleDateString()}</span>
+                        <span>Due Date: {formatDate(dueDate)}</span>
                         <span>{Math.abs(daysUntilDue)} days overdue</span>
                       </div>
                     </div>
@@ -1809,8 +1818,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                       </div>
                       <p className="text-sm text-slate-600 mb-1">Annual Return submission deadline approaching</p>
                       <div className="flex items-center gap-4 text-sm text-slate-600">
-                        <span>Due: <strong>{dueDate.toLocaleDateString()}</strong></span>
-                        <span>Reminder: {reminderDate.toLocaleDateString()}</span>
+                        <span>Due: <strong>{formatDate(dueDate)}</strong></span>
+                        <span>Reminder: {formatDate(reminderDate)}</span>
                         <span className="text-orange-700 font-semibold">{daysUntilDue} days left</span>
                       </div>
                     </div>
@@ -1847,8 +1856,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                       </div>
                       <p className="text-sm text-slate-600 mb-1">Annual Return submission scheduled</p>
                       <div className="flex items-center gap-4 text-sm text-slate-600">
-                        <span>Due: <strong>{dueDate.toLocaleDateString()}</strong></span>
-                        <span>Reminder: {reminderDate.toLocaleDateString()}</span>
+                        <span>Due: <strong>{formatDate(dueDate)}</strong></span>
+                        <span>Reminder: {formatDate(reminderDate)}</span>
                         <span className="text-blue-700 font-semibold">Reminder in {daysUntilReminder} days</span>
                       </div>
                     </div>
@@ -1879,7 +1888,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                       </div>
                       <p className="text-sm text-slate-600 mb-1">{reminder.description}</p>
                       <div className="flex items-center gap-4 text-sm text-slate-500">
-                        <span>Due: {new Date(reminder.due_date).toLocaleDateString()}</span>
+                        <span>Due: {formatDate(reminder.due_date)}</span>
                         {reminder.assigned_to && <span>Assigned: {reminder.assigned_to.full_name}</span>}
                       </div>
                     </div>
@@ -1928,7 +1937,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                         </div>
                         <p className="text-sm text-slate-600 mb-1">{reminder.description}</p>
                         <div className="flex items-center gap-4 text-sm text-slate-500">
-                          <span>Due: {new Date(reminder.due_date).toLocaleDateString()}</span>
+                          <span>Due: {formatDate(reminder.due_date)}</span>
                           {reminder.assigned_to && <span>Assigned: {reminder.assigned_to.full_name}</span>}
                         </div>
                       </div>
@@ -2314,10 +2323,10 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                         <div className="flex-1">
                           <p className="text-sm font-semibold text-amber-900 mb-1">Important Date Reminder</p>
                           <p className="text-sm text-amber-800">
-                            <strong>AR Due Date:</strong> {new Date(editingItem.ar_due_date).toLocaleDateString()}
+                            <strong>AR Due Date:</strong> {formatDate(editingItem.ar_due_date)}
                           </p>
                           <p className="text-sm text-amber-800 mt-1">
-                            <strong>Reminder Date:</strong> {new Date(new Date(editingItem.ar_due_date).getTime() - (editingItem.reminder_days * 24 * 60 * 60 * 1000)).toLocaleDateString()} ({editingItem.reminder_days} days before)
+                            <strong>Reminder Date:</strong> {formatDate(new Date(new Date(editingItem.ar_due_date).getTime() - (editingItem.reminder_days * 24 * 60 * 60 * 1000)))} ({editingItem.reminder_days} days before)
                           </p>
                         </div>
                       </div>
@@ -2534,7 +2543,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                                 <p className="text-sm font-medium text-slate-900">{item.description}</p>
                                 {item.start_date && item.end_date && (
                                   <p className="text-xs text-slate-600 mt-1">
-                                    {new Date(item.start_date).toLocaleDateString()} - {new Date(item.end_date).toLocaleDateString()}
+                                    {formatDate(item.start_date)} - {formatDate(item.end_date)}
                                   </p>
                                 )}
                               </div>
@@ -3025,7 +3034,7 @@ function InvoiceCreateModal({ client, masterServices, onClose, onPreview }: {
 
         const needsDates = service.service_type === 'company_secretary' || service.service_type === 'virtual_office';
         if (needsDates && serviceData.startDate && serviceData.endDate) {
-          description += ` (${new Date(serviceData.startDate).toLocaleDateString()} - ${new Date(serviceData.endDate).toLocaleDateString()})`;
+          description += ` (${formatDate(serviceData.startDate)} - ${formatDate(serviceData.endDate)})`;
         }
 
         selectedItems.push({
