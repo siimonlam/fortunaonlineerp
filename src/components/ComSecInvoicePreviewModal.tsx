@@ -15,6 +15,7 @@ interface ComSecInvoicePreviewModalProps {
     payment_date: string | null;
     payment_method: string | null;
     google_drive_url: string | null;
+    pdf_url: string | null;
     remarks: string | null;
   };
   clientName: string;
@@ -347,6 +348,29 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
             )}
           </div>
 
+          {invoice.pdf_url && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-green-600" />
+                  <div>
+                    <div className="font-medium text-green-900">PDF Invoice</div>
+                    <div className="text-sm text-green-700">Ready to send version</div>
+                  </div>
+                </div>
+                <a
+                  href={invoice.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  View PDF
+                </a>
+              </div>
+            </div>
+          )}
+
           {invoice.google_drive_url && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between">
@@ -354,7 +378,7 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
                   <FileText className="w-5 h-5 text-blue-600" />
                   <div>
                     <div className="font-medium text-blue-900">Google Docs Invoice</div>
-                    <div className="text-sm text-blue-700">View and edit invoice in Google Docs</div>
+                    <div className="text-sm text-blue-700">View and edit invoice in Google Docs (Draft)</div>
                   </div>
                 </div>
                 <a

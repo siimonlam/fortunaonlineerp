@@ -1199,39 +1199,30 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                   {filteredInvoices.map(invoice => (
                     <tr key={invoice.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4">
-                        {invoice.google_drive_url ? (
+                        {invoice.pdf_url ? (
+                          <a
+                            href={invoice.pdf_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-green-600 hover:text-green-800 hover:underline transition-colors flex items-center gap-1"
+                          >
+                            {invoice.invoice_number}
+                            <FileText className="w-3 h-3" />
+                          </a>
+                        ) : invoice.google_drive_url ? (
                           <a
                             href={invoice.google_drive_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors flex items-center gap-1"
                           >
                             {invoice.invoice_number}
+                            <span className="text-xs text-slate-500">(Draft)</span>
                           </a>
                         ) : (
-                          <button
-                            onClick={async () => {
-                              try {
-                                const fileName = `invoices/${invoice.comsec_client_id}/${invoice.invoice_number}.pdf`;
-                                const { data, error } = await supabase.storage
-                                  .from('comsec-documents')
-                                  .createSignedUrl(fileName, 3600);
-
-                                if (error || !data) {
-                                  alert('Invoice PDF not found');
-                                  return;
-                                }
-
-                                window.open(data.signedUrl, '_blank');
-                              } catch (error) {
-                                console.error('Error opening invoice:', error);
-                                alert('Failed to open invoice');
-                              }
-                            }}
-                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
-                          >
+                          <span className="text-sm font-medium text-slate-400">
                             {invoice.invoice_number}
-                          </button>
+                          </span>
                         )}
                       </td>
                       <td className="px-6 py-4">
@@ -3016,6 +3007,8 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
+  const [savedDraftIds, setSavedDraftIds] = useState<string[]>([]);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     generateDocumentFromTemplate();
@@ -3082,11 +3075,50 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
       if (error) throw error;
 
       setDraftSaved(true);
+      const draftIds = data ? data.map(d => d.id) : [];
+      setSavedDraftIds(draftIds);
       if (data && onDraftSaved) {
-        onDraftSaved(data.map(d => d.id));
+        onDraftSaved(draftIds);
       }
     } catch (error: any) {
       console.error('Error saving draft invoice:', error);
+    }
+  };
+
+  const generatePDF = async () => {
+    if (!documentId || savedDraftIds.length === 0) {
+      alert('Please save draft first');
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/finalize-comsec-invoice`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invoiceId: savedDraftIds[0],
+          documentId: documentId,
+          invoiceNumber: invoiceData.invoiceNumber,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate PDF');
+      }
+
+      const result = await response.json();
+      alert(`PDF generated successfully and saved to:\n${result.pdfPath}`);
+      await onSave(documentId);
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      alert(`Failed to generate PDF: ${error.message}`);
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -3150,14 +3182,34 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
               <FileText className="w-4 h-4" />
               Open in Google Docs
             </a>
-            <button
-              onClick={async () => {
-                await onSave(documentId);
-              }}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              Save Invoice
-            </button>
+            {!draftSaved ? (
+              <button
+                onClick={async () => {
+                  await saveDraftInvoice(documentId);
+                }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Save Draft
+              </button>
+            ) : (
+              <button
+                onClick={generatePDF}
+                disabled={generating}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {generating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    Save & Generate PDF
+                  </>
+                )}
+              </button>
+            )}
             <button
               onClick={onClose}
               className="text-slate-400 hover:text-slate-600"
