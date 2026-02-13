@@ -554,10 +554,12 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
-                    <Trophy className="w-5 h-5 text-amber-500" />
-                    Past due Leader
-                  </h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                    <h3 className="text-sm font-bold text-slate-800">
+                      Past due Leader
+                    </h3>
+                  </div>
                   <p className="text-xs text-slate-500">Ranked by past due tasks</p>
                 </div>
 
@@ -620,10 +622,12 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
 
               <div>
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
-                    <Star className="w-5 h-5 text-green-500" />
-                    Top Performers
-                  </h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Star className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <h3 className="text-sm font-bold text-slate-800">
+                      Top Performers
+                    </h3>
+                  </div>
                   <p className="text-xs text-slate-500">Most tasks completed (Last 7 days)</p>
                 </div>
 
