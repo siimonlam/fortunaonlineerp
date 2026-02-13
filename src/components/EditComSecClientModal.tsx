@@ -193,7 +193,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
   const [members, setMembers] = useState<Member[]>([{ member_type: 'individual' }]);
   const [companySecretaries, setCompanySecretaries] = useState<CompanySecretary[]>([{ secretary_type: 'individual' }]);
   const [designatedRepresentatives, setDesignatedRepresentatives] = useState<DesignatedRepresentative[]>([{ designated_type: 'individual' }]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<'history' | 'notes'>('history');
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -3032,10 +3032,23 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 bg-slate-700 text-white p-2 rounded-l-lg hover:bg-slate-800 transition-colors"
-          style={{ marginRight: isSidebarOpen ? '384px' : '0' }}
+          className={`absolute right-0 top-1/2 -translate-y-1/2 text-white p-3 rounded-l-xl hover:scale-105 transition-all duration-300 shadow-lg ${
+            !isSidebarOpen
+              ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 animate-pulse'
+              : 'bg-slate-700 hover:bg-slate-800'
+          }`}
+          style={{
+            marginRight: isSidebarOpen ? '384px' : '8px',
+            boxShadow: !isSidebarOpen ? '0 4px 14px 0 rgba(59, 130, 246, 0.4)' : '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+          }}
+          title={isSidebarOpen ? "Close History & Notes" : "Open History & Notes"}
         >
-          <MessageSquare className="w-5 h-5" />
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5" />
+            {!isSidebarOpen && (
+              <span className="text-xs font-medium whitespace-nowrap">History & Notes</span>
+            )}
+          </div>
         </button>
       </div>
 
