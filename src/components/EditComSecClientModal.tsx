@@ -2961,6 +2961,7 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <button
+                                      type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedInvoice(invoice);

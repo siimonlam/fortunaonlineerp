@@ -357,9 +357,11 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
     );
   }
 
+  const hasDraftWithGoogleDocs = invoice.google_drive_url && !invoice.pdf_url;
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className={`bg-white rounded-lg shadow-xl ${hasDraftWithGoogleDocs ? 'max-w-7xl' : 'max-w-4xl'} w-full max-h-[90vh] overflow-hidden flex flex-col`}>
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Invoice Preview</h2>
@@ -473,34 +475,46 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
           )}
 
           {invoice.google_drive_url && !invoice.pdf_url && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <div className="font-medium text-blue-900">Draft Invoice (Google Docs)</div>
-                    <div className="text-sm text-blue-700">This invoice is still in draft. Edit in Google Docs or finalize to PDF.</div>
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <div className="font-medium text-blue-900">Draft Invoice (Google Docs)</div>
+                      <div className="text-sm text-blue-700">Edit directly in the document below or finalize to PDF.</div>
+                    </div>
                   </div>
+                  <div className="flex gap-2">
+                    <a
+                      href={invoice.google_drive_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open in New Tab
+                    </a>
+                    <button
+                      onClick={handleFinalizePDF}
+                      disabled={generatingPDF}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <FileText className="w-4 h-4" />
+                      {generatingPDF ? 'Generating...' : 'Finalize PDF'}
+                    </button>
                 </div>
-                <div className="flex gap-2">
-                  <a
-                    href={invoice.google_drive_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Edit in Docs
-                  </a>
-                  <button
-                    onClick={handleFinalizePDF}
-                    disabled={generatingPDF}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FileText className="w-4 h-4" />
-                    {generatingPDF ? 'Generating...' : 'Finalize PDF'}
-                  </button>
-                </div>
+              </div>
+            </div>
+
+            {/* Embedded Google Docs Editor */}
+              <div className="border border-slate-300 rounded-lg overflow-hidden bg-white" style={{ height: '600px' }}>
+                <iframe
+                  src={invoice.google_drive_url.replace('/edit', '/edit?embedded=true')}
+                  className="w-full h-full"
+                  title="Invoice Editor"
+                  style={{ border: 'none' }}
+                />
               </div>
             </div>
           )}
