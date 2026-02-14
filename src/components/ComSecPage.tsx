@@ -314,7 +314,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     const { data } = await supabase
       .from('virtual_office')
       .select('*, comsec_client:comsec_clients(company_name, company_code)')
-      .eq('status', 'active')
+      .in('status', ['active', 'inactive'])
       .order('start_date', { ascending: false });
     if (data) setVirtualOffices(data);
   }
@@ -1521,8 +1521,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {filteredVirtualOffices.map(vo => {
-                    const status = vo.status || 'pending';
-                    const isActive = status === 'active';
+                    const status = vo.status || 'inactive';
 
                     return (
                       <tr key={vo.id} className="hover:bg-slate-50">
@@ -1543,10 +1542,10 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-                            isActive
+                            status === 'active'
                               ? 'bg-green-100 text-green-800'
-                              : status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-800'
+                              : status === 'inactive'
+                              ? 'bg-orange-100 text-orange-800'
                               : 'bg-slate-100 text-slate-800'
                           }`}>
                             {status}
