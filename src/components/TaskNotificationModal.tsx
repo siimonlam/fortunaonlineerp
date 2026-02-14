@@ -556,11 +556,11 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-1">
                     <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                    <h3 className="text-sm font-bold text-slate-800">
+                    <h3 className="text-sm font-bold text-slate-800 break-words">
                       Past due Leader
                     </h3>
                   </div>
-                  <p className="text-xs text-slate-500">Ranked by past due tasks</p>
+                  <p className="text-xs text-slate-500 break-words">Ranked by past due tasks</p>
                 </div>
 
                 {teamStats.length === 0 ? (
@@ -595,20 +595,20 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                                   <span className="ml-2 text-xs font-normal text-blue-600">(You)</span>
                                 )}
                               </h4>
-                              <div className="flex items-center gap-3 mt-2">
-                                <div className="flex items-center gap-1">
+                              <div className="flex flex-wrap items-center gap-3 mt-2">
+                                <div className="flex items-center gap-1 flex-shrink-0">
                                   <AlertCircle className="w-3.5 h-3.5 text-red-500" />
                                   <span className="text-xs font-bold text-red-600">
                                     {stat.pastDueCount}
                                   </span>
-                                  <span className="text-xs text-slate-500">past due</span>
+                                  <span className="text-xs text-slate-500 whitespace-nowrap">past due</span>
                                 </div>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 flex-shrink-0">
                                   <Calendar className="w-3.5 h-3.5 text-blue-500" />
                                   <span className="text-xs font-bold text-blue-600">
                                     {stat.upcomingCount}
                                   </span>
-                                  <span className="text-xs text-slate-500">upcoming</span>
+                                  <span className="text-xs text-slate-500 whitespace-nowrap">upcoming</span>
                                 </div>
                               </div>
                             </div>
@@ -624,11 +624,11 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-1">
                     <Star className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    <h3 className="text-sm font-bold text-slate-800">
+                    <h3 className="text-sm font-bold text-slate-800 break-words">
                       Top Performers
                     </h3>
                   </div>
-                  <p className="text-xs text-slate-500">Most tasks completed (Last 7 days)</p>
+                  <p className="text-xs text-slate-500 break-words">Most tasks completed (Last 7 days)</p>
                 </div>
 
                 {completionStats.length === 0 ? (
@@ -663,12 +663,12 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                                   <span className="ml-2 text-xs font-normal text-green-600">(You)</span>
                                 )}
                               </h4>
-                              <div className="flex items-center gap-1 mt-2">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                              <div className="flex flex-wrap items-center gap-1 mt-2">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
                                 <span className="text-xs font-bold text-green-600">
                                   {stat.completedCount}
                                 </span>
-                                <span className="text-xs text-slate-500">
+                                <span className="text-xs text-slate-500 whitespace-nowrap">
                                   task{stat.completedCount !== 1 ? 's' : ''} completed
                                 </span>
                               </div>
