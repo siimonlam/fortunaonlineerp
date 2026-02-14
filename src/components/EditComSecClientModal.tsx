@@ -3494,38 +3494,58 @@ function SubscriptionForm({
           </div>
         </div>
 
-        {selectedService?.service_type === 'company_bank_registration' ? (
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Service Date</label>
-            <input
-              type="date"
-              value={formData.service_date || ''}
-              onChange={(e) => setFormData({ ...formData, service_date: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
-              <input
-                type="date"
-                value={formData.start_date || ''}
-                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
-              <input
-                type="date"
-                value={formData.end_date || ''}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-          </div>
-        )}
+        {(() => {
+          // Services that need date range (start and end dates)
+          const serviceName = selectedService?.service_name?.toLowerCase() || '';
+          const needsDateRange =
+            serviceName.includes('virtual office') ||
+            serviceName.includes('company secretary') ||
+            serviceName.includes('one year') ||
+            selectedService?.service_type?.includes('virtual_office') ||
+            selectedService?.service_type?.includes('company_secretary');
+
+          // One-time services use single service date
+          const isOneTimeService =
+            selectedService?.service_type === 'company_bank_registration' ||
+            selectedService?.service_type === 'bank_account_opening';
+
+          if (isOneTimeService) {
+            return (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Service Date</label>
+                <input
+                  type="date"
+                  value={formData.service_date || ''}
+                  onChange={(e) => setFormData({ ...formData, service_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            );
+          } else {
+            return (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={formData.start_date || ''}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={formData.end_date || ''}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            );
+          }
+        })()}
 
         <div className="flex items-center gap-2">
           <input

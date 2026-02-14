@@ -1483,10 +1483,19 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const filteredVirtualOffices = virtualOffices.filter(vo =>
-      (vo.comsec_client?.company_name && vo.comsec_client.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())) ||
-      (vo.comsec_client?.company_code && vo.comsec_client.company_code.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()))
-    );
+    const filteredVirtualOffices = virtualOffices.filter(vo => {
+      // Only show virtual office services
+      const serviceName = (vo.service_name || '').toLowerCase();
+      const isVirtualOffice = serviceName.includes('virtual office');
+
+      if (!isVirtualOffice) return false;
+
+      // Apply search filter
+      return (
+        (vo.comsec_client?.company_name && vo.comsec_client.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())) ||
+        (vo.comsec_client?.company_code && vo.comsec_client.company_code.toLowerCase().includes(searchTermVirtualOffice.toLowerCase()))
+      );
+    });
 
     const filteredLetters = letters.filter(letter =>
       (letter.company_name && letter.company_name.toLowerCase().includes(searchTermVirtualOffice.toLowerCase())) ||
