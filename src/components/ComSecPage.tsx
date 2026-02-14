@@ -7,6 +7,7 @@ import { DocumentFolderModal } from './DocumentFolderModal';
 import { EditComSecClientModal } from './EditComSecClientModal';
 import { LetterReceivedModal } from './LetterReceivedModal';
 import { ComSecShareResourcesSection } from './ComSecShareResourcesSection';
+import { ComSecDueDateModal } from './ComSecDueDateModal';
 
 // Format date as DD-MMM-YYYY
 function formatDate(date: string | Date): string {
@@ -153,6 +154,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const [letters, setLetters] = useState<any[]>([]);
   const [showAddMappingModal, setShowAddMappingModal] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<any[]>([]);
+  const [showDueDateModal, setShowDueDateModal] = useState(false);
   const [newMapping, setNewMapping] = useState({
     field_label: '',
     pdf_field_name: '',
@@ -167,6 +169,16 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     loadData();
     loadMasterServices();
   }, [activeModule]);
+
+  // Show due date modal on page load
+  useEffect(() => {
+    if (user && activeModule === 'clients') {
+      const timer = setTimeout(() => {
+        setShowDueDateModal(true);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [user, activeModule]);
 
   async function loadStaff() {
     const { data } = await supabase
@@ -2785,6 +2797,12 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
           clientId={selectedVOClient.id}
           companyCode={selectedVOClient.code}
           companyName={selectedVOClient.name}
+        />
+      )}
+
+      {showDueDateModal && (
+        <ComSecDueDateModal
+          onClose={() => setShowDueDateModal(false)}
         />
       )}
 
