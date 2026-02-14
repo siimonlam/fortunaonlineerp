@@ -149,6 +149,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const [selectedClientForInvoice, setSelectedClientForInvoice] = useState<ComSecClient | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [invoicePreviewData, setInvoicePreviewData] = useState<any>(null);
+  const [viewingInvoice, setViewingInvoice] = useState<any>(null);
+  const [showInvoiceViewModal, setShowInvoiceViewModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [documentModalCompanyCode, setDocumentModalCompanyCode] = useState('');
   const [invoiceSubTab, setInvoiceSubTab] = useState<'invoices' | 'service_settings'>('invoices');
@@ -1307,6 +1309,20 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2 flex-wrap">
+                          {invoice.status === 'Draft' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setViewingInvoice(invoice);
+                                setShowInvoiceViewModal(true);
+                              }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                              title="View & Finalize"
+                            >
+                              <FileText className="w-3 h-3" />
+                              View
+                            </button>
+                          )}
                           {invoice.status === 'Unpaid' && invoice.pdf_url && (
                             <button
                               type="button"
@@ -1325,6 +1341,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                                   if (error) throw error;
                                   alert('Invoice marked as paid');
                                   loadInvoices();
+                                  loadVirtualOffices();
                                 } catch (error) {
                                   console.error('Error marking as paid:', error);
                                   alert('Failed to mark invoice as paid');
@@ -2939,6 +2956,21 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
             </form>
           </div>
         </div>
+      )}
+
+      {showInvoiceViewModal && viewingInvoice && (
+        <ComSecInvoicePreviewModal
+          invoice={viewingInvoice}
+          clientName={viewingInvoice.comsec_client?.company_name || ''}
+          onClose={() => {
+            setShowInvoiceViewModal(false);
+            setViewingInvoice(null);
+          }}
+          onUpdate={() => {
+            loadInvoices();
+            loadVirtualOffices();
+          }}
+        />
       )}
     </div>
   );

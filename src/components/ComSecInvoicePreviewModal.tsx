@@ -30,6 +30,7 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
   const [paymentDate, setPaymentDate] = useState(invoice.payment_date || new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState(invoice.payment_method || '');
   const [voidReason, setVoidReason] = useState('');
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   const handleMarkAsPaid = async () => {
     if (!paymentDate) {
@@ -155,6 +156,58 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
       alert('Failed to mark invoice as unpaid');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFinalizePDF = async () => {
+    if (!invoice.google_drive_url) {
+      alert('Google Drive URL not found');
+      return;
+    }
+
+    if (!confirm('Generate PDF from this draft invoice? This will finalize the invoice.')) {
+      return;
+    }
+
+    // Extract document ID from Google Drive URL
+    const match = invoice.google_drive_url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (!match || !match[1]) {
+      alert('Could not extract document ID from Google Drive URL');
+      return;
+    }
+
+    const documentId = match[1];
+
+    setGeneratingPDF(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/finalize-comsec-invoice`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invoiceId: invoice.id,
+          documentId: documentId,
+          invoiceNumber: invoice.invoice_number,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate PDF');
+      }
+
+      const result = await response.json();
+      alert(`PDF generated successfully!\nInvoice Number: ${result.invoiceNumber}\nStatus: Unpaid`);
+
+      if (onUpdate) onUpdate();
+      onClose();
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      alert(`Failed to generate PDF: ${error.message}`);
+    } finally {
+      setGeneratingPDF(false);
     }
   };
 
@@ -425,19 +478,29 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
                 <div className="flex items-center gap-3">
                   <FileText className="w-5 h-5 text-blue-600" />
                   <div>
-                    <div className="font-medium text-blue-900">Google Docs Invoice</div>
-                    <div className="text-sm text-blue-700">View and edit invoice in Google Docs (Draft)</div>
+                    <div className="font-medium text-blue-900">Draft Invoice (Google Docs)</div>
+                    <div className="text-sm text-blue-700">This invoice is still in draft. Edit in Google Docs or finalize to PDF.</div>
                   </div>
                 </div>
-                <a
-                  href={invoice.google_drive_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Open in Google Docs
-                </a>
+                <div className="flex gap-2">
+                  <a
+                    href={invoice.google_drive_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Edit in Docs
+                  </a>
+                  <button
+                    onClick={handleFinalizePDF}
+                    disabled={generatingPDF}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileText className="w-4 h-4" />
+                    {generatingPDF ? 'Generating...' : 'Finalize PDF'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
