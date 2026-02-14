@@ -69,15 +69,21 @@ interface Invoice {
 interface VirtualOffice {
   id: string;
   comsec_client_id: string;
+  service_id: string | null;
   service_type: string;
-  address: string | null;
-  start_date: string;
+  service_name: string | null;
+  service_description: string | null;
+  start_date: string | null;
   end_date: string | null;
   renewal_date: string | null;
+  status: 'active' | 'inactive' | 'pending';
   monthly_fee: number | null;
+  invoice_number: string | null;
+  company_code: string | null;
+  company_name: string | null;
   remarks: string | null;
   created_at: string;
-  comsec_client?: { company_name: string };
+  comsec_client?: { company_name: string; company_code: string };
 }
 
 interface KnowledgeBase {
@@ -304,10 +310,9 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
   async function loadVirtualOffices() {
     const { data } = await supabase
-      .from('comsec_invoices')
-      .select('*, comsec_client:comsec_clients(company_name, company_code), service:comsec_services(service_name)')
-      .not('start_date', 'is', null)
-      .not('end_date', 'is', null)
+      .from('virtual_office')
+      .select('*, comsec_client:comsec_clients(company_name, company_code)')
+      .eq('status', 'active')
       .order('start_date', { ascending: false });
     if (data) setVirtualOffices(data);
   }
@@ -1499,36 +1504,35 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {filteredVirtualOffices.map(vo => {
-                    const startDate = new Date(vo.start_date);
-                    const endDate = new Date(vo.end_date);
-                    startDate.setHours(0, 0, 0, 0);
-                    endDate.setHours(0, 0, 0, 0);
-                    const isActive = today >= startDate && today <= endDate;
+                    const status = vo.status || 'pending';
+                    const isActive = status === 'active';
 
                     return (
                       <tr key={vo.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4 text-sm font-medium text-slate-900">
-                          {vo.comsec_client?.company_code || '-'}
+                          {vo.company_code || '-'}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-900">
-                          {vo.comsec_client?.company_name}
+                          {vo.company_name}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600">
-                          {vo.service?.service_name || '-'}
+                          {vo.service_name || '-'}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600">
-                          {formatDate(vo.start_date)}
+                          {vo.start_date ? formatDate(vo.start_date) : '-'}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600">
-                          {formatDate(vo.end_date)}
+                          {vo.end_date ? formatDate(vo.end_date) : '-'}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
                             isActive
                               ? 'bg-green-100 text-green-800'
+                              : status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-slate-100 text-slate-800'
                           }`}>
-                            {isActive ? 'Active' : 'Inactive'}
+                            {status}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -2693,48 +2697,18 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
               const { error: updateError } = await supabase
                 .from('comsec_invoices')
-                .update({ status: 'Pending' })
+                .update({
+                  status: 'Pending',
+                  google_drive_url: googleDriveUrl
+                })
                 .eq('invoice_number', invoicePreviewData.invoiceNumber)
                 .eq('status', 'Draft');
 
               if (updateError) throw updateError;
 
-              const virtualOfficeRecords = await Promise.all(
-                invoicePreviewData.items.map(async (item: any) => {
-                  const { data: serviceData } = await supabase
-                    .from('comsec_services')
-                    .select('service_name, service_description, service_type')
-                    .eq('id', item.serviceId)
-                    .maybeSingle();
-
-                  return {
-                    comsec_client_id: invoicePreviewData.clientId,
-                    company_code: invoicePreviewData.companyCode || null,
-                    company_name: invoicePreviewData.clientName,
-                    service_name: serviceData?.service_name || item.description,
-                    service_description: serviceData?.service_description || item.description,
-                    service_type: serviceData?.service_type || 'other',
-                    invoice_number: invoicePreviewData.invoiceNumber,
-                    service_id: item.serviceId,
-                    start_date: item.startDate || null,
-                    end_date: item.endDate || null,
-                    status: 'Active',
-                    monthly_fee: item.amount,
-                    created_by: user?.id
-                  };
-                })
-              );
-
-              const { error: voError } = await supabase
-                .from('virtual_office')
-                .insert(virtualOfficeRecords);
-
-              if (voError) {
-                console.error('Error saving to virtual_office:', voError);
-              }
-
               alert('Invoice saved successfully!');
               loadInvoices();
+              loadVirtualOffices();
               setShowInvoicePreview(false);
               setInvoicePreviewData(null);
               setSelectedClientForInvoice(null);
