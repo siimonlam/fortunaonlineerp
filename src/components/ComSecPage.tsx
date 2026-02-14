@@ -1233,27 +1233,50 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {filteredInvoices.map(invoice => (
-                    <tr key={invoice.id} className="hover:bg-slate-50">
+                    <tr
+                      key={invoice.id}
+                      className={`hover:bg-slate-50 ${invoice.status === 'Draft' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+                      onClick={() => {
+                        if (invoice.status === 'Draft') {
+                          setViewingInvoice(invoice);
+                          setShowInvoiceViewModal(true);
+                        }
+                      }}
+                    >
                       <td className="px-6 py-4">
                         {invoice.pdf_url ? (
                           <a
                             href={invoice.pdf_url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="text-sm font-medium text-green-600 hover:text-green-800 hover:underline transition-colors flex items-center gap-1"
                           >
                             {invoice.invoice_number}
                             <FileText className="w-3 h-3" />
                           </a>
+                        ) : invoice.status === 'Draft' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingInvoice(invoice);
+                              setShowInvoiceViewModal(true);
+                            }}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors flex items-center gap-1"
+                          >
+                            {invoice.invoice_number}
+                            <span className="text-xs text-slate-500">(Draft)</span>
+                          </button>
                         ) : invoice.google_drive_url ? (
                           <a
                             href={invoice.google_drive_url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors flex items-center gap-1"
                           >
                             {invoice.invoice_number}
-                            <span className="text-xs text-slate-500">(Draft)</span>
+                            <ExternalLink className="w-3 h-3" />
                           </a>
                         ) : (
                           <span className="text-sm font-medium text-slate-400">
@@ -1266,7 +1289,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                       </td>
                       <td className="px-6 py-4">
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             const client = comSecClients.find(c => c.id === invoice.comsec_client_id);
                             if (client) {
                               setEditingClient(client);
@@ -1280,7 +1304,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                       </td>
                       <td className="px-6 py-4">
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             const client = comSecClients.find(c => c.id === invoice.comsec_client_id);
                             if (client) {
                               setEditingClient(client);
@@ -1307,12 +1332,13 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                           {invoice.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-2 flex-wrap">
                           {invoice.status === 'Draft' && (
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setViewingInvoice(invoice);
                                 setShowInvoiceViewModal(true);
                               }}
@@ -1326,7 +1352,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                           {invoice.status === 'Unpaid' && invoice.pdf_url && (
                             <button
                               type="button"
-                              onClick={async () => {
+                              onClick={async (e) => {
+                                e.stopPropagation();
                                 if (!confirm('Mark this invoice as paid?')) return;
 
                                 try {
@@ -1358,7 +1385,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                             <>
                               <button
                                 type="button"
-                                onClick={async () => {
+                                onClick={async (e) => {
+                                  e.stopPropagation();
                                   try {
                                     const response = await fetch(invoice.pdf_url!);
                                     const blob = await response.blob();

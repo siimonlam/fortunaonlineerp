@@ -2936,7 +2936,14 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                             </h4>
                             <div className="bg-slate-50 rounded-lg p-4 space-y-2">
                               {draftInvoices.map((invoice) => (
-                                <div key={invoice.id} className="py-3 px-3 bg-white rounded-lg border border-slate-200 hover:shadow-md transition-shadow">
+                                <div
+                                  key={invoice.id}
+                                  className="py-3 px-3 bg-white rounded-lg border border-slate-200 hover:shadow-md transition-shadow cursor-pointer hover:border-blue-300"
+                                  onClick={() => {
+                                    setSelectedInvoice(invoice);
+                                    setShowInvoicePreview(true);
+                                  }}
+                                >
                                   <div className="flex items-center justify-between mb-2">
                                     <div className="flex-1">
                                       <div className="font-medium text-slate-900">{invoice.invoice_number}</div>
@@ -2953,15 +2960,27 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedInvoice(invoice);
+                                        setShowInvoicePreview(true);
+                                      }}
+                                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                    >
+                                      <FileText className="w-3 h-3" />
+                                      View & Edit
+                                    </button>
                                     {invoice.google_drive_url && (
                                       <a
                                         href={invoice.google_drive_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors"
                                       >
-                                        <FileEdit className="w-3 h-3" />
-                                        Edit in Google Docs
+                                        <ExternalLink className="w-3 h-3" />
+                                        Open in Google Docs
                                       </a>
                                     )}
                                   </div>
