@@ -9,6 +9,7 @@ interface Task {
   description: string | null;
   deadline: string | null;
   completed: boolean;
+  is_urgent: boolean;
   project_id?: string;
   marketing_project_id?: string;
   assigned_to: string;
@@ -427,7 +428,9 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                     </h3>
                   </div>
                   <div className="space-y-2">
-                    {pastDueTasks.map(task => {
+                    {pastDueTasks
+                      .sort((a, b) => (b.is_urgent ? 1 : 0) - (a.is_urgent ? 1 : 0))
+                      .map(task => {
                       const daysOverdue = Math.floor(
                         (now.getTime() - new Date(task.deadline!).getTime()) / (1000 * 60 * 60 * 24)
                       );
@@ -436,7 +439,15 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                           key={task.id}
                           className="bg-white rounded-lg p-3 border border-red-200 shadow-sm"
                         >
-                          <h4 className="font-semibold text-slate-800">{task.title}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-slate-800">{task.title}</h4>
+                            {task.is_urgent && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
+                                <AlertCircle className="w-3 h-3" />
+                                Urgent
+                              </span>
+                            )}
+                          </div>
                           {task.description && (
                             <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                           )}
@@ -474,12 +485,22 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                     </h3>
                   </div>
                   <div className="space-y-2">
-                    {dueTodayTasks.map(task => (
+                    {dueTodayTasks
+                      .sort((a, b) => (b.is_urgent ? 1 : 0) - (a.is_urgent ? 1 : 0))
+                      .map(task => (
                       <div
                         key={task.id}
                         className="bg-white rounded-lg p-3 border border-amber-200 shadow-sm"
                       >
-                        <h4 className="font-semibold text-slate-800">{task.title}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-slate-800">{task.title}</h4>
+                          {task.is_urgent && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
+                              <AlertCircle className="w-3 h-3" />
+                              Urgent
+                            </span>
+                          )}
+                        </div>
                         {task.description && (
                           <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                         )}
@@ -512,14 +533,27 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                   </div>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {upcomingTasks
-                      .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+                      .sort((a, b) => {
+                        if (b.is_urgent !== a.is_urgent) {
+                          return (b.is_urgent ? 1 : 0) - (a.is_urgent ? 1 : 0);
+                        }
+                        return new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime();
+                      })
                       .slice(0, 5)
                       .map(task => (
                         <div
                           key={task.id}
                           className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm"
                         >
-                          <h4 className="font-semibold text-slate-800">{task.title}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-slate-800">{task.title}</h4>
+                            {task.is_urgent && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
+                                <AlertCircle className="w-3 h-3" />
+                                Urgent
+                              </span>
+                            )}
+                          </div>
                           {task.description && (
                             <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                           )}

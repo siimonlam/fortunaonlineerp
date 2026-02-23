@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { X, Plus, Calendar, User, Trash2, CheckCircle2, Circle, Building2, Mail, Phone, MapPin, Link as LinkIcon, Edit2 } from 'lucide-react';
+import { X, Plus, Calendar, User, Trash2, CheckCircle2, Circle, Building2, Mail, Phone, MapPin, Link as LinkIcon, Edit2, AlertCircle } from 'lucide-react';
 
 interface Staff {
   id: string;
@@ -16,6 +16,7 @@ interface Task {
   assigned_to: string | null;
   deadline: string | null;
   completed: boolean;
+  is_urgent: boolean;
   staff?: {
     full_name: string;
   };
@@ -70,6 +71,7 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
   const [newTaskDeadline, setNewTaskDeadline] = useState('');
+  const [newTaskIsUrgent, setNewTaskIsUrgent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -78,6 +80,7 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
   const [editDescription, setEditDescription] = useState('');
   const [editAssignee, setEditAssignee] = useState('');
   const [editDeadline, setEditDeadline] = useState('');
+  const [editIsUrgent, setEditIsUrgent] = useState(false);
 
   const tasksTable = isMarketing ? 'marketing_tasks' : 'tasks';
   const projectIdField = isMarketing ? 'marketing_project_id' : 'project_id';
@@ -114,6 +117,7 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
         staff:assigned_to (full_name)
       `)
       .eq(projectIdField, project.id)
+      .order('is_urgent', { ascending: false })
       .order('created_at', { ascending: false });
 
     if (data) setTasks(data);
@@ -131,6 +135,7 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
         description: newTaskDescription.trim() || null,
         assigned_to: newTaskAssignee || null,
         deadline: newTaskDeadline || null,
+        is_urgent: newTaskIsUrgent,
       };
 
       console.log('[TaskModal] Adding task:', {
@@ -151,6 +156,7 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
       setNewTaskDescription('');
       setNewTaskAssignee('');
       setNewTaskDeadline('');
+      setNewTaskIsUrgent(false);
       setEditingTaskId(null);
       setShowAddTask(false);
       await loadTasks();
@@ -263,6 +269,7 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
     setEditDescription(task.description || '');
     setEditAssignee(task.assigned_to || '');
     setEditDeadline(task.deadline || '');
+    setEditIsUrgent(task.is_urgent || false);
   }
 
   function cancelEdit() {
@@ -271,6 +278,7 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
     setEditDescription('');
     setEditAssignee('');
     setEditDeadline('');
+    setEditIsUrgent(false);
   }
 
   async function handleUpdateTask(e: React.FormEvent) {
@@ -286,6 +294,7 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
           description: editDescription.trim() || null,
           assigned_to: editAssignee || null,
           deadline: editDeadline || null,
+          is_urgent: editIsUrgent,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingTaskId);
@@ -582,6 +591,18 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
                   className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newTaskIsUrgent}
+                  onChange={(e) => setNewTaskIsUrgent(e.target.checked)}
+                  className="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-2 focus:ring-red-500"
+                />
+                <span className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  Mark as Urgent
+                </span>
+              </label>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -649,6 +670,18 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
                         className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editIsUrgent}
+                        onChange={(e) => setEditIsUrgent(e.target.checked)}
+                        className="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-2 focus:ring-red-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        Mark as Urgent
+                      </span>
+                    </label>
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -679,13 +712,21 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
                       )}
                     </button>
                     <div className="flex-1">
-                      <h4
-                        className={`font-medium ${
-                          task.completed ? 'text-slate-400 line-through' : 'text-slate-900'
-                        }`}
-                      >
-                        {task.title}
-                      </h4>
+                      <div className="flex items-center gap-2">
+                        <h4
+                          className={`font-medium ${
+                            task.completed ? 'text-slate-400 line-through' : 'text-slate-900'
+                          }`}
+                        >
+                          {task.title}
+                        </h4>
+                        {task.is_urgent && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                            <AlertCircle className="w-3 h-3" />
+                            Urgent
+                          </span>
+                        )}
+                      </div>
                       {task.description && (
                         <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                       )}
