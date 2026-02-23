@@ -24,7 +24,8 @@ import {
   AlertCircle,
   Bell,
   Edit,
-  Save
+  Save,
+  FolderOpen
 } from 'lucide-react';
 import MarketingInstagramSection from './MarketingInstagramSection';
 import MarketingFacebookSection from './MarketingFacebookSection';
@@ -34,6 +35,7 @@ import { InfluencerCollaboration } from './InfluencerCollaboration';
 import { MarketingTasksSection } from './MarketingTasksSection';
 import MarketingMeetingsSection from './MarketingMeetingsSection';
 import { MarketingShareResourcesSection } from './MarketingShareResourcesSection';
+import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 import { createMarketingProjectFolders } from '../utils/googleDriveUtils';
 
 interface MarketingProject {
@@ -76,7 +78,8 @@ type MarketingSection =
   | 'social-media'
   | 'tasks'
   | 'meetings'
-  | 'files';
+  | 'files'
+  | 'shared-resources';
 
 export default function MarketingProjectDetail({ projectId, onBack }: MarketingProjectDetailProps) {
   const [project, setProject] = useState<MarketingProject | null>(null);
@@ -508,7 +511,8 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
         { id: 'social-media' as MarketingSection, label: 'Social Media Management', icon: MessageSquare },
         { id: 'tasks' as MarketingSection, label: 'Tasks', icon: CheckSquare },
         { id: 'meetings' as MarketingSection, label: 'Meeting Record', icon: Calendar },
-        { id: 'files' as MarketingSection, label: 'Files', icon: Folder }
+        { id: 'files' as MarketingSection, label: 'Files', icon: Folder },
+        { id: 'shared-resources' as MarketingSection, label: 'Shared Resource', icon: FolderOpen }
       ]
     }
   ];
@@ -730,6 +734,16 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
             <MarketingShareResourcesSection
               marketingProjectId={projectId}
               driveFolderId={project?.google_drive_folder_id}
+            />
+          </div>
+        );
+
+      case 'shared-resources':
+        return (
+          <div className="h-[calc(100vh-12rem)]">
+            <ServiceAccountDriveExplorer
+              folderId="0AGS1DrbHHYQzUk9PVA"
+              allowUpload={false}
             />
           </div>
         );
