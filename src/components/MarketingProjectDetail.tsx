@@ -478,6 +478,10 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
   const isSectionVisible = (sectionId: string): boolean => {
     if (hasFullAccess) return true;
+
+    // Always show summary and shared-resources sections
+    if (sectionId === 'summary' || sectionId === 'shared-resources') return true;
+
     return visibleSections.includes(sectionId);
   };
 
