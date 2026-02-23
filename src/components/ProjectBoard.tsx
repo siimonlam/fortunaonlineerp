@@ -2844,19 +2844,6 @@ export function ProjectBoard() {
               {isMarketingProjectType && (
                 <div className="mt-6 pt-4 border-t border-slate-200 space-y-2">
                   <button
-                    onClick={() => setMarketingProjectTab('projects')}
-                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
-                      marketingProjectTab === 'projects'
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4" />
-                      Projects
-                    </span>
-                  </button>
-                  <button
                     onClick={() => setMarketingProjectTab('resources')}
                     className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
                       marketingProjectTab === 'resources'
@@ -4131,7 +4118,10 @@ export function ProjectBoard() {
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'resources' ? (
               <ShareResourcesPage />
             ) : !isClientSection && isMarketingProjectType && marketingProjectTab === 'resources' ? (
-              <MarketingShareResourcesSection />
+              <MarketingShareResourcesSection
+                marketingProjectId=""
+                driveFolderId="0AGS1DrbHHYQzUk9PVA"
+              />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
               <div className="bg-white rounded-lg shadow-sm border border-slate-200">
                 <div className="p-6">
