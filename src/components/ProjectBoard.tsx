@@ -27,6 +27,7 @@ import { TaskNotificationModal } from './TaskNotificationModal';
 import { CreateMarketingProjectModal } from './CreateMarketingProjectModal';
 import MarketingProjectDetail from './MarketingProjectDetail';
 import { AddMarketingProjectButtonModal } from './AddMarketingProjectButtonModal';
+import { MarketingShareResourcesSection } from './MarketingShareResourcesSection';
 
 interface Status {
   id: string;
@@ -190,6 +191,7 @@ export function ProjectBoard() {
   const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
   const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
   const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings' | 'resources' | 'emails'>('projects');
+  const [marketingProjectTab, setMarketingProjectTab] = useState<'projects' | 'resources'>('projects');
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
   const [fundingReceipts, setFundingReceipts] = useState<any[]>([]);
@@ -2839,6 +2841,36 @@ export function ProjectBoard() {
                   </button>
                 </div>
               )}
+              {isMarketingProjectType && (
+                <div className="mt-6 pt-4 border-t border-slate-200 space-y-2">
+                  <button
+                    onClick={() => setMarketingProjectTab('projects')}
+                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                      marketingProjectTab === 'projects'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Projects
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setMarketingProjectTab('resources')}
+                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                      marketingProjectTab === 'resources'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Share2 className="w-4 h-4" />
+                      Share Resources
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           </aside>
         )}
@@ -2918,6 +2950,11 @@ export function ProjectBoard() {
                     {fundingProjectTab === 'resources' && 'Share Resources'}
                   </h2>
                 )}
+                {!selectedMarketingProject && !isAdminSection && !isComSecSection && !isClientSection && isMarketingProjectType && marketingProjectTab !== 'projects' && (
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    {marketingProjectTab === 'resources' && 'Share Resources'}
+                  </h2>
+                )}
                 {isClientSection && !isAdminSection && !isComSecSection && (
                   <h2 className="text-2xl font-bold text-slate-900">
                     Clients
@@ -2925,7 +2962,7 @@ export function ProjectBoard() {
                 )}
               </div>
 
-              {!selectedMarketingProject && !isClientSection && !isAdminSection && !isComSecSection && (isFundingProjectType || isMarketingProjectType) && fundingProjectTab === 'projects' && (
+              {!selectedMarketingProject && !isClientSection && !isAdminSection && !isComSecSection && ((isFundingProjectType && fundingProjectTab === 'projects') || (isMarketingProjectType && marketingProjectTab === 'projects')) && (
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -4093,6 +4130,8 @@ export function ProjectBoard() {
               />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'resources' ? (
               <ShareResourcesPage />
+            ) : !isClientSection && isMarketingProjectType && marketingProjectTab === 'resources' ? (
+              <MarketingShareResourcesSection />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
               <div className="bg-white rounded-lg shadow-sm border border-slate-200">
                 <div className="p-6">
