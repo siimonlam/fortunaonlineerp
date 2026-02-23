@@ -153,6 +153,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
   const [selectedInvoiceForMarkPaid, setSelectedInvoiceForMarkPaid] = useState<any>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -1619,9 +1620,23 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               </div>
             )}
           </div>
-          <button onClick={handleClose} className="text-slate-400 hover:text-slate-600">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                isSidebarOpen
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+              }`}
+              title={isSidebarOpen ? "Close History & Notes" : "Open History & Notes"}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-sm font-medium">History & Notes</span>
+            </button>
+            <button onClick={handleClose} className="text-slate-400 hover:text-slate-600">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 flex overflow-hidden min-h-0">
@@ -3505,12 +3520,14 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         )}
         </div>
 
-        <div className="w-[400px]">
-          <ProjectActivitySidebar
-            projectId={project.id}
-            embedded={true}
-            isMarketingProject={isMarketing}
-          />
+        <div className={`transition-all duration-300 border-l border-slate-200 bg-slate-50 ${isSidebarOpen ? 'w-[400px]' : 'w-0'} overflow-hidden`}>
+          {isSidebarOpen && (
+            <ProjectActivitySidebar
+              projectId={project.id}
+              embedded={true}
+              isMarketingProject={isMarketing}
+            />
+          )}
         </div>
         </div>
       </div>
