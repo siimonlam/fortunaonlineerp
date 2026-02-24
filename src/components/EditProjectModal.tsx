@@ -153,7 +153,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
   const [selectedInvoiceForMarkPaid, setSelectedInvoiceForMarkPaid] = useState<any>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -1588,55 +1588,55 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             )}
 
             {canEdit && projectType?.name !== 'Marketing' && (
-              <div className="flex gap-2 mt-3">
-                {projectType?.name === 'Funding Project' && (
-                <>
+              <div className="flex justify-between items-center gap-2 mt-3">
+                <div className="flex gap-2">
+                  {projectType?.name === 'Funding Project' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleQAReceived}
+                      className="px-3 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      New Q&A received
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUpdateFinalReport}
+                      className="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Update Final Report
+                    </button>
+                  </>
+                  )}
                   <button
                     type="button"
-                    onClick={handleQAReceived}
-                    className="px-3 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+                    onClick={() => setShowAddPartnerProjectModal(true)}
+                    className="px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
                   >
-                    <MessageSquare className="w-4 h-4" />
-                    New Q&A received
+                    <Users className="w-4 h-4" />
+                    Partner Project
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleUpdateFinalReport}
-                    className="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Update Final Report
-                  </button>
-                </>
-                )}
+                </div>
                 <button
-                  type="button"
-                  onClick={() => setShowAddPartnerProjectModal(true)}
-                  className="px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${
+                    isSidebarOpen
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+                  }`}
+                  title={isSidebarOpen ? "Close History & Notes" : "Open History & Notes"}
                 >
-                  <Users className="w-4 h-4" />
-                  Partner Project
+                  <MessageSquare className="w-4 h-4" />
+                  History & Notes
                 </button>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                isSidebarOpen
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
-              }`}
-              title={isSidebarOpen ? "Close History & Notes" : "Open History & Notes"}
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span className="text-sm font-medium">History & Notes</span>
-            </button>
-            <button onClick={handleClose} className="text-slate-400 hover:text-slate-600">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button onClick={handleClose} className="text-slate-400 hover:text-slate-600">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="flex-1 flex overflow-hidden min-h-0">
