@@ -266,6 +266,24 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
     setCompletionStats(sortedStats);
   }
 
+  async function toggleUrgent(taskId: string, currentUrgent: boolean) {
+    const { error } = await supabase
+      .from('tasks')
+      .update({ is_urgent: !currentUrgent })
+      .eq('id', taskId);
+
+    if (error) {
+      console.error('Error toggling urgent status:', error);
+      return;
+    }
+
+    setTasks(prevTasks =>
+      prevTasks.map(task =>
+        task.id === taskId ? { ...task, is_urgent: !currentUrgent } : task
+      )
+    );
+  }
+
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
@@ -429,7 +447,11 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                   </div>
                   <div className="space-y-2">
                     {pastDueTasks
-                      .sort((a, b) => (b.is_urgent ? 1 : 0) - (a.is_urgent ? 1 : 0))
+                      .sort((a, b) => {
+                        if (a.is_urgent && !b.is_urgent) return -1;
+                        if (!a.is_urgent && b.is_urgent) return 1;
+                        return 0;
+                      })
                       .map(task => {
                       const daysOverdue = Math.floor(
                         (now.getTime() - new Date(task.deadline!).getTime()) / (1000 * 60 * 60 * 24)
@@ -439,14 +461,23 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                           key={task.id}
                           className="bg-white rounded-lg p-3 border border-red-200 shadow-sm"
                         >
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-slate-800">{task.title}</h4>
-                            {task.is_urgent && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
-                                <AlertCircle className="w-3 h-3" />
-                                Urgent
-                              </span>
-                            )}
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={task.is_urgent}
+                              onChange={() => toggleUrgent(task.id, task.is_urgent)}
+                              className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
+                              title="Mark as urgent"
+                            />
+                            <div className="flex items-center gap-2 flex-1">
+                              <h4 className="font-semibold text-slate-800">{task.title}</h4>
+                              {task.is_urgent && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
+                                  <AlertCircle className="w-3 h-3" />
+                                  Urgent
+                                </span>
+                              )}
+                            </div>
                           </div>
                           {task.description && (
                             <p className="text-sm text-slate-600 mt-1">{task.description}</p>
@@ -486,20 +517,33 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                   </div>
                   <div className="space-y-2">
                     {dueTodayTasks
-                      .sort((a, b) => (b.is_urgent ? 1 : 0) - (a.is_urgent ? 1 : 0))
+                      .sort((a, b) => {
+                        if (a.is_urgent && !b.is_urgent) return -1;
+                        if (!a.is_urgent && b.is_urgent) return 1;
+                        return 0;
+                      })
                       .map(task => (
                       <div
                         key={task.id}
                         className="bg-white rounded-lg p-3 border border-amber-200 shadow-sm"
                       >
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-slate-800">{task.title}</h4>
-                          {task.is_urgent && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
-                              <AlertCircle className="w-3 h-3" />
-                              Urgent
-                            </span>
-                          )}
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={task.is_urgent}
+                            onChange={() => toggleUrgent(task.id, task.is_urgent)}
+                            className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
+                            title="Mark as urgent"
+                          />
+                          <div className="flex items-center gap-2 flex-1">
+                            <h4 className="font-semibold text-slate-800">{task.title}</h4>
+                            {task.is_urgent && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
+                                <AlertCircle className="w-3 h-3" />
+                                Urgent
+                              </span>
+                            )}
+                          </div>
                         </div>
                         {task.description && (
                           <p className="text-sm text-slate-600 mt-1">{task.description}</p>
@@ -534,9 +578,8 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {upcomingTasks
                       .sort((a, b) => {
-                        if (b.is_urgent !== a.is_urgent) {
-                          return (b.is_urgent ? 1 : 0) - (a.is_urgent ? 1 : 0);
-                        }
+                        if (a.is_urgent && !b.is_urgent) return -1;
+                        if (!a.is_urgent && b.is_urgent) return 1;
                         return new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime();
                       })
                       .slice(0, 5)
@@ -545,14 +588,23 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                           key={task.id}
                           className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm"
                         >
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-slate-800">{task.title}</h4>
-                            {task.is_urgent && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
-                                <AlertCircle className="w-3 h-3" />
-                                Urgent
-                              </span>
-                            )}
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={task.is_urgent}
+                              onChange={() => toggleUrgent(task.id, task.is_urgent)}
+                              className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
+                              title="Mark as urgent"
+                            />
+                            <div className="flex items-center gap-2 flex-1">
+                              <h4 className="font-semibold text-slate-800">{task.title}</h4>
+                              {task.is_urgent && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
+                                  <AlertCircle className="w-3 h-3" />
+                                  Urgent
+                                </span>
+                              )}
+                            </div>
                           </div>
                           {task.description && (
                             <p className="text-sm text-slate-600 mt-1">{task.description}</p>
