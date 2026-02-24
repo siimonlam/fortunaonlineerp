@@ -1587,8 +1587,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               </div>
             )}
 
-            {canEdit && projectType?.name !== 'Marketing' && (
-              <div className="flex justify-between items-center gap-2 mt-3">
+            <div className="flex justify-between items-center gap-2 mt-3">
+              {canEdit && projectType?.name !== 'Marketing' && (
                 <div className="flex gap-2">
                   {projectType?.name === 'Funding Project' && (
                   <>
@@ -1619,20 +1619,20 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                     Partner Project
                   </button>
                 </div>
-                <button
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${
-                    isSidebarOpen
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
-                  }`}
-                  title={isSidebarOpen ? "Close History & Notes" : "Open History & Notes"}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  History & Notes
-                </button>
-              </div>
-            )}
+              )}
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${
+                  isSidebarOpen
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+                }`}
+                title={isSidebarOpen ? "Close History & Notes" : "Open History & Notes"}
+              >
+                <MessageSquare className="w-4 h-4" />
+                History & Notes
+              </button>
+            </div>
           </div>
           <button onClick={handleClose} className="text-slate-400 hover:text-slate-600">
             <X className="w-5 h-5" />
