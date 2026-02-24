@@ -1839,11 +1839,11 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded">AR OVERDUE</span>
-                        <span className="font-semibold text-slate-900">{client.company_name}</span>
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <span className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded whitespace-nowrap">AR OVERDUE</span>
+                        <span className="font-semibold text-slate-900 break-words">{client.company_name}</span>
                         {client.company_code && (
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded whitespace-nowrap">
                             {client.company_code}
                           </span>
                         )}
@@ -1876,11 +1876,11 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="px-2 py-1 bg-orange-600 text-white text-xs font-bold rounded">AR DUE SOON</span>
-                        <span className="font-semibold text-slate-900">{client.company_name}</span>
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <span className="px-2 py-1 bg-orange-600 text-white text-xs font-bold rounded whitespace-nowrap">AR DUE SOON</span>
+                        <span className="font-semibold text-slate-900 break-words">{client.company_name}</span>
                         {client.company_code && (
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded whitespace-nowrap">
                             {client.company_code}
                           </span>
                         )}
@@ -1914,11 +1914,11 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded">AR UPCOMING</span>
-                        <span className="font-semibold text-slate-900">{client.company_name}</span>
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <span className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded whitespace-nowrap">AR UPCOMING</span>
+                        <span className="font-semibold text-slate-900 break-words">{client.company_name}</span>
                         {client.company_code && (
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded whitespace-nowrap">
                             {client.company_code}
                           </span>
                         )}
