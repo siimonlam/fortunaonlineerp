@@ -36,6 +36,7 @@ import { MarketingTasksSection } from './MarketingTasksSection';
 import MarketingMeetingsSection from './MarketingMeetingsSection';
 import { MarketingShareResourcesSection } from './MarketingShareResourcesSection';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
+import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { createMarketingProjectFolders } from '../utils/googleDriveUtils';
 
 interface MarketingProject {
@@ -91,6 +92,7 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   const [visibleSections, setVisibleSections] = useState<string[]>([]);
   const [hasFullAccess, setHasFullAccess] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [isActivitySidebarOpen, setIsActivitySidebarOpen] = useState(false);
   const [socialMediaTaskCounts, setSocialMediaTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
   const [marketingTaskCounts, setMarketingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
   const [meetingTaskCounts, setMeetingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
@@ -534,34 +536,48 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Project Overview</h3>
-                {!isEditing ? (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={handleEdit}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    onClick={() => setIsActivitySidebarOpen(!isActivitySidebarOpen)}
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${
+                      isActivitySidebarOpen
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+                    }`}
+                    title={isActivitySidebarOpen ? "Close History & Notes" : "Open History & Notes"}
                   >
-                    <Edit className="w-4 h-4" />
-                    Edit
+                    <MessageSquare className="w-4 h-4" />
+                    History & Notes
                   </button>
-                ) : (
-                  <div className="flex gap-2">
+                  {!isEditing ? (
                     <button
-                      onClick={handleCancelEdit}
-                      disabled={saving}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      onClick={handleEdit}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                     >
-                      <X className="w-4 h-4" />
-                      Cancel
+                      <Edit className="w-4 h-4" />
+                      Edit
                     </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                    >
-                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      Save
-                    </button>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleCancelEdit}
+                        disabled={saving}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                      >
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Save
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -943,6 +959,16 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
 
           {renderSectionContent()}
         </div>
+      </div>
+
+      <div className={`transition-all duration-300 border-l border-slate-200 bg-slate-50 ${isActivitySidebarOpen ? 'w-[400px]' : 'w-0'} overflow-hidden`}>
+        {isActivitySidebarOpen && (
+          <ProjectActivitySidebar
+            projectId={projectId}
+            embedded={true}
+            isMarketingProject={true}
+          />
+        )}
       </div>
     </div>
   );
