@@ -79,8 +79,7 @@ type MarketingSection =
   | 'social-media'
   | 'tasks'
   | 'meetings'
-  | 'files'
-  | 'shared-resources';
+  | 'files';
 
 export default function MarketingProjectDetail({ projectId, onBack }: MarketingProjectDetailProps) {
   const [project, setProject] = useState<MarketingProject | null>(null);
@@ -481,8 +480,8 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
   const isSectionVisible = (sectionId: string): boolean => {
     if (hasFullAccess) return true;
 
-    // Always show summary and shared-resources sections
-    if (sectionId === 'summary' || sectionId === 'shared-resources') return true;
+    // Always show summary section
+    if (sectionId === 'summary') return true;
 
     return visibleSections.includes(sectionId);
   };
@@ -517,8 +516,7 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
         { id: 'social-media' as MarketingSection, label: 'Social Media Management', icon: MessageSquare },
         { id: 'tasks' as MarketingSection, label: 'Tasks', icon: CheckSquare },
         { id: 'meetings' as MarketingSection, label: 'Meeting Record', icon: Calendar },
-        { id: 'files' as MarketingSection, label: 'Files', icon: Folder },
-        { id: 'shared-resources' as MarketingSection, label: 'Shared Resource', icon: FolderOpen }
+        { id: 'files' as MarketingSection, label: 'Files', icon: Folder }
       ]
     }
   ];
@@ -754,16 +752,6 @@ export default function MarketingProjectDetail({ projectId, onBack }: MarketingP
             <MarketingShareResourcesSection
               marketingProjectId={projectId}
               driveFolderId={project?.google_drive_folder_id}
-            />
-          </div>
-        );
-
-      case 'shared-resources':
-        return (
-          <div className="h-[calc(100vh-12rem)]">
-            <ServiceAccountDriveExplorer
-              folderId="0AGS1DrbHHYQzUk9PVA"
-              allowUpload={false}
             />
           </div>
         );
