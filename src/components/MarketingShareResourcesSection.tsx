@@ -399,6 +399,9 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
         imageUrl = uploadedImageUrl;
       }
 
+      // Prepare category_id - ensure empty strings are converted to null
+      const categoryId = formData.category_id?.trim() || null;
+
       const resourceData = {
         marketing_project_id: marketingProjectId,
         title: formData.title,
@@ -409,9 +412,13 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
         file_path: fileData?.path || null,
         file_name: fileData?.name || null,
         file_size: fileData?.size || null,
-        category_id: formData.category_id && formData.category_id.trim() !== '' ? formData.category_id : null,
+        category_id: categoryId,
         created_by: user.id
       };
+
+      console.log('Resource data before insert:', resourceData);
+      console.log('formData.category_id:', formData.category_id);
+      console.log('Processed categoryId:', categoryId);
 
       if (editingResource) {
         const { error } = await supabase
