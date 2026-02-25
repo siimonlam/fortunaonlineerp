@@ -645,6 +645,23 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     }
   }
 
+  async function handleDeleteDraftInvoice(invoiceId: string) {
+    if (!confirm('Are you sure you want to delete this draft invoice? This action cannot be undone.')) return;
+
+    const { error } = await supabase
+      .from('comsec_invoices')
+      .delete()
+      .eq('id', invoiceId);
+
+    if (error) {
+      alert(`Error deleting draft invoice: ${error.message}`);
+    } else {
+      await logHistory('invoice_deleted', undefined, undefined, 'Draft invoice deleted');
+      loadInvoices();
+      loadHistory();
+    }
+  }
+
   async function handleGenerateAR1() {
     if (!client.company_code) {
       alert('Company code is required to generate AR1');
@@ -2984,6 +3001,18 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                                         Open in Google Docs
                                       </a>
                                     )}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteDraftInvoice(invoice.id);
+                                      }}
+                                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                      title="Delete Draft Invoice"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                      Delete
+                                    </button>
                                   </div>
                                 </div>
                               ))}
