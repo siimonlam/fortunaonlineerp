@@ -416,10 +416,6 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
         created_by: user.id
       };
 
-      console.log('Resource data before insert:', resourceData);
-      console.log('formData.category_id:', formData.category_id);
-      console.log('Processed categoryId:', categoryId);
-
       if (editingResource) {
         const { error } = await supabase
           .from('marketing_share_resources')
