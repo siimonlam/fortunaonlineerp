@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns2 as Columns, Scan, Share2, Mail, ChevronLeft, Menu } from 'lucide-react';
+import { Plus, LogOut, User, LayoutGrid, Table, Shield, Search, Bell, Filter, X, AlertCircle, ChevronDown, ChevronRight, DollarSign, FileText, TrendingUp, Users, Building2, CheckCircle2, XCircle, CheckSquare, Upload, Download, BarChart3, ExternalLink, Receipt, Calendar, Columns2 as Columns, Scan, Share2, Mail, ChevronLeft, Menu, MessageSquare } from 'lucide-react';
 import { APP_VERSION } from '../version';
 import { ProjectCard } from './ProjectCard';
 import { TaskModal } from './TaskModal';
@@ -28,6 +28,7 @@ import { CreateMarketingProjectModal } from './CreateMarketingProjectModal';
 import MarketingProjectDetail from './MarketingProjectDetail';
 import { AddMarketingProjectButtonModal } from './AddMarketingProjectButtonModal';
 import { MarketingShareResourcesSection } from './MarketingShareResourcesSection';
+import { WhatsAppMessagesPage } from './WhatsAppMessagesPage';
 
 interface Status {
   id: string;
@@ -2394,6 +2395,17 @@ export function ProjectBoard() {
                 </button>
               );
             })()}
+            <button
+              onClick={() => handleViewChange('messages')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 whitespace-nowrap ${
+                selectedView === 'messages'
+                  ? 'bg-green-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Messages
+            </button>
             {isAdmin && (
               <button
                 onClick={() => handleViewChange('admin')}
@@ -3570,6 +3582,8 @@ export function ProjectBoard() {
                 projectId={selectedMarketingProject}
                 onBack={() => setSelectedMarketingProject(null)}
               />
+            ) : selectedView === 'messages' ? (
+              <WhatsAppMessagesPage />
             ) : isComSecSection ? (
               <ComSecPage
                 activeModule={comSecModule}
