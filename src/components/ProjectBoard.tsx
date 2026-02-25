@@ -4118,12 +4118,10 @@ export function ProjectBoard() {
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'resources' ? (
               <ShareResourcesPage />
             ) : !isClientSection && isMarketingProjectType && marketingProjectTab === 'resources' ? (
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
-                <div className="text-center text-slate-500">
-                  <p className="text-lg font-medium mb-2">No Marketing Project Selected</p>
-                  <p className="text-sm">Please select a marketing project from the buttons above to view and manage shared resources.</p>
-                </div>
-              </div>
+              <MarketingShareResourcesSection
+                marketingProjectId={null}
+                driveFolderId="0AGS1DrbHHYQzUk9PVA"
+              />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'invoices' ? (
               <div className="bg-white rounded-lg shadow-sm border border-slate-200">
                 <div className="p-6">

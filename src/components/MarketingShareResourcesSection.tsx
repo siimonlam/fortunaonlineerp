@@ -31,7 +31,7 @@ interface Resource {
 }
 
 interface MarketingShareResourcesSectionProps {
-  marketingProjectId: string;
+  marketingProjectId: string | null;
   driveFolderId?: string | null;
 }
 
@@ -96,9 +96,12 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
     fetchWhatsAppAccounts();
     fetchWhatsAppGroups();
 
+    const projectId = marketingProjectId && marketingProjectId.trim() !== '' ? marketingProjectId : 'global';
+    const filterString = projectId === 'global' ? 'marketing_project_id=is.null' : `marketing_project_id=eq.${marketingProjectId}`;
+
     const channel = supabase
-      .channel(`marketing_share_resources_${marketingProjectId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'marketing_share_resources', filter: `marketing_project_id=eq.${marketingProjectId}` }, () => {
+      .channel(`marketing_share_resources_${projectId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'marketing_share_resources', filter: filterString }, () => {
         fetchResources();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'marketing_resource_categories' }, () => {
@@ -130,15 +133,24 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
   }, [resources, resourceSearchQuery, selectedCategoryFilter]);
 
   const fetchResources = async () => {
-    const { data, error } = await supabase
+    // Fetch resources - either for specific project or global resources (null project_id)
+    const projectId = marketingProjectId && marketingProjectId.trim() !== '' ? marketingProjectId : null;
+
+    let query = supabase
       .from('marketing_share_resources')
       .select(`
         *,
         staff:created_by(full_name),
         marketing_resource_categories(name)
-      `)
-      .eq('marketing_project_id', marketingProjectId)
-      .order('created_at', { ascending: false });
+      `);
+
+    if (projectId) {
+      query = query.eq('marketing_project_id', projectId);
+    } else {
+      query = query.is('marketing_project_id', null);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching resources:', error);
@@ -402,8 +414,11 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
       // Prepare category_id - ensure empty strings are converted to null
       const categoryId = formData.category_id?.trim() || null;
 
+      // Prepare marketing_project_id - convert empty string to null for global resources
+      const projectId = marketingProjectId && marketingProjectId.trim() !== '' ? marketingProjectId : null;
+
       const resourceData = {
-        marketing_project_id: marketingProjectId,
+        marketing_project_id: projectId,
         title: formData.title,
         content: formData.content,
         resource_type: formData.resource_type,
