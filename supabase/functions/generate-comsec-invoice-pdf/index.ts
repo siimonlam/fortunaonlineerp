@@ -182,26 +182,39 @@ Deno.serve(async (req: Request) => {
 
     console.log('Created copy of template:', newDocId);
 
-    // Verify the copied document is a Google Doc
-    const fileMetadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${newDocId}?fields=mimeType,name&supportsAllDrives=true`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
+    // Poll until the document is ready (with timeout)
+    let fileMetadata: any;
+    let attempts = 0;
+    const maxAttempts = 10;
 
-    if (!fileMetadataResponse.ok) {
-      throw new Error('Failed to verify copied document');
+    while (attempts < maxAttempts) {
+      const fileMetadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${newDocId}?fields=mimeType,name&supportsAllDrives=true`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!fileMetadataResponse.ok) {
+        throw new Error('Failed to verify copied document');
+      }
+
+      fileMetadata = await fileMetadataResponse.json();
+      console.log(`Attempt ${attempts + 1}: Document metadata:`, fileMetadata);
+
+      if (fileMetadata.mimeType === 'application/vnd.google-apps.document') {
+        console.log('Document is ready as Google Doc');
+        break;
+      }
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
     }
-
-    const fileMetadata = await fileMetadataResponse.json();
-    console.log('Copied document metadata:', fileMetadata);
 
     if (fileMetadata.mimeType !== 'application/vnd.google-apps.document') {
       throw new Error(`Template must be a Google Doc, but got: ${fileMetadata.mimeType}. Please ensure the template is a Google Doc (not Sheets, Slides, or PDF).`);
     }
-
-    // Wait briefly for Google Drive to finish processing the copy
-    await new Promise(resolve => setTimeout(resolve, 500));
 
     const itemsTable: string[] = [];
     let subtotal = 0;
