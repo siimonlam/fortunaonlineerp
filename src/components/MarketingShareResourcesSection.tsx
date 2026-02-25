@@ -409,7 +409,7 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
         file_path: fileData?.path || null,
         file_name: fileData?.name || null,
         file_size: fileData?.size || null,
-        category_id: formData.category_id || null,
+        category_id: formData.category_id && formData.category_id.trim() !== '' ? formData.category_id : null,
         created_by: user.id
       };
 
