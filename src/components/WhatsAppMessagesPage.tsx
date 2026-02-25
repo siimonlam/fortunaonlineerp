@@ -231,11 +231,18 @@ export function WhatsAppMessagesPage() {
         });
         fetchPhoneNumbers();
       } else {
-        alert(`Registration failed: ${result.error}`);
+        // Show detailed error from Meta API
+        let errorMessage = `Registration failed: ${result.error}`;
+        if (result.details) {
+          const details = JSON.stringify(result.details, null, 2);
+          console.error('Meta API Error Details:', details);
+          errorMessage += `\n\nDetails: ${details}`;
+        }
+        alert(errorMessage);
       }
     } catch (error) {
       console.error('Error registering number:', error);
-      alert('Failed to register number');
+      alert('Failed to register number. Check console for details.');
     } finally {
       setLoading(false);
     }
@@ -536,6 +543,17 @@ export function WhatsAppMessagesPage() {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Register WhatsApp Business Number</h2>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="text-sm font-semibold text-blue-900 mb-2">Important Notes:</h3>
+                <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
+                  <li>You can only register each phone number once</li>
+                  <li>The access token must have WhatsApp Business Management permissions</li>
+                  <li>The phone number ID is from Meta Business Manager, not the actual phone number</li>
+                  <li>If registration fails, check the browser console for detailed error messages</li>
+                  <li>If the number was already registered, you may need to unregister it first in Meta Business Manager</li>
+                </ul>
+              </div>
 
               <div className="space-y-4">
                 <div>
