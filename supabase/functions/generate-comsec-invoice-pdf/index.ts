@@ -200,8 +200,8 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Template must be a Google Doc, but got: ${fileMetadata.mimeType}. Please ensure the template is a Google Doc (not Sheets, Slides, or PDF).`);
     }
 
-    // Wait for Google Drive to finish processing the copy
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Wait briefly for Google Drive to finish processing the copy
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     const itemsTable: string[] = [];
     let subtotal = 0;
