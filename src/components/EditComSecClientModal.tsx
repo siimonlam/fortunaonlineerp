@@ -561,59 +561,70 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
 
         if (error) throw error;
 
-        // Generate Google Doc for the invoice (only for Draft invoices)
+        // Generate Google Doc for the invoice in the background (only for Draft invoices)
         if (!subscriptionData.is_paid) {
-          try {
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-            const items = [{
-              description: service?.service_name || 'Service',
-              amount: service?.price || 0,
-            }];
+          const items = [{
+            description: service?.service_name || 'Service',
+            amount: service?.price || 0,
+          }];
 
-            const response = await fetch(`${supabaseUrl}/functions/v1/generate-comsec-invoice-pdf`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${supabaseKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                invoiceNumber,
-                clientName: client.company_name,
-                clientAddress: client.address || '',
-                clientContactPerson: client.contact_person || '',
-                clientPhone: client.contact_number || '',
-                issueDate,
-                dueDate,
-                items,
-                notes: subscriptionData.remarks || '',
-                clientId: client.id,
-                companyCode: client.company_code,
-                discount: 0,
-              }),
+          // Fire and forget - generate in background
+          fetch(`${supabaseUrl}/functions/v1/generate-comsec-invoice-pdf`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              invoiceNumber,
+              clientName: client.company_name,
+              clientAddress: client.address || '',
+              clientContactPerson: client.contact_person || '',
+              clientPhone: client.contact_number || '',
+              issueDate,
+              dueDate,
+              items,
+              notes: subscriptionData.remarks || '',
+              clientId: client.id,
+              companyCode: client.company_code,
+              discount: 0,
+            }),
+          })
+            .then(async (response) => {
+              if (response.ok) {
+                const result = await response.json();
+
+                // Update the invoice with the Google Doc URL
+                await supabase
+                  .from('comsec_invoices')
+                  .update({
+                    google_drive_url: result.googleDocUrl,
+                  })
+                  .eq('id', newInvoice.id);
+
+                console.log('Invoice Google Doc created in background:', result.googleDocUrl);
+              } else {
+                const errorText = await response.text();
+                console.error('Failed to generate invoice doc:', errorText);
+              }
+            })
+            .catch((docError) => {
+              console.error('Error generating invoice doc:', docError);
             });
 
-            if (response.ok) {
-              const result = await response.json();
+          console.log('Invoice draft generation started in background...');
 
-              // Update the invoice with the Google Doc URL
-              await supabase
-                .from('comsec_invoices')
-                .update({
-                  google_drive_url: result.googleDocUrl,
-                })
-                .eq('id', newInvoice.id);
-
-              console.log('Invoice Google Doc created:', result.googleDocUrl);
-            } else {
-              const errorText = await response.text();
-              console.error('Failed to generate invoice doc:', errorText);
-            }
-          } catch (docError) {
-            console.error('Error generating invoice doc:', docError);
-            // Don't throw - invoice is created, just without the doc
-          }
+          // Show notification about background generation
+          setTimeout(() => {
+            alert('Service added! Invoice draft is being generated in the background.');
+          }, 100);
+        } else {
+          setTimeout(() => {
+            alert('Service updated successfully!');
+          }, 100);
         }
 
         await logHistory('service_added', undefined, undefined, 'Service subscription added');
