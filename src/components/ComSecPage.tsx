@@ -140,6 +140,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase[]>([]);
   const [reminders, setReminders] = useState<DueDateReminder[]>([]);
   const [masterServices, setMasterServices] = useState<any[]>([]);
+  const [invoiceTemplateUrl, setInvoiceTemplateUrl] = useState('');
+  const [isEditingTemplate, setIsEditingTemplate] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -178,6 +180,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     loadStaff();
     loadData();
     loadMasterServices();
+    loadInvoiceTemplate();
   }, [activeModule]);
 
   // Show due date modal on page load
@@ -344,6 +347,31 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
       .eq('is_active', true)
       .order('service_name');
     if (data) setMasterServices(data);
+  }
+
+  async function loadInvoiceTemplate() {
+    const { data } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'comsec_invoice_template_doc_id')
+      .maybeSingle();
+    if (data) setInvoiceTemplateUrl(data.value || '');
+  }
+
+  async function saveInvoiceTemplate() {
+    const { error } = await supabase
+      .from('system_settings')
+      .update({ value: invoiceTemplateUrl })
+      .eq('key', 'comsec_invoice_template_doc_id');
+
+    if (error) {
+      alert('Failed to save template URL: ' + error.message);
+    } else {
+      setIsEditingTemplate(false);
+      setSuccessMessage('Invoice template URL updated successfully!');
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    }
   }
 
   async function loadLetters() {
@@ -561,6 +589,76 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
 
     return (
       <div className="space-y-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                <h4 className="font-semibold text-slate-900">Invoice Template URL</h4>
+              </div>
+              {isEditingTemplate ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={invoiceTemplateUrl}
+                    onChange={(e) => setInvoiceTemplateUrl(e.target.value)}
+                    placeholder="Enter Google Docs template URL or Document ID"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-slate-600">
+                    This template will be used to generate invoice documents. Use placeholders like: INVOICE_NUMBER, CLIENT_NAME, CLIENT_ADDRESS, ISSUE_DATE, DUE_DATE, ITEMS, TOTAL, NOTES
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveInvoiceTemplate}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingTemplate(false);
+                        loadInvoiceTemplate();
+                      }}
+                      className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  {invoiceTemplateUrl ? (
+                    <>
+                      <code className="text-sm text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 flex-1 truncate">
+                        {invoiceTemplateUrl}
+                      </code>
+                      <a
+                        href={invoiceTemplateUrl.includes('docs.google.com') ? invoiceTemplateUrl : `https://docs.google.com/document/d/${invoiceTemplateUrl}/edit`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Open
+                      </a>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-500 italic">No template URL configured</p>
+                  )}
+                  <button
+                    onClick={() => setIsEditingTemplate(true)}
+                    className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-slate-900">Manage Services</h3>
           <button
