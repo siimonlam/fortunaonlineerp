@@ -163,6 +163,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const [showAddMappingModal, setShowAddMappingModal] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<any[]>([]);
   const [showDueDateModal, setShowDueDateModal] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [newMapping, setNewMapping] = useState({
     field_label: '',
     pdf_field_name: '',
@@ -2740,6 +2742,9 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
             setInvoicePreviewData(null);
             setSelectedClientForInvoice(null);
             loadInvoices();
+            setSuccessMessage(`Invoice ${invoicePreviewData.invoiceNumber} created successfully! Document is being generated in the background.`);
+            setShowSuccessToast(true);
+            setTimeout(() => setShowSuccessToast(false), 5000);
           }}
           onDraftSaved={() => {
             loadInvoices();
@@ -2831,6 +2836,21 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
         <ComSecDueDateModal
           onClose={() => setShowDueDateModal(false)}
         />
+      )}
+
+      {showSuccessToast && (
+        <div className="fixed top-4 right-4 z-[60] animate-slide-in">
+          <div className="bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 max-w-md">
+            <CheckCircle className="w-5 h-5 flex-shrink-0" />
+            <p className="text-sm font-medium">{successMessage}</p>
+            <button
+              onClick={() => setShowSuccessToast(false)}
+              className="ml-2 text-white hover:text-green-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       )}
 
       {showAddMappingModal && (
@@ -3381,6 +3401,11 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
         onDraftSaved(draftIds);
       }
 
+      // Close modal immediately
+      setTimeout(() => {
+        onClose();
+      }, 100);
+
       // Generate Google Doc in background (no await - fire and forget)
       fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-invoice-pdf`, {
         method: 'POST',
@@ -3398,11 +3423,7 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
           return response.json();
         })
         .then(async (result) => {
-          const editUrl = `https://docs.google.com/document/d/${result.documentId}/edit?embedded=true`;
           const googleDriveUrl = `https://docs.google.com/document/d/${result.documentId}/edit`;
-
-          setDocumentUrl(editUrl);
-          setDocumentId(result.documentId);
 
           // Update all invoice records with Google Drive URL
           for (const invoiceId of draftIds) {
@@ -3503,18 +3524,7 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
   }
 
   if (!documentUrl || !documentId) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="text-slate-700 font-medium">Preparing invoice document...</p>
-          <p className="text-sm text-slate-500">Invoice records saved. Document will load shortly.</p>
-          {draftSaved && (
-            <p className="text-xs text-green-600">Invoice #{invoiceData.invoiceNumber} created</p>
-          )}
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
