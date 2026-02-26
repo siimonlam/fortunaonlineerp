@@ -155,7 +155,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const [showInvoiceViewModal, setShowInvoiceViewModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [documentModalCompanyCode, setDocumentModalCompanyCode] = useState('');
-  const [invoiceSubTab, setInvoiceSubTab] = useState<'invoices' | 'service_settings'>('invoices');
+  const [invoiceSubTab, setInvoiceSubTab] = useState<'invoices' | 'service_settings' | 'doc_settings'>('invoices');
   const [clientsSubTab, setClientsSubTab] = useState<'list' | 'autofill_settings'>('list');
   const [virtualOfficeSubTab, setVirtualOfficeSubTab] = useState<'virtual_office' | 'letters'>('virtual_office');
   const [showLetterModal, setShowLetterModal] = useState(false);
@@ -802,6 +802,136 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     );
   }
 
+  function DocSettingsTab() {
+    const [documentTemplates, setDocumentTemplates] = useState<any[]>([]);
+    const [editingTemplate, setEditingTemplate] = useState<any>(null);
+
+    useEffect(() => {
+      loadDocumentTemplates();
+    }, []);
+
+    async function loadDocumentTemplates() {
+      const { data } = await supabase
+        .from('comsec_document_templates')
+        .select('*')
+        .order('display_order');
+      if (data) setDocumentTemplates(data);
+    }
+
+    async function handleUpdateTemplate(templateId: string, url: string) {
+      try {
+        const { error } = await supabase
+          .from('comsec_document_templates')
+          .update({
+            document_url: url,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', templateId);
+
+        if (error) throw error;
+        loadDocumentTemplates();
+        setEditingTemplate(null);
+      } catch (error: any) {
+        alert(`Error updating template: ${error.message}`);
+      }
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <FileText className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div>
+              <h4 className="font-semibold text-slate-900 mb-1">Com Sec Document Templates</h4>
+              <p className="text-sm text-slate-600">
+                Configure Google Docs URLs for company secretary document templates. These templates will be used when generating documents for clients.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase w-12">#</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Document Name</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Google Docs URL</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase w-32">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {documentTemplates.map((template, index) => (
+                <tr key={template.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {index + 1}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                    {template.document_name}
+                  </td>
+                  <td className="px-6 py-4">
+                    {editingTemplate?.id === template.id ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editingTemplate.document_url}
+                          onChange={(e) => setEditingTemplate({ ...editingTemplate, document_url: e.target.value })}
+                          placeholder="Enter Google Docs URL"
+                          className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => handleUpdateTemplate(template.id, editingTemplate.document_url)}
+                          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingTemplate(null)}
+                          className="px-3 py-1.5 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {template.document_url ? (
+                          <>
+                            <a
+                              href={template.document_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:text-blue-800 truncate flex-1 flex items-center gap-1"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span className="truncate">{template.document_url}</span>
+                            </a>
+                          </>
+                        ) : (
+                          <span className="text-sm text-slate-400 italic">Not configured</span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {editingTemplate?.id !== template.id && (
+                      <button
+                        onClick={() => setEditingTemplate(template)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        Edit
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   function renderClientsTab() {
     const filteredClients = comSecClients.filter(client => {
       // Filter based on search term only (status filtering is done at database level)
@@ -1292,6 +1422,17 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
               <DollarSign className="w-4 h-4 inline mr-2" />
               Service Settings
             </button>
+            <button
+              onClick={() => setInvoiceSubTab('doc_settings')}
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                invoiceSubTab === 'doc_settings'
+                  ? 'text-blue-600 border-blue-600'
+                  : 'text-slate-600 border-transparent hover:text-slate-900'
+              }`}
+            >
+              <FileText className="w-4 h-4 inline mr-2" />
+              Com Sec Doc Settings
+            </button>
           </div>
         </div>
 
@@ -1573,8 +1714,10 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
               </table>
             </div>
           </>
-        ) : (
+        ) : invoiceSubTab === 'service_settings' ? (
           <ServiceSettingsTab />
+        ) : (
+          <DocSettingsTab />
         )}
       </div>
     );
