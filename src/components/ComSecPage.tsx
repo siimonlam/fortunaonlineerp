@@ -286,6 +286,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     const { data } = await supabase
       .from('comsec_invoices')
       .select('*, comsec_client:comsec_clients(company_name, company_code, id)')
+      .neq('status', 'Draft')
       .order('issue_date', { ascending: false });
 
     if (data) {
