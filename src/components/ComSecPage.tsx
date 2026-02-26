@@ -3375,11 +3375,13 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
       const draftIds = invoiceData_inserted ? invoiceData_inserted.map(d => d.id) : [];
       setSavedDraftIds(draftIds);
       setDraftSaved(true);
+      setLoading(false);
+
       if (invoiceData_inserted && onDraftSaved) {
         onDraftSaved(draftIds);
       }
 
-      // Generate Google Doc in background
+      // Generate Google Doc in background (no await - fire and forget)
       fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-invoice-pdf`, {
         method: 'POST',
         headers: {
@@ -3396,13 +3398,11 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
           return response.json();
         })
         .then(async (result) => {
-          // Use edit URL instead of preview URL for editable iframe
           const editUrl = `https://docs.google.com/document/d/${result.documentId}/edit?embedded=true`;
           const googleDriveUrl = `https://docs.google.com/document/d/${result.documentId}/edit`;
 
           setDocumentUrl(editUrl);
           setDocumentId(result.documentId);
-          setLoading(false);
 
           // Update all invoice records with Google Drive URL
           for (const invoiceId of draftIds) {
@@ -3416,8 +3416,6 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
         })
         .catch((error: any) => {
           console.error('Error generating invoice document:', error);
-          setError(error.message || 'Failed to generate invoice document');
-          setLoading(false);
         });
 
     } catch (error: any) {
