@@ -3343,77 +3343,90 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
   }, []);
 
   const generateDocumentFromTemplate = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-invoice-pdf`, {
+    // Create invoice records first (immediately)
+    const invoiceRecords = invoiceData.items.map((item: any) => ({
+      invoice_number: invoiceData.invoiceNumber,
+      comsec_client_id: invoiceData.clientId,
+      company_code: invoiceData.companyCode || null,
+      service_id: item.serviceId || null,
+      issue_date: invoiceData.issueDate,
+      due_date: invoiceData.dueDate,
+      amount: item.amount,
+      status: 'Draft',
+      description: item.description,
+      start_date: item.startDate || null,
+      end_date: item.endDate || null,
+      remarks: invoiceData.notes,
+      google_drive_url: null,
+      created_by: user?.id
+    }));
+
+    try {
+      const { data: invoiceData_inserted, error: insertError } = await supabase
+        .from('comsec_invoices')
+        .insert(invoiceRecords)
+        .select('id');
+
+      if (insertError) throw insertError;
+
+      const draftIds = invoiceData_inserted ? invoiceData_inserted.map(d => d.id) : [];
+      setSavedDraftIds(draftIds);
+      setDraftSaved(true);
+      if (invoiceData_inserted && onDraftSaved) {
+        onDraftSaved(draftIds);
+      }
+
+      // Generate Google Doc in background
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-invoice-pdf`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(invoiceData),
-      });
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to generate invoice');
+          }
+          return response.json();
+        })
+        .then(async (result) => {
+          // Use edit URL instead of preview URL for editable iframe
+          const editUrl = `https://docs.google.com/document/d/${result.documentId}/edit?embedded=true`;
+          const googleDriveUrl = `https://docs.google.com/document/d/${result.documentId}/edit`;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate invoice');
-      }
+          setDocumentUrl(editUrl);
+          setDocumentId(result.documentId);
+          setLoading(false);
 
-      const result = await response.json();
-      // Use edit URL instead of preview URL for editable iframe
-      const editUrl = `https://docs.google.com/document/d/${result.documentId}/edit?embedded=true`;
-      setDocumentUrl(editUrl);
-      setDocumentId(result.documentId);
+          // Update all invoice records with Google Drive URL
+          for (const invoiceId of draftIds) {
+            await supabase
+              .from('comsec_invoices')
+              .update({ google_drive_url: googleDriveUrl })
+              .eq('id', invoiceId);
+          }
 
-      await saveDraftInvoice(result.documentId);
+          console.log('Invoice document generated in background:', googleDriveUrl);
+        })
+        .catch((error: any) => {
+          console.error('Error generating invoice document:', error);
+          setError(error.message || 'Failed to generate invoice document');
+          setLoading(false);
+        });
+
     } catch (error: any) {
-      console.error('Error generating invoice:', error);
-      setError(error.message || 'Failed to generate invoice document');
-    } finally {
+      console.error('Error creating invoice records:', error);
+      setError(error.message || 'Failed to create invoice records');
       setLoading(false);
     }
   };
 
-  const saveDraftInvoice = async (docId: string) => {
-    try {
-      const googleDriveUrl = `https://docs.google.com/document/d/${docId}/edit`;
-
-      const invoiceRecords = invoiceData.items.map((item: any) => ({
-        invoice_number: invoiceData.invoiceNumber,
-        comsec_client_id: invoiceData.clientId,
-        company_code: invoiceData.companyCode || null,
-        service_id: item.serviceId || null,
-        issue_date: invoiceData.issueDate,
-        due_date: invoiceData.dueDate,
-        amount: item.amount,
-        status: 'Draft',
-        description: item.description,
-        start_date: item.startDate || null,
-        end_date: item.endDate || null,
-        remarks: invoiceData.notes,
-        google_drive_url: googleDriveUrl,
-        created_by: user?.id
-      }));
-
-      const { data, error } = await supabase
-        .from('comsec_invoices')
-        .insert(invoiceRecords)
-        .select('id');
-
-      if (error) throw error;
-
-      setDraftSaved(true);
-      const draftIds = data ? data.map(d => d.id) : [];
-      setSavedDraftIds(draftIds);
-      if (data && onDraftSaved) {
-        onDraftSaved(draftIds);
-      }
-    } catch (error: any) {
-      console.error('Error saving draft invoice:', error);
-    }
-  };
 
   const generatePDF = async () => {
     if (!documentId || savedDraftIds.length === 0) {
@@ -3459,7 +3472,8 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="text-slate-700 font-medium">Creating invoice document...</p>
+          <p className="text-slate-700 font-medium">Generating invoice document...</p>
+          <p className="text-sm text-slate-500">Document will appear shortly</p>
         </div>
       </div>
     );
@@ -3491,7 +3505,18 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
   }
 
   if (!documentUrl || !documentId) {
-    return null;
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-slate-700 font-medium">Preparing invoice document...</p>
+          <p className="text-sm text-slate-500">Invoice records saved. Document will load shortly.</p>
+          {draftSaved && (
+            <p className="text-xs text-green-600">Invoice #{invoiceData.invoiceNumber} created</p>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -3518,16 +3543,7 @@ function ComSecInvoicePreviewWrapper({ invoiceData, onClose, onSave, onDraftSave
               <FileText className="w-4 h-4" />
               Open in New Tab
             </a>
-            {!draftSaved ? (
-              <button
-                onClick={async () => {
-                  await saveDraftInvoice(documentId);
-                }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Save Draft
-              </button>
-            ) : (
+            {draftSaved && (
               <button
                 onClick={generatePDF}
                 disabled={generating}
