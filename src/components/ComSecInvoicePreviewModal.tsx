@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, ExternalLink, FileText, DollarSign, Ban, CheckCircle, Receipt as ReceiptIcon, Calendar, AlertCircle, Download, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { ComSecReceiptPreviewModal } from './ComSecReceiptPreviewModal';
 
 interface ComSecInvoicePreviewModalProps {
   invoice: {
@@ -27,6 +28,7 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
   const [loading, setLoading] = useState(false);
   const [showMarkPaidModal, setShowMarkPaidModal] = useState(false);
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [paymentDate, setPaymentDate] = useState(invoice.payment_date || new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState(invoice.payment_method || '');
   const [voidReason, setVoidReason] = useState('');
@@ -96,7 +98,7 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
       return;
     }
 
-    alert('Receipt generation feature will be implemented');
+    setShowReceiptModal(true);
   };
 
   const handleDownloadPDF = async () => {
@@ -358,6 +360,28 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
   }
 
   const hasDraftWithGoogleDocs = invoice.google_drive_url && !invoice.pdf_url;
+
+  if (showReceiptModal) {
+    return (
+      <ComSecReceiptPreviewModal
+        invoice={{
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          comsec_client_id: invoice.comsec_client_id,
+          amount: invoice.amount,
+          payment_date: invoice.payment_date,
+          payment_method: invoice.payment_method,
+        }}
+        clientName={clientName}
+        onClose={() => {
+          setShowReceiptModal(false);
+        }}
+        onUpdate={() => {
+          if (onUpdate) onUpdate();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
