@@ -222,17 +222,26 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Template must be a Google Doc, but got: ${fileMetadata.mimeType}`);
     }
 
+    const formattedAmount = parseFloat(amount).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
     const replacements: Record<string, string> = {
-      '{{RECEIPT_NUMBER}}': receiptNumber,
-      '{{CLIENT_NAME}}': clientName,
-      '{{CLIENT_ADDRESS}}': clientAddress || '',
-      '{{RECEIPT_DATE}}': new Date(receiptDate).toLocaleDateString('en-GB'),
-      '{{AMOUNT}}': `HK$${parseFloat(amount).toFixed(2)}`,
-      '{{PAYMENT_METHOD}}': paymentMethod || '',
-      '{{PAYMENT_REFERENCE}}': paymentReference || '',
-      '{{INVOICE_NUMBER}}': invoiceNumber || '',
-      '{{REMARKS}}': remarks || '',
-      '{{COMPANY_CODE}}': companyCode || '',
+      'RECEIPT_NUMBER': receiptNumber,
+      'CLIENT_NAME': clientName,
+      'CLIENT_ADDRESS': clientAddress || '',
+      'RECEIPT_DATE': new Date(receiptDate).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }),
+      'AMOUNT': formattedAmount,
+      'PAYMENT_METHOD': paymentMethod || '',
+      'PAYMENT_REFERENCE': paymentReference || '',
+      'INVOICE_NUMBER': invoiceNumber || '',
+      'REMARKS': remarks || '',
+      'COMPANY_CODE': companyCode || '',
     };
 
     const requests = Object.entries(replacements).map(([placeholder, value]) => ({

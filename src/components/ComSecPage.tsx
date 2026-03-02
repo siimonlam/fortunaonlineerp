@@ -9,6 +9,7 @@ import { LetterReceivedModal } from './LetterReceivedModal';
 import { ComSecShareResourcesSection } from './ComSecShareResourcesSection';
 import { ComSecDueDateModal } from './ComSecDueDateModal';
 import { InvoiceFolderModal } from './InvoiceFolderModal';
+import { ComSecReceiptPreviewModal } from './ComSecReceiptPreviewModal';
 
 // Format date as DD-MMM-YYYY
 function formatDate(date: string | Date): string {
@@ -171,6 +172,8 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const [showInvoiceFolderModal, setShowInvoiceFolderModal] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
   const [newMapping, setNewMapping] = useState({
     field_label: '',
     pdf_field_name: '',
@@ -1732,71 +1735,13 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                               Paid
                             </button>
                           )}
-                          {invoice.status === 'Paid' && (
+                          {invoice.status === 'Paid' && invoice.pdf_url && (
                             <button
                               type="button"
-                              onClick={async (e) => {
+                              onClick={(e) => {
                                 e.stopPropagation();
-
-                                const paymentMethod = prompt('Payment Method (e.g., Cash, Cheque, Bank Transfer):');
-                                if (!paymentMethod) return;
-
-                                const paymentReference = prompt('Payment Reference (optional):') || '';
-
-                                try {
-                                  const receiptNumber = 'R' + invoice.invoice_number.substring(1);
-
-                                  const receiptData = {
-                                    receiptNumber,
-                                    clientName: invoice.comsec_client?.company_name || '',
-                                    clientAddress: '',
-                                    receiptDate: new Date().toISOString().split('T')[0],
-                                    amount: invoice.amount,
-                                    paymentMethod,
-                                    paymentReference,
-                                    invoiceNumber: invoice.invoice_number,
-                                    remarks: '',
-                                    companyCode: invoice.comsec_client?.company_code || '',
-                                  };
-
-                                  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-receipt-pdf`, {
-                                    method: 'POST',
-                                    headers: {
-                                      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                                      'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify(receiptData),
-                                  });
-
-                                  if (!response.ok) {
-                                    const error = await response.json();
-                                    throw new Error(error.error || 'Failed to generate receipt');
-                                  }
-
-                                  const result = await response.json();
-
-                                  const { error: insertError } = await supabase
-                                    .from('comsec_receipts')
-                                    .insert({
-                                      comsec_client_id: invoice.comsec_client_id,
-                                      comsec_invoice_id: invoice.id,
-                                      receipt_number: receiptNumber,
-                                      receipt_date: receiptData.receiptDate,
-                                      amount: receiptData.amount,
-                                      payment_method: paymentMethod,
-                                      payment_reference: paymentReference,
-                                      google_drive_url: result.googleDocUrl,
-                                      created_by: user?.id,
-                                    });
-
-                                  if (insertError) throw insertError;
-
-                                  alert(`Receipt ${receiptNumber} created successfully!`);
-                                  window.open(result.googleDocUrl, '_blank');
-                                } catch (error: any) {
-                                  console.error('Error creating receipt:', error);
-                                  alert('Failed to create receipt: ' + error.message);
-                                }
+                                setSelectedInvoiceForReceipt(invoice);
+                                setShowReceiptModal(true);
                               }}
                               className="flex items-center gap-1 px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                               title="Create Receipt"
@@ -3259,6 +3204,20 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
       {showDueDateModal && (
         <ComSecDueDateModal
           onClose={() => setShowDueDateModal(false)}
+        />
+      )}
+
+      {showReceiptModal && selectedInvoiceForReceipt && (
+        <ComSecReceiptPreviewModal
+          invoice={selectedInvoiceForReceipt}
+          clientName={selectedInvoiceForReceipt.comsec_client?.company_name || ''}
+          onClose={() => {
+            setShowReceiptModal(false);
+            setSelectedInvoiceForReceipt(null);
+          }}
+          onUpdate={() => {
+            loadInvoices();
+          }}
         />
       )}
 
