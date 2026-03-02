@@ -221,7 +221,7 @@ Deno.serve(async (req: Request) => {
 
     items.forEach((item: any, index: number) => {
       subtotal += item.amount;
-      itemsTable.push(`${index + 1}. ${item.description} - HKD $${item.amount.toFixed(2)}`);
+      itemsTable.push(`${index + 1}. ${item.description} - HK$${item.amount.toFixed(2)}`);
     });
 
     const discountAmount = parseFloat(discount) || 0;
@@ -236,9 +236,9 @@ Deno.serve(async (req: Request) => {
       '{{ISSUE_DATE}}': new Date(issueDate).toLocaleDateString('en-GB'),
       '{{DUE_DATE}}': new Date(dueDate).toLocaleDateString('en-GB'),
       '{{ITEMS}}': itemsTable.join('\n'),
-      '{{SUBTOTAL}}': `HKD $${subtotal.toFixed(2)}`,
-      '{{DISCOUNT}}': `HKD $${discountAmount.toFixed(2)}`,
-      '{{TOTAL}}': `HKD $${totalAmount.toFixed(2)}`,
+      '{{SUBTOTAL}}': `HK$${subtotal.toFixed(2)}`,
+      '{{DISCOUNT}}': `HK$${discountAmount.toFixed(2)}`,
+      '{{TOTAL}}': `HK$${totalAmount.toFixed(2)}`,
       '{{NOTES}}': notes || '',
       '{{REMARK}}': notes || '',
     };
@@ -247,7 +247,7 @@ Deno.serve(async (req: Request) => {
     for (let i = 1; i <= 10; i++) {
       if (items[i - 1]) {
         replacements[`{{ITEM_${i}}}`] = items[i - 1].description;
-        replacements[`{{TOTAL_${i}}}`] = `HKD $${items[i - 1].amount.toFixed(2)}`;
+        replacements[`{{TOTAL_${i}}}`] = `HK$${items[i - 1].amount.toFixed(2)}`;
       } else {
         replacements[`{{ITEM_${i}}}`] = '';
         replacements[`{{TOTAL_${i}}}`] = '';

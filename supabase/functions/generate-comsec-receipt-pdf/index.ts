@@ -227,7 +227,7 @@ Deno.serve(async (req: Request) => {
       '{{CLIENT_NAME}}': clientName,
       '{{CLIENT_ADDRESS}}': clientAddress || '',
       '{{RECEIPT_DATE}}': new Date(receiptDate).toLocaleDateString('en-GB'),
-      '{{AMOUNT}}': `HKD $${parseFloat(amount).toFixed(2)}`,
+      '{{AMOUNT}}': `HK$${parseFloat(amount).toFixed(2)}`,
       '{{PAYMENT_METHOD}}': paymentMethod || '',
       '{{PAYMENT_REFERENCE}}': paymentReference || '',
       '{{INVOICE_NUMBER}}': invoiceNumber || '',
