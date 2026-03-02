@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ExternalLink, FileText, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,6 +31,11 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
   const [googleDriveUrl, setGoogleDriveUrl] = useState<string | null>(null);
   const [receiptNumber, setReceiptNumber] = useState<string | null>(null);
 
+  useEffect(() => {
+    const generatedReceiptNumber = 'R' + invoice.invoice_number.substring(1);
+    setReceiptNumber(generatedReceiptNumber);
+  }, [invoice.invoice_number]);
+
   const handleGenerateDraft = async () => {
     setLoading(true);
     try {
@@ -44,9 +49,6 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
         throw new Error(`Failed to fetch client: ${clientError.message}`);
       }
 
-      const generatedReceiptNumber = 'R' + invoice.invoice_number.substring(1);
-      setReceiptNumber(generatedReceiptNumber);
-
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-receipt-pdf`, {
         method: 'POST',
         headers: {
@@ -54,7 +56,7 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          receiptNumber: generatedReceiptNumber,
+          receiptNumber: receiptNumber!,
           clientName: client?.company_name_chinese || client?.company_name || clientName,
           clientAddress: client?.address || '',
           clientContact: client?.contact_person || '',
@@ -228,6 +230,11 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
             <p className="text-sm text-slate-600 mt-1">
               Invoice: {invoice.invoice_number} - {clientName}
             </p>
+            {receiptNumber && (
+              <p className="text-sm font-semibold text-blue-600 mt-1">
+                Receipt Number: {receiptNumber}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
