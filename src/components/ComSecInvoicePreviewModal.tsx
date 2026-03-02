@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ExternalLink, FileText, DollarSign, Ban, CheckCircle, Receipt as ReceiptIcon, Calendar, AlertCircle, Download, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { ComSecReceiptPreviewModal } from './ComSecReceiptPreviewModal';
 import { ComSecReceiptPreviewModal } from './ComSecReceiptPreviewModal';
 
 interface ComSecInvoicePreviewModalProps {
@@ -33,6 +34,28 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
   const [paymentMethod, setPaymentMethod] = useState(invoice.payment_method || '');
   const [voidReason, setVoidReason] = useState('');
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [existingReceipt, setExistingReceipt] = useState<any>(null);
+
+  useEffect(() => {
+    if (invoice.status === 'Paid') {
+      loadReceipt();
+    }
+  }, [invoice.id, invoice.status]);
+
+  const loadReceipt = async () => {
+    const { data, error } = await supabase
+      .from('comsec_receipts')
+      .select('*')
+      .eq('comsec_invoice_id', invoice.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error loading receipt:', error);
+      return;
+    }
+
+    setExistingReceipt(data);
+  };
 
   const handleMarkAsPaid = async () => {
     if (!paymentDate) {
@@ -99,6 +122,29 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
     }
 
     setShowReceiptModal(true);
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (!existingReceipt || !existingReceipt.pdf_url) {
+      alert('Receipt PDF not found');
+      return;
+    }
+
+    try {
+      const response = await fetch(existingReceipt.pdf_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${existingReceipt.receipt_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      alert('Failed to download receipt');
+    }
   };
 
   const handleDownloadPDF = async () => {
@@ -574,14 +620,25 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
 
                   {invoice.status === 'Paid' && (
                     <>
-                      <button
-                        onClick={handleGenerateReceipt}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                      >
-                        <ReceiptIcon className="w-4 h-4" />
-                        Generate Receipt
-                      </button>
+                      {existingReceipt ? (
+                        <button
+                          onClick={handleDownloadReceipt}
+                          disabled={loading}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download Receipt
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleGenerateReceipt}
+                          disabled={loading}
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          <ReceiptIcon className="w-4 h-4" />
+                          Create Receipt
+                        </button>
+                      )}
                       <button
                         onClick={handleMarkAsUnpaid}
                         disabled={loading}
@@ -613,6 +670,21 @@ export function ComSecInvoicePreviewModal({ invoice, clientName, onClose, onUpda
           </div>
         </div>
       </div>
+
+      {showReceiptModal && (
+        <ComSecReceiptPreviewModal
+          invoice={invoice}
+          clientName={clientName}
+          onClose={() => {
+            setShowReceiptModal(false);
+            loadReceipt();
+          }}
+          onUpdate={() => {
+            loadReceipt();
+            if (onUpdate) onUpdate();
+          }}
+        />
+      )}
     </div>
   );
 }

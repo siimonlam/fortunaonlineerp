@@ -34,6 +34,12 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
   const handleGenerateDraft = async () => {
     setLoading(true);
     try {
+      const { data: client } = await supabase
+        .from('comsec_clients')
+        .select('company_name, company_name_chinese, address, company_code')
+        .eq('id', invoice.comsec_client_id)
+        .single();
+
       const { data: receiptNumberData, error: receiptNumberError } = await supabase
         .rpc('generate_comsec_receipt_number');
 
@@ -50,13 +56,15 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
         },
         body: JSON.stringify({
           receiptNumber: generatedReceiptNumber,
-          clientName: clientName,
+          clientName: client?.company_name || clientName,
+          clientAddress: client?.address || '',
           amount: receiptData.amount,
           receiptDate: receiptData.receipt_date,
           paymentMethod: receiptData.payment_method,
           paymentReference: receiptData.payment_reference,
           remarks: receiptData.remarks,
           invoiceNumber: invoice.invoice_number,
+          companyCode: client?.company_code || '',
         }),
       });
 
@@ -192,9 +200,11 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
     }
   };
 
+  const hasDraftWithGoogleDocs = googleDriveUrl;
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className={`bg-white rounded-lg shadow-xl ${hasDraftWithGoogleDocs ? 'max-w-7xl' : 'max-w-4xl'} w-full max-h-[90vh] overflow-hidden flex flex-col`}>
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Generate Receipt</h2>
@@ -210,9 +220,11 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-4 mb-6">
-            <div className="grid grid-cols-2 gap-4">
+        <div className="flex-1 overflow-y-auto">
+          <div className={`${hasDraftWithGoogleDocs ? 'grid grid-cols-2 gap-6' : ''} h-full`}>
+            <div className={`${hasDraftWithGoogleDocs ? '' : 'p-6'} overflow-y-auto`}>
+              <div className="space-y-4 mb-6">
+                <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Receipt Date <span className="text-red-500">*</span>
@@ -291,8 +303,10 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
               />
             </div>
           </div>
+        </div>
 
-          {googleDriveUrl && (
+        {googleDriveUrl && (
+          <div className="border-l border-slate-200 overflow-y-auto bg-slate-50 p-4">
             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -300,6 +314,7 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
                   <div>
                     <h3 className="font-semibold text-slate-900">Draft Receipt (Google Docs)</h3>
                     <p className="text-sm text-slate-600">Receipt Number: {receiptNumber}</p>
+                    <p className="text-xs text-slate-500 mt-1">Review before finalizing</p>
                   </div>
                 </div>
                 <a
@@ -316,13 +331,15 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
               <div className="bg-white rounded-lg overflow-hidden shadow-sm">
                 <iframe
                   src={`${googleDriveUrl.replace('/edit', '/preview')}`}
-                  className="w-full h-96 border-0"
+                  className="w-full h-[calc(90vh-16rem)] border-0"
                   title="Receipt Preview"
                 />
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
+    </div>
 
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
           <button
