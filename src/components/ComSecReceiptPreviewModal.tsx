@@ -21,6 +21,7 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [clientData, setClientData] = useState<any>(null);
   const [receiptData, setReceiptData] = useState({
     receipt_date: invoice.payment_date || new Date().toISOString().split('T')[0],
     amount: invoice.amount,
@@ -34,19 +35,29 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
   useEffect(() => {
     const generatedReceiptNumber = 'R' + invoice.invoice_number.substring(1);
     setReceiptNumber(generatedReceiptNumber);
-  }, [invoice.invoice_number]);
+    loadClientData();
+  }, [invoice.invoice_number, invoice.comsec_client_id]);
 
-  const handleGenerateDraft = async () => {
-    setLoading(true);
+  const loadClientData = async () => {
     try {
-      const { data: client, error: clientError } = await supabase
+      const { data, error } = await supabase
         .from('comsec_clients')
         .select('company_name, company_name_chinese, address, company_code, contact_person, phone')
         .eq('id', invoice.comsec_client_id)
         .single();
 
-      if (clientError) {
-        throw new Error(`Failed to fetch client: ${clientError.message}`);
+      if (error) throw error;
+      setClientData(data);
+    } catch (error) {
+      console.error('Error loading client data:', error);
+    }
+  };
+
+  const handleGenerateDraft = async () => {
+    setLoading(true);
+    try {
+      if (!clientData) {
+        throw new Error('Client data not loaded');
       }
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-receipt-pdf`, {
@@ -57,17 +68,17 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
         },
         body: JSON.stringify({
           receiptNumber: receiptNumber!,
-          clientName: client?.company_name_chinese || client?.company_name || clientName,
-          clientAddress: client?.address || '',
-          clientContact: client?.contact_person || '',
-          clientPhone: client?.phone || '',
+          clientName: clientData?.company_name_chinese || clientData?.company_name || clientName,
+          clientAddress: clientData?.address || '',
+          clientContact: clientData?.contact_person || '',
+          clientPhone: clientData?.phone || '',
           amount: receiptData.amount,
           receiptDate: receiptData.receipt_date,
           paymentMethod: receiptData.payment_method,
           paymentReference: receiptData.payment_reference,
           remarks: receiptData.remarks,
           invoiceNumber: invoice.invoice_number,
-          companyCode: client?.company_code || '',
+          companyCode: clientData?.company_code || '',
         }),
       });
 
@@ -224,10 +235,10 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className={`bg-white rounded-lg shadow-xl ${hasDraftWithGoogleDocs ? 'max-w-7xl' : 'max-w-4xl'} w-full max-h-[90vh] overflow-hidden flex flex-col`}>
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Generate Receipt</h2>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-slate-600 mt-0.5">
               Invoice: {invoice.invoice_number} - {clientName}
             </p>
             {receiptNumber && (
@@ -244,126 +255,141 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className={`${hasDraftWithGoogleDocs ? 'grid grid-cols-2 gap-6' : ''} h-full`}>
-            <div className={`${hasDraftWithGoogleDocs ? '' : 'p-6'} overflow-y-auto`}>
-              <div className="space-y-4 mb-6">
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className={`${hasDraftWithGoogleDocs ? 'grid grid-cols-2 gap-6' : ''}`}>
+            <div className="space-y-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Receipt Details</h3>
+
+                {clientData && (
+                  <div className="mb-6 p-4 bg-white rounded-lg border border-slate-200">
+                    <div className="text-sm font-medium text-slate-700 mb-2">Client Information</div>
+                    <div className="text-sm text-slate-600 space-y-1">
+                      <div><span className="font-medium">Company:</span> {clientData.company_name_chinese || clientData.company_name}</div>
+                      {clientData.company_code && <div><span className="font-medium">Code:</span> {clientData.company_code}</div>}
+                      {clientData.contact_person && <div><span className="font-medium">Contact:</span> {clientData.contact_person}</div>}
+                      {clientData.phone && <div><span className="font-medium">Phone:</span> {clientData.phone}</div>}
+                      {clientData.address && <div><span className="font-medium">Address:</span> {clientData.address}</div>}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Receipt Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={receiptData.receipt_date}
-                  onChange={(e) => setReceiptData({ ...receiptData, receipt_date: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg p-2 text-sm"
-                  disabled={!!googleDriveUrl}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Amount <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={receiptData.amount}
-                  onChange={(e) => setReceiptData({ ...receiptData, amount: parseFloat(e.target.value) })}
-                  className="w-full border border-slate-300 rounded-lg p-2 text-sm"
-                  disabled={!!googleDriveUrl}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Payment Method
-                </label>
-                <select
-                  value={receiptData.payment_method}
-                  onChange={(e) => setReceiptData({ ...receiptData, payment_method: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg p-2 text-sm"
-                  disabled={!!googleDriveUrl}
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Cheque">Cheque</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="FPS">FPS</option>
-                  <option value="PayMe">PayMe</option>
-                  <option value="Alipay">Alipay</option>
-                  <option value="WeChat Pay">WeChat Pay</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Payment Reference
-                </label>
-                <input
-                  type="text"
-                  value={receiptData.payment_reference}
-                  onChange={(e) => setReceiptData({ ...receiptData, payment_reference: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg p-2 text-sm"
-                  placeholder="e.g., Cheque number, transaction ID"
-                  disabled={!!googleDriveUrl}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Remarks
-              </label>
-              <textarea
-                value={receiptData.remarks}
-                onChange={(e) => setReceiptData({ ...receiptData, remarks: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg p-2 text-sm"
-                rows={3}
-                placeholder="Additional notes..."
-                disabled={!!googleDriveUrl}
-              />
-            </div>
-          </div>
-        </div>
-
-        {googleDriveUrl && (
-          <div className="border-l border-slate-200 overflow-y-auto bg-slate-50 p-4">
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-blue-600" />
                   <div>
-                    <h3 className="font-semibold text-slate-900">Draft Receipt (Google Docs)</h3>
-                    <p className="text-sm text-slate-600">Receipt Number: {receiptNumber}</p>
-                    <p className="text-xs text-slate-500 mt-1">Review before finalizing</p>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Receipt Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={receiptData.receipt_date}
+                      onChange={(e) => setReceiptData({ ...receiptData, receipt_date: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg p-2 text-sm"
+                      disabled={!!googleDriveUrl}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Amount <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={receiptData.amount}
+                      onChange={(e) => setReceiptData({ ...receiptData, amount: parseFloat(e.target.value) })}
+                      className="w-full border border-slate-300 rounded-lg p-2 text-sm"
+                      disabled={!!googleDriveUrl}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Payment Method
+                    </label>
+                    <select
+                      value={receiptData.payment_method}
+                      onChange={(e) => setReceiptData({ ...receiptData, payment_method: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg p-2 text-sm"
+                      disabled={!!googleDriveUrl}
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Credit Card">Credit Card</option>
+                      <option value="FPS">FPS</option>
+                      <option value="PayMe">PayMe</option>
+                      <option value="Alipay">Alipay</option>
+                      <option value="WeChat Pay">WeChat Pay</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Payment Reference
+                    </label>
+                    <input
+                      type="text"
+                      value={receiptData.payment_reference}
+                      onChange={(e) => setReceiptData({ ...receiptData, payment_reference: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg p-2 text-sm"
+                      placeholder="e.g., Cheque number, transaction ID"
+                      disabled={!!googleDriveUrl}
+                    />
                   </div>
                 </div>
-                <a
-                  href={googleDriveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Open in New Tab
-                </a>
-              </div>
 
-              <div className="bg-white rounded-lg overflow-hidden shadow-sm">
-                <iframe
-                  src={`${googleDriveUrl.replace('/edit', '/preview')}`}
-                  className="w-full h-[calc(90vh-16rem)] border-0"
-                  title="Receipt Preview"
-                />
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Remarks
+                  </label>
+                  <textarea
+                    value={receiptData.remarks}
+                    onChange={(e) => setReceiptData({ ...receiptData, remarks: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg p-2 text-sm"
+                    rows={3}
+                    placeholder="Additional notes..."
+                    disabled={!!googleDriveUrl}
+                  />
+                </div>
               </div>
             </div>
+
+            {googleDriveUrl && (
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <div className="font-medium text-blue-900">Draft Receipt (Google Docs)</div>
+                        <div className="text-sm text-blue-700">Review before finalizing</div>
+                      </div>
+                    </div>
+                    <a
+                      href={googleDriveUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open in New Tab
+                    </a>
+                  </div>
+                </div>
+
+                <div className="border border-slate-300 rounded-lg overflow-hidden bg-white" style={{ height: '600px' }}>
+                  <iframe
+                    src={googleDriveUrl.replace('/edit', '/edit?embedded=true')}
+                    className="w-full h-full"
+                    title="Receipt Editor"
+                    style={{ border: 'none' }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </div>
+        </div>
 
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
           <button
