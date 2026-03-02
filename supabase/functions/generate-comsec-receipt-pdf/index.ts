@@ -227,32 +227,74 @@ Deno.serve(async (req: Request) => {
       maximumFractionDigits: 2
     });
 
-    const replacements: Record<string, string> = {
-      'RECEIPT_NUMBER': receiptNumber,
-      'CLIENT_NAME': clientName,
-      'CLIENT_ADDRESS': clientAddress || '',
-      'RECEIPT_DATE': new Date(receiptDate).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      }),
-      'AMOUNT': formattedAmount,
-      'PAYMENT_METHOD': paymentMethod || '',
-      'PAYMENT_REFERENCE': paymentReference || '',
-      'INVOICE_NUMBER': invoiceNumber || '',
-      'REMARKS': remarks || '',
-      'COMPANY_CODE': companyCode || '',
-    };
+    const formattedDate = new Date(receiptDate).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
 
-    const requests = Object.entries(replacements).map(([placeholder, value]) => ({
-      replaceAllText: {
-        containsText: {
-          text: placeholder,
-          matchCase: true,
+    const requests = [
+      {
+        replaceAllText: {
+          containsText: { text: 'RECEIPT_NUMBER', matchCase: true },
+          replaceText: receiptNumber,
         },
-        replaceText: value,
       },
-    }));
+      {
+        replaceAllText: {
+          containsText: { text: 'CLIENT_NAME', matchCase: true },
+          replaceText: clientName,
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: 'CLIENT_ADDRESS', matchCase: true },
+          replaceText: clientAddress || '',
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: 'RECEIPT_DATE', matchCase: true },
+          replaceText: formattedDate,
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: 'AMOUNT', matchCase: true },
+          replaceText: formattedAmount,
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: 'PAYMENT_METHOD', matchCase: true },
+          replaceText: paymentMethod || '',
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: 'PAYMENT_REFERENCE', matchCase: true },
+          replaceText: paymentReference || '',
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: 'INVOICE_NUMBER', matchCase: true },
+          replaceText: invoiceNumber || '',
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: 'REMARKS', matchCase: true },
+          replaceText: remarks || '',
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: 'COMPANY_CODE', matchCase: true },
+          replaceText: companyCode || '',
+        },
+      },
+    ];
 
     const updateResponse = await fetch(`https://docs.googleapis.com/v1/documents/${newDocId}:batchUpdate`, {
       method: 'POST',

@@ -40,12 +40,7 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
         .eq('id', invoice.comsec_client_id)
         .single();
 
-      const { data: receiptNumberData, error: receiptNumberError } = await supabase
-        .rpc('generate_comsec_receipt_number');
-
-      if (receiptNumberError) throw receiptNumberError;
-
-      const generatedReceiptNumber = receiptNumberData as string;
+      const generatedReceiptNumber = 'R' + invoice.invoice_number.substring(1);
       setReceiptNumber(generatedReceiptNumber);
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-receipt-pdf`, {
