@@ -1,16 +1,24 @@
 import { useState, useEffect } from 'react';
-import { X, FolderOpen, FileText, Download, ExternalLink, Upload, Trash2, RefreshCw } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { X, FolderOpen, FileText, Download, ExternalLink, RefreshCw } from 'lucide-react';
 
 interface InvoiceFolderModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface GoogleDriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string;
+  size?: string;
+  webViewLink: string;
+}
+
 export function InvoiceFolderModal({ isOpen, onClose }: InvoiceFolderModalProps) {
-  const [files, setFiles] = useState<any[]>([]);
+  const [files, setFiles] = useState<GoogleDriveFile[]>([]);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const INVOICE_FOLDER_ID = '13RVRV1SWVsUcG6vMre_DrouWIVbsGF99';
 
   useEffect(() => {
     if (isOpen) {
@@ -21,17 +29,23 @@ export function InvoiceFolderModal({ isOpen, onClose }: InvoiceFolderModalProps)
   async function loadFiles() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .storage
-        .from('client-documents')
-        .list('invoice', {
-          limit: 1000,
-          offset: 0,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/browse-drive-files?action=list&folderId=${INVOICE_FOLDER_ID}&driveType=comsec`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+        }
+      );
 
-      if (error) throw error;
-      setFiles(data || []);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to load files from Google Drive');
+      }
+
+      const data = await response.json();
+      setFiles(data.files || []);
     } catch (error: any) {
       console.error('Error loading files:', error);
       alert('Failed to load files: ' + error.message);
@@ -40,80 +54,8 @@ export function InvoiceFolderModal({ isOpen, onClose }: InvoiceFolderModalProps)
     }
   }
 
-  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const fileName = file.name;
-      const filePath = `invoice/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('client-documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) throw uploadError;
-
-      alert('File uploaded successfully!');
-      loadFiles();
-    } catch (error: any) {
-      console.error('Error uploading file:', error);
-      alert('Failed to upload file: ' + error.message);
-    } finally {
-      setUploading(false);
-      event.target.value = '';
-    }
-  }
-
-  async function handleDelete(fileName: string) {
-    if (!confirm(`Are you sure you want to delete ${fileName}?`)) return;
-
-    try {
-      const { error } = await supabase.storage
-        .from('client-documents')
-        .remove([`invoice/${fileName}`]);
-
-      if (error) throw error;
-
-      alert('File deleted successfully!');
-      loadFiles();
-    } catch (error: any) {
-      console.error('Error deleting file:', error);
-      alert('Failed to delete file: ' + error.message);
-    }
-  }
-
-  async function handleDownload(fileName: string) {
-    try {
-      const { data, error } = await supabase.storage
-        .from('client-documents')
-        .download(`invoice/${fileName}`);
-
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error: any) {
-      console.error('Error downloading file:', error);
-      alert('Failed to download file: ' + error.message);
-    }
-  }
-
-  function getFileUrl(fileName: string) {
-    const { data } = supabase.storage
-      .from('client-documents')
-      .getPublicUrl(`invoice/${fileName}`);
-    return data.publicUrl;
+  function openFolderInDrive() {
+    window.open(`https://drive.google.com/drive/folders/${INVOICE_FOLDER_ID}`, '_blank');
   }
 
   function formatFileSize(bytes: number) {
@@ -160,16 +102,13 @@ export function InvoiceFolderModal({ isOpen, onClose }: InvoiceFolderModalProps)
 
         <div className="p-6 border-b border-slate-200">
           <div className="flex gap-2">
-            <label className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
-              <Upload className="w-4 h-4" />
-              {uploading ? 'Uploading...' : 'Upload File'}
-              <input
-                type="file"
-                onChange={handleFileUpload}
-                disabled={uploading}
-                className="hidden"
-              />
-            </label>
+            <button
+              onClick={openFolderInDrive}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Open in Google Drive
+            </button>
             <button
               onClick={loadFiles}
               disabled={loading}
@@ -199,7 +138,7 @@ export function InvoiceFolderModal({ isOpen, onClose }: InvoiceFolderModalProps)
             <div className="grid gap-3">
               {files.map((file) => (
                 <div
-                  key={file.name}
+                  key={file.id}
                   className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200"
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -207,37 +146,21 @@ export function InvoiceFolderModal({ isOpen, onClose }: InvoiceFolderModalProps)
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-slate-900 truncate">{file.name}</p>
                       <p className="text-xs text-slate-500">
-                        {formatFileSize(file.metadata?.size || 0)} • {file.created_at ? formatDate(file.created_at) : 'Unknown date'}
+                        {file.size ? formatFileSize(parseInt(file.size)) : 'Google Doc'} • {formatDate(file.modifiedTime)}
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <button
-                      onClick={() => handleDownload(file.name)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                      title="Download"
-                    >
-                      <Download className="w-3 h-3" />
-                      Download
-                    </button>
                     <a
-                      href={getFileUrl(file.name)}
+                      href={file.webViewLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs border border-slate-300 text-slate-700 rounded hover:bg-slate-50 transition-colors"
-                      title="View"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      title="Open in Google Drive"
                     >
                       <ExternalLink className="w-3 h-3" />
-                      View
+                      Open
                     </a>
-                    <button
-                      onClick={() => handleDelete(file.name)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Delete
-                    </button>
                   </div>
                 </div>
               ))}
