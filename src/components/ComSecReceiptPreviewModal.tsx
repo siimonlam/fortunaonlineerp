@@ -41,7 +41,7 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
     try {
       const { data: client, error: clientError } = await supabase
         .from('comsec_clients')
-        .select('company_name, company_name_chinese, address, company_code, contact_person, contact_phone')
+        .select('company_name, company_name_chinese, address, company_code, contact_person, phone')
         .eq('id', invoice.comsec_client_id)
         .single();
 
@@ -60,7 +60,7 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
           clientName: client?.company_name_chinese || client?.company_name || clientName,
           clientAddress: client?.address || '',
           clientContact: client?.contact_person || '',
-          clientPhone: client?.contact_phone || '',
+          clientPhone: client?.phone || '',
           amount: receiptData.amount,
           receiptDate: receiptData.receipt_date,
           paymentMethod: receiptData.payment_method,
