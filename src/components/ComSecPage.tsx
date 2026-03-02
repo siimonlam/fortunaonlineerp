@@ -141,7 +141,9 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const [reminders, setReminders] = useState<DueDateReminder[]>([]);
   const [masterServices, setMasterServices] = useState<any[]>([]);
   const [invoiceTemplateUrl, setInvoiceTemplateUrl] = useState('');
+  const [receiptTemplateUrl, setReceiptTemplateUrl] = useState('');
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
+  const [isEditingReceiptTemplate, setIsEditingReceiptTemplate] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -181,6 +183,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     loadData();
     loadMasterServices();
     loadInvoiceTemplate();
+    loadReceiptTemplate();
   }, [activeModule]);
 
   // Show due date modal on page load
@@ -370,6 +373,31 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
     } else {
       setIsEditingTemplate(false);
       setSuccessMessage('Invoice template URL updated successfully!');
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    }
+  }
+
+  async function loadReceiptTemplate() {
+    const { data } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'comsec_receipt_template_url')
+      .maybeSingle();
+    if (data) setReceiptTemplateUrl(data.value || '');
+  }
+
+  async function saveReceiptTemplate() {
+    const { error } = await supabase
+      .from('system_settings')
+      .update({ value: receiptTemplateUrl })
+      .eq('key', 'comsec_receipt_template_url');
+
+    if (error) {
+      alert('Failed to save receipt template URL: ' + error.message);
+    } else {
+      setIsEditingReceiptTemplate(false);
+      setSuccessMessage('Receipt template URL updated successfully!');
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 3000);
     }
@@ -650,6 +678,76 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                   <button
                     onClick={() => setIsEditingTemplate(true)}
                     className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <Receipt className="w-5 h-5 text-green-600" />
+                <h4 className="font-semibold text-slate-900">Receipt Template URL</h4>
+              </div>
+              {isEditingReceiptTemplate ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={receiptTemplateUrl}
+                    onChange={(e) => setReceiptTemplateUrl(e.target.value)}
+                    placeholder="Enter Google Docs receipt template URL"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <p className="text-xs text-slate-600">
+                    This template will be used to generate receipt documents. Use placeholders like: RECEIPT_NUMBER, CLIENT_NAME, AMOUNT, PAYMENT_DATE, PAYMENT_METHOD, INVOICE_NUMBER
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveReceiptTemplate}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingReceiptTemplate(false);
+                        loadReceiptTemplate();
+                      }}
+                      className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  {receiptTemplateUrl ? (
+                    <>
+                      <code className="text-sm text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 flex-1 truncate">
+                        {receiptTemplateUrl}
+                      </code>
+                      <a
+                        href={receiptTemplateUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-600 hover:text-green-700 flex items-center gap-1 text-sm"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Open
+                      </a>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-500 italic">No receipt template URL configured</p>
+                  )}
+                  <button
+                    onClick={() => setIsEditingReceiptTemplate(true)}
+                    className="text-green-600 hover:text-green-700 flex items-center gap-1 text-sm"
                   >
                     <Edit2 className="w-4 h-4" />
                     Edit
@@ -1621,6 +1719,83 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                             >
                               <CheckCircle className="w-3 h-3" />
                               Paid
+                            </button>
+                          )}
+                          {invoice.status === 'Paid' && (
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+
+                                const paymentMethod = prompt('Payment Method (e.g., Cash, Cheque, Bank Transfer):');
+                                if (!paymentMethod) return;
+
+                                const paymentReference = prompt('Payment Reference (optional):') || '';
+
+                                try {
+                                  const { data: receiptNumberData, error: receiptNumError } = await supabase
+                                    .rpc('generate_comsec_receipt_number');
+
+                                  if (receiptNumError) throw receiptNumError;
+                                  const receiptNumber = receiptNumberData;
+
+                                  const receiptData = {
+                                    receiptNumber,
+                                    clientName: invoice.comsec_client?.company_name || '',
+                                    clientAddress: '',
+                                    receiptDate: new Date().toISOString().split('T')[0],
+                                    amount: invoice.amount,
+                                    paymentMethod,
+                                    paymentReference,
+                                    invoiceNumber: invoice.invoice_number,
+                                    remarks: '',
+                                    companyCode: invoice.comsec_client?.company_code || '',
+                                  };
+
+                                  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-comsec-receipt-pdf`, {
+                                    method: 'POST',
+                                    headers: {
+                                      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify(receiptData),
+                                  });
+
+                                  if (!response.ok) {
+                                    const error = await response.json();
+                                    throw new Error(error.error || 'Failed to generate receipt');
+                                  }
+
+                                  const result = await response.json();
+
+                                  const { error: insertError } = await supabase
+                                    .from('comsec_receipts')
+                                    .insert({
+                                      comsec_client_id: invoice.comsec_client_id,
+                                      comsec_invoice_id: invoice.id,
+                                      receipt_number: receiptNumber,
+                                      receipt_date: receiptData.receiptDate,
+                                      amount: receiptData.amount,
+                                      payment_method: paymentMethod,
+                                      payment_reference: paymentReference,
+                                      google_drive_url: result.googleDocUrl,
+                                      created_by: user?.id,
+                                    });
+
+                                  if (insertError) throw insertError;
+
+                                  alert(`Receipt ${receiptNumber} created successfully!`);
+                                  window.open(result.googleDocUrl, '_blank');
+                                } catch (error: any) {
+                                  console.error('Error creating receipt:', error);
+                                  alert('Failed to create receipt: ' + error.message);
+                                }
+                              }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                              title="Create Receipt"
+                            >
+                              <Receipt className="w-3 h-3" />
+                              Create Receipt
                             </button>
                           )}
                           {invoice.pdf_url && (
