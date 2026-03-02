@@ -1733,11 +1733,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                                 const paymentReference = prompt('Payment Reference (optional):') || '';
 
                                 try {
-                                  const { data: receiptNumberData, error: receiptNumError } = await supabase
-                                    .rpc('generate_comsec_receipt_number');
-
-                                  if (receiptNumError) throw receiptNumError;
-                                  const receiptNumber = receiptNumberData;
+                                  const receiptNumber = invoice.invoice_number.replace('INV', 'RCPT');
 
                                   const receiptData = {
                                     receiptNumber,
