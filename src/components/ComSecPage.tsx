@@ -1733,7 +1733,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                                 const paymentReference = prompt('Payment Reference (optional):') || '';
 
                                 try {
-                                  const receiptNumber = invoice.invoice_number.replace('INV', 'RCPT');
+                                  const receiptNumber = 'R' + invoice.invoice_number.substring(1);
 
                                   const receiptData = {
                                     receiptNumber,
