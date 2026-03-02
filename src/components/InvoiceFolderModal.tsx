@@ -22,8 +22,8 @@ export function InvoiceFolderModal({ isOpen, onClose }: InvoiceFolderModalProps)
   const [files, setFiles] = useState<StorageFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const BUCKET_NAME = 'comsec-documents';
-  const FOLDER_PATH = 'invoice';
+  const BUCKET_NAME = 'client-documents';
+  const FOLDER_PATH = 'comsec/invoices';
 
   useEffect(() => {
     if (isOpen) {
@@ -160,7 +160,7 @@ export function InvoiceFolderModal({ isOpen, onClose }: InvoiceFolderModalProps)
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900">Invoice Folder</h2>
-              <p className="text-sm text-slate-500">comsec-documents/invoice</p>
+              <p className="text-sm text-slate-500">client-documents/comsec/invoices</p>
             </div>
           </div>
           <button
