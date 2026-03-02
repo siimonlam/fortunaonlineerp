@@ -266,9 +266,11 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
     setCompletionStats(sortedStats);
   }
 
-  async function toggleUrgent(taskId: string, currentUrgent: boolean) {
+  async function toggleUrgent(taskId: string, currentUrgent: boolean, isMarketingTask: boolean) {
+    const tableName = isMarketingTask ? 'marketing_tasks' : 'tasks';
+
     const { error } = await supabase
-      .from('tasks')
+      .from(tableName)
       .update({ is_urgent: !currentUrgent })
       .eq('id', taskId);
 
@@ -465,7 +467,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                             <input
                               type="checkbox"
                               checked={task.is_urgent}
-                              onChange={() => toggleUrgent(task.id, task.is_urgent)}
+                              onChange={() => toggleUrgent(task.id, task.is_urgent, !!task.marketing_project_id)}
                               className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
                               title="Mark as urgent"
                             />
@@ -592,7 +594,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                             <input
                               type="checkbox"
                               checked={task.is_urgent}
-                              onChange={() => toggleUrgent(task.id, task.is_urgent)}
+                              onChange={() => toggleUrgent(task.id, task.is_urgent, !!task.marketing_project_id)}
                               className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
                               title="Mark as urgent"
                             />
