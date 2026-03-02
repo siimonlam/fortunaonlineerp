@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail, LayoutGrid, List, Download, Upload, Table, Columns, Building2, User, Ban, ExternalLink } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Calendar, DollarSign, FileText, Book, Bell, CheckCircle, Receipt, Mail, LayoutGrid, List, Download, Upload, Table, Columns, Building2, User, Ban, ExternalLink, FolderOpen } from 'lucide-react';
 import { InvoicePreview } from './InvoicePreview';
 import { DocumentFolderModal } from './DocumentFolderModal';
 import { EditComSecClientModal } from './EditComSecClientModal';
@@ -1845,6 +1845,53 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                               </a>
                             </>
                           )}
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const folderPath = `invoice/${invoice.comsec_client?.company_code || 'unknown'}`;
+
+                                const { data: files, error } = await supabase
+                                  .storage
+                                  .from('client-documents')
+                                  .list(folderPath);
+
+                                if (error) throw error;
+
+                                if (!files || files.length === 0) {
+                                  alert('No files found in the invoice folder');
+                                  return;
+                                }
+
+                                const fileList = files.map(file => {
+                                  const publicUrl = supabase.storage
+                                    .from('client-documents')
+                                    .getPublicUrl(`${folderPath}/${file.name}`).data.publicUrl;
+                                  return `${file.name} - ${publicUrl}`;
+                                }).join('\n');
+
+                                const confirmed = confirm(`Files in invoice folder:\n\n${fileList}\n\nClick OK to open folder in a new window`);
+
+                                if (confirmed && files.length > 0) {
+                                  const firstFileUrl = supabase.storage
+                                    .from('client-documents')
+                                    .getPublicUrl(`${folderPath}/${files[0].name}`).data.publicUrl;
+
+                                  const folderUrl = firstFileUrl.substring(0, firstFileUrl.lastIndexOf('/'));
+                                  window.open(folderUrl, '_blank');
+                                }
+                              } catch (error: any) {
+                                console.error('Error accessing folder:', error);
+                                alert('Failed to access invoice folder: ' + error.message);
+                              }
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
+                            title="Open Invoice Folder"
+                          >
+                            <FolderOpen className="w-3 h-3" />
+                            Open Folder
+                          </button>
                           {invoice.status === 'Unpaid' && (
                             <button
                               type="button"
