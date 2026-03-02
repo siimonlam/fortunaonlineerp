@@ -34,11 +34,15 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
   const handleGenerateDraft = async () => {
     setLoading(true);
     try {
-      const { data: client } = await supabase
+      const { data: client, error: clientError } = await supabase
         .from('comsec_clients')
-        .select('company_name, company_name_chinese, address, company_code')
+        .select('company_name, company_name_chinese, address, company_code, contact_person, contact_phone')
         .eq('id', invoice.comsec_client_id)
         .single();
+
+      if (clientError) {
+        throw new Error(`Failed to fetch client: ${clientError.message}`);
+      }
 
       const generatedReceiptNumber = 'R' + invoice.invoice_number.substring(1);
       setReceiptNumber(generatedReceiptNumber);
@@ -51,8 +55,10 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
         },
         body: JSON.stringify({
           receiptNumber: generatedReceiptNumber,
-          clientName: client?.company_name || clientName,
+          clientName: client?.company_name_chinese || client?.company_name || clientName,
           clientAddress: client?.address || '',
+          clientContact: client?.contact_person || '',
+          clientPhone: client?.contact_phone || '',
           amount: receiptData.amount,
           receiptDate: receiptData.receipt_date,
           paymentMethod: receiptData.payment_method,
@@ -118,10 +124,18 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
 
       if (insertError) throw insertError;
 
-      const pdfResponse = await fetch(`https://docs.google.com/document/d/${documentId}/export?format=pdf`);
+      const pdfResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-drive-file?fileId=${documentId}&format=pdf`,
+        {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+        }
+      );
 
       if (!pdfResponse.ok) {
-        throw new Error('Failed to export PDF from Google Docs');
+        const errorText = await pdfResponse.text();
+        throw new Error(`Failed to export PDF: ${errorText}`);
       }
 
       const pdfBlob = await pdfResponse.blob();
@@ -174,10 +188,18 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
     const documentId = match[1];
 
     try {
-      const pdfResponse = await fetch(`https://docs.google.com/document/d/${documentId}/export?format=pdf`);
+      const pdfResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/serve-drive-file?fileId=${documentId}&format=pdf`,
+        {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+        }
+      );
 
       if (!pdfResponse.ok) {
-        throw new Error('Failed to export PDF from Google Docs');
+        const errorText = await pdfResponse.text();
+        throw new Error(`Failed to export PDF: ${errorText}`);
       }
 
       const blob = await pdfResponse.blob();
@@ -189,9 +211,9 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error downloading PDF:', error);
-      alert('Failed to download PDF');
+      alert(`Failed to download PDF: ${error.message}`);
     }
   };
 

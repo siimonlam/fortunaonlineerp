@@ -133,6 +133,8 @@ Deno.serve(async (req: Request) => {
       receiptNumber,
       clientName,
       clientAddress,
+      clientContact,
+      clientPhone,
       receiptDate,
       amount,
       paymentMethod,
@@ -236,61 +238,73 @@ Deno.serve(async (req: Request) => {
     const requests = [
       {
         replaceAllText: {
-          containsText: { text: 'RECEIPT_NUMBER', matchCase: true },
+          containsText: { text: '{RECEIPT_NUMBER}', matchCase: false },
           replaceText: receiptNumber,
         },
       },
       {
         replaceAllText: {
-          containsText: { text: 'CLIENT_NAME', matchCase: true },
-          replaceText: clientName,
-        },
-      },
-      {
-        replaceAllText: {
-          containsText: { text: 'CLIENT_ADDRESS', matchCase: true },
-          replaceText: clientAddress || '',
-        },
-      },
-      {
-        replaceAllText: {
-          containsText: { text: 'RECEIPT_DATE', matchCase: true },
+          containsText: { text: '{RECEIPT_DATE}', matchCase: false },
           replaceText: formattedDate,
         },
       },
       {
         replaceAllText: {
-          containsText: { text: 'AMOUNT', matchCase: true },
+          containsText: { text: '{CLIENT_NAME}', matchCase: false },
+          replaceText: clientName,
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: '{CLIENT_ADDRESS}', matchCase: false },
+          replaceText: clientAddress || '',
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: '{CLIENT_CONTACT}', matchCase: false },
+          replaceText: '',
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: '{CLIENT_PHONE}', matchCase: false },
+          replaceText: '',
+        },
+      },
+      {
+        replaceAllText: {
+          containsText: { text: '{AMOUNT}', matchCase: false },
           replaceText: formattedAmount,
         },
       },
       {
         replaceAllText: {
-          containsText: { text: 'PAYMENT_METHOD', matchCase: true },
+          containsText: { text: '{PAYMENT_METHOD}', matchCase: false },
           replaceText: paymentMethod || '',
         },
       },
       {
         replaceAllText: {
-          containsText: { text: 'PAYMENT_REFERENCE', matchCase: true },
+          containsText: { text: '{PAYMENT_REFERENCE}', matchCase: false },
           replaceText: paymentReference || '',
         },
       },
       {
         replaceAllText: {
-          containsText: { text: 'INVOICE_NUMBER', matchCase: true },
+          containsText: { text: '{INVOICE_NUMBER}', matchCase: false },
           replaceText: invoiceNumber || '',
         },
       },
       {
         replaceAllText: {
-          containsText: { text: 'REMARKS', matchCase: true },
+          containsText: { text: '{REMARKS}', matchCase: false },
           replaceText: remarks || '',
         },
       },
       {
         replaceAllText: {
-          containsText: { text: 'COMPANY_CODE', matchCase: true },
+          containsText: { text: '{COMPANY_CODE}', matchCase: false },
           replaceText: companyCode || '',
         },
       },
