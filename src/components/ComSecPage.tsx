@@ -8,6 +8,7 @@ import { EditComSecClientModal } from './EditComSecClientModal';
 import { LetterReceivedModal } from './LetterReceivedModal';
 import { ComSecShareResourcesSection } from './ComSecShareResourcesSection';
 import { ComSecDueDateModal } from './ComSecDueDateModal';
+import { InvoiceFolderModal } from './InvoiceFolderModal';
 
 // Format date as DD-MMM-YYYY
 function formatDate(date: string | Date): string {
@@ -167,6 +168,7 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
   const [showAddMappingModal, setShowAddMappingModal] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<any[]>([]);
   const [showDueDateModal, setShowDueDateModal] = useState(false);
+  const [showInvoiceFolderModal, setShowInvoiceFolderModal] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [newMapping, setNewMapping] = useState({
@@ -1547,13 +1549,22 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                   className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <button
-                onClick={() => { setEditingItem(null); setShowAddModal(true); }}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                Add Invoice
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowInvoiceFolderModal(true)}
+                  className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors"
+                >
+                  <FolderOpen className="w-5 h-5" />
+                  Open Folder
+                </button>
+                <button
+                  onClick={() => { setEditingItem(null); setShowAddModal(true); }}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Invoice
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -1845,53 +1856,6 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
                               </a>
                             </>
                           )}
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const folderPath = `invoice/${invoice.comsec_client?.company_code || 'unknown'}`;
-
-                                const { data: files, error } = await supabase
-                                  .storage
-                                  .from('client-documents')
-                                  .list(folderPath);
-
-                                if (error) throw error;
-
-                                if (!files || files.length === 0) {
-                                  alert('No files found in the invoice folder');
-                                  return;
-                                }
-
-                                const fileList = files.map(file => {
-                                  const publicUrl = supabase.storage
-                                    .from('client-documents')
-                                    .getPublicUrl(`${folderPath}/${file.name}`).data.publicUrl;
-                                  return `${file.name} - ${publicUrl}`;
-                                }).join('\n');
-
-                                const confirmed = confirm(`Files in invoice folder:\n\n${fileList}\n\nClick OK to open folder in a new window`);
-
-                                if (confirmed && files.length > 0) {
-                                  const firstFileUrl = supabase.storage
-                                    .from('client-documents')
-                                    .getPublicUrl(`${folderPath}/${files[0].name}`).data.publicUrl;
-
-                                  const folderUrl = firstFileUrl.substring(0, firstFileUrl.lastIndexOf('/'));
-                                  window.open(folderUrl, '_blank');
-                                }
-                              } catch (error: any) {
-                                console.error('Error accessing folder:', error);
-                                alert('Failed to access invoice folder: ' + error.message);
-                              }
-                            }}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
-                            title="Open Invoice Folder"
-                          >
-                            <FolderOpen className="w-3 h-3" />
-                            Open Folder
-                          </button>
                           {invoice.status === 'Unpaid' && (
                             <button
                               type="button"
@@ -3297,6 +3261,11 @@ export function ComSecPage({ activeModule, onClientClick }: ComSecPageProps) {
           onClose={() => setShowDueDateModal(false)}
         />
       )}
+
+      <InvoiceFolderModal
+        isOpen={showInvoiceFolderModal}
+        onClose={() => setShowInvoiceFolderModal(false)}
+      />
 
       {showSuccessToast && (
         <div className="fixed top-4 right-4 z-[60] animate-slide-in">
