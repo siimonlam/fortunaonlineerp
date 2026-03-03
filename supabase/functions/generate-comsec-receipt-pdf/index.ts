@@ -169,25 +169,67 @@ Deno.serve(async (req: Request) => {
 
     const receiptFolderId = '13RVRV1SWVsUcG6vMre_DrouWIVbsGF99';
 
-    const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: `${receiptNumber} - ${clientName}`,
-        parents: [receiptFolderId],
-      }),
-    });
+    // Retry logic for copy operation with exponential backoff
+    let copyData: any;
+    let newDocId: string;
+    let copyAttempts = 0;
+    const maxCopyAttempts = 3;
 
-    if (!copyResponse.ok) {
-      const error = await copyResponse.text();
-      throw new Error(`Failed to copy template: ${error}`);
+    while (copyAttempts < maxCopyAttempts) {
+      try {
+        const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: `${receiptNumber} - ${clientName}`,
+            parents: [receiptFolderId],
+          }),
+        });
+
+        if (copyResponse.ok) {
+          copyData = await copyResponse.json();
+          newDocId = copyData.id;
+          console.log('Successfully copied template on attempt:', copyAttempts + 1);
+          break;
+        }
+
+        const errorText = await copyResponse.text();
+        let errorData: any;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+
+        // Check if it's a rate limit error
+        if (copyResponse.status === 403 && errorData.error?.errors?.[0]?.reason === 'userRateLimitExceeded') {
+          copyAttempts++;
+          if (copyAttempts < maxCopyAttempts) {
+            const backoffDelay = Math.pow(2, copyAttempts) * 1000; // Exponential backoff: 2s, 4s, 8s
+            console.log(`Rate limit hit, waiting ${backoffDelay}ms before retry ${copyAttempts + 1}/${maxCopyAttempts}`);
+            await new Promise(resolve => setTimeout(resolve, backoffDelay));
+            continue;
+          }
+        }
+
+        throw new Error(`Failed to copy template: ${JSON.stringify(errorData)}`);
+      } catch (error) {
+        if (copyAttempts >= maxCopyAttempts - 1) {
+          throw error;
+        }
+        copyAttempts++;
+        const backoffDelay = Math.pow(2, copyAttempts) * 1000;
+        console.log(`Error copying template, retrying in ${backoffDelay}ms:`, error);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
     }
 
-    const copyData = await copyResponse.json();
-    const newDocId = copyData.id;
+    if (!newDocId) {
+      throw new Error('Failed to copy template after multiple attempts');
+    }
 
     console.log('Created copy of template:', newDocId);
 
