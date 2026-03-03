@@ -281,19 +281,19 @@ Deno.serve(async (req: Request) => {
       {
         replaceAllText: {
           containsText: { text: '{RECEIPT_NUMBER}', matchCase: false },
-          replaceText: receiptNumber,
+          replaceText: receiptNumber || '',
         },
       },
       {
         replaceAllText: {
           containsText: { text: '{RECEIPT_DATE}', matchCase: false },
-          replaceText: formattedDate,
+          replaceText: formattedDate || '',
         },
       },
       {
         replaceAllText: {
           containsText: { text: '{CLIENT_NAME}', matchCase: false },
-          replaceText: clientName,
+          replaceText: clientName || '',
         },
       },
       {
@@ -305,19 +305,19 @@ Deno.serve(async (req: Request) => {
       {
         replaceAllText: {
           containsText: { text: '{CLIENT_CONTACT}', matchCase: false },
-          replaceText: '',
+          replaceText: clientContact || '',
         },
       },
       {
         replaceAllText: {
           containsText: { text: '{CLIENT_PHONE}', matchCase: false },
-          replaceText: '',
+          replaceText: clientPhone || '',
         },
       },
       {
         replaceAllText: {
           containsText: { text: '{AMOUNT}', matchCase: false },
-          replaceText: formattedAmount,
+          replaceText: formattedAmount || '',
         },
       },
       {
@@ -351,6 +351,22 @@ Deno.serve(async (req: Request) => {
         },
       },
     ];
+
+    // Clear all item placeholders ({{ITEM_1}} through {{ITEM_10}})
+    for (let i = 1; i <= 10; i++) {
+      requests.push({
+        replaceAllText: {
+          containsText: { text: `{{ITEM_${i}}}`, matchCase: false },
+          replaceText: '',
+        },
+      });
+      requests.push({
+        replaceAllText: {
+          containsText: { text: `{{TOTAL_${i}}}`, matchCase: false },
+          replaceText: '',
+        },
+      });
+    }
 
     const updateResponse = await fetch(`https://docs.googleapis.com/v1/documents/${newDocId}:batchUpdate`, {
       method: 'POST',
