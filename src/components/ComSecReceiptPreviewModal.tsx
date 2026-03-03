@@ -274,6 +274,27 @@ export function ComSecReceiptPreviewModal({ invoice, clientName, onClose, onUpda
                   </div>
                 )}
 
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm font-medium text-blue-900 mb-2">Template Placeholders</div>
+                  <div className="text-xs text-blue-800 space-y-1">
+                    <div>Use these placeholders in your Google Doc template:</div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 font-mono">
+                      <div>{'{RECEIPT_NUMBER}'} - Receipt number</div>
+                      <div>{'{RECEIPT_DATE}'} - Receipt date</div>
+                      <div>{'{CLIENT_NAME}'} - Client name</div>
+                      <div>{'{CLIENT_ADDRESS}'} - Client address</div>
+                      <div>{'{CLIENT_CONTACT}'} - Contact person</div>
+                      <div>{'{CLIENT_PHONE}'} - Phone number</div>
+                      <div>{'{COMPANY_CODE}'} - Company code</div>
+                      <div>{'{AMOUNT}'} - Receipt amount</div>
+                      <div>{'{PAYMENT_METHOD}'} - Payment method</div>
+                      <div>{'{PAYMENT_REFERENCE}'} - Payment ref</div>
+                      <div>{'{INVOICE_NUMBER}'} - Related invoice</div>
+                      <div>{'{REMARKS}'} - Additional notes</div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
