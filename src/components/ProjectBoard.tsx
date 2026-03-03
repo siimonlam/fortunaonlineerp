@@ -1006,6 +1006,34 @@ export function ProjectBoard() {
     setMyTasks(allTasks);
   }
 
+  async function toggleTaskCompletion(taskId: string, currentCompleted: boolean, isMarketingTask: boolean) {
+    const tableName = isMarketingTask ? 'marketing_tasks' : 'tasks';
+    const newCompleted = !currentCompleted;
+
+    const updateData: any = {
+      completed: newCompleted,
+    };
+
+    if (newCompleted) {
+      updateData.completed_at = new Date().toISOString();
+    } else {
+      updateData.completed_at = null;
+    }
+
+    const { error } = await supabase
+      .from(tableName)
+      .update(updateData)
+      .eq('id', taskId);
+
+    if (error) {
+      console.error('Error updating task:', error);
+      alert('Failed to update task');
+      return;
+    }
+
+    loadMyTasks();
+  }
+
   async function loadPartnerProjects() {
     setLoadingPartnerProjects(true);
     try {
@@ -5255,97 +5283,112 @@ export function ProjectBoard() {
                     return (
                       <div
                         key={task.id}
-                        onClick={async () => {
-                          setShowMyTasks(false);
-
-                          const projectId = task.project_id || task.marketing_project_id;
-                          if (projectId && task.projects) {
-                            const projectTypeId = task.projects.project_type_id;
-                            const projectType = projectTypes.find(pt => pt.id === projectTypeId);
-
-                            if (projectType) {
-                              setSelectedProjectType(projectType.id);
-                              setSelectedView('projects');
-
-                              const isMarketing = task.task_type === 'marketing' || projectType.name === 'Marketing';
-                              const tableName = isMarketing ? 'marketing_projects' : 'projects';
-
-                              const { data: projectData } = await supabase
-                                .from(tableName)
-                                .select('*')
-                                .eq('id', projectId)
-                                .maybeSingle();
-
-                              if (projectData) {
-                                setSelectedProject({ ...projectData, table_source: isMarketing ? 'marketing_projects' : 'projects' });
-                              }
-                            }
-                          } else if (task.meeting_id) {
-                            setFundingProjectTab('meetings');
-                            setSelectedMeetingId(task.meeting_id);
-                          }
-                        }}
-                        className={`p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${
+                        className={`p-4 rounded-lg border-2 transition-all ${
                           isPastDue
-                            ? 'border-red-200 bg-red-50 hover:bg-red-100'
-                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                            ? 'border-red-200 bg-red-50'
+                            : 'border-slate-200 bg-white'
                         }`}
                       >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              {isMeetingTask ? (
-                                <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                  <Calendar className="w-4 h-4 text-blue-600" />
-                                  {companyName}
-                                </span>
-                              ) : (
-                                <span className="text-sm font-semibold text-slate-500">
-                                  {clientNumber ? `#${clientNumber} ` : ''}{companyName}
-                                </span>
-                              )}
-                              {isMeetingTask && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                                  Meeting
-                                </span>
-                              )}
-                              {task.task_type === 'marketing' && !isMeetingTask && (
-                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
-                                  Marketing
-                                </span>
-                              )}
-                              {task.task_type === 'funding' && !isMeetingTask && (
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                                  Funding
-                                </span>
-                              )}
-                              {isPastDue && (
-                                <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium">
-                                  PAST DUE
-                                </span>
-                              )}
-                            </div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                              {task.title}
-                            </h3>
-                            {task.description && (
-                              <p className="text-sm text-slate-600 mb-2">{task.description}</p>
-                            )}
-                            <div className="flex items-center gap-4 text-sm">
-                              {task.projects?.title ? (
-                                <span className="text-slate-500">
-                                  Project: {task.projects.title}
-                                </span>
-                              ) : task.meetings?.title ? (
-                                <span className="text-slate-500">
-                                  Meeting: {task.meetings.title}
-                                </span>
-                              ) : null}
-                              {task.deadline && (
-                                <span className={`font-medium ${isPastDue ? 'text-red-600' : 'text-slate-700'}`}>
-                                  Due: {new Date(task.deadline).toLocaleDateString()}
-                                </span>
-                              )}
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={task.completed || false}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              toggleTaskCompletion(task.id, task.completed, task.task_type === 'marketing');
+                            }}
+                            className="mt-1 w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
+                          />
+                          <div
+                            onClick={async () => {
+                              setShowMyTasks(false);
+
+                              const projectId = task.project_id || task.marketing_project_id;
+                              if (projectId && task.projects) {
+                                const projectTypeId = task.projects.project_type_id;
+                                const projectType = projectTypes.find(pt => pt.id === projectTypeId);
+
+                                if (projectType) {
+                                  setSelectedProjectType(projectType.id);
+                                  setSelectedView('projects');
+
+                                  const isMarketing = task.task_type === 'marketing' || projectType.name === 'Marketing';
+                                  const tableName = isMarketing ? 'marketing_projects' : 'projects';
+
+                                  const { data: projectData } = await supabase
+                                    .from(tableName)
+                                    .select('*')
+                                    .eq('id', projectId)
+                                    .maybeSingle();
+
+                                  if (projectData) {
+                                    setSelectedProject({ ...projectData, table_source: isMarketing ? 'marketing_projects' : 'projects' });
+                                  }
+                                }
+                              } else if (task.meeting_id) {
+                                setFundingProjectTab('meetings');
+                                setSelectedMeetingId(task.meeting_id);
+                              }
+                            }}
+                            className="flex-1 cursor-pointer hover:bg-slate-50 -m-4 p-4 rounded-lg transition-colors"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  {isMeetingTask ? (
+                                    <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                      <Calendar className="w-4 h-4 text-blue-600" />
+                                      {companyName}
+                                    </span>
+                                  ) : (
+                                    <span className="text-sm font-semibold text-slate-500">
+                                      {clientNumber ? `#${clientNumber} ` : ''}{companyName}
+                                    </span>
+                                  )}
+                                  {isMeetingTask && (
+                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                      Meeting
+                                    </span>
+                                  )}
+                                  {task.task_type === 'marketing' && !isMeetingTask && (
+                                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                                      Marketing
+                                    </span>
+                                  )}
+                                  {task.task_type === 'funding' && !isMeetingTask && (
+                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                                      Funding
+                                    </span>
+                                  )}
+                                  {isPastDue && (
+                                    <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium">
+                                      PAST DUE
+                                    </span>
+                                  )}
+                                </div>
+                                <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                                  {task.title}
+                                </h3>
+                                {task.description && (
+                                  <p className="text-sm text-slate-600 mb-2">{task.description}</p>
+                                )}
+                                <div className="flex items-center gap-4 text-sm">
+                                  {task.projects?.title ? (
+                                    <span className="text-slate-500">
+                                      Project: {task.projects.title}
+                                    </span>
+                                  ) : task.meetings?.title ? (
+                                    <span className="text-slate-500">
+                                      Meeting: {task.meetings.title}
+                                    </span>
+                                  ) : null}
+                                  {task.deadline && (
+                                    <span className={`font-medium ${isPastDue ? 'text-red-600' : 'text-slate-700'}`}>
+                                      Due: {new Date(task.deadline).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -5380,97 +5423,112 @@ export function ProjectBoard() {
                     return (
                       <div
                         key={task.id}
-                        onClick={async () => {
-                          setShowMyTasks(false);
-
-                          const projectId = task.project_id || task.marketing_project_id;
-                          if (projectId && task.projects) {
-                            const projectTypeId = task.projects.project_type_id;
-                            const projectType = projectTypes.find(pt => pt.id === projectTypeId);
-
-                            if (projectType) {
-                              setSelectedProjectType(projectType.id);
-                              setSelectedView('projects');
-
-                              const isMarketing = task.task_type === 'marketing' || projectType.name === 'Marketing';
-                              const tableName = isMarketing ? 'marketing_projects' : 'projects';
-
-                              const { data: projectData } = await supabase
-                                .from(tableName)
-                                .select('*')
-                                .eq('id', projectId)
-                                .maybeSingle();
-
-                              if (projectData) {
-                                setSelectedProject({ ...projectData, table_source: isMarketing ? 'marketing_projects' : 'projects' });
-                              }
-                            }
-                          } else if (task.meeting_id) {
-                            setFundingProjectTab('meetings');
-                            setSelectedMeetingId(task.meeting_id);
-                          }
-                        }}
-                        className={`p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${
+                        className={`p-4 rounded-lg border-2 transition-all ${
                           isPastDue
-                            ? 'border-red-200 bg-red-50 hover:bg-red-100'
-                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                            ? 'border-red-200 bg-red-50'
+                            : 'border-slate-200 bg-white'
                         }`}
                       >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              {isMeetingTask ? (
-                                <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                  <Calendar className="w-4 h-4 text-blue-600" />
-                                  {companyName}
-                                </span>
-                              ) : (
-                                <span className="text-sm font-semibold text-slate-500">
-                                  {clientNumber ? `#${clientNumber} ` : ''}{companyName}
-                                </span>
-                              )}
-                              {isMeetingTask && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                                  Meeting
-                                </span>
-                              )}
-                              {task.task_type === 'marketing' && !isMeetingTask && (
-                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
-                                  Marketing
-                                </span>
-                              )}
-                              {task.task_type === 'funding' && !isMeetingTask && (
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                                  Funding
-                                </span>
-                              )}
-                              {isPastDue && (
-                                <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium">
-                                  PAST DUE
-                                </span>
-                              )}
-                            </div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                              {task.title}
-                            </h3>
-                            {task.description && (
-                              <p className="text-sm text-slate-600 mb-2">{task.description}</p>
-                            )}
-                            <div className="flex items-center gap-4 text-sm">
-                              {task.projects?.title ? (
-                                <span className="text-slate-500">
-                                  Project: {task.projects.title}
-                                </span>
-                              ) : task.meetings?.title ? (
-                                <span className="text-slate-500">
-                                  Meeting: {task.meetings.title}
-                                </span>
-                              ) : null}
-                              {task.deadline && (
-                                <span className={`font-medium ${isPastDue ? 'text-red-600' : 'text-slate-700'}`}>
-                                  Due: {new Date(task.deadline).toLocaleDateString()}
-                                </span>
-                              )}
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={task.completed || false}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              toggleTaskCompletion(task.id, task.completed, task.task_type === 'marketing');
+                            }}
+                            className="mt-1 w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
+                          />
+                          <div
+                            onClick={async () => {
+                              setShowMyTasks(false);
+
+                              const projectId = task.project_id || task.marketing_project_id;
+                              if (projectId && task.projects) {
+                                const projectTypeId = task.projects.project_type_id;
+                                const projectType = projectTypes.find(pt => pt.id === projectTypeId);
+
+                                if (projectType) {
+                                  setSelectedProjectType(projectType.id);
+                                  setSelectedView('projects');
+
+                                  const isMarketing = task.task_type === 'marketing' || projectType.name === 'Marketing';
+                                  const tableName = isMarketing ? 'marketing_projects' : 'projects';
+
+                                  const { data: projectData } = await supabase
+                                    .from(tableName)
+                                    .select('*')
+                                    .eq('id', projectId)
+                                    .maybeSingle();
+
+                                  if (projectData) {
+                                    setSelectedProject({ ...projectData, table_source: isMarketing ? 'marketing_projects' : 'projects' });
+                                  }
+                                }
+                              } else if (task.meeting_id) {
+                                setFundingProjectTab('meetings');
+                                setSelectedMeetingId(task.meeting_id);
+                              }
+                            }}
+                            className="flex-1 cursor-pointer hover:bg-slate-50 -m-4 p-4 rounded-lg transition-colors"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  {isMeetingTask ? (
+                                    <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                      <Calendar className="w-4 h-4 text-blue-600" />
+                                      {companyName}
+                                    </span>
+                                  ) : (
+                                    <span className="text-sm font-semibold text-slate-500">
+                                      {clientNumber ? `#${clientNumber} ` : ''}{companyName}
+                                    </span>
+                                  )}
+                                  {isMeetingTask && (
+                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                      Meeting
+                                    </span>
+                                  )}
+                                  {task.task_type === 'marketing' && !isMeetingTask && (
+                                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                                      Marketing
+                                    </span>
+                                  )}
+                                  {task.task_type === 'funding' && !isMeetingTask && (
+                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                                      Funding
+                                    </span>
+                                  )}
+                                  {isPastDue && (
+                                    <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium">
+                                      PAST DUE
+                                    </span>
+                                  )}
+                                </div>
+                                <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                                  {task.title}
+                                </h3>
+                                {task.description && (
+                                  <p className="text-sm text-slate-600 mb-2">{task.description}</p>
+                                )}
+                                <div className="flex items-center gap-4 text-sm">
+                                  {task.projects?.title ? (
+                                    <span className="text-slate-500">
+                                      Project: {task.projects.title}
+                                    </span>
+                                  ) : task.meetings?.title ? (
+                                    <span className="text-slate-500">
+                                      Meeting: {task.meetings.title}
+                                    </span>
+                                  ) : null}
+                                  {task.deadline && (
+                                    <span className={`font-medium ${isPastDue ? 'text-red-600' : 'text-slate-700'}`}>
+                                      Due: {new Date(task.deadline).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
