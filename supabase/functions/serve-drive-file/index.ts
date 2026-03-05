@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
@@ -12,19 +12,12 @@ interface GoogleAuthToken {
   token_type: string;
 }
 
-async function getServiceAccountToken(driveType: 'funding' | 'comsec' = 'funding'): Promise<string> {
-  const serviceAccountEmail = driveType === 'comsec'
-    ? "goldwinerp@woven-answer-485106-u8.iam.gserviceaccount.com"
-    : "fortunaerp@fortuna-erp.iam.gserviceaccount.com";
-
-  const privateKeyEnvVar = driveType === 'comsec'
-    ? "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_COMSEC"
-    : "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY";
-
-  const privateKey = Deno.env.get(privateKeyEnvVar);
+async function getServiceAccountToken(): Promise<string> {
+  const serviceAccountEmail = "goldwinerp@woven-answer-485106-u8.iam.gserviceaccount.com";
+  const privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_COMSEC");
 
   if (!privateKey) {
-    throw new Error(`Service account private key not configured for ${driveType} (${privateKeyEnvVar})`);
+    throw new Error("Service account private key not configured for comsec");
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -37,7 +30,7 @@ async function getServiceAccountToken(driveType: 'funding' | 'comsec' = 'funding
 
   const claimSet = {
     iss: serviceAccountEmail,
-    scope: "https://www.googleapis.com/auth/drive.readonly",
+    scope: "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents",
     aud: "https://oauth2.googleapis.com/token",
     exp: expiry,
     iat: now,
@@ -124,20 +117,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const url = new URL(req.url);
-    let fileId: string | null = null;
-    let mimeType: string | null = null;
-    let driveType: 'funding' | 'comsec' = 'funding';
-
-    if (req.method === "GET") {
-      fileId = url.searchParams.get('fileId');
-      mimeType = url.searchParams.get('mimeType');
-      driveType = (url.searchParams.get('driveType') || 'funding') as 'funding' | 'comsec';
-    } else if (req.method === "POST") {
-      const body = await req.json();
-      fileId = body.fileId;
-      mimeType = body.mimeType;
-      driveType = (body.driveType || 'funding') as 'funding' | 'comsec';
-    }
+    const fileId = url.searchParams.get('fileId');
+    const format = url.searchParams.get('format') || 'pdf';
 
     if (!fileId) {
       return new Response(
@@ -149,47 +130,66 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log(`Fetching file: ${fileId}, mimeType: ${mimeType}, driveType: ${driveType}`);
+    console.log(`Fetching file ${fileId} as ${format}`);
 
-    const accessToken = await getServiceAccountToken(driveType);
+    const accessToken = await getServiceAccountToken();
 
-    const imageResponse = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      }
-    );
+    // For Google Docs, we need to use the export endpoint
+    // The format can be 'pdf', 'docx', 'txt', etc.
+    const mimeTypes: Record<string, string> = {
+      'pdf': 'application/pdf',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'txt': 'text/plain',
+    };
 
-    if (!imageResponse.ok) {
-      const errorText = await imageResponse.text();
-      console.error(`Failed to fetch file: ${imageResponse.status} - ${errorText}`);
-      throw new Error(`Failed to fetch file: ${imageResponse.statusText}`);
+    const mimeType = mimeTypes[format] || 'application/pdf';
+
+    // Use the Google Drive export endpoint for Google Docs
+    const exportUrl = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=${encodeURIComponent(mimeType)}&supportsAllDrives=true`;
+
+    console.log(`Exporting from: ${exportUrl}`);
+
+    const fileResponse = await fetch(exportUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!fileResponse.ok) {
+      const errorText = await fileResponse.text();
+      console.error(`Failed to fetch file: ${fileResponse.status} - ${errorText}`);
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to fetch file from Google Drive',
+          details: `${fileResponse.statusText}`,
+          fileId,
+          status: fileResponse.status
+        }),
+        {
+          status: fileResponse.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    const imageBuffer = await imageResponse.arrayBuffer();
+    const fileBlob = await fileResponse.blob();
+    console.log(`Successfully fetched file, size: ${fileBlob.size} bytes`);
 
-    const detectedContentType = imageResponse.headers.get('content-type');
-    const contentType = mimeType || detectedContentType || 'image/jpeg';
-
-    console.log(`Serving file ${fileId} with content-type: ${contentType}, size: ${imageBuffer.byteLength} bytes`);
-
-    return new Response(imageBuffer, {
+    return new Response(fileBlob, {
       status: 200,
       headers: {
         ...corsHeaders,
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=3600',
-        'Content-Length': imageBuffer.byteLength.toString(),
+        'Content-Type': mimeType,
+        'Content-Disposition': `attachment; filename="${fileId}.${format}"`,
       },
     });
-  } catch (error) {
+
+  } catch (error: any) {
     console.error('Error serving drive file:', error);
     return new Response(
       JSON.stringify({
-        error: error.message,
-        details: 'Failed to fetch file from Google Drive'
+        error: error.message || 'Failed to serve drive file',
+        stack: error.stack,
       }),
       {
         status: 500,
