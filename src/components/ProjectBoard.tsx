@@ -190,6 +190,7 @@ export function ProjectBoard() {
   const [comSecModule, setComSecModule] = useState<'dashboard' | 'hi-po' | 'clients' | 'pending_renewal' | 'company_secretary' | 'invoices' | 'virtual_office' | 'knowledge_base' | 'reminders' | 'share_resources'>('dashboard');
   const [showCreateMarketingProjectModal, setShowCreateMarketingProjectModal] = useState(false);
   const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
+  const selectedMarketingProjectRef = useRef<string | null>(null);
   const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
   const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings' | 'resources' | 'emails'>('projects');
   const [marketingProjectTab, setMarketingProjectTab] = useState<'projects' | 'resources'>('projects');
@@ -265,6 +266,11 @@ export function ProjectBoard() {
   const [marketingProjectTaskCounts, setMarketingProjectTaskCounts] = useState<Record<string, { pastDue: number; upcoming: number }>>({});
   const [fundingTaskCounts, setFundingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
   const [meetingTaskCounts, setMeetingTaskCounts] = useState<{ pastDue: number; upcoming: number }>({ pastDue: 0, upcoming: 0 });
+
+  // Keep ref in sync with selectedMarketingProject state
+  useEffect(() => {
+    selectedMarketingProjectRef.current = selectedMarketingProject;
+  }, [selectedMarketingProject]);
 
   useEffect(() => {
     if (fundingProjectTab !== 'meetings') {
@@ -358,7 +364,10 @@ export function ProjectBoard() {
         { event: '*', schema: 'public', table: 'marketing_tasks' },
         (payload) => {
           console.log('✅ Marketing tasks changed:', payload.eventType);
-          if (selectedView === 'projects') loadProjectsViewData();
+          // Don't reload projects view if user is viewing a specific marketing project detail
+          if (selectedView === 'projects' && !selectedMarketingProjectRef.current) {
+            loadProjectsViewData();
+          }
           loadMarketingTaskCounts();
         }
       )
