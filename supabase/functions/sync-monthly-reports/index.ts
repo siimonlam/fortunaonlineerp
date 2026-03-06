@@ -302,39 +302,37 @@ Deno.serve(async (req: Request) => {
 
       // Determine which single objective column to populate based on campaign objective
       if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
-        // Sales - Sum ALL relevant purchase/cart/checkout action types
+        // Sales - Use priority-based action type selection to avoid double-counting
+        // Meta often reports the same action in multiple formats (e.g., omni_add_to_cart, add_to_cart, offsite_conversion.fb_pixel_add_to_cart)
+        // We should use the FIRST matching action type in priority order, not sum them all
 
-        // Purchase - check multiple action types
-        for (const action of actions) {
-          if (action.action_type === 'omni_purchase' ||
-              action.action_type === 'purchase' ||
-              action.action_type === 'offsite_conversion.fb_pixel_purchase' ||
-              action.action_type === 'onsite_web_purchase' ||
-              action.action_type === 'onsite_web_app_purchase' ||
-              action.action_type === 'web_in_store_purchase' ||
-              action.action_type === 'web_app_in_store_purchase') {
-            metrics.sales_purchase += parseInt(action.value || '0');
+        // Purchase - priority order
+        const purchaseTypes = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_web_purchase', 'onsite_web_app_purchase', 'web_in_store_purchase', 'web_app_in_store_purchase'];
+        for (const type of purchaseTypes) {
+          const action = actions.find(a => a.action_type === type);
+          if (action) {
+            metrics.sales_purchase = parseInt(action.value || '0');
+            break; // Use first matching type only
           }
         }
 
-        // Initiate Checkout - check multiple action types
-        for (const action of actions) {
-          if (action.action_type === 'initiate_checkout' ||
-              action.action_type === 'offsite_conversion.fb_pixel_initiate_checkout' ||
-              action.action_type === 'omni_initiated_checkout' ||
-              action.action_type === 'onsite_web_initiate_checkout') {
-            metrics.sales_initiate_checkout += parseInt(action.value || '0');
+        // Initiate Checkout - priority order
+        const checkoutTypes = ['omni_initiated_checkout', 'initiate_checkout', 'offsite_conversion.fb_pixel_initiate_checkout', 'onsite_web_initiate_checkout'];
+        for (const type of checkoutTypes) {
+          const action = actions.find(a => a.action_type === type);
+          if (action) {
+            metrics.sales_initiate_checkout = parseInt(action.value || '0');
+            break; // Use first matching type only
           }
         }
 
-        // Add to Cart - check multiple action types
-        for (const action of actions) {
-          if (action.action_type === 'omni_add_to_cart' ||
-              action.action_type === 'add_to_cart' ||
-              action.action_type === 'offsite_conversion.fb_pixel_add_to_cart' ||
-              action.action_type === 'onsite_web_add_to_cart' ||
-              action.action_type === 'onsite_web_app_add_to_cart') {
-            metrics.sales_add_to_cart += parseInt(action.value || '0');
+        // Add to Cart - priority order
+        const addToCartTypes = ['omni_add_to_cart', 'add_to_cart', 'offsite_conversion.fb_pixel_add_to_cart', 'onsite_web_add_to_cart', 'onsite_web_app_add_to_cart'];
+        for (const type of addToCartTypes) {
+          const action = actions.find(a => a.action_type === type);
+          if (action) {
+            metrics.sales_add_to_cart = parseInt(action.value || '0');
+            break; // Use first matching type only
           }
         }
 
