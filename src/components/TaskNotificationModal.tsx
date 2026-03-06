@@ -533,7 +533,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                           <input
                             type="checkbox"
                             checked={task.is_urgent}
-                            onChange={() => toggleUrgent(task.id, task.is_urgent)}
+                            onChange={() => toggleUrgent(task.id, task.is_urgent, !!task.marketing_project_id)}
                             className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
                             title="Mark as urgent"
                           />
