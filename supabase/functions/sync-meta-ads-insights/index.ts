@@ -348,10 +348,43 @@ Deno.serve(async (req: Request) => {
 
             let results = 0;
             let resultType: string[] = [];
+
+            // Extract sales-specific metrics
+            let salesPurchase = 0;
+            let salesInitiateCheckout = 0;
+            let salesAddToCart = 0;
+
             if (insight.actions && Array.isArray(insight.actions)) {
               const validActionTypes = getResultActionTypes(campaign.objective);
 
-              // Sum ALL matching action types from the valid list
+              // Extract specific sales actions
+              for (const action of insight.actions) {
+                const value = parseInt(action.value || '0');
+
+                // Purchase actions - prioritize omni_purchase
+                if (action.action_type === 'omni_purchase') {
+                  salesPurchase += value;
+                } else if (action.action_type === 'purchase' ||
+                    action.action_type === 'offsite_conversion.fb_pixel_purchase') {
+                  salesPurchase += value;
+                }
+
+                // Initiate checkout actions
+                if (action.action_type === 'initiate_checkout' ||
+                    action.action_type === 'offsite_conversion.fb_pixel_initiate_checkout') {
+                  salesInitiateCheckout += value;
+                }
+
+                // Add to cart actions - prioritize omni_add_to_cart
+                if (action.action_type === 'omni_add_to_cart') {
+                  salesAddToCart += value;
+                } else if (action.action_type === 'add_to_cart' ||
+                    action.action_type === 'offsite_conversion.fb_pixel_add_to_cart') {
+                  salesAddToCart += value;
+                }
+              }
+
+              // Sum ALL matching action types from the valid list for results
               for (const actionType of validActionTypes) {
                 const resultActions = insight.actions.filter((a: any) => a.action_type === actionType);
                 for (const resultAction of resultActions) {
@@ -366,7 +399,7 @@ Deno.serve(async (req: Request) => {
               }
             }
 
-            console.log(`    Ad ${ad.id} on ${insight.date_start}: spend=${insight.spend}, impressions=${insight.impressions}, clicks=${insight.clicks}, results=${results} (${resultType || 'none'})`);
+            console.log(`    Ad ${ad.id} on ${insight.date_start}: spend=${insight.spend}, impressions=${insight.impressions}, clicks=${insight.clicks}, results=${results} (${resultType || 'none'}), purchase=${salesPurchase}, checkout=${salesInitiateCheckout}, add_to_cart=${salesAddToCart}`);
 
             await supabase
               .from('meta_ad_insights')
@@ -407,6 +440,9 @@ Deno.serve(async (req: Request) => {
                 conversion_rate_ranking: insight.conversion_rate_ranking || null,
                 results,
                 result_type: resultType.length > 0 ? resultType.join(', ') : null,
+                sales_purchase: salesPurchase,
+                sales_initiate_checkout: salesInitiateCheckout,
+                sales_add_to_cart: salesAddToCart,
                 client_number: campaign.client_number,
                 marketing_reference: campaign.marketing_reference,
                 updated_at: new Date().toISOString()
