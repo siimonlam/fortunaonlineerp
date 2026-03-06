@@ -302,24 +302,40 @@ Deno.serve(async (req: Request) => {
 
       // Determine which single objective column to populate based on campaign objective
       if (upperObjective === 'OUTCOME_SALES' || upperObjective === 'CONVERSIONS') {
-        // Sales - Use ONLY omni_ action types (do NOT sum all purchase types)
+        // Sales - Sum ALL relevant purchase/cart/checkout action types
 
-        // Purchase - ONLY omni_purchase
-        const purchaseAction = actions.find((a: any) => a.action_type === 'omni_purchase');
-        if (purchaseAction) {
-          metrics.sales_purchase = parseInt(purchaseAction.value || '0');
+        // Purchase - check multiple action types
+        for (const action of actions) {
+          if (action.action_type === 'omni_purchase' ||
+              action.action_type === 'purchase' ||
+              action.action_type === 'offsite_conversion.fb_pixel_purchase' ||
+              action.action_type === 'onsite_web_purchase' ||
+              action.action_type === 'onsite_web_app_purchase' ||
+              action.action_type === 'web_in_store_purchase' ||
+              action.action_type === 'web_app_in_store_purchase') {
+            metrics.sales_purchase += parseInt(action.value || '0');
+          }
         }
 
-        // Initiate Checkout - use initiate_checkout
-        const checkoutAction = actions.find((a: any) => a.action_type === 'initiate_checkout');
-        if (checkoutAction) {
-          metrics.sales_initiate_checkout = parseInt(checkoutAction.value || '0');
+        // Initiate Checkout - check multiple action types
+        for (const action of actions) {
+          if (action.action_type === 'initiate_checkout' ||
+              action.action_type === 'offsite_conversion.fb_pixel_initiate_checkout' ||
+              action.action_type === 'omni_initiated_checkout' ||
+              action.action_type === 'onsite_web_initiate_checkout') {
+            metrics.sales_initiate_checkout += parseInt(action.value || '0');
+          }
         }
 
-        // Add to Cart - ONLY omni_add_to_cart
-        const cartAction = actions.find((a: any) => a.action_type === 'omni_add_to_cart');
-        if (cartAction) {
-          metrics.sales_add_to_cart = parseInt(cartAction.value || '0');
+        // Add to Cart - check multiple action types
+        for (const action of actions) {
+          if (action.action_type === 'omni_add_to_cart' ||
+              action.action_type === 'add_to_cart' ||
+              action.action_type === 'offsite_conversion.fb_pixel_add_to_cart' ||
+              action.action_type === 'onsite_web_add_to_cart' ||
+              action.action_type === 'onsite_web_app_add_to_cart') {
+            metrics.sales_add_to_cart += parseInt(action.value || '0');
+          }
         }
 
         // Sales = Sum of all 3 sales metrics
