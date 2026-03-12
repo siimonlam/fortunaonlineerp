@@ -1043,6 +1043,24 @@ export function ProjectBoard() {
     loadMyTasks();
   }
 
+  async function toggleTaskUrgent(taskId: string, currentUrgent: boolean, isMarketingTask: boolean) {
+    const tableName = isMarketingTask ? 'marketing_tasks' : 'tasks';
+    const newUrgent = !currentUrgent;
+
+    const { error } = await supabase
+      .from(tableName)
+      .update({ is_urgent: newUrgent })
+      .eq('id', taskId);
+
+    if (error) {
+      console.error('Error updating task urgency:', error);
+      alert('Failed to update task urgency');
+      return;
+    }
+
+    loadMyTasks();
+  }
+
   async function loadPartnerProjects() {
     setLoadingPartnerProjects(true);
     try {
@@ -5298,16 +5316,33 @@ export function ProjectBoard() {
                             : 'border-slate-200 bg-white'
                         }`}
                       >
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={task.completed || false}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              toggleTaskCompletion(task.id, task.completed, task.task_type === 'marketing');
-                            }}
-                            className="mt-1 w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
-                          />
+                        <div className="flex items-start gap-4">
+                          <div className="flex flex-col gap-2 pt-1">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={task.is_urgent || false}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleTaskUrgent(task.id, task.is_urgent, task.task_type === 'marketing');
+                                }}
+                                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer flex-shrink-0"
+                              />
+                              <span className="text-xs font-medium text-red-600">Urgent</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={task.completed || false}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleTaskCompletion(task.id, task.completed, task.task_type === 'marketing');
+                                }}
+                                className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
+                              />
+                              <span className="text-xs font-medium text-green-600">Done</span>
+                            </label>
+                          </div>
                           <div
                             onClick={async () => {
                               setShowMyTasks(false);
@@ -5438,16 +5473,33 @@ export function ProjectBoard() {
                             : 'border-slate-200 bg-white'
                         }`}
                       >
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={task.completed || false}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              toggleTaskCompletion(task.id, task.completed, task.task_type === 'marketing');
-                            }}
-                            className="mt-1 w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
-                          />
+                        <div className="flex items-start gap-4">
+                          <div className="flex flex-col gap-2 pt-1">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={task.is_urgent || false}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleTaskUrgent(task.id, task.is_urgent, task.task_type === 'marketing');
+                                }}
+                                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer flex-shrink-0"
+                              />
+                              <span className="text-xs font-medium text-red-600">Urgent</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={task.completed || false}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleTaskCompletion(task.id, task.completed, task.task_type === 'marketing');
+                                }}
+                                className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
+                              />
+                              <span className="text-xs font-medium text-green-600">Done</span>
+                            </label>
+                          </div>
                           <div
                             onClick={async () => {
                               setShowMyTasks(false);
