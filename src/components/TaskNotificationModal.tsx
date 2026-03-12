@@ -427,7 +427,7 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
           <>
             <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
               <p className="text-sm text-slate-700">
-                <span className="font-semibold">Quick Actions:</span> Use the <span className="font-semibold">first checkbox</span> to mark tasks as <span className="text-red-600 font-semibold">urgent</span> (sorts them higher). Use the <span className="font-semibold">second checkbox</span> to <span className="text-green-600 font-semibold">complete</span> tasks.
+                <span className="font-semibold">Quick Actions:</span> Check <span className="text-red-600 font-semibold">Urgent</span> to prioritize tasks (sorts them higher). Check <span className="text-green-600 font-semibold">Done</span> to complete tasks.
               </p>
             </div>
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
@@ -489,21 +489,27 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                           key={task.id}
                           className="bg-white rounded-lg p-3 border border-red-200 shadow-sm"
                         >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={task.is_urgent}
-                              onChange={() => toggleUrgent(task.id, task.is_urgent, !!task.marketing_project_id)}
-                              className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer flex-shrink-0"
-                              title="Mark as urgent"
-                            />
-                            <input
-                              type="checkbox"
-                              checked={false}
-                              onChange={() => completeTask(task.id, !!task.marketing_project_id)}
-                              className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
-                              title="Complete task"
-                            />
+                          <div className="flex items-start gap-4">
+                            <div className="flex flex-col gap-2 pt-1">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={task.is_urgent}
+                                  onChange={() => toggleUrgent(task.id, task.is_urgent, !!task.marketing_project_id)}
+                                  className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer flex-shrink-0"
+                                />
+                                <span className="text-xs font-medium text-red-600">Urgent</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={false}
+                                  onChange={() => completeTask(task.id, !!task.marketing_project_id)}
+                                  className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
+                                />
+                                <span className="text-xs font-medium text-green-600">Done</span>
+                              </label>
+                            </div>
                             <div className="flex items-center gap-2 flex-1">
                               <h4 className="font-semibold text-slate-800">{task.title}</h4>
                               {task.is_urgent && (
@@ -562,21 +568,27 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                         key={task.id}
                         className="bg-white rounded-lg p-3 border border-amber-200 shadow-sm"
                       >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={task.is_urgent}
-                            onChange={() => toggleUrgent(task.id, task.is_urgent, !!task.marketing_project_id)}
-                            className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer flex-shrink-0"
-                            title="Mark as urgent"
-                          />
-                          <input
-                            type="checkbox"
-                            checked={false}
-                            onChange={() => completeTask(task.id, !!task.marketing_project_id)}
-                            className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
-                            title="Complete task"
-                          />
+                        <div className="flex items-start gap-4">
+                          <div className="flex flex-col gap-2 pt-1">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={task.is_urgent}
+                                onChange={() => toggleUrgent(task.id, task.is_urgent, !!task.marketing_project_id)}
+                                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer flex-shrink-0"
+                              />
+                              <span className="text-xs font-medium text-red-600">Urgent</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={false}
+                                onChange={() => completeTask(task.id, !!task.marketing_project_id)}
+                                className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
+                              />
+                              <span className="text-xs font-medium text-green-600">Done</span>
+                            </label>
+                          </div>
                           <div className="flex items-center gap-2 flex-1">
                             <h4 className="font-semibold text-slate-800">{task.title}</h4>
                             {task.is_urgent && (
@@ -630,21 +642,27 @@ export function TaskNotificationModal({ onClose }: TaskNotificationModalProps) {
                           key={task.id}
                           className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm"
                         >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={task.is_urgent}
-                              onChange={() => toggleUrgent(task.id, task.is_urgent, !!task.marketing_project_id)}
-                              className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer flex-shrink-0"
-                              title="Mark as urgent"
-                            />
-                            <input
-                              type="checkbox"
-                              checked={false}
-                              onChange={() => completeTask(task.id, !!task.marketing_project_id)}
-                              className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
-                              title="Complete task"
-                            />
+                          <div className="flex items-start gap-4">
+                            <div className="flex flex-col gap-2 pt-1">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={task.is_urgent}
+                                  onChange={() => toggleUrgent(task.id, task.is_urgent, !!task.marketing_project_id)}
+                                  className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer flex-shrink-0"
+                                />
+                                <span className="text-xs font-medium text-red-600">Urgent</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={false}
+                                  onChange={() => completeTask(task.id, !!task.marketing_project_id)}
+                                  className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer flex-shrink-0"
+                                />
+                                <span className="text-xs font-medium text-green-600">Done</span>
+                              </label>
+                            </div>
                             <div className="flex items-center gap-2 flex-1">
                               <h4 className="font-semibold text-slate-800">{task.title}</h4>
                               {task.is_urgent && (
