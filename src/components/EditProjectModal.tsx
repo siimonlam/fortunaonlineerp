@@ -11,6 +11,7 @@ import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import { EmailSchedulerTab } from './EmailSchedulerTab';
+import { FundingInvoiceSettingsPanel } from './FundingInvoiceSettingsPanel';
 import html2pdf from 'html2pdf.js';
 import { createBudProjectFolders, createMarketingProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
 import { toLocalDateTimeString, fromLocalDateTimeString } from '../utils/dateTimeUtils';
@@ -136,7 +137,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
   const [clientData, setClientData] = useState<any>(null);
   const [projectType, setProjectType] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files' | 'emails'>('project');
+  const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files' | 'emails' | 'invoice-settings'>('project');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [receipts, setReceipts] = useState<any[]>([]);
   const [depositStatus, setDepositStatus] = useState<'paid' | 'unpaid'>('unpaid');
@@ -1687,6 +1688,18 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               }`}
             >
               Files
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('invoice-settings')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${
+                activeTab === 'invoice-settings'
+                  ? 'bg-slate-700 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Settings
             </button>
           </div>
         )}
@@ -3354,6 +3367,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               googleDriveFolderId={formData.googleDriveFolderId}
             />
           </div>
+        ) : activeTab === 'invoice-settings' ? (
+          <FundingInvoiceSettingsPanel />
         ) : (
           <div className="p-6 space-y-6">
             <div className="space-y-4">
