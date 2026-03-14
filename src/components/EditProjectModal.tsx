@@ -1491,8 +1491,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
   return (
     <>
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+      <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[96vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-white shrink-0">
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
@@ -1644,7 +1644,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         <div className="flex-1 flex overflow-hidden min-h-0">
         <div className="flex-1 overflow-y-auto">
         {projectType?.name === 'Funding Project' && (
-          <div className="flex gap-2 px-6 pt-4 border-b border-slate-200">
+          <div className="flex gap-2 px-4 sm:px-6 pt-4 border-b border-slate-200 overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab('project')}
@@ -1694,7 +1694,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         )}
 
         {projectType?.name === 'Marketing' && (
-          <div className="flex gap-2 px-6 pt-4 border-b border-slate-200">
+          <div className="flex gap-2 px-4 sm:px-6 pt-4 border-b border-slate-200 overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab('project')}

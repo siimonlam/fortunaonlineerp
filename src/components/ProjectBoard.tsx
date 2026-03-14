@@ -182,6 +182,7 @@ export function ProjectBoard() {
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [expandedStatuses, setExpandedStatuses] = useState<Set<string>>(new Set());
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedView, setSelectedView] = useState<'projects' | 'clients' | 'admin' | 'comsec'>('projects');
   const [clientViewMode, setClientViewMode] = useState<'card' | 'table'>('card');
   const [projectViewMode, setProjectViewMode] = useState<'grid' | 'list' | 'substatus'>('grid');
@@ -2332,31 +2333,38 @@ export function ProjectBoard() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-6">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div className="px-4 md:px-8">
+          <div className="flex justify-between items-center h-14 md:h-16">
+            <div className="flex items-center gap-3 md:gap-6">
+              <button
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-600"
+                title="Open menu"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
               <button
                 onClick={() => setSelectedView('projects')}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
                 title="Go to Home"
               >
                 <div className="flex flex-col items-start">
-                  <h1 className="text-xl font-bold text-slate-900">Project Manager</h1>
+                  <h1 className="text-lg md:text-xl font-bold text-slate-900">Project Manager</h1>
                   <span className="text-xs text-slate-500">{APP_VERSION}</span>
                 </div>
               </button>
-              <div className="flex items-center gap-4 pl-6 border-l border-slate-200">
+              <div className="hidden md:flex items-center gap-4 pl-6 border-l border-slate-200">
                 <img src="/logo_HKFUND.png" alt="HK Fund Logo" className="h-8 object-contain" />
                 <img src="/logo-orange-slogan.jpg" alt="Orange Slogan Logo" className="h-8 object-contain" />
                 <img src="/GW's_logo.jpeg" alt="GW Logo" className="h-8 object-contain" />
                 <img src="/Amazing_Channel_official_LOGO.ps.png" alt="Amazing Channel Logo" className="h-8 object-contain" />
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-slate-600">
+            <div className="flex items-center gap-2 md:gap-4">
+              <div className="hidden sm:flex items-center gap-2 text-sm text-slate-600">
                 <User className="w-4 h-4" />
-                {user?.email}
+                <span className="max-w-[160px] truncate">{user?.email}</span>
               </div>
               <button
                 onClick={signOut}
@@ -2369,8 +2377,8 @@ export function ProjectBoard() {
           </div>
         </div>
 
-        <div className="px-8 py-3 bg-slate-50 border-t border-slate-200">
-          <div className="flex gap-2">
+        <div className="px-4 md:px-8 py-2 md:py-3 bg-slate-50 border-t border-slate-200 overflow-x-auto">
+          <div className="flex gap-2 min-w-max">
             {projectTypes
               .filter((type) => type.name !== 'Com Sec')
               .filter((type) => isAdmin || projectTypePermissions.includes(type.id))
@@ -2479,11 +2487,32 @@ export function ProjectBoard() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
+        {isMobileSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/40 z-40 md:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
         {isComSecSection ? (
-          <aside className={`bg-white border-r border-slate-200 overflow-y-auto transition-all duration-300 relative ${isSidebarCollapsed ? 'w-12' : 'w-64'}`}>
+          <aside className={`
+            bg-white border-r border-slate-200 overflow-y-auto transition-all duration-300 relative
+            md:${isSidebarCollapsed ? 'w-12' : 'w-64'}
+            ${isMobileSidebarOpen ? 'fixed inset-y-0 left-0 w-72 z-50 shadow-xl' : 'hidden md:block'}
+            ${!isMobileSidebarOpen && !isSidebarCollapsed ? 'md:w-64' : ''}
+            ${!isMobileSidebarOpen && isSidebarCollapsed ? 'md:w-12' : ''}
+          `}>
+            <div className="flex items-center justify-between p-3 md:hidden border-b border-slate-200">
+              <span className="font-semibold text-slate-700 text-sm">Menu</span>
+              <button
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="absolute top-4 right-2 z-10 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              className="hidden md:block absolute top-4 right-2 z-10 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
               title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {isSidebarCollapsed ? (
@@ -2494,7 +2523,7 @@ export function ProjectBoard() {
             </button>
             <div className={`p-4 ${isSidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'} transition-opacity duration-200`}>
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Modules</h2>
-              <nav className="space-y-2">
+              <nav className="space-y-2" onClick={() => setIsMobileSidebarOpen(false)}>
                 <button
                   onClick={() => setComSecModule('dashboard')}
                   className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
@@ -2602,10 +2631,24 @@ export function ProjectBoard() {
             </div>
           </aside>
         ) : !isClientSection && !isAdminSection && (
-          <aside className={`bg-white border-r border-slate-200 overflow-y-auto transition-all duration-300 relative ${isSidebarCollapsed ? 'w-12' : 'w-64'}`}>
+          <aside className={`
+            bg-white border-r border-slate-200 overflow-y-auto transition-all duration-300 relative
+            ${isMobileSidebarOpen ? 'fixed inset-y-0 left-0 w-72 z-50 shadow-xl' : 'hidden md:block'}
+            ${!isMobileSidebarOpen && !isSidebarCollapsed ? 'md:w-64' : ''}
+            ${!isMobileSidebarOpen && isSidebarCollapsed ? 'md:w-12' : ''}
+          `}>
+            <div className="flex items-center justify-between p-3 md:hidden border-b border-slate-200">
+              <span className="font-semibold text-slate-700 text-sm">Menu</span>
+              <button
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="absolute top-4 right-2 z-10 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              className="hidden md:block absolute top-4 right-2 z-10 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
               title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {isSidebarCollapsed ? (
@@ -2614,9 +2657,9 @@ export function ProjectBoard() {
                 <ChevronLeft className="w-5 h-5 text-slate-600" />
               )}
             </button>
-            <div className={`p-4 ${isSidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'} transition-opacity duration-200`}>
+            <div className={`p-4 ${isSidebarCollapsed ? 'opacity-0 pointer-events-none md:opacity-0' : 'opacity-100'} transition-opacity duration-200`}>
               <h2 className="text-sm font-semibold text-slate-500 uppercase mb-3">Status</h2>
-              <nav className="space-y-2">
+              <nav className="space-y-2" onClick={() => setIsMobileSidebarOpen(false)}>
                 {filteredStatuses.filter(s => !s.is_substatus).map((status) => (
                   <div key={status.id}>
                     {status.substatus && status.substatus.length > 0 ? (
@@ -2930,8 +2973,8 @@ export function ProjectBoard() {
         )}
 
         <main className="flex-1 overflow-y-auto bg-slate-50">
-          <div className="p-8">
-            <div className="flex justify-between items-center mb-6">
+          <div className="p-4 md:p-8">
+            <div className="flex flex-wrap justify-between items-start gap-3 mb-6">
               <div className="flex-1">
                 {!selectedMarketingProject && !isAdminSection && !isComSecSection && !isFundingProjectType && (
                   <>
@@ -3017,15 +3060,15 @@ export function ProjectBoard() {
               </div>
 
               {!selectedMarketingProject && !isClientSection && !isAdminSection && !isComSecSection && ((isFundingProjectType && fundingProjectTab === 'projects') || (isMarketingProjectType && marketingProjectTab === 'projects')) && (
-                <div className="flex items-center gap-3">
-                  <div className="relative">
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <div className="relative flex-1 min-w-[140px]">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Search projects..."
                       value={projectSearchQuery}
                       onChange={(e) => setProjectSearchQuery(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                      className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
                     />
                   </div>
                   <button
@@ -3089,7 +3132,7 @@ export function ProjectBoard() {
                       )}
                     </button>
                     {showFilters && (
-                      <div className="absolute right-0 top-full mt-2 bg-white border border-slate-200 rounded-lg shadow-xl z-50 w-96 p-4">
+                      <div className="absolute right-0 top-full mt-2 bg-white border border-slate-200 rounded-lg shadow-xl z-50 w-screen max-w-sm sm:max-w-md md:w-96 p-4">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="font-semibold text-slate-900">Filters</h3>
                           <button
@@ -3346,8 +3389,8 @@ export function ProjectBoard() {
                 </div>
               )}
               {isClientSection && (
-                <div className="flex items-center justify-between w-full gap-3">
-                  <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => {
                         setActiveClientTab('company');
@@ -3389,15 +3432,15 @@ export function ProjectBoard() {
                   </div>
 
                   {activeClientTab !== 'inquiries' && (
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
+                    <div className="flex flex-wrap items-center gap-2 w-full">
+                      <div className="relative flex-1 min-w-[140px]">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                           type="text"
                           placeholder={activeClientTab === 'company' ? 'Search clients...' : 'Search partners...'}
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                          className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
                         />
                       </div>
                       <select
