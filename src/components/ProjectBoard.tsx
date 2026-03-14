@@ -16,6 +16,7 @@ import { ComSecPage } from './ComSecPage';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
 import { EditPartnerProjectModal } from './EditPartnerProjectModal';
 import { FundingDashboard } from './FundingDashboard';
+import { FundingInvoiceSettingsPanel } from './FundingInvoiceSettingsPanel';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
@@ -193,7 +194,7 @@ export function ProjectBoard() {
   const [selectedMarketingProject, setSelectedMarketingProject] = useState<string | null>(null);
   const selectedMarketingProjectRef = useRef<string | null>(null);
   const [marketingProjects, setMarketingProjects] = useState<any[]>([]);
-  const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings' | 'resources' | 'emails'>('projects');
+  const [fundingProjectTab, setFundingProjectTab] = useState<'dashboard' | 'projects' | 'invoices' | 'meetings' | 'resources' | 'emails' | 'settings'>('projects');
   const [marketingProjectTab, setMarketingProjectTab] = useState<'projects' | 'resources'>('projects');
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [fundingInvoices, setFundingInvoices] = useState<FundingInvoice[]>([]);
@@ -2949,6 +2950,19 @@ export function ProjectBoard() {
                       Share Resources
                     </span>
                   </button>
+                  <button
+                    onClick={() => setFundingProjectTab('settings')}
+                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-150 ${
+                      fundingProjectTab === 'settings'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      Settings
+                    </span>
+                  </button>
                 </div>
               )}
               {isMarketingProjectType && (
@@ -3045,6 +3059,7 @@ export function ProjectBoard() {
                     {fundingProjectTab === 'emails' && 'Scheduled Emails'}
                     {fundingProjectTab === 'meetings' && 'Meetings'}
                     {fundingProjectTab === 'resources' && 'Share Resources'}
+                    {fundingProjectTab === 'settings' && 'Settings'}
                   </h2>
                 )}
                 {!selectedMarketingProject && !isAdminSection && !isComSecSection && !isClientSection && isMarketingProjectType && marketingProjectTab !== 'projects' && (
@@ -4229,6 +4244,8 @@ export function ProjectBoard() {
               />
             ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'resources' ? (
               <ShareResourcesPage />
+            ) : !isClientSection && isFundingProjectType && fundingProjectTab === 'settings' ? (
+              <FundingInvoiceSettingsPanel />
             ) : !isClientSection && isMarketingProjectType && marketingProjectTab === 'resources' ? (
               <MarketingShareResourcesSection
                 marketingProjectId={null}
