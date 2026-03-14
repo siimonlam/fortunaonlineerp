@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, Eye, CreditCard as Edit, DollarSign, Instagram, Facebook, BarChart3, Mail, MessageCircle, FileText } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, Eye, CreditCard as Edit, DollarSign, Instagram, Facebook, BarChart3, Mail, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
@@ -12,9 +12,8 @@ import InstagramAccountsPage from './InstagramAccountsPage';
 import FacebookAccountsPage from './FacebookAccountsPage';
 import MetaAdsSettingsPage from './MetaAdsSettingsPage';
 import { MarketingProjectPermissions } from './MarketingProjectPermissions';
-import { FundingInvoiceSettingsPanel } from './FundingInvoiceSettingsPanel';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'marketing-projects' | 'finance-auth' | 'labels' | 'automation' | 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'meta-ads' | 'funding-invoice';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'marketing-projects' | 'finance-auth' | 'labels' | 'automation' | 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'meta-ads';
 
 interface User {
   id: string;
@@ -193,7 +192,6 @@ export function AdminPage() {
     { id: 'instagram', label: 'Instagram', icon: Instagram },
     { id: 'facebook', label: 'Facebook', icon: Facebook },
     { id: 'meta-ads', label: 'Meta Ads', icon: BarChart3 },
-    { id: 'funding-invoice', label: 'Funding Invoice', icon: FileText },
   ];
 
   return (
@@ -480,15 +478,6 @@ export function AdminPage() {
             </div>
           )}
 
-          {currentView === 'funding-invoice' && (
-            <div>
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Funding Invoice</h2>
-                <p className="text-slate-600">Configure the Google Doc template used when generating funding invoices</p>
-              </div>
-              <FundingInvoiceSettingsPanel />
-            </div>
-          )}
         </div>
       </div>
     </div>

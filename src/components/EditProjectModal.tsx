@@ -137,7 +137,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
   const [clientData, setClientData] = useState<any>(null);
   const [projectType, setProjectType] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files' | 'emails' | 'invoice-settings'>('project');
+  const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files' | 'emails'>('project');
+  const [invoiceSubTab, setInvoiceSubTab] = useState<'list' | 'settings'>('list');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [receipts, setReceipts] = useState<any[]>([]);
   const [depositStatus, setDepositStatus] = useState<'paid' | 'unpaid'>('unpaid');
@@ -1689,18 +1690,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             >
               Files
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('invoice-settings')}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${
-                activeTab === 'invoice-settings'
-                  ? 'bg-slate-700 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Settings className="w-3.5 h-3.5" />
-              Settings
-            </button>
           </div>
         )}
 
@@ -3071,6 +3060,35 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         </form>
         ) : activeTab === 'invoices' ? (
           <div className="p-6 space-y-6">
+            <div className="flex gap-1 border-b border-slate-200 mb-4">
+              <button
+                type="button"
+                onClick={() => setInvoiceSubTab('list')}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  invoiceSubTab === 'list'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Invoices
+              </button>
+              <button
+                type="button"
+                onClick={() => setInvoiceSubTab('settings')}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 ${
+                  invoiceSubTab === 'settings'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Settings
+              </button>
+            </div>
+
+            {invoiceSubTab === 'settings' ? (
+              <FundingInvoiceSettingsPanel />
+            ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2 flex-1">
@@ -3357,6 +3375,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 )}
               </div>
             </div>
+            )}
           </div>
         ) : activeTab === 'emails' ? (
           <div className="p-6">
@@ -3367,8 +3386,6 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               googleDriveFolderId={formData.googleDriveFolderId}
             />
           </div>
-        ) : activeTab === 'invoice-settings' ? (
-          <FundingInvoiceSettingsPanel />
         ) : (
           <div className="p-6 space-y-6">
             <div className="space-y-4">
