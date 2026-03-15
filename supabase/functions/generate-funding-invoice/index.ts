@@ -130,14 +130,27 @@ Deno.serve(async (req: Request) => {
 
     if (!templateDocId) {
       return new Response(
-        JSON.stringify({ error: 'Funding invoice template not configured. Please set funding_invoice_template_doc_id in Admin > System Settings.' }),
+        JSON.stringify({ error: 'Funding invoice template not configured. Please set funding_invoice_template_doc_id in Funding Project > Settings.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const { data: folderSettings } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'funding_invoice_folder_id')
+      .maybeSingle();
+
     const accessToken = await getServiceAccountToken();
 
-    const targetFolderId = invoiceFolderId || '14Mt7aRwzdh7W-lvhnQgy3WtwLM0uk77K';
+    const copyBody: Record<string, any> = {
+      name: `${invoiceNumber} - ${companyName}`,
+    };
+
+    const targetFolderId = invoiceFolderId || folderSettings?.value;
+    if (targetFolderId) {
+      copyBody.parents = [targetFolderId];
+    }
 
     const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`, {
       method: 'POST',
@@ -145,10 +158,7 @@ Deno.serve(async (req: Request) => {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name: `${invoiceNumber} - ${companyName}`,
-        parents: [targetFolderId],
-      }),
+      body: JSON.stringify(copyBody),
     });
 
     if (!copyResponse.ok) {

@@ -94,6 +94,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     const {
       invoiceData,
       documentId,
@@ -128,13 +132,22 @@ Deno.serve(async (req: Request) => {
       invoiceDate.getDate().toString().padStart(2, '0');
     const fileName = `${datePrefix}_${invoiceNumber}_${companyName || 'Invoice'}.pdf`;
 
-    const uploadFolderId = '14Mt7aRwzdh7W-lvhnQgy3WtwLM0uk77K';
+    const { data: folderSettings } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'funding_invoice_folder_id')
+      .maybeSingle();
 
-    const metadata = {
+    const uploadFolderId = folderSettings?.value;
+
+    const metadata: Record<string, any> = {
       name: fileName,
-      parents: [uploadFolderId],
       mimeType: 'application/pdf',
     };
+
+    if (uploadFolderId) {
+      metadata.parents = [uploadFolderId];
+    }
 
     const formData = new FormData();
     formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -156,10 +169,6 @@ Deno.serve(async (req: Request) => {
 
     const uploadResult = await uploadResponse.json();
     const driveFileUrl = `https://drive.google.com/file/d/${uploadResult.id}/view`;
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: insertedInvoice, error: dbError } = await supabase
       .from('funding_invoice')

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, FileText, ExternalLink, CheckCircle, Loader, AlertCircle } from 'lucide-react';
+import { X, FileText, ExternalLink, CheckCircle, Loader, AlertCircle, ChevronLeft } from 'lucide-react';
 
 interface CreateInvoiceModalProps {
   project: any;
@@ -160,14 +160,15 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
 
   if (step === 'preview' || step === 'saving') {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
-          <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style={{ height: '92vh' }}>
+
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 shrink-0">
             <div className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-blue-600" />
+              <FileText className="w-5 h-5 text-blue-600 shrink-0" />
               <div>
-                <h2 className="text-lg font-semibold text-slate-800">Invoice Preview</h2>
-                <p className="text-xs text-slate-500">Review and edit in Google Docs, then finalize to save as PDF</p>
+                <h2 className="text-base font-semibold text-slate-800">Invoice Preview</h2>
+                <p className="text-xs text-slate-500 hidden sm:block">Review in Google Docs, then finalize to save as PDF</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -175,56 +176,91 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 href={googleDocUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
               >
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink className="w-3.5 h-3.5" />
                 Open in Google Docs
               </a>
               <button
                 onClick={() => setStep('form')}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                 disabled={loading}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+                title="Back to form"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden">
+          <div className="shrink-0 px-5 py-3 bg-slate-50 border-b border-slate-200">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <p className="text-xs text-slate-500">Invoice #</p>
+                <p className="text-sm font-semibold text-slate-800">{formData.invoiceNumber}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Company</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">{project.company_name || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Amount</p>
+                <p className="text-sm font-semibold text-slate-800">
+                  HK${parseFloat(formData.amount || '0').toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Payment Type</p>
+                <p className="text-sm font-semibold text-slate-800">{formData.paymentType}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-hidden relative">
+            {step === 'saving' && (
+              <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader className="w-8 h-8 animate-spin text-blue-600" />
+                  <p className="text-sm font-medium text-slate-700">Generating PDF and saving invoice...</p>
+                </div>
+              </div>
+            )}
             <iframe
-              src={googleDocUrl.replace('/edit', '/edit?embedded=true&rm=minimal')}
+              src={googleDocUrl.replace('/edit', '/preview')}
               className="w-full h-full border-0"
               title="Invoice Preview"
             />
           </div>
 
           {error && (
-            <div className="px-6 py-2 bg-red-50 border-t border-red-200 flex items-center gap-2 text-red-700 text-sm">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <div className="px-5 py-2 bg-red-50 border-t border-red-200 flex items-center gap-2 text-red-700 text-sm shrink-0">
+              <AlertCircle className="w-4 h-4 shrink-0" />
               {error}
             </div>
           )}
 
-          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
-            <div className="text-sm text-slate-500">
-              <span className="font-medium text-slate-700">{formData.invoiceNumber}</span>
-              {' · '}
-              {project.company_name}
-              {' · '}
-              HK${parseFloat(formData.amount || '0').toLocaleString()}
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setStep('form')}
-                disabled={loading}
-                className="px-4 py-2 text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+          <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex justify-between items-center shrink-0 gap-3">
+            <button
+              onClick={() => setStep('form')}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
+            <div className="flex items-center gap-2">
+              <a
+                href={googleDocUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="sm:hidden flex items-center gap-1.5 px-3 py-2 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
               >
-                Back
-              </button>
+                <ExternalLink className="w-3.5 h-3.5" />
+                Edit
+              </a>
               <button
                 onClick={handleFinalize}
                 disabled={loading}
-                className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -234,7 +270,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4" />
-                    Finalize & Save
+                    Finalize & Save PDF
                   </>
                 )}
               </button>
@@ -246,25 +282,25 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[94vh] overflow-hidden flex flex-col">
+        <div className="flex justify-between items-center px-5 py-4 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-3">
             <FileText className="w-5 h-5 text-blue-600" />
-            <h2 className="text-xl font-semibold text-slate-800">Create Invoice</h2>
+            <h2 className="text-lg font-semibold text-slate-800">Create Invoice</h2>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-5 py-5">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
             <p className="text-sm text-blue-800">
               <strong>Project:</strong> {project.company_name || 'N/A'}
-              {project.project_reference || project.project_reference_number ? (
+              {(project.project_reference || project.project_reference_number) && (
                 <span className="ml-3"><strong>Ref:</strong> {project.project_reference || project.project_reference_number}</span>
-              ) : null}
+              )}
             </p>
           </div>
 
@@ -277,7 +313,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                   required
                   value={formData.invoiceNumber}
                   onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="INV-001"
                 />
               </div>
@@ -289,7 +325,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                   required
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="0.00"
                 />
               </div>
@@ -302,7 +338,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                   type="date"
                   value={formData.issueDate}
                   onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
               <div>
@@ -311,7 +347,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                   type="date"
                   value={formData.dueDate}
                   onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
             </div>
@@ -322,7 +358,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 <select
                   value={formData.paymentStatus}
                   onChange={(e) => setFormData({ ...formData, paymentStatus: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   <option value="Unpaid">Unpaid</option>
                   <option value="Void">Void</option>
@@ -335,7 +371,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 <select
                   value={formData.paymentType}
                   onChange={(e) => setFormData({ ...formData, paymentType: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   <option value="Deposit">Deposit</option>
                   <option value="2nd Payment">2nd Payment</option>
@@ -353,7 +389,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                   type="text"
                   value={formData.issuedCompany}
                   onChange={(e) => setFormData({ ...formData, issuedCompany: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="Amazing Channel (HK) Limited"
                 />
               </div>
@@ -362,7 +398,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   <option value="">Select Category</option>
                   <option value="Marketing">Marketing</option>
@@ -382,7 +418,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 type="text"
                 value={formData.paymentMethod}
                 onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Bank Transfer, Cheque, etc."
               />
             </div>
@@ -392,7 +428,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
               <textarea
                 value={formData.remark}
                 onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm"
                 placeholder="Add any additional notes or remarks..."
                 rows={3}
               />
@@ -407,37 +443,33 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 <span><code className="bg-slate-100 px-1 rounded">{'{{AMOUNT}}'}</code> Amount</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{PAYMENT_TYPE}}'}</code> Payment Type</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{COMPANY_NAME}}'}</code> Company Name</span>
-                <span><code className="bg-slate-100 px-1 rounded">{'{{COMPANY_NAME_CHINESE}}'}</code> Chinese Name</span>
-                <span><code className="bg-slate-100 px-1 rounded">{'{{CONTACT_NAME}}'}</code> Contact Name</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{PROJECT_REFERENCE}}'}</code> Project Ref</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{APPLICATION_NUMBER}}'}</code> App Number</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{FUNDING_SCHEME}}'}</code> Funding Scheme</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{ISSUED_COMPANY}}'}</code> Issued Company</span>
-                <span><code className="bg-slate-100 px-1 rounded">{'{{CATEGORY}}'}</code> Category</span>
-                <span><code className="bg-slate-100 px-1 rounded">{'{{REMARK}}'}</code> Remark</span>
               </div>
             </div>
           </div>
         </div>
 
         {error && (
-          <div className="px-6 py-2 bg-red-50 border-t border-red-200 flex items-center gap-2 text-red-700 text-sm">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <div className="px-5 py-2 bg-red-50 border-t border-red-200 flex items-center gap-2 text-red-700 text-sm shrink-0">
+            <AlertCircle className="w-4 h-4 shrink-0" />
             {error}
           </div>
         )}
 
-        <div className="border-t border-slate-200 px-6 py-4 bg-slate-50 flex justify-end gap-3">
+        <div className="border-t border-slate-200 px-5 py-4 bg-slate-50 flex justify-end gap-3 shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            className="px-4 py-2 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleGenerate}
             disabled={loading || !formData.invoiceNumber || !formData.amount}
-            className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>

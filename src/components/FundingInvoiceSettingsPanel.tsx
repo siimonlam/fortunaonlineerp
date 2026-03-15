@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Settings, Save, ExternalLink, CheckCircle, AlertCircle, FileText, Info } from 'lucide-react';
+import { Settings, Save, ExternalLink, CheckCircle, AlertCircle, FileText, Info, Folder } from 'lucide-react';
 
 export function FundingInvoiceSettingsPanel() {
   const [templateDocId, setTemplateDocId] = useState('');
   const [templateDocUrl, setTemplateDocUrl] = useState('');
+  const [folderId, setFolderId] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState('');
@@ -14,15 +15,17 @@ export function FundingInvoiceSettingsPanel() {
   }, []);
 
   async function loadSettings() {
-    const { data } = await supabase
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'funding_invoice_template_doc_id')
-      .maybeSingle();
+    const [templateRes, folderRes] = await Promise.all([
+      supabase.from('system_settings').select('value').eq('key', 'funding_invoice_template_doc_id').maybeSingle(),
+      supabase.from('system_settings').select('value').eq('key', 'funding_invoice_folder_id').maybeSingle(),
+    ]);
 
-    if (data?.value) {
-      setTemplateDocId(data.value);
-      setTemplateDocUrl(`https://docs.google.com/document/d/${data.value}/edit`);
+    if (templateRes.data?.value) {
+      setTemplateDocId(templateRes.data.value);
+      setTemplateDocUrl(`https://docs.google.com/document/d/${templateRes.data.value}/edit`);
+    }
+    if (folderRes.data?.value) {
+      setFolderId(folderRes.data.value);
     }
   }
 
@@ -32,14 +35,23 @@ export function FundingInvoiceSettingsPanel() {
     return input.trim();
   }
 
-  function handleInputChange(value: string) {
+  function parseFolderId(input: string): string {
+    const urlMatch = input.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+    if (urlMatch) return urlMatch[1];
+    const idMatch = input.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch) return idMatch[1];
+    return input.trim();
+  }
+
+  function handleTemplateChange(value: string) {
     const docId = parseDocId(value);
     setTemplateDocId(docId);
-    if (docId) {
-      setTemplateDocUrl(`https://docs.google.com/document/d/${docId}/edit`);
-    } else {
-      setTemplateDocUrl('');
-    }
+    setTemplateDocUrl(docId ? `https://docs.google.com/document/d/${docId}/edit` : '');
+    setSaveStatus('idle');
+  }
+
+  function handleFolderChange(value: string) {
+    setFolderId(parseFolderId(value));
     setSaveStatus('idle');
   }
 
@@ -49,15 +61,17 @@ export function FundingInvoiceSettingsPanel() {
     setSaveMessage('');
 
     try {
-      const { error } = await supabase
-        .from('system_settings')
-        .update({ value: templateDocId })
-        .eq('key', 'funding_invoice_template_doc_id');
+      const updates = [
+        supabase.from('system_settings').update({ value: templateDocId }).eq('key', 'funding_invoice_template_doc_id'),
+        supabase.from('system_settings').upsert({ key: 'funding_invoice_folder_id', value: folderId }, { onConflict: 'key' }),
+      ];
 
-      if (error) throw error;
+      const results = await Promise.all(updates);
+      const failed = results.find(r => r.error);
+      if (failed?.error) throw failed.error;
 
       setSaveStatus('success');
-      setSaveMessage('Template settings saved successfully');
+      setSaveMessage('Settings saved successfully');
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (err: any) {
       setSaveStatus('error');
@@ -74,7 +88,7 @@ export function FundingInvoiceSettingsPanel() {
           <Settings className="w-5 h-5 text-slate-600" />
           Invoice Settings
         </h3>
-        <p className="text-sm text-slate-500">Configure the Google Doc template used when generating funding invoices.</p>
+        <p className="text-sm text-slate-500">Configure the Google Doc template and destination folder used when generating funding invoices.</p>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
@@ -85,17 +99,17 @@ export function FundingInvoiceSettingsPanel() {
         <div className="p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Template Document ID or URL
+              Template Document ID or URL <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={templateDocId}
-              onChange={(e) => handleInputChange(e.target.value)}
+              onChange={(e) => handleTemplateChange(e.target.value)}
               placeholder="Paste Google Doc URL or document ID"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <p className="mt-1.5 text-xs text-slate-500">
-              You can paste the full Google Doc URL or just the document ID from the URL.
+              You can paste the full Google Doc URL or just the document ID.
             </p>
           </div>
 
@@ -117,40 +131,84 @@ export function FundingInvoiceSettingsPanel() {
               </a>
             </div>
           )}
+        </div>
+      </div>
 
-          <div className="flex justify-end">
-            <button
-              onClick={handleSave}
-              disabled={saving || !templateDocId}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {saving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save Settings
-                </>
-              )}
-            </button>
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+          <Folder className="w-4 h-4 text-amber-600" />
+          <span className="text-sm font-semibold text-slate-700">Google Drive Destination Folder</span>
+          <span className="text-xs text-slate-400 ml-1">(optional)</span>
+        </div>
+        <div className="p-5 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Folder ID or URL
+            </label>
+            <input
+              type="text"
+              value={folderId}
+              onChange={(e) => handleFolderChange(e.target.value)}
+              placeholder="Paste Google Drive folder URL or folder ID"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="mt-1.5 text-xs text-slate-500">
+              Generated invoice documents and finalized PDFs will be saved to this folder. Leave blank to save to the service account's root drive.
+            </p>
           </div>
+          {folderId && (
+            <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <Folder className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-amber-700 mb-0.5">Destination Folder</p>
+                <p className="text-xs text-amber-600 truncate font-mono">{folderId}</p>
+              </div>
+              <a
+                href={`https://drive.google.com/drive/folders/${folderId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-amber-600 border border-amber-300 rounded-lg text-xs font-medium hover:bg-amber-50 transition-colors flex-shrink-0"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
 
+      <div className="flex items-center justify-between">
+        <div>
           {saveStatus === 'success' && (
-            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            <div className="flex items-center gap-2 text-green-700 text-sm">
+              <CheckCircle className="w-4 h-4" />
               {saveMessage}
             </div>
           )}
           {saveStatus === 'error' && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <div className="flex items-center gap-2 text-red-700 text-sm">
+              <AlertCircle className="w-4 h-4" />
               {saveMessage}
             </div>
           )}
         </div>
+        <button
+          onClick={handleSave}
+          disabled={saving || !templateDocId}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {saving ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              Save Settings
+            </>
+          )}
+        </button>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
