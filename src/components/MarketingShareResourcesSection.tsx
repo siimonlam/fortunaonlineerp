@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, Edit, X, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle, Loader2, Check, CheckCircle, Filter, Tag } from 'lucide-react';
+import { Plus, Trash2, CreditCard as Edit, X, FileText, Image as ImageIcon, ExternalLink, File, Download, Upload as UploadIcon, Mail, Send, Clock, Search, Paperclip, Folder, MessageCircle, Loader2, Check, CheckCircle, Filter, Tag } from 'lucide-react';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 
 interface Category {
@@ -58,6 +58,7 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
     category_id: ''
   });
 
+  const [expandedResourceId, setExpandedResourceId] = useState<string | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
@@ -1021,7 +1022,7 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
             )}
           </div>
 
-          <div className="space-y-4 pr-2 flex-1 overflow-y-auto">
+          <div className="space-y-3 pr-2 flex-1 overflow-y-auto">
             {filteredResources.length === 0 ? (
               resources.length === 0 ? (
                 <div className="bg-white rounded-lg border border-slate-200 text-center py-12">
@@ -1037,27 +1038,21 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
                 </div>
               )
             ) : (
-              filteredResources.map(resource => (
-                <div key={resource.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                  <div className="p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      {resource.resource_type === 'image' && resource.image_url && (
-                        <div className="flex-shrink-0">
-                          <img
-                            src={resource.image_url}
-                            alt={resource.title}
-                            className="w-32 h-32 object-cover rounded-lg border border-slate-200"
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className={`p-2 rounded-lg flex-shrink-0 ${
+              filteredResources.map(resource => {
+                const isExpanded = expandedResourceId === resource.id;
+                return (
+                  <div key={resource.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden hover:border-slate-300 transition-colors">
+                    <div
+                      className="p-4 cursor-pointer"
+                      onClick={() => setExpandedResourceId(isExpanded ? null : resource.id)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <div className={`p-1.5 rounded-lg flex-shrink-0 mt-0.5 ${
                             resource.resource_type === 'file'
                               ? 'bg-green-100 text-green-600'
                               : resource.resource_type === 'image'
-                              ? 'bg-purple-100 text-purple-600'
+                              ? 'bg-blue-100 text-blue-600'
                               : resource.resource_type === 'link'
                               ? 'bg-blue-100 text-blue-600'
                               : resource.resource_type === 'email'
@@ -1067,71 +1062,105 @@ export function MarketingShareResourcesSection({ marketingProjectId, driveFolder
                             {resource.resource_type === 'file' ? (
                               getFileIcon(resource.file_name)
                             ) : resource.resource_type === 'image' ? (
-                              <ImageIcon className="w-5 h-5" />
+                              <ImageIcon className="w-4 h-4" />
                             ) : resource.resource_type === 'link' ? (
-                              <ExternalLink className="w-5 h-5" />
+                              <ExternalLink className="w-4 h-4" />
                             ) : resource.resource_type === 'email' ? (
-                              <Mail className="w-5 h-5" />
+                              <Mail className="w-4 h-4" />
                             ) : (
-                              <FileText className="w-5 h-5" />
+                              <FileText className="w-4 h-4" />
                             )}
                           </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="text-lg font-semibold text-slate-900 truncate">{resource.title}</h3>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                              <h3 className="text-sm font-semibold text-slate-900 truncate">{resource.title}</h3>
                               {resource.marketing_resource_categories && (
                                 <span className="flex-shrink-0 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                                   {resource.marketing_resource_categories.name}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-slate-500">
-                              <span>Shared by {resource.staff?.full_name || 'Unknown'}</span>
+                            <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                              <span>{resource.staff?.full_name || 'Unknown'}</span>
                               <span>•</span>
                               <span>{new Date(resource.created_at).toLocaleDateString()}</span>
                             </div>
+                            {!isExpanded && resource.content && (
+                              <p className="text-sm text-slate-600 line-clamp-3 whitespace-pre-wrap">{resource.content}</p>
+                            )}
+                            {!isExpanded && resource.resource_type === 'image' && resource.image_url && (
+                              <div className="mt-1">
+                                <img
+                                  src={resource.image_url}
+                                  alt={resource.title}
+                                  className="w-full h-20 object-cover rounded border border-slate-200"
+                                  loading="lazy"
+                                />
+                              </div>
+                            )}
+                            {!isExpanded && resource.resource_type === 'file' && resource.file_name && (
+                              <p className="text-xs text-slate-500 mt-1 truncate">{resource.file_name}</p>
+                            )}
+                            {!isExpanded && resource.resource_type === 'link' && resource.external_url && (
+                              <p className="text-xs text-blue-600 mt-1 truncate">{resource.external_url}</p>
+                            )}
                           </div>
                         </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEmailModal(resource); }}
+                            className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Send via Email"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openWhatsAppModal(resource); }}
+                            className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Send via WhatsApp"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditModal(resource); }}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteResource(resource.id, resource.file_path); }}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 px-4 pb-4 pt-3 bg-slate-50">
                         {resource.resource_type === 'image' ? (
-                          resource.content && (
-                            <p className="text-slate-700 mt-3 whitespace-pre-wrap">{resource.content}</p>
-                          )
+                          <div>
+                            {resource.image_url && (
+                              <img
+                                src={resource.image_url}
+                                alt={resource.title}
+                                className="w-full h-auto rounded-lg border border-slate-200 shadow-sm mb-3"
+                                loading="lazy"
+                              />
+                            )}
+                            {resource.content && (
+                              <p className="text-sm text-slate-700 whitespace-pre-wrap">{resource.content}</p>
+                            )}
+                          </div>
                         ) : (
                           renderResourceContent(resource)
                         )}
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => openEmailModal(resource)}
-                          className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Send via Email"
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openWhatsAppModal(resource)}
-                          className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Send via WhatsApp"
-                        >
-                          <MessageCircle className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(resource)}
-                          className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => deleteResource(resource.id, resource.file_path)}
-                          className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
