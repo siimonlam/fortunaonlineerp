@@ -211,8 +211,25 @@ export function FundingDashboard({ onProjectClick }: FundingDashboardProps) {
       const targetMonthsFromNow = new Date();
       targetMonthsFromNow.setMonth(targetMonthsFromNow.getMonth() + endingSoonMonths);
 
+      const QA_PARENT_STATUS_ID = '3c2603b7-70a3-4894-a161-84d64df68555';
+      const QA_SUB_STATUS_IDS = new Set([
+        '966d0574-05da-45ab-a137-c874b6729767',
+        'a81bf449-eb87-4261-9141-d5b5a8597da8',
+        '4ae1a3d6-59ff-45be-b60d-4c3e4b0893ff',
+      ]);
+      const APPROVED_STATUS_ID = '16777ed3-c765-48a3-92ab-2a47c911e9f4';
+      const CONDITIONAL_APPROVAL_STATUS_ID = 'f57a2f1d-05f7-4c54-b245-09cccefe7dfb';
+
+      const allowedStatusIds = new Set([
+        QA_PARENT_STATUS_ID,
+        ...QA_SUB_STATUS_IDS,
+        APPROVED_STATUS_ID,
+        CONDITIONAL_APPROVAL_STATUS_ID,
+      ]);
+
       const projectsEndingSoon = filteredProjects?.filter(p => {
         if (!p.project_end_date) return false;
+        if (!allowedStatusIds.has(p.status_id)) return false;
         const endDate = new Date(p.project_end_date);
         const now = new Date();
         return endDate >= now && endDate <= targetMonthsFromNow;
