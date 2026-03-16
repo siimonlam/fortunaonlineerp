@@ -141,18 +141,23 @@ Deno.serve(async (req: Request) => {
       .eq('key', 'funding_invoice_folder_id')
       .maybeSingle();
 
+    const targetFolderId = invoiceFolderId || folderSettings?.value;
+
+    if (!targetFolderId) {
+      return new Response(
+        JSON.stringify({ error: 'Invoice folder not configured. Please set a destination folder in Funding Project > Settings > Invoice Folder.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const accessToken = await getServiceAccountToken();
 
     const copyBody: Record<string, any> = {
       name: `${invoiceNumber} - ${companyName}`,
+      parents: [targetFolderId],
     };
 
-    const targetFolderId = invoiceFolderId || folderSettings?.value;
-    if (targetFolderId) {
-      copyBody.parents = [targetFolderId];
-    }
-
-    const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`, {
+    const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true&includeItemsFromAllDrives=true`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
