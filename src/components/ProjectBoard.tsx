@@ -5036,8 +5036,9 @@ export function ProjectBoard() {
                 <h3 className="text-sm font-semibold text-blue-900 mb-2">CSV Format Instructions</h3>
                 <p className="text-sm text-blue-800 mb-2">Your CSV file should have the following columns:</p>
                 <code className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded block">
-                  client_number, name, company_name_chinese, brand_name, contact_person, email, phone, address, industry, abbreviation, sales_source, e_commerce
+                  name, company_name_chinese, brand_name, contact_person, email, phone, address, industry, abbreviation, sales_source, e_commerce
                 </code>
+                <p className="text-xs text-blue-700 mt-2"><strong>Note:</strong> client_number is optional and only needed for updating existing clients</p>
                 <div className="text-xs text-blue-700 mt-2 space-y-1">
                   <p><strong>For New Clients:</strong></p>
                   <p>• Leave <code className="bg-blue-100 px-1 rounded">client_number</code> empty - will be auto-assigned</p>
@@ -5052,7 +5053,7 @@ export function ProjectBoard() {
 
               <button
                 onClick={() => {
-                  const csvContent = 'client_number,name,company_name_chinese,brand_name,contact_person,email,phone,address,industry,abbreviation,sales_source,e_commerce\n,"New Company Ltd","新公司有限公司","NewCo","Jane Smith","jane@example.com","+1234567890","123 Main St","Technology","NEW","Direct","Yes"\nC001,"Existing Company Ltd","現有公司有限公司","ExistCo","John Doe","john@example.com","+0987654321","456 Oak Ave","Finance","EXS","Referral","No"';
+                  const csvContent = 'name,company_name_chinese,brand_name,contact_person,email,phone,address,industry,abbreviation,sales_source,e_commerce\n"New Company Ltd","新公司有限公司","NewCo","Jane Smith","jane@example.com","+1234567890","123 Main St","Technology","NEW","Direct","Yes"\n"Another Company Ltd","另一家公司","AnotherCo","Bob Lee","bob@example.com","+9876543210","789 Pine Rd","Retail","ANO","Referral","No"';
                   const blob = new Blob([csvContent], { type: 'text/csv' });
                   const url = window.URL.createObjectURL(blob);
                   const a = document.createElement('a');
@@ -5125,11 +5126,30 @@ export function ProjectBoard() {
                         return;
                       }
 
-                      const headers = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+                      const csvHeaders = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+
+                      // Map CSV headers to database field names
+                      const headerMapping: Record<string, string> = {
+                        'client_number': 'client_number',
+                        'client_nur_name': 'name',
+                        'name': 'name',
+                        'company_name_chinese': 'company_name_chinese',
+                        'brand_name': 'brand_name',
+                        'contact_person': 'contact_person',
+                        'email': 'email',
+                        'phone': 'phone',
+                        'address': 'address',
+                        'industry': 'industry',
+                        'abbreviation': 'abbreviation',
+                        'sales_source': 'sales_source',
+                        'e_commerce': 'e_commerce',
+                        'notes': 'notes'
+                      };
+
                       const newClients = [];
                       const updateClients = [];
 
-                      console.log('CSV Headers:', headers);
+                      console.log('CSV Headers:', csvHeaders);
                       console.log('Total data rows:', lines.length - 1);
 
                       // First, fetch all existing client numbers from database
@@ -5146,15 +5166,18 @@ export function ProjectBoard() {
                         const values = lines[i].match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => v.trim().replace(/^"(.*)"$/, '$1')) || [];
                         const client: any = {};
 
-                        headers.forEach((header, index) => {
+                        csvHeaders.forEach((csvHeader, index) => {
                           if (values[index] && values[index].trim() !== '') {
                             const value = values[index].trim();
 
+                            // Map CSV header to database field name
+                            const dbFieldName = headerMapping[csvHeader.toLowerCase()] || csvHeader;
+
                             // Handle e_commerce field - convert Yes/No to boolean
-                            if (header === 'e_commerce') {
-                              client[header] = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true' || value === '1';
+                            if (dbFieldName === 'e_commerce') {
+                              client[dbFieldName] = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true' || value === '1';
                             } else {
-                              client[header] = value;
+                              client[dbFieldName] = value;
                             }
                           }
                         });
@@ -5204,6 +5227,16 @@ export function ProjectBoard() {
                         }
                         console.log('Insert success:', data);
                         insertedCount = data?.length || 0;
+
+                        // Set parent_client_id to itself for each newly created client
+                        if (data && data.length > 0) {
+                          for (const client of data) {
+                            await supabase
+                              .from('clients')
+                              .update({ parent_client_id: client.id })
+                              .eq('id', client.id);
+                          }
+                        }
                       }
 
                       if (updateClients.length > 0) {
