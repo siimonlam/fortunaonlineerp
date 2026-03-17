@@ -5036,12 +5036,13 @@ export function ProjectBoard() {
                 <h3 className="text-sm font-semibold text-blue-900 mb-2">CSV Format Instructions</h3>
                 <p className="text-sm text-blue-800 mb-2">Your CSV file should have the following columns:</p>
                 <code className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded block">
-                  client_number, name, contact_person, email, phone, address, industry, abbreviation
+                  client_number, name, company_name_chinese, brand_name, contact_person, email, phone, address, industry, abbreviation, sales_source, e_commerce
                 </code>
                 <div className="text-xs text-blue-700 mt-2 space-y-1">
                   <p><strong>For New Clients:</strong></p>
                   <p>• Leave <code className="bg-blue-100 px-1 rounded">client_number</code> empty - will be auto-assigned</p>
                   <p>• Only 'name' field is required</p>
+                  <p>• Sales person will be set to the importing user automatically</p>
                   <p className="mt-2"><strong>For Updating Existing Clients:</strong></p>
                   <p>• Include <code className="bg-blue-100 px-1 rounded">client_number</code> of the client to update</p>
                   <p>• System will match by client_number and update those records</p>
@@ -5051,7 +5052,7 @@ export function ProjectBoard() {
 
               <button
                 onClick={() => {
-                  const csvContent = 'client_number,name,contact_person,email,phone,address,industry,abbreviation\n,"New Company Ltd","Jane Smith","jane@example.com","+1234567890","123 Main St","Technology","NEW"\nCL001,"Existing Company Ltd","John Doe","john@example.com","+0987654321","456 Oak Ave","Finance","EXS"';
+                  const csvContent = 'client_number,name,company_name_chinese,brand_name,contact_person,email,phone,address,industry,abbreviation,sales_source,e_commerce\n,"New Company Ltd","新公司有限公司","NewCo","Jane Smith","jane@example.com","+1234567890","123 Main St","Technology","NEW","Direct","Yes"\nC001,"Existing Company Ltd","現有公司有限公司","ExistCo","John Doe","john@example.com","+0987654321","456 Oak Ave","Finance","EXS","Referral","No"';
                   const blob = new Blob([csvContent], { type: 'text/csv' });
                   const url = window.URL.createObjectURL(blob);
                   const a = document.createElement('a');
@@ -5147,7 +5148,14 @@ export function ProjectBoard() {
 
                         headers.forEach((header, index) => {
                           if (values[index] && values[index].trim() !== '') {
-                            client[header] = values[index];
+                            const value = values[index].trim();
+
+                            // Handle e_commerce field - convert Yes/No to boolean
+                            if (header === 'e_commerce') {
+                              client[header] = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true' || value === '1';
+                            } else {
+                              client[header] = value;
+                            }
                           }
                         });
 
@@ -5162,7 +5170,9 @@ export function ProjectBoard() {
                             console.log(`Row ${i}: Adding to newClients (client_number ${client.client_number || 'empty'} not in DB)`);
                             // Remove client_number from new clients - let DB auto-generate
                             delete client.client_number;
+                            // Set the importing user as created_by and sales_person_id
                             client.created_by = user?.id;
+                            client.sales_person_id = user?.id;
                             newClients.push(client);
                           }
                         } else {
