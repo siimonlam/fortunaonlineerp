@@ -152,12 +152,30 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = await getServiceAccountToken();
 
+    // Get the parent folder details to check if it's a Shared Drive
+    const folderResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${targetFolderId}?fields=driveId,parents&supportsAllDrives=true`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!folderResponse.ok) {
+      throw new Error('Failed to verify target folder. Make sure the service account has access to the folder.');
+    }
+
+    const folderData = await folderResponse.json();
+    const driveId = folderData.driveId; // Will be set if folder is in a Shared Drive
+
     const copyBody: Record<string, any> = {
       name: `${invoiceNumber} - ${companyName}`,
       parents: [targetFolderId],
     };
 
-    const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true&includeItemsFromAllDrives=true`, {
+    // If the folder is in a Shared Drive, we need to specify the driveId
+    let copyUrl = `https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`;
+    if (driveId) {
+      copyUrl += `&enforceSingleParent=true`;
+    }
+
+    const copyResponse = await fetch(copyUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

@@ -140,27 +140,47 @@ Deno.serve(async (req: Request) => {
 
     const uploadFolderId = folderSettings?.value;
 
+    if (!uploadFolderId) {
+      throw new Error('Invoice folder not configured. Please set funding_invoice_folder_id in system settings.');
+    }
+
+    // Get the parent folder details to check if it's a Shared Drive
+    const folderResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadFolderId}?fields=driveId,parents&supportsAllDrives=true`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!folderResponse.ok) {
+      throw new Error('Failed to verify target folder. Make sure the service account has access to the folder.');
+    }
+
+    const folderData = await folderResponse.json();
+    const driveId = folderData.driveId;
+
     const metadata: Record<string, any> = {
       name: fileName,
       mimeType: 'application/pdf',
+      parents: [uploadFolderId],
     };
 
-    if (uploadFolderId) {
-      metadata.parents = [uploadFolderId];
+    // If in a Shared Drive, specify the driveId for proper upload
+    if (driveId) {
+      metadata.driveId = driveId;
     }
 
     const formData = new FormData();
     formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
     formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }));
 
-    const uploadResponse = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
-      {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-        body: formData,
-      }
-    );
+    let uploadUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true';
+    if (driveId) {
+      uploadUrl += `&enforceSingleParent=true`;
+    }
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+      body: formData,
+    });
 
     if (!uploadResponse.ok) {
       const error = await uploadResponse.text();
