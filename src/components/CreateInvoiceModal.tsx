@@ -451,6 +451,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 <span><code className="bg-slate-100 px-1 rounded">{'{{CLIENT_NUMBER}}'}</code> Client Number</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{PROJECT_TITLE}}'}</code> Project Title</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{PROJECT_REFERENCE}}'}</code> Project Ref</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{AGREEMENT_REFERENCE}}'}</code> Agreement Ref</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{APPLICATION_NUMBER}}'}</code> App Number</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{FUNDING_SCHEME}}'}</code> Funding Scheme</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{ISSUED_COMPANY}}'}</code> Issued Company</span>

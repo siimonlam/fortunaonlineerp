@@ -143,6 +143,7 @@ Deno.serve(async (req: Request) => {
       applicationNumber,
       fundingScheme,
       clientNumber,
+      agreementRef,
     } = await req.json();
 
     console.log('Generating funding invoice PDF for:', companyName, projectTitle);
@@ -257,6 +258,7 @@ Deno.serve(async (req: Request) => {
       '{{APPLICATION_NUMBER}}': applicationNumber || '',
       '{{FUNDING_SCHEME}}': fundingScheme || '',
       '{{CLIENT_NUMBER}}': clientNumber || '',
+      '{{AGREEMENT_REFERENCE}}': agreementRef || '',
       '{{ISSUE_DATE}}': new Date(issueDate).toLocaleDateString('en-GB'),
       '{{DUE_DATE}}': dueDate ? new Date(dueDate).toLocaleDateString('en-GB') : '',
       '{{PAYMENT_TYPE}}': paymentType || '',
