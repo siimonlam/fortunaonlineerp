@@ -266,15 +266,21 @@ Deno.serve(async (req: Request) => {
       '{{NOTES}}': remark || '',
     };
 
-    const requests = Object.entries(replacements).map(([placeholder, value]) => ({
-      replaceAllText: {
-        containsText: {
-          text: placeholder,
-          matchCase: true,
-        },
-        replaceText: value,
-      },
-    }));
+    const requests = Object.entries(replacements)
+      .filter(([_, value]) => value !== null && value !== undefined)
+      .map(([placeholder, value]) => {
+        const safeValue = String(value);
+
+        return {
+          replaceAllText: {
+            containsText: {
+              text: placeholder,
+              matchCase: true,
+            },
+            replaceText: safeValue.substring(0, 50),
+          },
+        };
+      });
 
     const updateResponse = await fetch(`https://docs.googleapis.com/v1/documents/${newDocId}:batchUpdate`, {
       method: 'POST',
