@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Settings, Save, ExternalLink, CheckCircle, AlertCircle, FileText, Info, Folder, Receipt } from 'lucide-react';
+import { Settings, Save, ExternalLink, CheckCircle, AlertCircle, FileText, Info, Folder, Receipt, Ligature as FileSignature } from 'lucide-react';
 
 export function FundingInvoiceSettingsPanel() {
   const [templateDocId, setTemplateDocId] = useState('');
@@ -9,6 +9,9 @@ export function FundingInvoiceSettingsPanel() {
   const [receiptTemplateDocId, setReceiptTemplateDocId] = useState('');
   const [receiptTemplateDocUrl, setReceiptTemplateDocUrl] = useState('');
   const [receiptFolderId, setReceiptFolderId] = useState('');
+  const [agreementTemplateDocId, setAgreementTemplateDocId] = useState('');
+  const [agreementTemplateDocUrl, setAgreementTemplateDocUrl] = useState('');
+  const [agreementFolderId, setAgreementFolderId] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState('');
@@ -18,11 +21,13 @@ export function FundingInvoiceSettingsPanel() {
   }, []);
 
   async function loadSettings() {
-    const [templateRes, folderRes, receiptTemplateRes, receiptFolderRes] = await Promise.all([
+    const [templateRes, folderRes, receiptTemplateRes, receiptFolderRes, agreementTemplateRes, agreementFolderRes] = await Promise.all([
       supabase.from('system_settings').select('value').eq('key', 'funding_invoice_template_doc_id').maybeSingle(),
       supabase.from('system_settings').select('value').eq('key', 'funding_invoice_folder_id').maybeSingle(),
       supabase.from('system_settings').select('value').eq('key', 'funding_receipt_template_doc_id').maybeSingle(),
       supabase.from('system_settings').select('value').eq('key', 'funding_receipt_folder_id').maybeSingle(),
+      supabase.from('system_settings').select('value').eq('key', 'funding_agreement_template_doc_id').maybeSingle(),
+      supabase.from('system_settings').select('value').eq('key', 'funding_agreement_folder_id').maybeSingle(),
     ]);
 
     if (templateRes.data?.value) {
@@ -38,6 +43,13 @@ export function FundingInvoiceSettingsPanel() {
     }
     if (receiptFolderRes.data?.value) {
       setReceiptFolderId(receiptFolderRes.data.value);
+    }
+    if (agreementTemplateRes.data?.value) {
+      setAgreementTemplateDocId(agreementTemplateRes.data.value);
+      setAgreementTemplateDocUrl(`https://docs.google.com/document/d/${agreementTemplateRes.data.value}/edit`);
+    }
+    if (agreementFolderRes.data?.value) {
+      setAgreementFolderId(agreementFolderRes.data.value);
     }
   }
 
@@ -79,6 +91,18 @@ export function FundingInvoiceSettingsPanel() {
     setSaveStatus('idle');
   }
 
+  function handleAgreementTemplateChange(value: string) {
+    const docId = parseDocId(value);
+    setAgreementTemplateDocId(docId);
+    setAgreementTemplateDocUrl(docId ? `https://docs.google.com/document/d/${docId}/edit` : '');
+    setSaveStatus('idle');
+  }
+
+  function handleAgreementFolderChange(value: string) {
+    setAgreementFolderId(parseFolderId(value));
+    setSaveStatus('idle');
+  }
+
   async function handleSave() {
     setSaving(true);
     setSaveStatus('idle');
@@ -90,6 +114,8 @@ export function FundingInvoiceSettingsPanel() {
         supabase.from('system_settings').upsert({ key: 'funding_invoice_folder_id', value: folderId }, { onConflict: 'key' }),
         supabase.from('system_settings').upsert({ key: 'funding_receipt_template_doc_id', value: receiptTemplateDocId }, { onConflict: 'key' }),
         supabase.from('system_settings').upsert({ key: 'funding_receipt_folder_id', value: receiptFolderId }, { onConflict: 'key' }),
+        supabase.from('system_settings').upsert({ key: 'funding_agreement_template_doc_id', value: agreementTemplateDocId }, { onConflict: 'key' }),
+        supabase.from('system_settings').upsert({ key: 'funding_agreement_folder_id', value: agreementFolderId }, { onConflict: 'key' }),
       ];
 
       const results = await Promise.all(updates);
@@ -288,6 +314,100 @@ export function FundingInvoiceSettingsPanel() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-purple-600 border border-purple-300 rounded-lg text-xs font-medium hover:bg-purple-50 transition-colors flex-shrink-0"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2 mb-1 mt-8">
+          <FileSignature className="w-5 h-5 text-slate-600" />
+          Agreement Settings
+        </h3>
+        <p className="text-sm text-slate-500">Configure the Google Doc template and destination folder used when generating funding agreements.</p>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+          <FileSignature className="w-4 h-4 text-orange-600" />
+          <span className="text-sm font-semibold text-slate-700">Google Doc Agreement Template</span>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Template Document ID or URL <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={agreementTemplateDocId}
+              onChange={(e) => handleAgreementTemplateChange(e.target.value)}
+              placeholder="Paste Google Doc URL or document ID"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="mt-1.5 text-xs text-slate-500">
+              You can paste the full Google Doc URL or just the document ID.
+            </p>
+          </div>
+
+          {agreementTemplateDocUrl && (
+            <div className="flex items-center gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <FileSignature className="w-4 h-4 text-orange-600 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-orange-700 mb-0.5">Current Template</p>
+                <p className="text-xs text-orange-600 truncate font-mono">{agreementTemplateDocId}</p>
+              </div>
+              <a
+                href={agreementTemplateDocUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-orange-600 border border-orange-300 rounded-lg text-xs font-medium hover:bg-orange-50 transition-colors flex-shrink-0"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+          <Folder className="w-4 h-4 text-teal-600" />
+          <span className="text-sm font-semibold text-slate-700">Google Drive Destination Folder for Agreements</span>
+          <span className="text-xs text-slate-400 ml-1">(optional)</span>
+        </div>
+        <div className="p-5 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Folder ID or URL
+            </label>
+            <input
+              type="text"
+              value={agreementFolderId}
+              onChange={(e) => handleAgreementFolderChange(e.target.value)}
+              placeholder="Paste Google Drive folder URL or folder ID"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="mt-1.5 text-xs text-slate-500">
+              Generated agreement documents and finalized PDFs will be saved to this folder. Leave blank to save to the service account's root drive.
+            </p>
+          </div>
+          {agreementFolderId && (
+            <div className="flex items-center gap-3 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+              <Folder className="w-4 h-4 text-teal-600 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-teal-700 mb-0.5">Destination Folder</p>
+                <p className="text-xs text-teal-600 truncate font-mono">{agreementFolderId}</p>
+              </div>
+              <a
+                href={`https://drive.google.com/drive/folders/${agreementFolderId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-teal-600 border border-teal-300 rounded-lg text-xs font-medium hover:bg-teal-50 transition-colors flex-shrink-0"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 Open
