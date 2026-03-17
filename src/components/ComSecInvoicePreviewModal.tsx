@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { X, ExternalLink, FileText, DollarSign, Ban, CheckCircle, Receipt as ReceiptIcon, Calendar, AlertCircle, Download, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { ComSecReceiptPreviewModal } from './ComSecReceiptPreviewModal';
-import { ComSecReceiptPreviewModal } from './ComSecReceiptPreviewModal';
 
 interface ComSecInvoicePreviewModalProps {
   invoice: {
