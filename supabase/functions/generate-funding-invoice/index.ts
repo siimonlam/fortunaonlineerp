@@ -164,15 +164,37 @@ Deno.serve(async (req: Request) => {
     const folderData = await folderResponse.json();
     const driveId = folderData.driveId; // Will be set if folder is in a Shared Drive
 
+    // Also check if the template is in a Shared Drive
+    const templateResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}?fields=driveId,parents&supportsAllDrives=true`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!templateResponse.ok) {
+      throw new Error('Failed to verify template document. Make sure the service account has access to the template.');
+    }
+
+    const templateData = await templateResponse.json();
+    const templateDriveId = templateData.driveId;
+
     const copyBody: Record<string, any> = {
       name: `${invoiceNumber} - ${companyName}`,
       parents: [targetFolderId],
     };
 
-    // If the folder is in a Shared Drive, we need to specify the driveId
-    let copyUrl = `https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`;
+    // CRITICAL: If copying to a Shared Drive, we must ensure the copy operation
+    // happens directly in the Shared Drive to avoid using "My Drive" storage
+    let copyUrl = `https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true&includeItemsFromAllDrives=true`;
+
     if (driveId) {
+      // Target folder is in a Shared Drive - enforce single parent to avoid "My Drive" copy
       copyUrl += `&enforceSingleParent=true`;
+
+      // If template is NOT in the same Shared Drive, we need to specify the target drive
+      if (templateDriveId !== driveId) {
+        // Cross-drive copy: explicitly set the target drive in the request body
+        // This ensures Google creates the file directly in the target Shared Drive
+        copyBody.driveId = driveId;
+      }
     }
 
     const copyResponse = await fetch(copyUrl, {
