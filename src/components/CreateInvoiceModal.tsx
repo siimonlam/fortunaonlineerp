@@ -442,11 +442,20 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 <span><code className="bg-slate-100 px-1 rounded">{'{{DUE_DATE}}'}</code> Due Date</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{AMOUNT}}'}</code> Amount</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{PAYMENT_TYPE}}'}</code> Payment Type</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{PAYMENT_METHOD}}'}</code> Payment Method</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{COMPANY_NAME}}'}</code> Company Name</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{COMPANY_NAME_CHINESE}}'}</code> Company Name (中文)</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{CONTACT_NAME}}'}</code> Contact Name</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{CONTACT_NUMBER}}'}</code> Contact Number</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{ADDRESS}}'}</code> Address</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{CLIENT_NUMBER}}'}</code> Client Number</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{PROJECT_TITLE}}'}</code> Project Title</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{PROJECT_REFERENCE}}'}</code> Project Ref</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{APPLICATION_NUMBER}}'}</code> App Number</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{FUNDING_SCHEME}}'}</code> Funding Scheme</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{ISSUED_COMPANY}}'}</code> Issued Company</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{CATEGORY}}'}</code> Category</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{REMARK}}'}</code> Remark</span>
               </div>
             </div>
           </div>
