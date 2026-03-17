@@ -14,11 +14,11 @@ interface GoogleAuthToken {
 }
 
 async function getServiceAccountToken(): Promise<string> {
-  const serviceAccountEmail = "fortunaerp@fortuna-erp.iam.gserviceaccount.com";
-  const privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY");
+  const serviceAccountEmail = "goldwinerp@woven-answer-485106-u8.iam.gserviceaccount.com";
+  const privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_COMSEC");
 
   if (!privateKey) {
-    throw new Error("Service account private key not configured");
+    throw new Error("Service account private key not configured for funding invoices");
   }
 
   const now = Math.floor(Date.now() / 1000);
