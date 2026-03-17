@@ -176,43 +176,76 @@ Deno.serve(async (req: Request) => {
     const templateData = await templateResponse.json();
     const templateDriveId = templateData.driveId;
 
-    const copyBody: Record<string, any> = {
+    // WORKAROUND: Google Drive API has an issue where copying to Shared Drive
+    // can trigger storage quota errors. The solution is to:
+    // 1. First copy without specifying parent (creates in template's location)
+    // 2. Then move the copy to the target folder
+
+    console.log(`Template drive: ${templateDriveId || 'My Drive'}, Target drive: ${driveId || 'My Drive'}`);
+
+    let newDocId: string;
+
+    // Step 1: Create the copy without parent (stays in same location as template)
+    const copyBodyNoParent = {
       name: `${invoiceNumber} - ${companyName}`,
-      parents: [targetFolderId],
     };
 
-    // CRITICAL: If copying to a Shared Drive, we must ensure the copy operation
-    // happens directly in the Shared Drive to avoid using "My Drive" storage
-    let copyUrl = `https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    const copyUrlNoParent = `https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`;
 
-    if (driveId) {
-      // Target folder is in a Shared Drive - enforce single parent to avoid "My Drive" copy
-      copyUrl += `&enforceSingleParent=true`;
-
-      // If template is NOT in the same Shared Drive, we need to specify the target drive
-      if (templateDriveId !== driveId) {
-        // Cross-drive copy: explicitly set the target drive in the request body
-        // This ensures Google creates the file directly in the target Shared Drive
-        copyBody.driveId = driveId;
-      }
-    }
-
-    const copyResponse = await fetch(copyUrl, {
+    const copyResponseNoParent = await fetch(copyUrlNoParent, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(copyBody),
+      body: JSON.stringify(copyBodyNoParent),
     });
 
-    if (!copyResponse.ok) {
-      const error = await copyResponse.text();
+    if (!copyResponseNoParent.ok) {
+      const error = await copyResponseNoParent.text();
       throw new Error(`Failed to copy template: ${error}`);
     }
 
-    const copyData = await copyResponse.json();
-    const newDocId = copyData.id;
+    const copyDataNoParent = await copyResponseNoParent.json();
+    newDocId = copyDataNoParent.id;
+
+    console.log(`Created copy with ID: ${newDocId}`);
+
+    // Step 2: Move the file to the target folder if needed
+    const currentParents = copyDataNoParent.parents || [];
+    if (currentParents.length === 0 || currentParents[0] !== targetFolderId) {
+      console.log(`Moving file from ${currentParents.join(', ')} to ${targetFolderId}`);
+
+      const moveParams = new URLSearchParams({
+        addParents: targetFolderId,
+        removeParents: currentParents.join(','),
+        supportsAllDrives: 'true',
+      });
+
+      const moveUrl = `https://www.googleapis.com/drive/v3/files/${newDocId}?${moveParams.toString()}`;
+
+      const moveResponse = await fetch(moveUrl, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!moveResponse.ok) {
+        const moveError = await moveResponse.text();
+        console.error(`Failed to move file: ${moveError}`);
+        // Try to delete the orphaned copy
+        await fetch(`https://www.googleapis.com/drive/v3/files/${newDocId}?supportsAllDrives=true`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        throw new Error(`Failed to move file to target folder: ${moveError}`);
+      }
+
+      console.log(`Successfully moved file to ${targetFolderId}`);
+    }
 
     let fileMetadata: any;
     let attempts = 0;
