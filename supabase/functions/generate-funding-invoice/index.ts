@@ -14,11 +14,11 @@ interface GoogleAuthToken {
 }
 
 async function getServiceAccountToken(): Promise<string> {
-  const serviceAccountEmail = "goldwinerp@woven-answer-485106-u8.iam.gserviceaccount.com";
-  const privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_COMSEC");
+  const serviceAccountEmail = "fortunaerp@fortuna-erp.iam.gserviceaccount.com";
+  const privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY");
 
   if (!privateKey) {
-    throw new Error("Service account private key not configured for funding invoices");
+    throw new Error("Service account private key not configured for funding");
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -122,12 +122,14 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const {
+      invoiceId,
       invoiceNumber,
       issueDate,
       dueDate,
-      amount,
       paymentType,
+      amount,
       remark,
+      projectId,
       issuedCompany,
       category,
       companyName,
@@ -142,8 +144,9 @@ Deno.serve(async (req: Request) => {
       clientNumber,
     } = await req.json();
 
-    console.log('Generating funding invoice for:', companyName);
+    console.log('Generating funding invoice PDF for:', companyName, projectTitle);
 
+    // Fetch template ID from system settings
     const { data: templateSettings } = await supabase
       .from('system_settings')
       .select('value')
@@ -154,7 +157,7 @@ Deno.serve(async (req: Request) => {
 
     if (!templateDocId) {
       return new Response(
-        JSON.stringify({ error: 'Funding invoice template not configured. Please set funding_invoice_template_doc_id in Funding Project > Settings.' }),
+        JSON.stringify({ error: 'Invoice template not configured. Please set funding_invoice_template_doc_id in system settings.' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -162,6 +165,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Fetch folder ID from system settings
     const { data: folderSettings } = await supabase
       .from('system_settings')
       .select('value')
@@ -172,7 +176,7 @@ Deno.serve(async (req: Request) => {
 
     if (!invoiceFolderId) {
       return new Response(
-        JSON.stringify({ error: 'Invoice folder not configured. Please set funding_invoice_folder_id in Funding Project > Settings.' }),
+        JSON.stringify({ error: 'Invoice folder not configured. Please set funding_invoice_folder_id in system settings.' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -182,6 +186,7 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = await getServiceAccountToken();
 
+    // Copy the template document
     const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`, {
       method: 'POST',
       headers: {
@@ -204,6 +209,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('Created copy of template:', newDocId);
 
+    // Poll until the document is ready (with timeout)
     let fileMetadata: any;
     let attempts = 0;
     const maxAttempts = 10;
@@ -237,29 +243,9 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Template must be a Google Doc, but got: ${fileMetadata.mimeType}. Please ensure the template is a Google Doc (not Sheets, Slides, or PDF).`);
     }
 
-    const formatDate = (dateStr: string) => {
-      if (!dateStr) return '';
-      try {
-        return new Date(dateStr).toLocaleDateString('en-GB');
-      } catch {
-        return dateStr;
-      }
-    };
-
-    const formatCurrency = (val: any) => {
-      const num = parseFloat(val) || 0;
-      return `HK$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    };
-
+    // Prepare replacements for the funding invoice
     const replacements: Record<string, string> = {
-      '{{INVOICE_NUMBER}}': invoiceNumber || '',
-      '{{ISSUE_DATE}}': formatDate(issueDate),
-      '{{DUE_DATE}}': formatDate(dueDate),
-      '{{AMOUNT}}': formatCurrency(amount),
-      '{{PAYMENT_TYPE}}': paymentType || '',
-      '{{REMARK}}': remark || '',
-      '{{ISSUED_COMPANY}}': issuedCompany || 'Amazing Channel (HK) Limited',
-      '{{CATEGORY}}': category || '',
+      '{{INVOICE_NUMBER}}': invoiceNumber,
       '{{COMPANY_NAME}}': companyName || '',
       '{{COMPANY_NAME_CHINESE}}': companyNameChinese || '',
       '{{CONTACT_NAME}}': contactName || '',
@@ -270,6 +256,14 @@ Deno.serve(async (req: Request) => {
       '{{APPLICATION_NUMBER}}': applicationNumber || '',
       '{{FUNDING_SCHEME}}': fundingScheme || '',
       '{{CLIENT_NUMBER}}': clientNumber || '',
+      '{{ISSUE_DATE}}': new Date(issueDate).toLocaleDateString('en-GB'),
+      '{{DUE_DATE}}': dueDate ? new Date(dueDate).toLocaleDateString('en-GB') : '',
+      '{{PAYMENT_TYPE}}': paymentType,
+      '{{AMOUNT}}': `HK$${parseFloat(amount).toFixed(2)}`,
+      '{{ISSUED_COMPANY}}': issuedCompany || '',
+      '{{CATEGORY}}': category || '',
+      '{{REMARK}}': remark || '',
+      '{{NOTES}}': remark || '',
     };
 
     const requests = Object.entries(replacements).map(([placeholder, value]) => ({
@@ -298,12 +292,29 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to update document: ${error}`);
     }
 
-    console.log('Updated document with invoice data');
+    console.log('Updated document with funding invoice data');
 
     const googleDocUrl = `https://docs.google.com/document/d/${newDocId}/edit`;
     const previewUrl = `https://docs.google.com/document/d/${newDocId}/preview`;
 
-    console.log('Invoice document created:', googleDocUrl);
+    // Update the funding_invoices table with the Google Doc URL
+    if (invoiceId) {
+      const { error: updateError } = await supabase
+        .from('funding_invoices')
+        .update({
+          google_drive_url: googleDocUrl,
+          pdf_url: previewUrl,
+        })
+        .eq('id', invoiceId);
+
+      if (updateError) {
+        console.error('Failed to update invoice with Google Drive URL:', updateError);
+      } else {
+        console.log('Successfully updated invoice with Google Drive URL');
+      }
+    }
+
+    console.log('Funding invoice document created:', googleDocUrl);
 
     return new Response(
       JSON.stringify({
@@ -313,6 +324,7 @@ Deno.serve(async (req: Request) => {
         previewUrl,
         invoiceNumber,
         companyName,
+        projectTitle,
       }),
       {
         status: 200,
@@ -324,10 +336,10 @@ Deno.serve(async (req: Request) => {
     );
 
   } catch (error) {
-    console.error('Error generating funding invoice:', error);
+    console.error('Error generating funding invoice PDF:', error);
     return new Response(
       JSON.stringify({
-        error: error.message || 'Failed to generate funding invoice',
+        error: error.message || 'Failed to generate funding invoice PDF',
       }),
       {
         status: 500,
