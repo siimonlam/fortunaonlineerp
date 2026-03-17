@@ -1753,19 +1753,31 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Status *</label>
-                <select
-                  required
-                  disabled={!canEdit}
-                  value={formData.statusId}
-                  onChange={(e) => setFormData({ ...formData, statusId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
-                >
-                  {projectStatuses.map(status => (
-                    <option key={status.id} value={status.id}>
-                      {status.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    required
+                    disabled={!canEdit}
+                    value={formData.statusId}
+                    onChange={(e) => setFormData({ ...formData, statusId: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
+                  >
+                    {projectStatuses.map(status => (
+                      <option key={status.id} value={status.id}>
+                        {status.name}
+                      </option>
+                    ))}
+                  </select>
+                  {canEdit && projectType?.name === 'Funding Project' && (currentParentStatusId === 'e5368ae7-5097-4ef3-a059-b1a82e17de77' || formData.statusId === 'e5368ae7-5097-4ef3-a059-b1a82e17de77' || formData.statusId === '40619c4e-de11-474e-95fc-ad5dcbd84a68' || formData.statusId === '7b503030-f327-48fa-8373-6477100d9262' || formData.statusId === 'c5f3c453-6af9-4f1d-97e1-58bda1986a1d' || formData.statusId === '02240816-0fe9-4cde-bbf6-5abdfe398412') && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, statusId: '47638168-85d2-45dc-b4f5-b79a6a07215f' })}
+                      className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap flex items-center gap-2"
+                    >
+                      <span className="text-lg">✓</span>
+                      Convert Hi-Po to Presubmission
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
