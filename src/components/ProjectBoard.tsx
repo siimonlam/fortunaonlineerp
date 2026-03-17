@@ -5142,7 +5142,8 @@ export function ProjectBoard() {
                         'industry': 'industry',
                         'abbreviation': 'abbreviation',
                         'sales_source': 'sales_source',
-                        'e_commerce': 'e_commerce',
+                        'e_commerce': 'is_ecommerce',
+                        'is_ecommerce': 'is_ecommerce',
                         'notes': 'notes'
                       };
 
@@ -5173,8 +5174,8 @@ export function ProjectBoard() {
                             // Map CSV header to database field name
                             const dbFieldName = headerMapping[csvHeader.toLowerCase()] || csvHeader;
 
-                            // Handle e_commerce field - convert Yes/No to boolean
-                            if (dbFieldName === 'e_commerce') {
+                            // Handle is_ecommerce field - convert Yes/No to boolean
+                            if (dbFieldName === 'is_ecommerce') {
                               client[dbFieldName] = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true' || value === '1';
                             } else {
                               client[dbFieldName] = value;
