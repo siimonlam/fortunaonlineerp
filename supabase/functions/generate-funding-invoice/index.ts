@@ -24,7 +24,11 @@ async function getServiceAccountToken(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const expiry = now + 3600;
 
-  const header = { alg: "RS256", typ: "JWT" };
+  const header = {
+    alg: "RS256",
+    typ: "JWT",
+  };
+
   const claimSet = {
     iss: serviceAccountEmail,
     scope: "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents",
@@ -33,11 +37,19 @@ async function getServiceAccountToken(): Promise<string> {
     iat: now,
   };
 
-  const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const encodedClaimSet = btoa(JSON.stringify(claimSet)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const encodedHeader = btoa(JSON.stringify(header))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
+  const encodedClaimSet = btoa(JSON.stringify(claimSet))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
   const signatureInput = `${encodedHeader}.${encodedClaimSet}`;
 
-  const cleanedKey = privateKey
+  let cleanedKey = privateKey
     .replace(/-----BEGIN PRIVATE KEY-----/g, "")
     .replace(/-----END PRIVATE KEY-----/g, "")
     .replace(/\\n/g, "")
@@ -48,13 +60,17 @@ async function getServiceAccountToken(): Promise<string> {
   try {
     binaryKey = Uint8Array.from(atob(cleanedKey), c => c.charCodeAt(0));
   } catch (e) {
+    console.error("Failed to decode private key:", e);
     throw new Error("Invalid private key format");
   }
 
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
     binaryKey,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      hash: "SHA-256",
+    },
     false,
     ["sign"]
   );
@@ -66,13 +82,17 @@ async function getServiceAccountToken(): Promise<string> {
   );
 
   const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
-    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
 
   const jwt = `${signatureInput}.${signature}`;
 
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
     body: new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion: jwt,
@@ -90,7 +110,10 @@ async function getServiceAccountToken(): Promise<string> {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
   }
 
   try {
@@ -100,7 +123,6 @@ Deno.serve(async (req: Request) => {
 
     const {
       invoiceNumber,
-      invoiceFolderId,
       issueDate,
       dueDate,
       amount,
@@ -120,6 +142,8 @@ Deno.serve(async (req: Request) => {
       clientNumber,
     } = await req.json();
 
+    console.log('Generating funding invoice for:', companyName);
+
     const { data: templateSettings } = await supabase
       .from('system_settings')
       .select('value')
@@ -131,7 +155,10 @@ Deno.serve(async (req: Request) => {
     if (!templateDocId) {
       return new Response(
         JSON.stringify({ error: 'Funding invoice template not configured. Please set funding_invoice_template_doc_id in Funding Project > Settings.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
       );
     }
 
@@ -141,111 +168,41 @@ Deno.serve(async (req: Request) => {
       .eq('key', 'funding_invoice_folder_id')
       .maybeSingle();
 
-    const targetFolderId = invoiceFolderId || folderSettings?.value;
+    const invoiceFolderId = folderSettings?.value;
 
-    if (!targetFolderId) {
+    if (!invoiceFolderId) {
       return new Response(
-        JSON.stringify({ error: 'Invoice folder not configured. Please set a destination folder in Funding Project > Settings > Invoice Folder.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Invoice folder not configured. Please set funding_invoice_folder_id in Funding Project > Settings.' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
       );
     }
 
     const accessToken = await getServiceAccountToken();
 
-    // Get the parent folder details to check if it's a Shared Drive
-    const folderResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${targetFolderId}?fields=driveId,parents&supportsAllDrives=true`, {
-      headers: { 'Authorization': `Bearer ${accessToken}` },
-    });
-
-    if (!folderResponse.ok) {
-      throw new Error('Failed to verify target folder. Make sure the service account has access to the folder.');
-    }
-
-    const folderData = await folderResponse.json();
-    const driveId = folderData.driveId; // Will be set if folder is in a Shared Drive
-
-    // Also check if the template is in a Shared Drive
-    const templateResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}?fields=driveId,parents&supportsAllDrives=true`, {
-      headers: { 'Authorization': `Bearer ${accessToken}` },
-    });
-
-    if (!templateResponse.ok) {
-      throw new Error('Failed to verify template document. Make sure the service account has access to the template.');
-    }
-
-    const templateData = await templateResponse.json();
-    const templateDriveId = templateData.driveId;
-
-    // WORKAROUND: Google Drive API has an issue where copying to Shared Drive
-    // can trigger storage quota errors. The solution is to:
-    // 1. First copy without specifying parent (creates in template's location)
-    // 2. Then move the copy to the target folder
-
-    console.log(`Template drive: ${templateDriveId || 'My Drive'}, Target drive: ${driveId || 'My Drive'}`);
-
-    let newDocId: string;
-
-    // Step 1: Create the copy without parent (stays in same location as template)
-    const copyBodyNoParent = {
-      name: `${invoiceNumber} - ${companyName}`,
-    };
-
-    const copyUrlNoParent = `https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`;
-
-    const copyResponseNoParent = await fetch(copyUrlNoParent, {
+    const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateDocId}/copy?supportsAllDrives=true`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(copyBodyNoParent),
+      body: JSON.stringify({
+        name: `${invoiceNumber} - ${companyName}`,
+        parents: [invoiceFolderId],
+      }),
     });
 
-    if (!copyResponseNoParent.ok) {
-      const error = await copyResponseNoParent.text();
+    if (!copyResponse.ok) {
+      const error = await copyResponse.text();
       throw new Error(`Failed to copy template: ${error}`);
     }
 
-    const copyDataNoParent = await copyResponseNoParent.json();
-    newDocId = copyDataNoParent.id;
+    const copyData = await copyResponse.json();
+    const newDocId = copyData.id;
 
-    console.log(`Created copy with ID: ${newDocId}`);
-
-    // Step 2: Move the file to the target folder if needed
-    const currentParents = copyDataNoParent.parents || [];
-    if (currentParents.length === 0 || currentParents[0] !== targetFolderId) {
-      console.log(`Moving file from ${currentParents.join(', ')} to ${targetFolderId}`);
-
-      const moveParams = new URLSearchParams({
-        addParents: targetFolderId,
-        removeParents: currentParents.join(','),
-        supportsAllDrives: 'true',
-      });
-
-      const moveUrl = `https://www.googleapis.com/drive/v3/files/${newDocId}?${moveParams.toString()}`;
-
-      const moveResponse = await fetch(moveUrl, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (!moveResponse.ok) {
-        const moveError = await moveResponse.text();
-        console.error(`Failed to move file: ${moveError}`);
-        // Try to delete the orphaned copy
-        await fetch(`https://www.googleapis.com/drive/v3/files/${newDocId}?supportsAllDrives=true`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${accessToken}` },
-        });
-        throw new Error(`Failed to move file to target folder: ${moveError}`);
-      }
-
-      console.log(`Successfully moved file to ${targetFolderId}`);
-    }
+    console.log('Created copy of template:', newDocId);
 
     let fileMetadata: any;
     let attempts = 0;
@@ -253,7 +210,9 @@ Deno.serve(async (req: Request) => {
 
     while (attempts < maxAttempts) {
       const fileMetadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${newDocId}?fields=mimeType,name&supportsAllDrives=true`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` },
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
       });
 
       if (!fileMetadataResponse.ok) {
@@ -261,8 +220,10 @@ Deno.serve(async (req: Request) => {
       }
 
       fileMetadata = await fileMetadataResponse.json();
+      console.log(`Attempt ${attempts + 1}: Document metadata:`, fileMetadata);
 
       if (fileMetadata.mimeType === 'application/vnd.google-apps.document') {
+        console.log('Document is ready as Google Doc');
         break;
       }
 
@@ -273,7 +234,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (fileMetadata.mimeType !== 'application/vnd.google-apps.document') {
-      throw new Error(`Template must be a Google Doc, but got: ${fileMetadata.mimeType}`);
+      throw new Error(`Template must be a Google Doc, but got: ${fileMetadata.mimeType}. Please ensure the template is a Google Doc (not Sheets, Slides, or PDF).`);
     }
 
     const formatDate = (dateStr: string) => {
@@ -313,7 +274,10 @@ Deno.serve(async (req: Request) => {
 
     const requests = Object.entries(replacements).map(([placeholder, value]) => ({
       replaceAllText: {
-        containsText: { text: placeholder, matchCase: true },
+        containsText: {
+          text: placeholder,
+          matchCase: true,
+        },
         replaceText: value,
       },
     }));
@@ -324,7 +288,9 @@ Deno.serve(async (req: Request) => {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ requests }),
+      body: JSON.stringify({
+        requests,
+      }),
     });
 
     if (!updateResponse.ok) {
@@ -332,8 +298,12 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to update document: ${error}`);
     }
 
+    console.log('Updated document with invoice data');
+
     const googleDocUrl = `https://docs.google.com/document/d/${newDocId}/edit`;
     const previewUrl = `https://docs.google.com/document/d/${newDocId}/preview`;
+
+    console.log('Invoice document created:', googleDocUrl);
 
     return new Response(
       JSON.stringify({
@@ -344,14 +314,25 @@ Deno.serve(async (req: Request) => {
         invoiceNumber,
         companyName,
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
     );
 
   } catch (error) {
     console.error('Error generating funding invoice:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to generate funding invoice' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: error.message || 'Failed to generate funding invoice',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
     );
   }
 });
