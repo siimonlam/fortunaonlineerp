@@ -86,6 +86,8 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
           applicationNumber: project.application_number || '',
           fundingScheme: project.funding_scheme || '',
           clientNumber: project.client_number || '',
+          depositAmount: project.deposit_amount || '',
+          serviceFeePercent: project.service_fee || '',
         }),
       });
 
@@ -454,6 +456,8 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
                 <span><code className="bg-slate-100 px-1 rounded">{'{{AGREEMENT_REFERENCE}}'}</code> Agreement Ref</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{APPLICATION_NUMBER}}'}</code> App Number</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{FUNDING_SCHEME}}'}</code> Funding Scheme</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{DEPOSIT_AMOUNT}}'}</code> Deposit Amount</span>
+                <span><code className="bg-slate-100 px-1 rounded">{'{{SERVICE_FEE_PERCENT}}'}</code> Service Fee %</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{ISSUED_COMPANY}}'}</code> Issued Company</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{CATEGORY}}'}</code> Category</span>
                 <span><code className="bg-slate-100 px-1 rounded">{'{{REMARK}}'}</code> Remark</span>

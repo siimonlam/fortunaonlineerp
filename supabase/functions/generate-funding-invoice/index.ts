@@ -144,6 +144,8 @@ Deno.serve(async (req: Request) => {
       fundingScheme,
       clientNumber,
       agreementRef,
+      depositAmount,
+      serviceFeePercent,
     } = await req.json();
 
     console.log('Generating funding invoice PDF for:', companyName, projectTitle);
@@ -264,6 +266,8 @@ Deno.serve(async (req: Request) => {
       '{{PAYMENT_TYPE}}': paymentType || '',
       '{{PAYMENT_METHOD}}': paymentMethod || '',
       '{{AMOUNT}}': `HK$${parseFloat(amount).toFixed(2)}`,
+      '{{DEPOSIT_AMOUNT}}': depositAmount ? `HK$${parseFloat(depositAmount).toFixed(2)}` : '',
+      '{{SERVICE_FEE_PERCENT}}': serviceFeePercent ? `${serviceFeePercent}%` : '',
       '{{ISSUED_COMPANY}}': issuedCompany || '',
       '{{CATEGORY}}': category || '',
       '{{REMARK}}': remark || '',
