@@ -877,56 +877,111 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Step 2: Create stub adsets for any missing adset IDs
+      // Step 2: Fetch and create adsets for any missing adset IDs
       const missingAdsetIds = [...encounteredAdsetIds].filter(id => !adsetMap.has(id));
       if (missingAdsetIds.length > 0) {
-        console.log(`Creating ${missingAdsetIds.length} stub adset records...`);
+        console.log(`Fetching ${missingAdsetIds.length} missing ad set details from Facebook API...`);
         try {
-          const adsetStubs = missingAdsetIds.map(adsetId => {
-            // Find the ad that references this adset to get campaign_id
-            const ad = adsToUpsert.find(a => a.adset_id === adsetId);
-            return {
-              adset_id: adsetId,
-              campaign_id: ad?.campaign_id || null,
-              account_id: accountId,
-              name: `AdSet ${adsetId} (Auto-created)`,
-              status: 'UNKNOWN',
-              client_number: ad?.client_number || null,
-              marketing_reference: ad?.marketing_reference || null,
-              updated_at: new Date().toISOString()
-            };
-          });
+          const adsetStubs = [];
 
-          const { error: adsetStubError } = await supabase
-            .from('meta_adsets')
-            .upsert(adsetStubs, {
-              onConflict: 'adset_id',
-              ignoreDuplicates: true
-            });
+          // Fetch real ad set data from Facebook API
+          for (const adsetId of missingAdsetIds) {
+            try {
+              const ad = adsToUpsert.find(a => a.adset_id === adsetId);
+              const url = `https://graph.facebook.com/v21.0/${adsetId}?fields=id,name,campaign_id,status,daily_budget,lifetime_budget,created_time,updated_time&access_token=${accessToken}`;
+              const response = await fetchWithRetry(url);
 
-          if (adsetStubError) {
-            console.error('AdSet stub creation error:', adsetStubError.message);
-            errors.push(`AdSet stub creation error: ${adsetStubError.message}`);
-            // If stub creation fails, we cannot safely insert ads - skip them
-            console.error('⚠️ Skipping ad insertion due to stub creation failure');
-            adsToUpsert.length = 0; // Clear the array to prevent insertion
-          } else {
-            console.log(`✓ Created ${missingAdsetIds.length} adset stubs`);
-            // Update adsetMap to avoid re-creating
-            missingAdsetIds.forEach(id => {
-              const ad = adsToUpsert.find(a => a.adset_id === id);
-              adsetMap.set(id, {
-                adset_id: id,
-                name: `AdSet ${id} (Auto-created)`,
+              if (response.ok) {
+                const adset = await response.json();
+                adsetStubs.push({
+                  adset_id: adset.id,
+                  campaign_id: adset.campaign_id || ad?.campaign_id || null,
+                  account_id: accountId,
+                  name: adset.name,
+                  status: adset.status || 'UNKNOWN',
+                  daily_budget: adset.daily_budget || null,
+                  lifetime_budget: adset.lifetime_budget || null,
+                  created_time: adset.created_time || null,
+                  updated_time: adset.updated_time || null,
+                  client_number: ad?.client_number || null,
+                  marketing_reference: ad?.marketing_reference || null,
+                  updated_at: new Date().toISOString()
+                });
+
+                // Update adsetMap
+                adsetMap.set(adset.id, {
+                  adset_id: adset.id,
+                  name: adset.name,
+                  client_number: ad?.client_number || null,
+                  marketing_reference: ad?.marketing_reference || null,
+                  campaign_id: adset.campaign_id || ad?.campaign_id || null
+                });
+              } else {
+                // If API call fails, create a minimal stub
+                console.log(`Failed to fetch ad set ${adsetId}, creating minimal stub`);
+                adsetStubs.push({
+                  adset_id: adsetId,
+                  campaign_id: ad?.campaign_id || null,
+                  account_id: accountId,
+                  name: `AdSet ${adsetId}`,
+                  status: 'UNKNOWN',
+                  client_number: ad?.client_number || null,
+                  marketing_reference: ad?.marketing_reference || null,
+                  updated_at: new Date().toISOString()
+                });
+                adsetMap.set(adsetId, {
+                  adset_id: adsetId,
+                  name: `AdSet ${adsetId}`,
+                  client_number: ad?.client_number || null,
+                  marketing_reference: ad?.marketing_reference || null,
+                  campaign_id: ad?.campaign_id || null
+                });
+              }
+            } catch (error: any) {
+              console.error(`Error fetching ad set ${adsetId}:`, error.message);
+              // Create minimal stub on error
+              const ad = adsToUpsert.find(a => a.adset_id === adsetId);
+              adsetStubs.push({
+                adset_id: adsetId,
+                campaign_id: ad?.campaign_id || null,
+                account_id: accountId,
+                name: `AdSet ${adsetId}`,
+                status: 'UNKNOWN',
+                client_number: ad?.client_number || null,
+                marketing_reference: ad?.marketing_reference || null,
+                updated_at: new Date().toISOString()
+              });
+              adsetMap.set(adsetId, {
+                adset_id: adsetId,
+                name: `AdSet ${adsetId}`,
                 client_number: ad?.client_number || null,
                 marketing_reference: ad?.marketing_reference || null,
                 campaign_id: ad?.campaign_id || null
               });
-            });
+            }
+          }
+
+          if (adsetStubs.length > 0) {
+            const { error: adsetStubError } = await supabase
+              .from('meta_adsets')
+              .upsert(adsetStubs, {
+                onConflict: 'adset_id',
+                ignoreDuplicates: false
+              });
+
+            if (adsetStubError) {
+              console.error('Ad set upsert error:', adsetStubError.message);
+              errors.push(`Ad set upsert error: ${adsetStubError.message}`);
+              // If upsert fails, we cannot safely insert ads - skip them
+              console.error('⚠️ Skipping ad insertion due to ad set upsert failure');
+              adsToUpsert.length = 0; // Clear the array to prevent insertion
+            } else {
+              console.log(`✓ Updated ${adsetStubs.length} ad sets with real data from Facebook API`);
+            }
           }
         } catch (error: any) {
-          console.error('Error creating adset stubs:', error.message);
-          errors.push(`AdSet stub error: ${error.message}`);
+          console.error('Error fetching ad set details:', error.message);
+          errors.push(`Ad set fetch error: ${error.message}`);
           // If stub creation fails, skip ad insertion
           console.error('⚠️ Skipping ad insertion due to stub creation failure');
           adsToUpsert.length = 0;
