@@ -1187,6 +1187,12 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       const result = await response.json();
       console.log('Debug results:', result);
 
+      const topAdsText = result.adLevel?.topAds?.length > 0
+        ? '\n\nTop 10 Ads by Spending:\n' + result.adLevel.topAds.map((ad: any, i: number) =>
+            `${i + 1}. ${ad.ad_name} - HK$${ad.spend}`
+          ).join('\n')
+        : '';
+
       const message = `
 Debug Results for ${selectedMonth}:
 
@@ -1202,9 +1208,9 @@ Database:
 - Campaigns: ${result.databaseComparison?.uniqueCampaigns || 0}
 - Ad Sets: ${result.databaseComparison?.uniqueAdsets || 0}
 
-Difference: HK$${result.databaseComparison?.difference || 'N/A'}
+Difference: HK$${result.databaseComparison?.difference || 'N/A'}${topAdsText}
 
-Check browser console for full details.
+Check browser console for full details including all ads.
       `.trim();
 
       alert(message);
