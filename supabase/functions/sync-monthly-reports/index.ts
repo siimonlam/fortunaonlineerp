@@ -799,34 +799,81 @@ Deno.serve(async (req: Request) => {
       // Step 1: Create stub campaigns for any missing campaign IDs
       const missingCampaignIds = [...encounteredCampaignIds].filter(id => !campaignMap.has(id));
       if (missingCampaignIds.length > 0) {
-        console.log(`Creating ${missingCampaignIds.length} stub campaign records...`);
+        console.log(`Fetching ${missingCampaignIds.length} missing campaign details from Facebook API...`);
         try {
-          const campaignStubs = missingCampaignIds.map(campaignId => ({
-            campaign_id: campaignId,
-            account_id: accountId,
-            name: `Campaign ${campaignId} (Auto-created)`,
-            status: 'UNKNOWN',
-            updated_at: new Date().toISOString()
-          }));
+          const campaignStubs = [];
 
-          const { error: campaignStubError } = await supabase
-            .from('meta_campaigns')
-            .upsert(campaignStubs, {
-              onConflict: 'campaign_id',
-              ignoreDuplicates: true
-            });
+          // Fetch real campaign data from Facebook API
+          for (const campaignId of missingCampaignIds) {
+            try {
+              const url = `https://graph.facebook.com/v21.0/${campaignId}?fields=id,name,objective,status,daily_budget,lifetime_budget,created_time,updated_time&access_token=${accessToken}`;
+              const response = await fetchWithRetry(url);
 
-          if (campaignStubError) {
-            console.error('Campaign stub creation error:', campaignStubError.message);
-            errors.push(`Campaign stub creation error: ${campaignStubError.message}`);
-          } else {
-            console.log(`✓ Created ${missingCampaignIds.length} campaign stubs`);
-            // Update campaignMap to avoid re-creating
-            missingCampaignIds.forEach(id => campaignMap.set(id, { campaign_id: id, name: `Campaign ${id} (Auto-created)`, objective: null }));
+              if (response.ok) {
+                const campaign = await response.json();
+                campaignStubs.push({
+                  campaign_id: campaign.id,
+                  account_id: accountId,
+                  name: campaign.name,
+                  objective: campaign.objective || null,
+                  status: campaign.status || 'UNKNOWN',
+                  daily_budget: campaign.daily_budget || null,
+                  lifetime_budget: campaign.lifetime_budget || null,
+                  created_time: campaign.created_time || null,
+                  updated_time: campaign.updated_time || null,
+                  updated_at: new Date().toISOString()
+                });
+
+                // Update campaignMap
+                campaignMap.set(campaign.id, {
+                  campaign_id: campaign.id,
+                  name: campaign.name,
+                  objective: campaign.objective
+                });
+              } else {
+                // If API call fails, create a minimal stub
+                console.log(`Failed to fetch campaign ${campaignId}, creating minimal stub`);
+                campaignStubs.push({
+                  campaign_id: campaignId,
+                  account_id: accountId,
+                  name: `Campaign ${campaignId}`,
+                  status: 'UNKNOWN',
+                  updated_at: new Date().toISOString()
+                });
+                campaignMap.set(campaignId, { campaign_id: campaignId, name: `Campaign ${campaignId}`, objective: null });
+              }
+            } catch (error: any) {
+              console.error(`Error fetching campaign ${campaignId}:`, error.message);
+              // Create minimal stub on error
+              campaignStubs.push({
+                campaign_id: campaignId,
+                account_id: accountId,
+                name: `Campaign ${campaignId}`,
+                status: 'UNKNOWN',
+                updated_at: new Date().toISOString()
+              });
+              campaignMap.set(campaignId, { campaign_id: campaignId, name: `Campaign ${campaignId}`, objective: null });
+            }
+          }
+
+          if (campaignStubs.length > 0) {
+            const { error: campaignStubError } = await supabase
+              .from('meta_campaigns')
+              .upsert(campaignStubs, {
+                onConflict: 'campaign_id',
+                ignoreDuplicates: false
+              });
+
+            if (campaignStubError) {
+              console.error('Campaign upsert error:', campaignStubError.message);
+              errors.push(`Campaign upsert error: ${campaignStubError.message}`);
+            } else {
+              console.log(`✓ Updated ${campaignStubs.length} campaigns with real data from Facebook API`);
+            }
           }
         } catch (error: any) {
-          console.error('Error creating campaign stubs:', error.message);
-          errors.push(`Campaign stub error: ${error.message}`);
+          console.error('Error fetching campaign details:', error.message);
+          errors.push(`Campaign fetch error: ${error.message}`);
         }
       }
 
