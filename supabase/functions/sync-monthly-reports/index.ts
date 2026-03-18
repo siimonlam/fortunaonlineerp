@@ -796,6 +796,69 @@ Deno.serve(async (req: Request) => {
     if (adsToUpsert.length > 0) {
       console.log(`\nPre-processing dependencies for ${adsToUpsert.length} ads...`);
 
+      // Step 0: Update existing campaigns that have UNKNOWN status or missing objective
+      const campaignsToUpdate = [...encounteredCampaignIds].filter(id => {
+        const existing = campaignMap.get(id);
+        return existing && (existing.status === 'UNKNOWN' || !existing.objective);
+      });
+
+      if (campaignsToUpdate.length > 0) {
+        console.log(`Updating ${campaignsToUpdate.length} existing campaigns with UNKNOWN status or missing objective...`);
+        try {
+          const campaignUpdates = [];
+
+          for (const campaignId of campaignsToUpdate) {
+            try {
+              const url = `https://graph.facebook.com/v21.0/${campaignId}?fields=id,name,objective,status,daily_budget,lifetime_budget,created_time,updated_time&access_token=${accessToken}`;
+              const response = await fetchWithRetry(url);
+
+              if (response.ok) {
+                const campaign = await response.json();
+                campaignUpdates.push({
+                  campaign_id: campaign.id,
+                  account_id: accountId,
+                  name: campaign.name,
+                  objective: campaign.objective || null,
+                  status: campaign.status || 'UNKNOWN',
+                  daily_budget: campaign.daily_budget || null,
+                  lifetime_budget: campaign.lifetime_budget || null,
+                  created_time: campaign.created_time || null,
+                  updated_time: campaign.updated_time || null,
+                  updated_at: new Date().toISOString()
+                });
+
+                // Update campaignMap
+                campaignMap.set(campaign.id, {
+                  campaign_id: campaign.id,
+                  name: campaign.name,
+                  objective: campaign.objective,
+                  status: campaign.status
+                });
+              }
+            } catch (error: any) {
+              console.error(`Error updating campaign ${campaignId}:`, error.message);
+            }
+          }
+
+          if (campaignUpdates.length > 0) {
+            const { error: campaignUpdateError } = await supabase
+              .from('meta_campaigns')
+              .upsert(campaignUpdates, {
+                onConflict: 'campaign_id',
+                ignoreDuplicates: false
+              });
+
+            if (campaignUpdateError) {
+              console.error('Campaign update error:', campaignUpdateError.message);
+            } else {
+              console.log(`✓ Updated ${campaignUpdates.length} campaigns with real data from Facebook API`);
+            }
+          }
+        } catch (error: any) {
+          console.error('Error updating campaign details:', error.message);
+        }
+      }
+
       // Step 1: Create stub campaigns for any missing campaign IDs
       const missingCampaignIds = [...encounteredCampaignIds].filter(id => !campaignMap.has(id));
       if (missingCampaignIds.length > 0) {
@@ -874,6 +937,74 @@ Deno.serve(async (req: Request) => {
         } catch (error: any) {
           console.error('Error fetching campaign details:', error.message);
           errors.push(`Campaign fetch error: ${error.message}`);
+        }
+      }
+
+      // Step 1.5: Update existing ad sets that have UNKNOWN status
+      const adsetsToUpdate = [...encounteredAdsetIds].filter(id => {
+        const existing = adsetMap.get(id);
+        return existing && existing.status === 'UNKNOWN';
+      });
+
+      if (adsetsToUpdate.length > 0) {
+        console.log(`Updating ${adsetsToUpdate.length} existing ad sets with UNKNOWN status...`);
+        try {
+          const adsetUpdates = [];
+
+          for (const adsetId of adsetsToUpdate) {
+            try {
+              const ad = adsToUpsert.find(a => a.adset_id === adsetId);
+              const url = `https://graph.facebook.com/v21.0/${adsetId}?fields=id,name,campaign_id,status,daily_budget,lifetime_budget,created_time,updated_time&access_token=${accessToken}`;
+              const response = await fetchWithRetry(url);
+
+              if (response.ok) {
+                const adset = await response.json();
+                adsetUpdates.push({
+                  adset_id: adset.id,
+                  campaign_id: adset.campaign_id || ad?.campaign_id || null,
+                  account_id: accountId,
+                  name: adset.name,
+                  status: adset.status || 'UNKNOWN',
+                  daily_budget: adset.daily_budget || null,
+                  lifetime_budget: adset.lifetime_budget || null,
+                  created_time: adset.created_time || null,
+                  updated_time: adset.updated_time || null,
+                  client_number: ad?.client_number || null,
+                  marketing_reference: ad?.marketing_reference || null,
+                  updated_at: new Date().toISOString()
+                });
+
+                // Update adsetMap
+                adsetMap.set(adset.id, {
+                  adset_id: adset.id,
+                  name: adset.name,
+                  client_number: ad?.client_number || null,
+                  marketing_reference: ad?.marketing_reference || null,
+                  campaign_id: adset.campaign_id || ad?.campaign_id || null,
+                  status: adset.status
+                });
+              }
+            } catch (error: any) {
+              console.error(`Error updating ad set ${adsetId}:`, error.message);
+            }
+          }
+
+          if (adsetUpdates.length > 0) {
+            const { error: adsetUpdateError } = await supabase
+              .from('meta_adsets')
+              .upsert(adsetUpdates, {
+                onConflict: 'adset_id',
+                ignoreDuplicates: false
+              });
+
+            if (adsetUpdateError) {
+              console.error('Ad set update error:', adsetUpdateError.message);
+            } else {
+              console.log(`✓ Updated ${adsetUpdates.length} ad sets with real data from Facebook API`);
+            }
+          }
+        } catch (error: any) {
+          console.error('Error updating ad set details:', error.message);
         }
       }
 
