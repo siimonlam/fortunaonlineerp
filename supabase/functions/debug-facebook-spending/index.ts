@@ -110,6 +110,10 @@ Deno.serve(async (req: Request) => {
       };
 
       console.log(`Facebook ad-level: ${ads.length} ads, total spend: HK$${totalSpend.toFixed(2)}`);
+      console.log('Top 10 ads by spending:');
+      results.adLevel.topAds.forEach((ad: any, i: number) => {
+        console.log(`  ${i + 1}. ${ad.ad_name} (ID: ${ad.ad_id}) - HK$${ad.spend}`);
+      });
     }
 
     // 3. Compare with database
