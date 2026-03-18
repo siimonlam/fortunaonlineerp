@@ -1187,11 +1187,25 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
       const result = await response.json();
       console.log('Debug results:', result);
 
+      // Log all ads to console for detailed analysis
+      if (result.adLevel?.allAds) {
+        console.log('\n=== ALL ADS FROM FACEBOOK API ===');
+        console.table(result.adLevel.allAds);
+        console.log(`Total: ${result.adLevel.allAds.length} ads, HK$${result.adLevel.totalSpend}`);
+      }
+
       const topAdsText = result.adLevel?.topAds?.length > 0
         ? '\n\nTop 10 Ads by Spending:\n' + result.adLevel.topAds.map((ad: any, i: number) =>
             `${i + 1}. ${ad.ad_name} - HK$${ad.spend}`
-          ).join('\n')
+          ).join('\n') +
+          (result.adLevel.totalAds > 10 ? `\n... and ${result.adLevel.totalAds - 10} more ads` : '')
         : '';
+
+      const analysis = result.databaseComparison?.difference > 0
+        ? `\n\nANALYSIS: Database is missing HK$${result.databaseComparison.difference} in spend.\nThis suggests some ads are not being captured during sync.\nCheck the browser console for the full list of all ${result.adLevel?.totalAds || 0} ads.`
+        : result.databaseComparison?.difference < 0
+        ? `\n\nANALYSIS: Database has HK$${Math.abs(result.databaseComparison.difference)} MORE than Facebook API.\nThis is unusual and may indicate duplicate records.`
+        : `\n\nANALYSIS: Spending matches perfectly between Facebook API and database.`;
 
       const message = `
 Debug Results for ${selectedMonth}:
@@ -1208,9 +1222,7 @@ Database:
 - Campaigns: ${result.databaseComparison?.uniqueCampaigns || 0}
 - Ad Sets: ${result.databaseComparison?.uniqueAdsets || 0}
 
-Difference: HK$${result.databaseComparison?.difference || 'N/A'}${topAdsText}
-
-Check browser console for full details including all ads.
+Difference: HK$${result.databaseComparison?.difference || 'N/A'}${topAdsText}${analysis}
       `.trim();
 
       alert(message);

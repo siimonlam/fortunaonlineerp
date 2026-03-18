@@ -92,13 +92,14 @@ Deno.serve(async (req: Request) => {
       const ads = adData.data || [];
       const totalSpend = ads.reduce((sum: number, ad: any) => sum + parseFloat(ad.spend || '0'), 0);
 
+      const sortedAds = ads.sort((a: any, b: any) => parseFloat(b.spend || '0') - parseFloat(a.spend || '0'));
+
       results.adLevel = {
         totalAds: ads.length,
         totalSpend: totalSpend.toFixed(2),
         uniqueCampaigns: [...new Set(ads.map((a: any) => a.campaign_id))].length,
         uniqueAdsets: [...new Set(ads.map((a: any) => a.adset_id))].length,
-        topAds: ads
-          .sort((a: any, b: any) => parseFloat(b.spend || '0') - parseFloat(a.spend || '0'))
+        topAds: sortedAds
           .slice(0, 10)
           .map((a: any) => ({
             ad_id: a.ad_id,
@@ -106,7 +107,14 @@ Deno.serve(async (req: Request) => {
             adset_id: a.adset_id,
             campaign_id: a.campaign_id,
             spend: parseFloat(a.spend || '0').toFixed(2)
-          }))
+          })),
+        allAds: sortedAds.map((a: any) => ({
+          ad_id: a.ad_id,
+          ad_name: a.ad_name,
+          adset_id: a.adset_id,
+          campaign_id: a.campaign_id,
+          spend: parseFloat(a.spend || '0').toFixed(2)
+        }))
       };
 
       console.log(`Facebook ad-level: ${ads.length} ads, total spend: HK$${totalSpend.toFixed(2)}`);
