@@ -1159,6 +1159,64 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
     }
   };
 
+  const handleDebugSpending = async (accountId: string) => {
+    setSyncingMonthly(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/debug-facebook-spending`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accountId,
+          month: selectedMonth === 'last_6_months' || selectedMonth === 'last_12_months' ? '2026-02' : selectedMonth
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Debug failed:', errorData);
+        alert(`Debug failed: ${errorData.error || 'Unknown error'}`);
+        return;
+      }
+
+      const result = await response.json();
+      console.log('Debug results:', result);
+
+      const message = `
+Debug Results for ${selectedMonth}:
+
+Facebook API (Ad-level):
+- Total Spend: HK$${result.adLevel?.totalSpend || 'N/A'}
+- Total Ads: ${result.adLevel?.totalAds || 0}
+- Campaigns: ${result.adLevel?.uniqueCampaigns || 0}
+- Ad Sets: ${result.adLevel?.uniqueAdsets || 0}
+
+Database:
+- Total Spend: HK$${result.databaseComparison?.totalSpend || 'N/A'}
+- Records: ${result.databaseComparison?.totalRecords || 0}
+- Campaigns: ${result.databaseComparison?.uniqueCampaigns || 0}
+- Ad Sets: ${result.databaseComparison?.uniqueAdsets || 0}
+
+Difference: HK$${result.databaseComparison?.difference || 'N/A'}
+
+Check browser console for full details.
+      `.trim();
+
+      alert(message);
+
+    } catch (err: any) {
+      console.error('Debug error:', err);
+      alert(`Debug error: ${err.message}`);
+    } finally {
+      setSyncingMonthly(false);
+    }
+  };
+
   const handleSyncMonthlyReports = async (accountId: string, datePreset?: string) => {
     setSyncingMonthly(true);
     setMonthlyReportResults(null);
@@ -1436,6 +1494,14 @@ export default function MarketingMetaAdSection({ projectId, clientNumber }: Mark
                   >
                     <BarChart3 size={14} />
                     Test API
+                  </button>
+                  <button
+                    onClick={() => handleDebugSpending(link.account_id)}
+                    disabled={syncingMonthly}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    <BarChart3 size={14} />
+                    Debug Spending
                   </button>
                   <button
                     onClick={() => handleRemoveAccount(link.id)}
