@@ -805,6 +805,53 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
     return null;
   };
 
+  const getPostTaskBadge = (post: SocialPost) => {
+    const steps = postSteps[post.id] || [];
+    const incompleteTasks = steps.filter(s => s.status !== 'completed' && s.due_date);
+
+    if (incompleteTasks.length === 0) return null;
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    let hasPastDue = false;
+    let hasUpcoming = false;
+    let earliestDaysUntilDue = Infinity;
+
+    for (const step of incompleteTasks) {
+      const dueDate = new Date(step.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysUntilDue < 0) {
+        hasPastDue = true;
+      } else if (daysUntilDue <= 7) {
+        hasUpcoming = true;
+        if (daysUntilDue < earliestDaysUntilDue) {
+          earliestDaysUntilDue = daysUntilDue;
+        }
+      }
+    }
+
+    if (hasPastDue) {
+      return (
+        <span className="flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium" title="Has past due tasks">
+          <AlertCircle className="w-3 h-3" />
+          Past Due
+        </span>
+      );
+    } else if (hasUpcoming) {
+      return (
+        <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium" title={`Has tasks due in ${earliestDaysUntilDue} day${earliestDaysUntilDue !== 1 ? 's' : ''}`}>
+          <Bell className="w-3 h-3" />
+          Upcoming
+        </span>
+      );
+    }
+
+    return null;
+  };
+
   const handleUpdateAccountAssignments = async (type: 'instagram' | 'facebook', accountId: string) => {
     try {
       if (type === 'instagram') {
@@ -1370,6 +1417,7 @@ export function SocialMediaPostsManager({ marketingProjectId }: SocialMediaPosts
                                 <span className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                                   {post.post_id}
                                 </span>
+                                {getPostTaskBadge(post)}
                               </div>
                               <div className="flex items-center gap-2">
                                 <h4 className="font-semibold text-slate-900">{post.title}</h4>
