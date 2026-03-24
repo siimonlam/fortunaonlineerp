@@ -1722,6 +1722,148 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
         {activeTab === 'project' ? (
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {projectType?.name !== 'Marketing' && (
+            <div className="space-y-4">
+              <div className="flex justify-center mb-6">
+                <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                  Project Detail Summary
+                </h3>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <tbody className="divide-y divide-slate-200">
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 w-1/3 bg-slate-100">Project Title</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.title || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Client ID</td>
+                      <td className="px-4 py-3 text-blue-700 font-semibold">{project.client_number || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Company Name</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.companyName || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Company Name (Chinese)</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.companyNameChinese || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Project Name</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.projectName || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Status</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
+                          {projectStatuses.find(s => s.id === formData.statusId)?.name || '-'}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Contact Name</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.contactName || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Contact Number</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.contactNumber || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Email</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.email || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Project Size</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.projectSize || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Application Number</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.applicationNumber || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Funding Scheme %</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.fundingScheme ? `${formData.fundingScheme}%` : '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Service Fee %</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.serviceFeePercentage ? `${formData.serviceFeePercentage}%` : '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Granted Amount</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.grantedAmount ? `HKD $${parseFloat(formData.grantedAmount).toLocaleString()}` : '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Deposit Amount</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.depositAmount ? `HKD $${parseFloat(formData.depositAmount).toLocaleString()}` : '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Deposit Status</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-md text-xs font-medium ${
+                          depositStatus === 'paid'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {depositStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Receivable</td>
+                      <td className="px-4 py-3">
+                        <span className={`font-semibold ${receivableAmount >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                          HKD ${receivableAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Start Date</td>
+                      <td className="px-4 py-3 text-slate-900">
+                        {formData.startDate ? new Date(formData.startDate).toLocaleDateString() : '-'}
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Project Start Date</td>
+                      <td className="px-4 py-3 text-slate-900">
+                        {formData.projectStartDate ? new Date(formData.projectStartDate).toLocaleDateString() : '-'}
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Project End Date</td>
+                      <td className="px-4 py-3 text-slate-900">
+                        {formData.projectEndDate ? new Date(formData.projectEndDate).toLocaleDateString() : '-'}
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Submission Date</td>
+                      <td className="px-4 py-3 text-slate-900">
+                        {formData.submissionDate ? new Date(formData.submissionDate).toLocaleDateString() : '-'}
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">Approval Date</td>
+                      <td className="px-4 py-3 text-slate-900">
+                        {formData.approvalDate ? new Date(formData.approvalDate).toLocaleDateString() : '-'}
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">HKPC Officer Name</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.hkpcOfficerName || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">HKPC Officer Email</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.hkpcOfficerEmail || '-'}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-700 bg-slate-100">HKPC Officer Phone</td>
+                      <td className="px-4 py-3 text-slate-900">{formData.hkpcOfficerPhone || '-'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div className="flex justify-center mb-6">
               <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
