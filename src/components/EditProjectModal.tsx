@@ -137,7 +137,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
   const [clientData, setClientData] = useState<any>(null);
   const [projectType, setProjectType] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'project' | 'invoices' | 'files' | 'emails'>('project');
+  const [activeTab, setActiveTab] = useState<'summary' | 'project' | 'invoices' | 'files' | 'emails'>('summary');
   const [invoiceSubTab, setInvoiceSubTab] = useState<'list' | 'settings'>('list');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [receipts, setReceipts] = useState<any[]>([]);
@@ -1647,6 +1647,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           <div className="flex gap-2 px-4 sm:px-6 pt-4 border-b border-slate-200 overflow-x-auto">
             <button
               type="button"
+              onClick={() => setActiveTab('summary')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeTab === 'summary'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Project Detail
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('project')}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
                 activeTab === 'project'
@@ -1654,7 +1665,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              Project
+              Edit
             </button>
             <button
               type="button"
@@ -1720,9 +1731,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           </div>
         )}
 
-        {activeTab === 'project' ? (
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {projectType?.name !== 'Marketing' && (
+        {activeTab === 'summary' ? (
+          <div className="p-6 space-y-6">
             <div className="space-y-4">
               <div className="flex justify-center mb-6">
                 <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
@@ -1862,8 +1872,9 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 </table>
               </div>
             </div>
-          )}
-
+          </div>
+        ) : activeTab === 'project' ? (
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="space-y-4">
             <div className="flex justify-center mb-6">
               <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
