@@ -86,6 +86,7 @@ export function CreateInvoiceModal({ project, onClose, onSuccess }: CreateInvoic
           applicationNumber: project.application_number || '',
           fundingScheme: project.funding_scheme || '',
           clientNumber: project.client_number || '',
+          agreementRef: project.agreement_reference || '',
           depositAmount: project.deposit_amount || '',
           serviceFeePercent: project.service_fee || '',
         }),

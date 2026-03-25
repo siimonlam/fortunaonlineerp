@@ -285,7 +285,7 @@ Deno.serve(async (req: Request) => {
               text: placeholder,
               matchCase: true,
             },
-            replaceText: safeValue.substring(0, 50),
+            replaceText: safeValue,
           },
         };
       });
