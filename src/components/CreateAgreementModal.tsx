@@ -29,17 +29,18 @@ export function CreateAgreementModal({ project, onClose, onSuccess }: CreateAgre
 
   useEffect(() => {
     async function generateAgreementNumber() {
-      if (!project.client_number) return;
+      const projectNumber = project.project_reference_number || project.project_reference;
+      if (!projectNumber) return;
       try {
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const agreementNum = `AGR-${project.client_number}-${dateStr}`;
+        const agreementNum = `AGR-${projectNumber}-${dateStr}`;
         setFormData(prev => ({ ...prev, agreementNumber: agreementNum }));
       } catch (err) {
         console.error('Error generating agreement number:', err);
       }
     }
     generateAgreementNumber();
-  }, [project.client_number]);
+  }, [project.project_reference_number, project.project_reference]);
 
   async function handleGenerate() {
     if (!formData.agreementNumber) {
