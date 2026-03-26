@@ -8,6 +8,7 @@ import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 import { InvoiceFieldMappingSettings } from './InvoiceFieldMappingSettings';
 import { ReceiptFieldMappingSettings } from './ReceiptFieldMappingSettings';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
+import { CreateAgreementModal } from './CreateAgreementModal';
 import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import { EmailSchedulerTab } from './EmailSchedulerTab';
@@ -151,6 +152,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [showReceiptSettings, setShowReceiptSettings] = useState(false);
   const [receivableAmount, setReceivableAmount] = useState<number>(0);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
+  const [showCreateAgreement, setShowCreateAgreement] = useState(false);
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
@@ -3263,34 +3265,23 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   {canEdit && (
                     <button
                       type="button"
-                      onClick={() => setShowInvoiceSettings(true)}
-                      className="px-3 py-1.5 bg-slate-600 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-1"
-                      title="Configure invoice field mappings"
-                    >
-                      <Settings className="w-4 h-4" />
-                      Invoice Mapping Setting
-                    </button>
-                  )}
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={() => setShowReceiptSettings(true)}
-                      className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
-                      title="Configure receipt field mappings"
-                    >
-                      <Receipt className="w-4 h-4" />
-                      Receipt Mapping Setting
-                    </button>
-                  )}
-                  {canEdit && (
-                    <button
-                      type="button"
                       onClick={() => setShowCreateInvoice(true)}
                       className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
                       title="Create and save invoice to Google Drive"
                     >
                       <InvoiceIcon className="w-4 h-4" />
                       Create Invoice
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateAgreement(true)}
+                      className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                      title="Create and save agreement to Google Drive"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Create Agreement
                     </button>
                   )}
                 </div>
@@ -3847,6 +3838,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           onSuccess={() => {
             setShowCreateInvoice(false);
             loadInvoices();
+          }}
+        />
+      )}
+
+      {showCreateAgreement && (
+        <CreateAgreementModal
+          project={project}
+          onClose={() => setShowCreateAgreement(false)}
+          onSuccess={() => {
+            setShowCreateAgreement(false);
           }}
         />
       )}
