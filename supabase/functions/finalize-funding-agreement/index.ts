@@ -171,6 +171,36 @@ Deno.serve(async (req: Request) => {
 
     const googleDocUrl = `https://docs.google.com/document/d/${documentId}/edit`;
 
+    const authHeader = req.headers.get('Authorization');
+    let userId = null;
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id;
+    }
+
+    const { error: dbError } = await supabase
+      .from('funding_agreements')
+      .insert({
+        project_id: projectId,
+        agreement_number: agreementNumber,
+        client_name: companyName,
+        project_name: agreementData?.projectName || projectReference,
+        project_size: agreementData?.projectSize ? Number(agreementData.projectSize) : null,
+        funding_ratio: agreementData?.fundingRatio || null,
+        approved_amount: agreementData?.approvedAmount ? Number(agreementData.approvedAmount) : null,
+        estimated_start_date: agreementData?.estimatedStartDate || null,
+        estimated_end_date: agreementData?.estimatedEndDate || null,
+        google_drive_url: googleDocUrl,
+        pdf_url: publicUrl,
+        created_by: userId,
+      });
+
+    if (dbError) {
+      console.error('Error saving agreement to database:', dbError);
+      throw new Error(`Failed to save agreement to database: ${dbError.message}`);
+    }
+
     console.log('Agreement finalized successfully');
     console.log('PDF URL:', publicUrl);
     console.log('Google Doc URL:', googleDocUrl);

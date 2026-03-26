@@ -138,9 +138,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
   const [clientData, setClientData] = useState<any>(null);
   const [projectType, setProjectType] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'summary' | 'project' | 'invoices' | 'files' | 'emails'>('project');
+  const [activeTab, setActiveTab] = useState<'summary' | 'project' | 'invoices' | 'agreements' | 'files' | 'emails'>('project');
   const [invoiceSubTab, setInvoiceSubTab] = useState<'list' | 'settings'>('list');
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [agreements, setAgreements] = useState<any[]>([]);
   const [receipts, setReceipts] = useState<any[]>([]);
   const [depositStatus, setDepositStatus] = useState<'paid' | 'unpaid'>('unpaid');
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
@@ -312,6 +313,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       loadProjectType();
     }
     loadInvoices();
+    loadAgreements();
     if (isAdmin) {
       loadPermissions();
     }
@@ -467,6 +469,20 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       .order('created_at', { ascending: false });
 
     setReceipts(receiptsData || []);
+  }
+
+  async function loadAgreements() {
+    const { data, error } = await supabase
+      .from('funding_agreements')
+      .select('*')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading agreements:', error);
+    } else {
+      setAgreements(data || []);
+    }
   }
 
   async function refreshProjectData() {
@@ -1668,6 +1684,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               }`}
             >
               Invoices
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('agreements')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeTab === 'agreements'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Agreement
             </button>
             <button
               type="button"
@@ -3533,6 +3560,121 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             </div>
             )}
           </div>
+        ) : activeTab === 'agreements' ? (
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2 flex-1">
+                Agreements
+              </h3>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setShowCreateAgreement(true)}
+                  className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                  title="Create and save agreement to Google Drive"
+                >
+                  <FileText className="w-4 h-4" />
+                  Create Agreement
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {agreements.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No agreements yet</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-100 border-b border-slate-200">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium text-slate-700">Agreement #</th>
+                        <th className="text-left px-3 py-2 font-medium text-slate-700">Client Name</th>
+                        <th className="text-left px-3 py-2 font-medium text-slate-700">Project Name</th>
+                        <th className="text-left px-3 py-2 font-medium text-slate-700">Project Size</th>
+                        <th className="text-left px-3 py-2 font-medium text-slate-700">Approved Amount</th>
+                        <th className="text-left px-3 py-2 font-medium text-slate-700">Start Date</th>
+                        <th className="text-left px-3 py-2 font-medium text-slate-700">End Date</th>
+                        <th className="text-left px-3 py-2 font-medium text-slate-700">Created</th>
+                        <th className="text-left px-3 py-2 font-medium text-slate-700">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {agreements.map((agreement) => (
+                        <tr key={agreement.id} className="border-b border-slate-200 hover:bg-slate-50">
+                          <td className="px-3 py-2 text-slate-900 font-medium">{agreement.agreement_number}</td>
+                          <td className="px-3 py-2 text-slate-700">{agreement.client_name}</td>
+                          <td className="px-3 py-2 text-slate-700">{agreement.project_name}</td>
+                          <td className="px-3 py-2 text-slate-700">${Number(agreement.project_size || 0).toLocaleString()}</td>
+                          <td className="px-3 py-2 text-slate-700">${Number(agreement.approved_amount || 0).toLocaleString()}</td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {agreement.estimated_start_date ? new Date(agreement.estimated_start_date).toLocaleDateString() : '-'}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {agreement.estimated_end_date ? new Date(agreement.estimated_end_date).toLocaleDateString() : '-'}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {new Date(agreement.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              {agreement.google_drive_url && (
+                                <a
+                                  href={agreement.google_drive_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                                  title="View in Google Drive"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  View
+                                </a>
+                              )}
+                              {agreement.pdf_url && (
+                                <a
+                                  href={agreement.pdf_url}
+                                  download
+                                  className="text-green-600 hover:text-green-800 text-xs flex items-center gap-1"
+                                  title="Download PDF"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  Download
+                                </a>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Are you sure you want to delete this agreement?')) {
+                                      try {
+                                        const { error } = await supabase
+                                          .from('funding_agreements')
+                                          .delete()
+                                          .eq('id', agreement.id);
+
+                                        if (error) throw error;
+                                        loadAgreements();
+                                      } catch (error: any) {
+                                        console.error('Error deleting agreement:', error);
+                                        alert('Failed to delete agreement: ' + error.message);
+                                      }
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-800 text-xs flex items-center gap-1"
+                                  title="Delete agreement"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         ) : activeTab === 'emails' ? (
           <div className="p-6">
             <EmailSchedulerTab
@@ -3848,6 +3990,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
           onClose={() => setShowCreateAgreement(false)}
           onSuccess={() => {
             setShowCreateAgreement(false);
+            loadAgreements();
           }}
         />
       )}
