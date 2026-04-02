@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, CheckCircle2, Circle, Calendar, User, Link as LinkIcon, Edit2, X } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Circle, Calendar, User, Link as LinkIcon, CreditCard as Edit2, X, Clock, AlertCircle } from 'lucide-react';
 
 interface Staff {
   id: string;
@@ -221,6 +221,61 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
   const incompleteTasks = tasks.filter(t => !t.completed);
   const completedTasks = tasks.filter(t => t.completed);
 
+  function getTaskDeadlineStatus(task: Task) {
+    if (!task.deadline) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const deadline = new Date(task.deadline);
+    deadline.setHours(0, 0, 0, 0);
+
+    const diffTime = deadline.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return { type: 'overdue', days: Math.abs(diffDays), label: `${Math.abs(diffDays)}d overdue` };
+    } else if (diffDays === 0) {
+      return { type: 'today', days: 0, label: 'Due today' };
+    } else if (diffDays <= 3) {
+      return { type: 'upcoming', days: diffDays, label: `Due in ${diffDays}d` };
+    }
+
+    return null;
+  }
+
+  function renderDeadlineBadge(task: Task) {
+    if (task.assigned_to !== user?.id) return null;
+
+    const status = getTaskDeadlineStatus(task);
+    if (!status) return null;
+
+    if (status.type === 'overdue') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
+          <AlertCircle className="w-3 h-3" />
+          {status.label}
+        </span>
+      );
+    } else if (status.type === 'today') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full">
+          <Clock className="w-3 h-3" />
+          {status.label}
+        </span>
+      );
+    } else if (status.type === 'upcoming') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+          <Clock className="w-3 h-3" />
+          {status.label}
+        </span>
+      );
+    }
+
+    return null;
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -405,7 +460,10 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
                         <Circle className="w-5 h-5" />
                       </button>
                       <div className="flex-1">
-                        <h5 className="font-semibold text-slate-900">{task.title}</h5>
+                        <div className="flex items-center gap-2">
+                          <h5 className="font-semibold text-slate-900">{task.title}</h5>
+                          {renderDeadlineBadge(task)}
+                        </div>
                         {task.description && (
                           <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                         )}
