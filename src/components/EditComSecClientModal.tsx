@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, Edit2, XCircle, FileEdit, Camera, QrCode, UserCheck, Download, Mail, ExternalLink, Ban } from 'lucide-react';
+import { X, Plus, Trash2, Receipt, FileText, Bell, MessageSquare, Clock, DollarSign, CheckCircle, Calendar, CreditCard as Edit2, XCircle, File as FileEdit, Camera, QrCode, UserCheck, Download, Mail, ExternalLink, Ban, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PDFDocument } from 'pdf-lib';
 import { ComSecInvoicePreviewModal } from './ComSecInvoicePreviewModal';
@@ -955,6 +955,46 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
     }
     setNar1PdfUrl(null);
     setNar1PdfBytes(null);
+  }
+
+  async function handleSyncToClient() {
+    if (!client.client_id) {
+      alert('No client linked to this ComSec client');
+      return;
+    }
+
+    if (!confirm('This will update the client information with data from this ComSec client. Continue?')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updateData = {
+        company_name: formData.company_name.trim() || null,
+        company_name_chinese: formData.company_name_chinese.trim() || null,
+        contact_name: formData.contact_person.trim() || null,
+        contact_number: formData.phone.trim() || null,
+        email: formData.email.trim() || null,
+        address: formData.address.trim() || null,
+        sales_source: formData.sales_source.trim() || null,
+        sales_person_id: formData.sales_person_id || null,
+        parent_client_id: formData.parent_client_id.trim() || null,
+      };
+
+      const { error } = await supabase
+        .from('clients')
+        .update(updateData)
+        .eq('id', client.client_id);
+
+      if (error) throw error;
+
+      alert('Successfully synced ComSec client data to client!');
+    } catch (error: any) {
+      console.error('Error syncing to client:', error);
+      alert(`Failed to sync to client: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -3234,6 +3274,17 @@ export function EditComSecClientModal({ client, staff, onClose, onSuccess, onCre
                 >
                   Cancel
                 </button>
+                {client.client_id && (
+                  <button
+                    type="button"
+                    onClick={handleSyncToClient}
+                    disabled={loading}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Sync to Client
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={loading}

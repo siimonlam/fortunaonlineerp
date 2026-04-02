@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileText as InvoiceIcon, ExternalLink, Receipt, Mail } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileText as InvoiceIcon, ExternalLink, Receipt, Mail, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
@@ -930,6 +930,60 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       alert(`Failed to create folders: ${error.message}`);
     } finally {
       setCreatingFolders(false);
+    }
+  }
+
+  async function handleSyncToClient() {
+    if (!project.client_id) {
+      alert('No client linked to this project');
+      return;
+    }
+
+    if (!confirm('This will update the client information with data from this project. Continue?')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updateData: any = {
+        company_name: formData.companyName.trim() || null,
+        company_name_chinese: formData.companyNameChinese.trim() || null,
+        contact_name: formData.contactName.trim() || null,
+        contact_number: formData.contactNumber.trim() || null,
+        email: formData.email.trim() || null,
+        address: formData.address.trim() || null,
+        sales_source: formData.salesSource.trim() || null,
+        sales_person_id: formData.salesPersonId || null,
+        abbreviation: formData.abbreviation.trim() || null,
+      };
+
+      const tableName = project.table_source || 'projects';
+      if (tableName === 'marketing_projects') {
+        updateData.sales_source_detail = formData.salesSourceDetail.trim() || null;
+        updateData.industry = formData.industry.trim() || null;
+        updateData.other_industry = formData.industry === 'Other' ? formData.otherIndustry.trim() || null : null;
+        updateData.is_ecommerce = formData.isEcommerce;
+        updateData.brand_name = formData.brandName.trim() || null;
+        updateData.channel_partner_id = formData.channelPartnerId || null;
+        updateData.parent_client_id = formData.parentClientId.trim() || null;
+      } else if (tableName === 'projects') {
+        updateData.brand_name = formData.brandName.trim() || null;
+        updateData.parent_client_id = formData.parentClientId.trim() || null;
+      }
+
+      const { error } = await supabase
+        .from('clients')
+        .update(updateData)
+        .eq('id', project.client_id);
+
+      if (error) throw error;
+
+      alert('Successfully synced project data to client!');
+    } catch (error: any) {
+      console.error('Error syncing to client:', error);
+      alert(`Failed to sync to client: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -3230,6 +3284,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             >
               Close
             </button>
+            {canEdit && project.client_id && (
+              <button
+                type="button"
+                onClick={handleSyncToClient}
+                disabled={loading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Sync to Client
+              </button>
+            )}
             {canEdit && hasUnsavedChanges && (
               <button
                 type="submit"
