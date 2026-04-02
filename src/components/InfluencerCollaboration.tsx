@@ -3,9 +3,15 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, CreditCard as Edit2, Trash2, X, ExternalLink, TrendingUp, DollarSign, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eye, Download } from 'lucide-react';
 
+interface PostLink {
+  url: string;
+  description?: string;
+}
+
 interface InfluencerCollab {
   id: string;
   marketing_project_id: string;
+  campaign_name: string;
   item: string;
   collaborator_name: string;
   phone_number: string;
@@ -33,6 +39,7 @@ interface InfluencerCollab {
   affiliate_link: string;
   coupon_code: string;
   post_link: string;
+  post_links: PostLink[];
   post_likes: number;
   post_comments: number;
   post_views: number;
@@ -66,6 +73,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const [formData, setFormData] = useState({
+    campaign_name: '',
     item: '',
     collaborator_name: '',
     phone_number: '',
@@ -93,6 +101,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     affiliate_link: '',
     coupon_code: '',
     post_link: '',
+    post_links: [] as PostLink[],
     post_likes: '',
     post_comments: '',
     post_views: '',
@@ -200,6 +209,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
 
   const exportToCSV = () => {
     const headers = [
+      'Campaign Name',
       'Item',
       'Collaborator Name',
       'Phone Number',
@@ -224,7 +234,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       'Compensation Amount',
       'Affiliate Link',
       'Coupon Code',
-      'Post Link',
+      'Post Links',
       'Post Likes',
       'Post Comments',
       'Post Views',
@@ -237,7 +247,12 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
 
     const escapeCSV = (value: any): string => {
       if (value === null || value === undefined) return '';
-      if (Array.isArray(value)) return value.join('; ');
+      if (Array.isArray(value)) {
+        if (value.length > 0 && typeof value[0] === 'object') {
+          return value.map(item => `${item.url}${item.description ? ' (' + item.description + ')' : ''}`).join('; ');
+        }
+        return value.join('; ');
+      }
       const stringValue = String(value);
       if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
         return `"${stringValue.replace(/"/g, '""')}"`;
@@ -246,6 +261,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     };
 
     const rows = filteredCollaborations.map(collab => [
+      escapeCSV(collab.campaign_name),
       escapeCSV(collab.item),
       escapeCSV(collab.collaborator_name),
       escapeCSV(collab.phone_number),
@@ -270,7 +286,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       escapeCSV(collab.compensation_amount),
       escapeCSV(collab.affiliate_link),
       escapeCSV(collab.coupon_code),
-      escapeCSV(collab.post_link),
+      escapeCSV(collab.post_links),
       escapeCSV(collab.post_likes),
       escapeCSV(collab.post_comments),
       escapeCSV(collab.post_views),
@@ -311,6 +327,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
 
       const collabData = {
         marketing_project_id: marketingProjectId,
+        campaign_name: formData.campaign_name || null,
         item: formData.item || null,
         collaborator_name: formData.collaborator_name,
         phone_number: formData.phone_number || null,
@@ -338,6 +355,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         affiliate_link: formData.affiliate_link || null,
         coupon_code: formData.coupon_code || null,
         post_link: formData.post_link || null,
+        post_links: formData.post_links.filter(link => link.url.trim() !== ''),
         post_likes: formData.post_likes ? parseInt(formData.post_likes) : 0,
         post_comments: formData.post_comments ? parseInt(formData.post_comments) : 0,
         post_views: formData.post_views ? parseInt(formData.post_views) : 0,
@@ -375,6 +393,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
   const handleEdit = (collab: InfluencerCollab) => {
     setEditingCollab(collab);
     setFormData({
+      campaign_name: collab.campaign_name || '',
       item: collab.item || '',
       collaborator_name: collab.collaborator_name || '',
       phone_number: collab.phone_number || '',
@@ -402,6 +421,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       affiliate_link: collab.affiliate_link || '',
       coupon_code: collab.coupon_code || '',
       post_link: collab.post_link || '',
+      post_links: collab.post_links && collab.post_links.length > 0 ? collab.post_links : [{ url: '', description: '' }],
       post_likes: collab.post_likes?.toString() || '',
       post_comments: collab.post_comments?.toString() || '',
       post_views: collab.post_views?.toString() || '',
@@ -480,6 +500,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     setShowModal(false);
     setEditingCollab(null);
     setFormData({
+      campaign_name: '',
       item: '',
       collaborator_name: '',
       phone_number: '',
@@ -507,6 +528,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       affiliate_link: '',
       coupon_code: '',
       post_link: '',
+      post_links: [] as PostLink[],
       post_likes: '',
       post_comments: '',
       post_views: '',
@@ -643,6 +665,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                     Collaborator {getSortIcon('collaborator_name')}
                   </div>
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Campaign</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Item</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Platforms</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">Use Right</th>
@@ -765,6 +788,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                       )}
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-sm text-slate-900">{collab.campaign_name || '-'}</td>
                   <td className="px-4 py-3 text-sm text-slate-900">{collab.item || '-'}</td>
                   <td className="px-4 py-3 text-sm">
                     {collab.platforms && collab.platforms.length > 0 ? (
@@ -844,7 +868,24 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                     {collab.post_views?.toLocaleString() || '-'}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-900">
-                    {collab.post_link ? (
+                    {collab.post_links && collab.post_links.length > 0 ? (
+                      <div className="space-y-1">
+                        {collab.post_links.map((link, idx) => (
+                          <a
+                            key={idx}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline flex items-center gap-1"
+                            title={link.description || link.url}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            {link.description || `Post ${idx + 1}`}
+                          </a>
+                        ))}
+                        <div className="text-slate-900">{collab.post_likes?.toLocaleString() || 0} likes</div>
+                      </div>
+                    ) : collab.post_link ? (
                       <a href={collab.post_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         {collab.post_likes?.toLocaleString() || 0}
                       </a>
@@ -911,6 +952,17 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
               <div className="space-y-4">
                 <h4 className="font-semibold text-slate-900">Basic Information</h4>
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Campaign Name</label>
+                    <input
+                      type="text"
+                      value={formData.campaign_name}
+                      onChange={(e) => setFormData({ ...formData, campaign_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., Summer Sale 2026, Product Launch..."
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Collaborator Name *</label>
                     <input
@@ -1288,20 +1340,65 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
 
               <div className="space-y-4">
                 <h4 className="font-semibold text-slate-900">Post Performance</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Post Link</label>
-                    <input
-                      type="url"
-                      value={formData.post_link}
-                      onChange={(e) => setFormData({ ...formData, post_link: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="https://..."
-                    />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Post Links</label>
+                    {formData.post_links.map((link, index) => (
+                      <div key={index} className="flex gap-2 mb-2">
+                        <input
+                          type="url"
+                          value={link.url}
+                          onChange={(e) => {
+                            const newLinks = [...formData.post_links];
+                            newLinks[index] = { ...newLinks[index], url: e.target.value };
+                            setFormData({ ...formData, post_links: newLinks });
+                          }}
+                          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="https://..."
+                        />
+                        <input
+                          type="text"
+                          value={link.description || ''}
+                          onChange={(e) => {
+                            const newLinks = [...formData.post_links];
+                            newLinks[index] = { ...newLinks[index], description: e.target.value };
+                            setFormData({ ...formData, post_links: newLinks });
+                          }}
+                          className="w-48 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Description (optional)"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newLinks = formData.post_links.filter((_, i) => i !== index);
+                            setFormData({ ...formData, post_links: newLinks });
+                          }}
+                          className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          post_links: [...formData.post_links, { url: '', description: '' }]
+                        });
+                      }}
+                      className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Post Link
+                    </button>
                     <p className="text-xs text-slate-500 mt-1">
                       Supports YouTube and Instagram. Use the Update button in the table to fetch metrics automatically.
                     </p>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Post Date</label>
