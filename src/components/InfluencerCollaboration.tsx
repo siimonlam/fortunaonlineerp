@@ -1602,25 +1602,37 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
 
                   <div
                     ref={pasteAreaRef}
+                    tabIndex={0}
                     onPaste={(e: any) => handlePaste(e, editingCollab)}
-                    className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
-                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50 focus:border-blue-500 focus:bg-blue-50 transition-colors"
                   >
                     <div className="space-y-3">
                       <div className="flex justify-center gap-3">
-                        <Upload className="w-8 h-8 text-slate-400" />
                         <Clipboard className="w-8 h-8 text-slate-400" />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-slate-700">
-                          Click to upload or paste from clipboard
+                          Paste screenshot from clipboard here
                         </p>
                         <p className="text-xs text-slate-500 mt-1">
+                          Click this area, then press Ctrl+V (Cmd+V on Mac)
+                        </p>
+                        <p className="text-xs text-slate-500 mt-2">
                           Screenshots will be saved to: marketing/KOL Program/
                         </p>
                         <p className="text-xs text-slate-500">
                           Filename: {(editingCollab.post_date || new Date().toISOString().split('T')[0]).replace(/-/g, '')}-{editingCollab.collaborator_name}-###
                         </p>
+                      </div>
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                        >
+                          <Upload className="w-4 h-4" />
+                          Or browse files
+                        </button>
                       </div>
                     </div>
                     <input
