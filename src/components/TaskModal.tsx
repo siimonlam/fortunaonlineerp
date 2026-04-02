@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { X, Plus, Calendar, User, Trash2, CheckCircle2, Circle, Building2, Mail, Phone, MapPin, Link as LinkIcon, Edit2, AlertCircle } from 'lucide-react';
+import { X, Plus, Calendar, User, Trash2, CheckCircle2, Circle, Building2, Mail, Phone, MapPin, Link as LinkIcon, CreditCard as Edit2, AlertCircle, CalendarClock } from 'lucide-react';
 
 interface Staff {
   id: string;
@@ -268,7 +268,8 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
     setEditTitle(task.title);
     setEditDescription(task.description || '');
     setEditAssignee(task.assigned_to || '');
-    setEditDeadline(task.deadline || '');
+    const deadlineDate = task.deadline ? task.deadline.split('T')[0] : '';
+    setEditDeadline(deadlineDate);
     setEditIsUrgent(task.is_urgent || false);
   }
 
@@ -309,6 +310,19 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handlePostponeDeadline() {
+    if (!editingTaskId || !editDeadline) {
+      alert('Please set a due date first.');
+      return;
+    }
+
+    const currentDate = new Date(editDeadline);
+    currentDate.setDate(currentDate.getDate() + 1);
+    const newDeadline = currentDate.toISOString().split('T')[0];
+
+    setEditDeadline(newDeadline);
   }
 
   async function handleDeleteProject() {
@@ -663,12 +677,24 @@ export function TaskModal({ project, staff, onClose, onSuccess, isMarketing = fa
                           </option>
                         ))}
                       </select>
-                      <input
-                        type="date"
-                        value={editDeadline}
-                        onChange={(e) => setEditDeadline(e.target.value)}
-                        className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={editDeadline}
+                          onChange={(e) => setEditDeadline(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handlePostponeDeadline}
+                          disabled={!editDeadline}
+                          className="px-3 py-2 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                          title="Postpone due date by 1 day"
+                        >
+                          <CalendarClock className="w-4 h-4" />
+                          +1
+                        </button>
+                      </div>
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
