@@ -357,14 +357,23 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     }
   };
 
-  const handlePaste = async (e: ClipboardEvent, collab: InfluencerCollab) => {
+  const handlePaste = async (e: React.ClipboardEvent<HTMLDivElement>, collab: InfluencerCollab) => {
+    e.preventDefault();
+    console.log('Paste event detected');
+
     const items = e.clipboardData?.items;
-    if (!items) return;
+    if (!items) {
+      console.log('No clipboard items');
+      return;
+    }
+
+    console.log('Clipboard items:', items.length);
 
     for (let i = 0; i < items.length; i++) {
+      console.log('Item type:', items[i].type);
       if (items[i].type.indexOf('image') !== -1) {
-        e.preventDefault();
         const file = items[i].getAsFile();
+        console.log('Image file found:', file);
         if (file) {
           await handleFileUpload(file, collab);
         }
@@ -1603,8 +1612,9 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   <div
                     ref={pasteAreaRef}
                     tabIndex={0}
-                    onPaste={(e: any) => handlePaste(e, editingCollab)}
-                    className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                    onPaste={(e) => handlePaste(e, editingCollab)}
+                    onFocus={() => console.log('Paste area focused - ready for Ctrl+V')}
+                    className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50 focus:border-blue-500 focus:bg-blue-50 focus:outline-none transition-colors cursor-text"
                   >
                     <div className="space-y-3">
                       <div className="flex justify-center gap-3">
