@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, X, ExternalLink, TrendingUp, DollarSign, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eye } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, X, ExternalLink, TrendingUp, DollarSign, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eye, Download } from 'lucide-react';
 
 interface InfluencerCollab {
   id: string;
@@ -196,6 +196,98 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       setSortField(field);
       setSortDirection('asc');
     }
+  };
+
+  const exportToCSV = () => {
+    const headers = [
+      'Item',
+      'Collaborator Name',
+      'Phone Number',
+      'Platforms',
+      'Category',
+      'Primary Markets',
+      'Page Link',
+      'TikTok Link',
+      'YouTube Link',
+      'Facebook Link',
+      'Instagram Link',
+      'Script',
+      'Follower Count',
+      'Engagement',
+      'Suggested Price',
+      'Outreach Date',
+      'Address',
+      'Status',
+      'Collaboration Type',
+      'Compensation',
+      'Compensation Currency',
+      'Compensation Amount',
+      'Affiliate Link',
+      'Coupon Code',
+      'Post Link',
+      'Post Likes',
+      'Post Comments',
+      'Post Views',
+      'Post Date',
+      'Sales',
+      'Use Rights',
+      'Ad Boosted',
+      'Compensation Paid'
+    ];
+
+    const escapeCSV = (value: any): string => {
+      if (value === null || value === undefined) return '';
+      if (Array.isArray(value)) return value.join('; ');
+      const stringValue = String(value);
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    const rows = filteredCollaborations.map(collab => [
+      escapeCSV(collab.item),
+      escapeCSV(collab.collaborator_name),
+      escapeCSV(collab.phone_number),
+      escapeCSV(collab.platforms),
+      escapeCSV(collab.category),
+      escapeCSV(collab.primary_markets),
+      escapeCSV(collab.page_link),
+      escapeCSV(collab.tiktok_link),
+      escapeCSV(collab.youtube_link),
+      escapeCSV(collab.facebook_link),
+      escapeCSV(collab.instagram_link),
+      escapeCSV(collab.script),
+      escapeCSV(collab.follower_count),
+      escapeCSV(collab.engagement),
+      escapeCSV(collab.suggested_price),
+      escapeCSV(collab.outreach_date),
+      escapeCSV(collab.address),
+      escapeCSV(collab.status),
+      escapeCSV(collab.collaboration_type),
+      escapeCSV(collab.compensation),
+      escapeCSV(collab.compensation_currency),
+      escapeCSV(collab.compensation_amount),
+      escapeCSV(collab.affiliate_link),
+      escapeCSV(collab.coupon_code),
+      escapeCSV(collab.post_link),
+      escapeCSV(collab.post_likes),
+      escapeCSV(collab.post_comments),
+      escapeCSV(collab.post_views),
+      escapeCSV(collab.post_date),
+      escapeCSV(collab.sales),
+      escapeCSV(collab.use_right),
+      escapeCSV(collab.ad_boosted ? 'Yes' : 'No'),
+      escapeCSV(collab.compensation_paid ? 'Yes' : 'No')
+    ].join(','));
+
+    const csvContent = headers.join(',') + '\n' + rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    const timestamp = new Date().toISOString().split('T')[0];
+    link.download = `influencer_collaborations_${timestamp}.csv`;
+    link.click();
   };
 
   const getSortIcon = (field: SortField) => {
@@ -444,13 +536,23 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-slate-900">Influencer Collaborations</h3>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Collaboration
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            title="Export to CSV"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Collaboration
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-4 space-y-3">
