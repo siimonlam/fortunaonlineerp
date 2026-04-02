@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileText as InvoiceIcon, ExternalLink, Receipt, Mail, RefreshCw, CreditCard as Edit } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileText as InvoiceIcon, ExternalLink, Receipt, Mail, RefreshCw, CreditCard as Edit, CalendarClock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
@@ -1498,6 +1498,19 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       console.error('Error updating task:', error);
       alert(`Failed to update task: ${error.message}`);
     }
+  }
+
+  function handlePostponeDeadline() {
+    if (!editingTask.deadline) {
+      alert('Please set a due date first.');
+      return;
+    }
+
+    const currentDate = new Date(editingTask.deadline);
+    currentDate.setDate(currentDate.getDate() + 1);
+    const newDeadline = currentDate.toISOString().split('T')[0];
+
+    setEditingTask({ ...editingTask, deadline: newDeadline });
   }
 
   async function handleDeleteTask(taskId: string) {
@@ -3242,12 +3255,24 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="block text-xs font-medium text-slate-700 mb-1">Due Date</label>
-                              <input
-                                type="date"
-                                value={editingTask.deadline}
-                                onChange={(e) => setEditingTask({ ...editingTask, deadline: e.target.value })}
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
+                              <div className="flex gap-2">
+                                <input
+                                  type="date"
+                                  value={editingTask.deadline}
+                                  onChange={(e) => setEditingTask({ ...editingTask, deadline: e.target.value })}
+                                  className="flex-1 px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handlePostponeDeadline}
+                                  disabled={!editingTask.deadline}
+                                  className="px-2 py-1.5 bg-amber-100 text-amber-700 text-sm rounded hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                                  title="Postpone due date by 1 day"
+                                >
+                                  <CalendarClock className="w-3.5 h-3.5" />
+                                  +1
+                                </button>
+                              </div>
                             </div>
                             <div>
                               <label className="block text-xs font-medium text-slate-700 mb-1">Assign To</label>
@@ -3319,10 +3344,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                 type="button"
                                 onClick={() => {
                                   setEditingTaskId(task.id);
+                                  const deadlineDate = task.deadline ? task.deadline.split('T')[0] : '';
                                   setEditingTask({
                                     title: task.title,
                                     description: task.description || '',
-                                    deadline: task.deadline || '',
+                                    deadline: deadlineDate,
                                     assignedTo: task.assigned_to || '',
                                   });
                                 }}
