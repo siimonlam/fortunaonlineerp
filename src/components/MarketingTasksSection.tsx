@@ -202,6 +202,38 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
     setEditDeadline(newDeadline);
   }
 
+  async function handleQuickPostponeTask(taskId: string) {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.deadline) {
+        alert('This task does not have a due date set.');
+        return;
+      }
+
+      const currentDate = new Date(task.deadline);
+      currentDate.setDate(currentDate.getDate() + 1);
+      const newDeadline = currentDate.toISOString().split('T')[0];
+
+      setLoading(true);
+      const { error } = await supabase
+        .from('marketing_tasks')
+        .update({
+          deadline: newDeadline,
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      await loadTasks();
+      if (onTasksChange) onTasksChange();
+    } catch (err: any) {
+      console.error('Error postponing task:', err);
+      alert('Failed to postpone task');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSaveEdit(taskId: string) {
     if (!editTitle.trim()) return;
 
@@ -452,11 +484,11 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
                             type="button"
                             onClick={handlePostponeDeadline}
                             disabled={!editDeadline}
-                            className="px-3 py-2 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                            className="px-3 py-2 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1 whitespace-nowrap"
                             title="Postpone due date by 1 day"
                           >
                             <CalendarClock className="w-4 h-4" />
-                            +1
+                            Due date +1
                           </button>
                         </div>
                       </div>
@@ -524,6 +556,16 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        {task.deadline && (
+                          <button
+                            onClick={() => handleQuickPostponeTask(task.id)}
+                            className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors flex items-center gap-1"
+                            title="Postpone due date by 1 day"
+                          >
+                            <CalendarClock className="w-3.5 h-3.5" />
+                            Due date +1
+                          </button>
+                        )}
                         <button
                           onClick={() => startEditTask(task)}
                           className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

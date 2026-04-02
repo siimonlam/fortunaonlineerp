@@ -1513,6 +1513,36 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     setEditingTask({ ...editingTask, deadline: newDeadline });
   }
 
+  async function handleQuickPostponeTask(taskId: string) {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.deadline) {
+        alert('This task does not have a due date set.');
+        return;
+      }
+
+      const currentDate = new Date(task.deadline);
+      currentDate.setDate(currentDate.getDate() + 1);
+      const newDeadline = currentDate.toISOString().split('T')[0];
+
+      const { error } = await supabase
+        .from(tasksTable)
+        .update({
+          deadline: newDeadline,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      await logTaskHistory(taskId, task.title, 'updated', null, null, `deadline postponed to ${newDeadline}`);
+      await loadTasks();
+    } catch (error: any) {
+      console.error('Error postponing task:', error);
+      alert(`Failed to postpone task: ${error.message}`);
+    }
+  }
+
   async function handleDeleteTask(taskId: string) {
     if (!confirm('Are you sure you want to delete this task?')) return;
 
@@ -3266,11 +3296,11 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                                   type="button"
                                   onClick={handlePostponeDeadline}
                                   disabled={!editingTask.deadline}
-                                  className="px-2 py-1.5 bg-amber-100 text-amber-700 text-sm rounded hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                                  className="px-2 py-1.5 bg-amber-100 text-amber-700 text-sm rounded hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1 whitespace-nowrap"
                                   title="Postpone due date by 1 day"
                                 >
                                   <CalendarClock className="w-3.5 h-3.5" />
-                                  +1
+                                  Due date +1
                                 </button>
                               </div>
                             </div>
@@ -3340,6 +3370,17 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                           </div>
                           {canEdit && (
                             <div className="flex items-center gap-1">
+                              {task.deadline && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickPostponeTask(task.id)}
+                                  className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition-colors flex items-center gap-1"
+                                  title="Postpone due date by 1 day"
+                                >
+                                  <CalendarClock className="w-3.5 h-3.5" />
+                                  Due date +1
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => {
