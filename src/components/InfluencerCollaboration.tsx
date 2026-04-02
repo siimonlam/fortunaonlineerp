@@ -21,6 +21,7 @@ interface InfluencerCollab {
   campaign_name: string;
   item: string;
   collaborator_name: string;
+  real_name: string;
   phone_number: string;
   platform: string;
   platforms: string[];
@@ -88,6 +89,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     campaign_name: '',
     item: '',
     collaborator_name: '',
+    real_name: '',
     phone_number: '',
     platform: '',
     platforms: [] as string[],
@@ -240,6 +242,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       'Campaign Name',
       'Item',
       'Collaborator Name',
+      'Real Name',
       'Phone Number',
       'Platforms',
       'Category',
@@ -292,6 +295,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       escapeCSV(collab.campaign_name),
       escapeCSV(collab.item),
       escapeCSV(collab.collaborator_name),
+      escapeCSV(collab.real_name),
       escapeCSV(collab.phone_number),
       escapeCSV(collab.platforms),
       escapeCSV(collab.category),
@@ -460,6 +464,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
         campaign_name: formData.campaign_name || null,
         item: formData.item || null,
         collaborator_name: formData.collaborator_name,
+        real_name: formData.real_name || null,
         phone_number: formData.phone_number || null,
         platform: formData.platform || null,
         platforms: formData.platforms.length > 0 ? formData.platforms : null,
@@ -526,6 +531,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       campaign_name: collab.campaign_name || '',
       item: collab.item || '',
       collaborator_name: collab.collaborator_name || '',
+      real_name: collab.real_name || '',
       phone_number: collab.phone_number || '',
       platform: collab.platform || '',
       platforms: collab.platforms || [],
@@ -633,6 +639,7 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
       campaign_name: '',
       item: '',
       collaborator_name: '',
+      real_name: '',
       phone_number: '',
       platform: '',
       platforms: [] as string[],
@@ -890,6 +897,9 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <div className="font-medium text-slate-900">{collab.collaborator_name}</div>
+                    {collab.real_name && (
+                      <div className="text-xs text-slate-500 mt-0.5">{collab.real_name}</div>
+                    )}
                     <div className="flex flex-wrap gap-2 mt-1">
                       {collab.instagram_link && (
                         <a href={collab.instagram_link} target="_blank" rel="noopener noreferrer" className="text-pink-600 hover:underline text-xs flex items-center gap-1">
@@ -1094,13 +1104,25 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Collaborator Name *</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Collaborator Name (Handle) *</label>
                     <input
                       type="text"
                       value={formData.collaborator_name}
                       onChange={(e) => setFormData({ ...formData, collaborator_name: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., @username"
                       required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Real Name</label>
+                    <input
+                      type="text"
+                      value={formData.real_name}
+                      onChange={(e) => setFormData({ ...formData, real_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., John Chan"
                     />
                   </div>
 
