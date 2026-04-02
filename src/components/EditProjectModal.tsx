@@ -159,6 +159,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [showMarkPaid, setShowMarkPaid] = useState(false);
   const [selectedInvoiceForMarkPaid, setSelectedInvoiceForMarkPaid] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [partnerProjects, setPartnerProjects] = useState<any[]>([]);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -319,6 +320,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     }
     loadProjectFolders();
     loadTasks();
+    loadPartnerProjects();
   }, [isAdmin]);
 
   useEffect(() => {
@@ -482,6 +484,23 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       console.error('Error loading agreements:', error);
     } else {
       setAgreements(data || []);
+    }
+  }
+
+  async function loadPartnerProjects() {
+    const { data, error } = await supabase
+      .from('partner_projects')
+      .select(`
+        *,
+        channel_partners!inner(name, company_name_chinese)
+      `)
+      .eq('project_reference', project.project_reference || '')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading partner projects:', error);
+    } else {
+      setPartnerProjects(data || []);
     }
   }
 
@@ -2838,6 +2857,83 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               </div>
             </div>
           </div>
+
+          {partnerProjects.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex justify-center mb-6">
+                <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
+                  Channel Partner Projects
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {partnerProjects.map((pp) => (
+                  <div key={pp.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">Channel Partner</p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {pp.channel_partners?.name || pp.channel_partner_name}
+                        </p>
+                        {pp.channel_partners?.company_name_chinese && (
+                          <p className="text-xs text-slate-600">{pp.channel_partners.company_name_chinese}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">Company Name</p>
+                        <p className="text-sm font-medium text-slate-900">{pp.company_name || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">Project Type</p>
+                        <p className="text-sm text-slate-700 capitalize">{pp.project_type || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">Status</p>
+                        <p className="text-sm text-slate-700 capitalize">{pp.project_status || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">Project Amount</p>
+                        <p className="text-sm font-semibold text-slate-900">HK$ {pp.project_amount?.toLocaleString() || '0'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">Commission</p>
+                        <p className="text-sm text-slate-700">
+                          {pp.commission_rate}% (HK$ {pp.commission_amount?.toLocaleString() || '0'})
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">Payment Status</p>
+                        <p className="text-sm">
+                          <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${pp.paid_status ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            {pp.paid_status ? 'Paid' : 'Unpaid'}
+                          </span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">Commission Payment</p>
+                        <p className="text-sm">
+                          <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${pp.commission_paid_status ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            {pp.commission_paid_status ? 'Paid' : 'Unpaid'}
+                          </span>
+                        </p>
+                      </div>
+                      {pp.date && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-slate-500 mb-1">Date</p>
+                          <p className="text-sm text-slate-700">{new Date(pp.date).toLocaleDateString()}</p>
+                        </div>
+                      )}
+                      {pp.project_content && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-slate-500 mb-1">Project Content</p>
+                          <p className="text-sm text-slate-700">{pp.project_content}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {isAdmin && (
             <div className="space-y-4">
