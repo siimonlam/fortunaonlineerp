@@ -1,11 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, CreditCard as Edit2, Trash2, X, ExternalLink, TrendingUp, DollarSign, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eye, Download } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, X, ExternalLink, TrendingUp, DollarSign, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eye, Download, Upload, Image as ImageIcon, Clipboard } from 'lucide-react';
 
 interface PostLink {
   url: string;
   description?: string;
+}
+
+interface Screenshot {
+  drive_url: string;
+  file_id: string;
+  filename: string;
+  uploaded_at: string;
 }
 
 interface InfluencerCollab {
@@ -48,6 +55,7 @@ interface InfluencerCollab {
   use_right: string[];
   ad_boosted: boolean;
   compensation_paid: boolean;
+  screenshots: Screenshot[];
   created_at: string;
 }
 
@@ -71,6 +79,10 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
   const [statusFilter, setStatusFilter] = useState('');
   const [sortField, setSortField] = useState<SortField>('outreach_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [projectFolderId, setProjectFolderId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pasteAreaRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     campaign_name: '',
@@ -114,12 +126,28 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
 
   useEffect(() => {
     loadCollaborations();
+    loadProjectFolderId();
     subscribeToChanges();
   }, [marketingProjectId]);
 
   useEffect(() => {
     filterAndSortCollaborations();
   }, [collaborations, searchQuery, platformFilter, statusFilter, sortField, sortDirection]);
+
+  const loadProjectFolderId = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('marketing_projects')
+        .select('google_drive_folder_id')
+        .eq('id', marketingProjectId)
+        .single();
+
+      if (error) throw error;
+      setProjectFolderId(data?.google_drive_folder_id || null);
+    } catch (error) {
+      console.error('Error loading project folder ID:', error);
+    }
+  };
 
   const subscribeToChanges = () => {
     const channel = supabase
@@ -304,6 +332,99 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
     const timestamp = new Date().toISOString().split('T')[0];
     link.download = `influencer_collaborations_${timestamp}.csv`;
     link.click();
+  };
+
+  const handleFileUpload = async (file: File, collab: InfluencerCollab) => {
+    if (!projectFolderId) {
+      alert('Project folder not found. Please ensure the marketing project has a Google Drive folder.');
+      return;
+    }
+
+    try {
+      setUploadingScreenshot(true);
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64Data = e.target?.result as string;
+        await uploadScreenshot(base64Data, collab);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading screenshot:', error);
+      alert('Failed to upload screenshot');
+    } finally {
+      setUploadingScreenshot(false);
+    }
+  };
+
+  const handlePaste = async (e: ClipboardEvent, collab: InfluencerCollab) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          await handleFileUpload(file, collab);
+        }
+        break;
+      }
+    }
+  };
+
+  const uploadScreenshot = async (imageData: string, collab: InfluencerCollab) => {
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-influencer-screenshot`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          collaborationId: collab.id,
+          projectFolderId: projectFolderId,
+          collaboratorName: collab.collaborator_name,
+          postDate: collab.post_date,
+          imageData: imageData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload screenshot');
+      }
+
+      const result = await response.json();
+
+      await loadCollaborations();
+
+      alert(`Screenshot uploaded successfully: ${result.screenshot.filename}`);
+    } catch (error) {
+      console.error('Error uploading screenshot:', error);
+      throw error;
+    }
+  };
+
+  const deleteScreenshot = async (collab: InfluencerCollab, screenshotIndex: number) => {
+    if (!confirm('Are you sure you want to delete this screenshot?')) return;
+
+    try {
+      const updatedScreenshots = collab.screenshots.filter((_, index) => index !== screenshotIndex);
+
+      const { error } = await supabase
+        .from('marketing_influencer_collaborations')
+        .update({ screenshots: updatedScreenshots })
+        .eq('id', collab.id);
+
+      if (error) throw error;
+
+      await loadCollaborations();
+    } catch (error) {
+      console.error('Error deleting screenshot:', error);
+      alert('Failed to delete screenshot');
+    }
   };
 
   const getSortIcon = (field: SortField) => {
@@ -1471,6 +1592,93 @@ export function InfluencerCollaboration({ marketingProjectId }: InfluencerCollab
                   </div>
                 </div>
               </div>
+
+              {editingCollab && (
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-slate-900 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    Screenshots
+                  </h4>
+
+                  <div
+                    ref={pasteAreaRef}
+                    onPaste={(e: any) => handlePaste(e, editingCollab)}
+                    className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex justify-center gap-3">
+                        <Upload className="w-8 h-8 text-slate-400" />
+                        <Clipboard className="w-8 h-8 text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">
+                          Click to upload or paste from clipboard
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Screenshots will be saved to: marketing/KOL Program/
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Filename: {(editingCollab.post_date || new Date().toISOString().split('T')[0]).replace(/-/g, '')}-{editingCollab.collaborator_name}-###
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(file, editingCollab);
+                      }}
+                    />
+                  </div>
+
+                  {uploadingScreenshot && (
+                    <div className="text-center py-4">
+                      <div className="inline-flex items-center gap-2 text-blue-600">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Uploading screenshot...
+                      </div>
+                    </div>
+                  )}
+
+                  {editingCollab.screenshots && editingCollab.screenshots.length > 0 && (
+                    <div className="grid grid-cols-3 gap-4">
+                      {editingCollab.screenshots.map((screenshot, index) => (
+                        <div key={index} className="relative group border border-slate-200 rounded-lg overflow-hidden">
+                          <a
+                            href={screenshot.drive_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block aspect-video bg-slate-100 hover:bg-slate-200 transition-colors"
+                          >
+                            <div className="flex items-center justify-center h-full">
+                              <ImageIcon className="w-8 h-8 text-slate-400" />
+                            </div>
+                          </a>
+                          <div className="p-2 bg-white">
+                            <p className="text-xs text-slate-600 truncate" title={screenshot.filename}>
+                              {screenshot.filename}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {new Date(screenshot.uploaded_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => deleteScreenshot(editingCollab, index)}
+                            className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
