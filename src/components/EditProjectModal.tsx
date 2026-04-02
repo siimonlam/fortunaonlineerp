@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileText as InvoiceIcon, ExternalLink, Receipt, Mail, RefreshCw } from 'lucide-react';
+import { X, Tag, MessageSquare, FileText, CreditCard as Edit2, Trash2, Eye, EyeOff, Users, Download, FolderPlus, Settings, FileText as InvoiceIcon, ExternalLink, Receipt, Mail, RefreshCw, CreditCard as Edit } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectActivitySidebar } from './ProjectActivitySidebar';
 import { AddPartnerProjectModal } from './AddPartnerProjectModal';
+import { EditPartnerProjectModal } from './EditPartnerProjectModal';
 import { ServiceAccountDriveExplorer } from './ServiceAccountDriveExplorer';
 import { InvoiceFieldMappingSettings } from './InvoiceFieldMappingSettings';
 import { ReceiptFieldMappingSettings } from './ReceiptFieldMappingSettings';
@@ -160,6 +161,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [selectedInvoiceForMarkPaid, setSelectedInvoiceForMarkPaid] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [partnerProjects, setPartnerProjects] = useState<any[]>([]);
+  const [selectedPartnerProject, setSelectedPartnerProject] = useState<any>(null);
+  const [showEditPartnerProject, setShowEditPartnerProject] = useState(false);
 
   console.log('EditProjectModal received project:', project);
   console.log('Project fields:', {
@@ -2868,6 +2871,19 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               <div className="space-y-3">
                 {partnerProjects.map((pp) => (
                   <div key={pp.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                      <h4 className="text-sm font-semibold text-slate-700">Partner Project Details</h4>
+                      <button
+                        onClick={() => {
+                          setSelectedPartnerProject(pp);
+                          setShowEditPartnerProject(true);
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Channel Partner</p>
@@ -4108,6 +4124,20 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         />
       )}
 
+      {showEditPartnerProject && selectedPartnerProject && (
+        <EditPartnerProjectModal
+          project={selectedPartnerProject}
+          onClose={() => {
+            setShowEditPartnerProject(false);
+            setSelectedPartnerProject(null);
+          }}
+          onSuccess={() => {
+            setShowEditPartnerProject(false);
+            setSelectedPartnerProject(null);
+            loadPartnerProjects();
+          }}
+        />
+      )}
 
       {showInvoiceSettings && (
         <InvoiceFieldMappingSettings
