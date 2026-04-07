@@ -173,18 +173,13 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, projectRef
   };
 
   const handleSave = async () => {
-    if (!clientId) {
-      setError('Client ID is required to save details');
-      return;
-    }
-
     setSaving(true);
     setError(null);
 
     try {
       const recordsToInsert = extractedData.map(detail => ({
         project_id: projectId,
-        client_id: clientId,
+        ...(clientId ? { client_id: clientId } : {}),
         item_number: detail.item_number,
         project_reference: detail.project_reference,
         enterprise_name_en: detail.enterprise_name_en,
