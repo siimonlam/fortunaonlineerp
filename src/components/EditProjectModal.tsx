@@ -1873,12 +1873,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         {activeTab === 'summary' ? (
           <div className="p-6 space-y-6">
             <div className="space-y-4">
-              <div className="flex justify-center mb-6">
-                <h3 className="text-lg font-semibold text-slate-900 border-2 border-slate-300 px-6 py-2 rounded-lg bg-slate-50 inline-block">
-                  Project Detail Summary
-                </h3>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden hidden">
                 <table className="w-full text-sm">
                   <tbody className="divide-y divide-slate-200">
                     <tr className="hover:bg-slate-100">
