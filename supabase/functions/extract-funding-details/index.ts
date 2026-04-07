@@ -96,6 +96,12 @@ STRICT PARSING RULES FOR THE BUDGET TABLE:
 - "sub_project": Extract the specific line item name from the "Details of the Expenses" (開支詳情) column (e.g., "租金支出", "開立澳門公司", "銷售員").
 - "details": Extract the descriptive text associated with the sub_project (e.g., "新業務單位面積：50平方").
 
+CRITICAL RULES FOR GRANT AMOUNTS:
+- "sub_project_grant_amount": This is the TOTAL PROJECT COST for this line item (the full amount, NOT the 50% funded portion). Look for the column labelled "申請資助金額" or "Project Cost" or similar — take the LARGER number that represents the full cost of the sub-project deliverable. Do NOT halve or divide this number. If you see both a total cost column and a grant/funded column, always use the TOTAL COST column.
+- "main_project_grant_amount": This is the TOTAL PROJECT COST for the entire main project category (sum of all sub-project total costs under this main project). Again, use the full amount, not the 50% funded amount.
+- If the PDF only shows the funded amount (50%), multiply it by 2 to get the full project cost before assigning it to these fields.
+- "sub_project_completed_amount" and "main_project_completed_amount": Extract the actual completed/claimed amount as shown in the PDF without modification.
+
 Structure:
 [
   {
