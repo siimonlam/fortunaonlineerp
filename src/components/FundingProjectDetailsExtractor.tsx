@@ -177,9 +177,20 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, projectRef
     setError(null);
 
     try {
+      let resolvedClientId = clientId;
+
+      if (!resolvedClientId) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('client_id')
+          .eq('id', projectId)
+          .maybeSingle();
+        resolvedClientId = projectData?.client_id || undefined;
+      }
+
       const recordsToInsert = extractedData.map(detail => ({
         project_id: projectId,
-        ...(clientId ? { client_id: clientId } : {}),
+        ...(resolvedClientId ? { client_id: resolvedClientId } : {}),
         item_number: detail.item_number,
         project_reference: detail.project_reference,
         enterprise_name_en: detail.enterprise_name_en,
