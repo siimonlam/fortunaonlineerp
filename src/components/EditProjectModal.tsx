@@ -2012,7 +2012,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
               </div>
             </div>
 
-            {projectType?.name === 'Funding' && (
+            {projectType?.name === 'Funding Project' && (
               <div className="mt-6 space-y-6">
                 <FundingProjectDetailsDisplay
                   projectId={project.id}
