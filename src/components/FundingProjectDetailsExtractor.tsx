@@ -111,17 +111,19 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, onSuccess 
         }
       );
 
-      if (!response.ok) {
-        throw new Error('Failed to extract data from PDF');
-      }
-
       const result = await response.json();
+
+      if (!response.ok) {
+        const errorMsg = result.error || 'Failed to extract data from PDF';
+        console.error('Server error:', result);
+        throw new Error(errorMsg);
+      }
 
       if (result.success && Array.isArray(result.data)) {
         setExtractedData(result.data);
         setState('verification');
       } else {
-        throw new Error('Invalid response from extraction service');
+        throw new Error(result.error || 'Invalid response from extraction service');
       }
     } catch (err) {
       console.error('Extraction error:', err);

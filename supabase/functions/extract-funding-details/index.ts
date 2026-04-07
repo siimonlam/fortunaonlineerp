@@ -139,6 +139,7 @@ Structure:
       },
     };
 
+    console.log("Sending request to Gemini API...");
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
@@ -152,8 +153,9 @@ Structure:
 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
-      console.error("Gemini API error:", errorText);
-      throw new Error(`Gemini API error: ${geminiResponse.status}`);
+      console.error("Gemini API error response:", errorText);
+      console.error("Gemini API status:", geminiResponse.status);
+      throw new Error(`Gemini API error (${geminiResponse.status}): ${errorText.substring(0, 200)}`);
     }
 
     const geminiData: GeminiResponse = await geminiResponse.json();
