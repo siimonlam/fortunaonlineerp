@@ -1630,8 +1630,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
 
   return (
     <>
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[96vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-1 sm:p-2 z-50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-h-[98vh] overflow-hidden flex flex-col" style={{maxWidth: 'calc(100vw - 16px)'}}>
         <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-white shrink-0">
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
