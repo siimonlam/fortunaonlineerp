@@ -14,6 +14,8 @@ import { GenerateReceiptModal } from './GenerateReceiptModal';
 import { MarkInvoicePaidModal } from './MarkInvoicePaidModal';
 import { EmailSchedulerTab } from './EmailSchedulerTab';
 import { FundingInvoiceSettingsPanel } from './FundingInvoiceSettingsPanel';
+import { FundingProjectDetailsExtractor } from './FundingProjectDetailsExtractor';
+import { FundingProjectDetailsDisplay } from './FundingProjectDetailsDisplay';
 import html2pdf from 'html2pdf.js';
 import { createBudProjectFolders, createMarketingProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
 import { toLocalDateTimeString, fromLocalDateTimeString } from '../utils/dateTimeUtils';
@@ -2009,6 +2011,26 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 </table>
               </div>
             </div>
+
+            {projectType?.name === 'Funding' && (
+              <div className="mt-6 space-y-6">
+                <FundingProjectDetailsDisplay
+                  projectId={project.id}
+                  onRefresh={() => {
+                    console.log('Project details refreshed');
+                  }}
+                />
+
+                <FundingProjectDetailsExtractor
+                  projectId={project.id}
+                  clientId={project.client_id}
+                  onSuccess={() => {
+                    console.log('Project details extracted and saved successfully');
+                    window.location.reload();
+                  }}
+                />
+              </div>
+            )}
           </div>
         ) : activeTab === 'project' ? (
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
