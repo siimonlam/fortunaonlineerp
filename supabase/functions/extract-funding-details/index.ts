@@ -88,14 +88,17 @@ Deno.serve(async (req: Request) => {
     );
 
     const prompt = `You are an expert data extraction assistant for Hong Kong BUD Fund Applications. Locate the overarching project information AND the detailed budget/expenditure tables.
-Output a JSON ARRAY of objects. Each object represents ONE line item (Sub-Project) from the budget table. For every line item, duplicate the overarching project information (like Enterprise Name).
+Output a JSON ARRAY of objects. Each object represents ONE line item (Sub-Project) from the budget table. For every line item, duplicate the overarching project information.
 Remove commas and currency symbols from numbers.
+
+STRICT PARSING RULES FOR THE BUDGET TABLE:
+- "main_project": Extract exactly from the "Expected Project Deliverables" (預期項目交付) column (e.g., "增設新業務單位的相關開支", "增聘員工").
+- "sub_project": Extract the specific line item name from the "Details of the Expenses" (開支詳情) column (e.g., "租金支出", "開立澳門公司", "銷售員").
+- "details": Extract the descriptive text associated with the sub_project (e.g., "新業務單位面積：50平方").
 
 Structure:
 [
   {
-    "item_number": number,
-    "project_reference": "string",
     "enterprise_name_en": "string",
     "enterprise_name_zh": "string",
     "br_number": "string",

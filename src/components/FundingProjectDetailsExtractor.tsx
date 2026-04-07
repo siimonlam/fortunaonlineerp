@@ -3,7 +3,7 @@ import { Upload, Loader2, CheckCircle, XCircle, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface FundingProjectDetail {
-  item_number: number;
+  item_number: string;
   project_reference: string;
   enterprise_name_en: string;
   enterprise_name_zh: string;
@@ -42,12 +42,13 @@ interface FundingProjectDetail {
 interface FundingProjectDetailsExtractorProps {
   projectId: string;
   clientId?: string;
+  projectReference?: string;
   onSuccess: () => void;
 }
 
 type ExtractionState = 'upload' | 'loading' | 'verification';
 
-export function FundingProjectDetailsExtractor({ projectId, clientId, onSuccess }: FundingProjectDetailsExtractorProps) {
+export function FundingProjectDetailsExtractor({ projectId, clientId, projectReference, onSuccess }: FundingProjectDetailsExtractorProps) {
   const [state, setState] = useState<ExtractionState>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extractedData, setExtractedData] = useState<FundingProjectDetail[]>([]);
@@ -120,7 +121,15 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, onSuccess 
       }
 
       if (result.success && Array.isArray(result.data)) {
-        setExtractedData(result.data);
+        const enrichedData = result.data.map((item: Omit<FundingProjectDetail, 'item_number' | 'project_reference'>, index: number) => {
+          const suffix = String(index + 1).padStart(3, '0');
+          return {
+            ...item,
+            project_reference: projectReference || '',
+            item_number: projectReference ? `${projectReference}&${suffix}` : suffix,
+          };
+        });
+        setExtractedData(enrichedData);
         setState('verification');
       } else {
         throw new Error(result.error || 'Invalid response from extraction service');
@@ -326,10 +335,10 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, onSuccess 
               <tr key={index} className="hover:bg-slate-50">
                 <td className="px-3 py-2 border-b border-slate-200">
                   <input
-                    type="number"
+                    type="text"
                     value={row.item_number}
-                    onChange={(e) => handleCellEdit(index, 'item_number', parseFloat(e.target.value))}
-                    className="w-16 px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    onChange={(e) => handleCellEdit(index, 'item_number', e.target.value)}
+                    className="w-32 px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </td>
                 <td className="px-3 py-2 border-b border-slate-200">

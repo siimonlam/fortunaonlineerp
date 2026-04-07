@@ -2024,6 +2024,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                 <FundingProjectDetailsExtractor
                   projectId={project.id}
                   clientId={project.client_id}
+                  projectReference={project.project_reference || ''}
                   onSuccess={() => {
                     console.log('Project details extracted and saved successfully');
                     window.location.reload();
