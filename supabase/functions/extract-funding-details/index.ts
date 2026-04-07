@@ -25,9 +25,35 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Get Gemini API key from database or environment variable
+    let GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
     if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY not configured");
+      // Try to fetch from database
+      const apiKeyResponse = await fetch(
+        `${supabaseUrl}/rest/v1/system_settings?key=eq.gemini_api_key&select=value`,
+        {
+          headers: {
+            "apikey": supabaseServiceKey,
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (apiKeyResponse.ok) {
+        const apiKeyData = await apiKeyResponse.json();
+        if (apiKeyData && apiKeyData.length > 0 && apiKeyData[0].value) {
+          GEMINI_API_KEY = apiKeyData[0].value;
+        }
+      }
+    }
+
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY not configured. Please add it in Settings.");
     }
 
     const formData = await req.formData();
