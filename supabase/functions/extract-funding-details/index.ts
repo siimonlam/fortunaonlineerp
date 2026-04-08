@@ -88,19 +88,26 @@ Deno.serve(async (req: Request) => {
     );
 
     const prompt = `You are an expert data extraction assistant for Hong Kong BUD Fund Applications. Locate the overarching project information AND the detailed budget/expenditure tables.
-Output a JSON ARRAY of objects. Each object represents ONE line item (Sub-Project) from the budget table. For every line item, duplicate the overarching project information.
-Remove commas and currency symbols from numbers.
+Output a JSON ARRAY of objects. Remove commas and currency symbols from all numbers.
 
 STRICT PARSING RULES FOR THE BUDGET TABLE:
 - "main_project": Extract exactly from the "Expected Project Deliverables" (預期項目交付) column (e.g., "增設新業務單位的相關開支", "增聘員工").
 - "sub_project": Extract the specific line item name from the "Details of the Expenses" (開支詳情) column (e.g., "租金支出", "開立澳門公司", "銷售員").
 - "details": Extract the descriptive text associated with the sub_project (e.g., "新業務單位面積：50平方").
 
+CRITICAL — HANDLING 細項 (SUB-ITEMS) WITHIN A SUB-PROJECT:
+Some sub-projects contain multiple 細項 (individual items) listed below them, each with its own quantity, unit price, and amount. When this occurs you MUST expand that sub-project into multiple rows as follows:
+1. First row: a "Detail" row — use the sub_project name as both "sub_project" and "details", set "item_grant_amount" to null (empty), and set "sub_project_grant_amount" to the total amount for the entire sub-project.
+2. Subsequent rows: one row per 細項 — use the SAME "sub_project" name, set "details" to the 細項 description/name, set "item_grant_amount" to that specific 細項's amount, and set "sub_project_grant_amount" to the total sub-project amount (same as the Detail row).
+If a sub-project has NO 細項 breakdown, output just ONE row for it with "item_grant_amount" set to null.
+
 CRITICAL RULES FOR GRANT AMOUNTS:
-- "sub_project_grant_amount": This is the TOTAL PROJECT COST for this line item (the full amount, NOT the 50% funded portion). Look for the column labelled "申請資助金額" or "Project Cost" or similar — take the LARGER number that represents the full cost of the sub-project deliverable. Do NOT halve or divide this number. If you see both a total cost column and a grant/funded column, always use the TOTAL COST column.
-- "main_project_grant_amount": This is the TOTAL PROJECT COST for the entire main project category (sum of all sub-project total costs under this main project). Again, use the full amount, not the 50% funded amount.
-- If the PDF only shows the funded amount (50%), multiply it by 2 to get the full project cost before assigning it to these fields.
-- "sub_project_completed_amount" and "main_project_completed_amount": Extract the actual completed/claimed amount as shown in the PDF without modification.
+- "sub_project_grant_amount": This is the TOTAL PROJECT COST for this sub-project line item (the full amount, NOT the 50% funded portion). Always use the TOTAL COST column, never the funded/grant column. If only the funded amount (50%) is shown, multiply by 2.
+- "main_project_grant_amount": This is the TOTAL PROJECT COST for the entire main project category. Full amount, not 50%.
+- "item_grant_amount": The full cost of an individual 細項 item. Null if there are no 細項. Never divide this number.
+- "sub_project_completed_amount" and "main_project_completed_amount": Extract as shown in the PDF without modification.
+
+Each row in the output must include ALL overarching project fields duplicated:
 
 Structure:
 [
@@ -120,6 +127,7 @@ Structure:
     "sub_project_approved_qty": number,
     "sub_project_unit_price": number,
     "sub_project_grant_amount": number,
+    "item_grant_amount": number | null,
     "main_project_grant_amount": number,
     "sub_project_completed_amount": number,
     "main_project_completed_amount": number

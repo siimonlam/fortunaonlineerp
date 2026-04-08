@@ -30,6 +30,7 @@ interface FundingProjectDetail {
   completed_percent: number;
   sub_project_unit_price: number;
   sub_project_grant_amount: number;
+  item_grant_amount: number | null;
   main_project_grant_amount: number;
   sub_project_completed_amount: number;
   main_project_completed_amount: number;
@@ -255,7 +256,8 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                 <th className="px-3 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[180px]">Details</th>
                 <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-14">Qty</th>
                 <th className="px-3 py-2.5 text-center font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[110px]">Completion</th>
-                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28">Grant Amt</th>
+                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28">Sub Grant Amt</th>
+                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-amber-50">Item Grant Amt</th>
                 <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-blue-50">Subtotal</th>
                 <th className="px-2 py-2.5 w-8"></th>
               </tr>
@@ -297,6 +299,13 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                           ? `$${detail.sub_project_grant_amount.toLocaleString()}`
                           : '-'}
                       </td>
+                      <td className="px-3 py-2 bg-amber-50/50 text-right">
+                        {detail.item_grant_amount != null ? (
+                          <span className="text-xs font-semibold text-amber-700 font-mono">
+                            ${detail.item_grant_amount.toLocaleString()}
+                          </span>
+                        ) : null}
+                      </td>
                       {/* Subtotal column — only shown on last row of group, spans visually */}
                       <td className="px-3 py-2 bg-blue-50/60 text-right">
                         {isLastInGroup ? (
@@ -332,6 +341,7 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                 <td className="px-3 py-2.5 text-right text-sm font-bold text-slate-900 font-mono">
                   ${totalGrantAmount.toLocaleString()}
                 </td>
+                <td className="px-3 py-2.5 bg-amber-50" />
                 <td className="px-3 py-2.5 bg-blue-100 text-right text-sm font-bold text-blue-800 font-mono">
                   ${totalGrantAmount.toLocaleString()}
                 </td>

@@ -34,6 +34,7 @@ interface FundingProjectDetail {
   sub_project_approved_qty: number;
   sub_project_unit_price: number;
   sub_project_grant_amount: number;
+  item_grant_amount: number | null;
   main_project_grant_amount: number;
   sub_project_completed_amount: number;
   main_project_completed_amount: number;
@@ -208,6 +209,7 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, projectRef
         sub_project_approved_qty: detail.sub_project_approved_qty,
         sub_project_unit_price: detail.sub_project_unit_price,
         sub_project_grant_amount: detail.sub_project_grant_amount,
+        item_grant_amount: detail.item_grant_amount ?? null,
         main_project_grant_amount: detail.main_project_grant_amount,
         sub_project_completed_amount: detail.sub_project_completed_amount,
         main_project_completed_amount: detail.main_project_completed_amount,
@@ -331,9 +333,11 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, projectRef
               <th className="px-3 py-2 text-left font-medium text-slate-700 border-b border-slate-200">Enterprise (ZH)</th>
               <th className="px-3 py-2 text-left font-medium text-slate-700 border-b border-slate-200">Main Project</th>
               <th className="px-3 py-2 text-left font-medium text-slate-700 border-b border-slate-200">Sub Project</th>
+              <th className="px-3 py-2 text-left font-medium text-slate-700 border-b border-slate-200">Details</th>
               <th className="px-3 py-2 text-left font-medium text-slate-700 border-b border-slate-200">Approved Qty</th>
               <th className="px-3 py-2 text-left font-medium text-slate-700 border-b border-slate-200">Unit Price</th>
-              <th className="px-3 py-2 text-left font-medium text-slate-700 border-b border-slate-200">Grant Amount</th>
+              <th className="px-3 py-2 text-left font-medium text-slate-700 border-b border-slate-200">Sub Grant Amt</th>
+              <th className="px-3 py-2 text-left font-medium text-slate-700 border-b border-slate-200 bg-amber-50">Item Grant Amt</th>
             </tr>
           </thead>
           <tbody>
@@ -381,8 +385,16 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, projectRef
                 </td>
                 <td className="px-3 py-2 border-b border-slate-200">
                   <input
+                    type="text"
+                    value={row.details || ''}
+                    onChange={(e) => handleCellEdit(index, 'details', e.target.value)}
+                    className="w-40 px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                  />
+                </td>
+                <td className="px-3 py-2 border-b border-slate-200">
+                  <input
                     type="number"
-                    value={row.sub_project_approved_qty}
+                    value={row.sub_project_approved_qty ?? ''}
                     onChange={(e) => handleCellEdit(index, 'sub_project_approved_qty', parseFloat(e.target.value))}
                     className="w-24 px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
@@ -390,7 +402,7 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, projectRef
                 <td className="px-3 py-2 border-b border-slate-200">
                   <input
                     type="number"
-                    value={row.sub_project_unit_price}
+                    value={row.sub_project_unit_price ?? ''}
                     onChange={(e) => handleCellEdit(index, 'sub_project_unit_price', parseFloat(e.target.value))}
                     className="w-28 px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
@@ -398,9 +410,18 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, projectRef
                 <td className="px-3 py-2 border-b border-slate-200">
                   <input
                     type="number"
-                    value={row.sub_project_grant_amount}
+                    value={row.sub_project_grant_amount ?? ''}
                     onChange={(e) => handleCellEdit(index, 'sub_project_grant_amount', parseFloat(e.target.value))}
                     className="w-28 px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </td>
+                <td className="px-3 py-2 border-b border-slate-200 bg-amber-50/40">
+                  <input
+                    type="number"
+                    value={row.item_grant_amount ?? ''}
+                    onChange={(e) => handleCellEdit(index, 'item_grant_amount', e.target.value === '' ? null : parseFloat(e.target.value))}
+                    placeholder="—"
+                    className="w-28 px-2 py-1 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 bg-amber-50"
                   />
                 </td>
               </tr>
