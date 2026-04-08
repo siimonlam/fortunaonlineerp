@@ -39,6 +39,19 @@ interface FundingProjectDetail {
   created_at: string;
 }
 
+interface SubProjectGroup {
+  subProjectName: string;
+  subProjectGrantAmount: number;
+  items: FundingProjectDetail[];
+  hasItems: boolean;
+}
+
+interface MainProjectGroup {
+  mainProjectName: string;
+  mainProjectGrantAmount: number;
+  subProjects: SubProjectGroup[];
+}
+
 interface FundingProjectDetailsDisplayProps {
   projectId: string;
   onRefresh?: () => void;
@@ -93,6 +106,54 @@ function CoordinatorCard({ label, person, icon }: { label: string; person: Proje
       </div>
     </div>
   );
+}
+
+function groupDetails(details: FundingProjectDetail[]): MainProjectGroup[] {
+  const mainOrder: string[] = [];
+  const mainMap: Record<string, { rows: FundingProjectDetail[]; grantAmount: number }> = {};
+
+  for (const d of details) {
+    if (!mainMap[d.main_project]) {
+      mainMap[d.main_project] = { rows: [], grantAmount: d.main_project_grant_amount || 0 };
+      mainOrder.push(d.main_project);
+    }
+    mainMap[d.main_project].rows.push(d);
+  }
+
+  return mainOrder.map(mainName => {
+    const { rows, grantAmount } = mainMap[mainName];
+
+    const subOrder: string[] = [];
+    const subMap: Record<string, FundingProjectDetail[]> = {};
+
+    for (const d of rows) {
+      if (!subMap[d.sub_project]) {
+        subMap[d.sub_project] = [];
+        subOrder.push(d.sub_project);
+      }
+      subMap[d.sub_project].push(d);
+    }
+
+    const subProjects: SubProjectGroup[] = subOrder.map(subName => {
+      const subRows = subMap[subName];
+      const parentRow = subRows.find(r => r.item_grant_amount == null) || subRows[0];
+      const itemRows = subRows.filter(r => r.item_grant_amount != null);
+      const hasItems = itemRows.length > 0;
+
+      return {
+        subProjectName: subName,
+        subProjectGrantAmount: parentRow.sub_project_grant_amount || 0,
+        items: hasItems ? itemRows : [parentRow],
+        hasItems,
+      };
+    });
+
+    return {
+      mainProjectName: mainName,
+      mainProjectGrantAmount: grantAmount,
+      subProjects,
+    };
+  });
 }
 
 export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingProjectDetailsDisplayProps) {
@@ -152,21 +213,15 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
   if (details.length === 0) return null;
 
   const first = details[0];
-  const totalGrantAmount = details.reduce((sum, d) => d.item_grant_amount == null ? sum + (d.sub_project_grant_amount || 0) : sum, 0);
+  const grouped = groupDetails(details);
+
+  const totalGrantAmount = grouped.reduce((sum, mp) => sum + mp.mainProjectGrantAmount, 0);
   const totalCompletedAmount = details.reduce((sum, d) => d.item_grant_amount == null ? sum + (d.sub_project_completed_amount || 0) : sum, 0);
   const overallPercent = totalGrantAmount > 0 ? Math.round((totalCompletedAmount / totalGrantAmount) * 100) : 0;
 
-  const groupedByMain: Record<string, FundingProjectDetail[]> = {};
-  const mainProjectOrder: string[] = [];
-  for (const d of details) {
-    if (!groupedByMain[d.main_project]) {
-      groupedByMain[d.main_project] = [];
-      mainProjectOrder.push(d.main_project);
-    }
-    groupedByMain[d.main_project].push(d);
-  }
+  const totalSubProjectCount = grouped.reduce((sum, mp) => sum + mp.subProjects.length, 0);
 
-  let itemCounter = 0;
+  let subProjectCounter = 0;
 
   return (
     <div className="space-y-4">
@@ -177,7 +232,6 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
           <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wide">Project Detail Summary</h3>
         </div>
         <div className="p-5 space-y-4">
-          {/* Company + Dates + Financials grid */}
           <div className="grid grid-cols-2 gap-x-8 gap-y-3">
             <div>
               <p className="text-xs text-slate-500 mb-0.5">Company Name (EN)</p>
@@ -209,7 +263,6 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
             </div>
           </div>
 
-          {/* Coordinators */}
           {(first.project_coordinator || first.deputy_project_coordinator) && (
             <div className="grid grid-cols-2 gap-4 pt-1">
               <CoordinatorCard
@@ -234,7 +287,7 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
             <FileText className="w-4 h-4 text-blue-600" />
             <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wide">
               Project Budget Details
-              <span className="ml-2 font-normal text-slate-400 normal-case">({details.length} items)</span>
+              <span className="ml-2 font-normal text-slate-400 normal-case">({totalSubProjectCount} sub-projects)</span>
             </h3>
           </div>
           <button
@@ -252,96 +305,145 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="px-3 py-2.5 text-center font-semibold text-slate-500 text-xs uppercase tracking-wide w-10">No.</th>
                 <th className="px-3 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[150px]">Main Project</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[130px]">Sub Project</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[180px]">Details</th>
-                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-14">Qty</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[150px]">Sub Project</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[180px]">Details (細項)</th>
                 <th className="px-3 py-2.5 text-center font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[110px]">Completion</th>
-                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28">Sub Grant Amt</th>
-                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-amber-50">Item Grant Amt</th>
-                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-blue-50">Subtotal</th>
+                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-amber-50">Sub Grant Amt</th>
+                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-amber-50/60">Item Grant Amt</th>
+                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-blue-50">Main Subtotal</th>
                 <th className="px-2 py-2.5 w-8"></th>
               </tr>
             </thead>
             <tbody>
-              {mainProjectOrder.map((mainProject, groupIndex) => {
-                const rows = groupedByMain[mainProject];
+              {grouped.map((mainGroup, groupIndex) => {
                 const groupBg = groupIndex % 2 === 0 ? 'bg-blue-50/30' : 'bg-green-50/25';
-                const groupGrantTotal = rows.reduce((s, r) => r.item_grant_amount == null ? s + (r.sub_project_grant_amount || 0) : s, 0);
+                const totalSubRows = mainGroup.subProjects.reduce((s, sp) => s + sp.items.length, 0);
+                let mainProjectRendered = false;
+                let mainRowSpan = totalSubRows;
 
-                return rows.map((detail, rowIndex) => {
-                  itemCounter += 1;
-                  const currentCounter = itemCounter;
-                  const isFirstInGroup = rowIndex === 0;
-                  const isLastInGroup = rowIndex === rows.length - 1;
-                  const completionPct = detail.sub_project_grant_amount > 0
-                    ? Math.round(((detail.sub_project_completed_amount || 0) / detail.sub_project_grant_amount) * 100)
-                    : (detail.completed_percent || 0);
+                return mainGroup.subProjects.map((subProject) => {
+                  subProjectCounter += 1;
+                  const currentCounter = subProjectCounter;
+                  const isLastSubInMain = subProject === mainGroup.subProjects[mainGroup.subProjects.length - 1];
 
-                  return (
-                    <tr
-                      key={detail.id}
-                      className={`${groupBg} ${isLastInGroup ? 'border-b-2 border-slate-300' : 'border-b border-slate-100'} hover:brightness-[0.97] transition-all`}
-                    >
-                      <td className="px-3 py-2 text-slate-400 text-xs font-mono text-center">{currentCounter}</td>
-                      <td className="px-3 py-2 text-slate-800 font-medium text-xs leading-snug">
-                        {isFirstInGroup ? detail.main_project : ''}
-                      </td>
-                      <td className="px-3 py-2 text-slate-800 text-xs">{detail.sub_project}</td>
-                      <td className="px-3 py-2 text-slate-500 text-xs leading-relaxed max-w-[200px] whitespace-pre-wrap">{detail.details}</td>
-                      <td className="px-3 py-2 text-slate-700 text-xs text-right font-mono">
-                        {detail.sub_project_approved_qty != null ? detail.sub_project_approved_qty : '-'}
-                      </td>
-                      <td className="px-3 py-2">
-                        <CompletionBar percent={completionPct} />
-                      </td>
-                      <td className="px-3 py-2 text-slate-800 text-xs text-right font-mono">
-                        {detail.sub_project_grant_amount != null
-                          ? `$${detail.sub_project_grant_amount.toLocaleString()}`
-                          : '-'}
-                      </td>
-                      <td className="px-3 py-2 bg-amber-50/50 text-right">
-                        {detail.item_grant_amount != null ? (
-                          <span className="text-xs font-semibold text-amber-700 font-mono">
-                            ${detail.item_grant_amount.toLocaleString()}
-                          </span>
-                        ) : null}
-                      </td>
-                      {/* Subtotal column — only shown on last row of group, spans visually */}
-                      <td className="px-3 py-2 bg-blue-50/60 text-right">
-                        {isLastInGroup ? (
-                          <span className="text-xs font-bold text-blue-700 font-mono">
-                            ${groupGrantTotal.toLocaleString()}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="px-2 py-2 text-center">
-                        <button
-                          onClick={() => handleDelete(detail.id)}
-                          disabled={deleting === detail.id}
-                          className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                        >
-                          {deleting === detail.id
-                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                            : <Trash2 className="w-3 h-3" />}
-                        </button>
-                      </td>
-                    </tr>
-                  );
+                  return subProject.items.map((item, itemIndex) => {
+                    const isFirstItemOfSub = itemIndex === 0;
+                    const isLastItemOfSub = itemIndex === subProject.items.length - 1;
+                    const isLastRowOfMain = isLastSubInMain && isLastItemOfSub;
+
+                    const displayItemGrantAmount = subProject.hasItems
+                      ? item.item_grant_amount
+                      : subProject.subProjectGrantAmount;
+
+                    const completionPct = subProject.subProjectGrantAmount > 0
+                      ? Math.round(((item.sub_project_completed_amount || 0) / subProject.subProjectGrantAmount) * 100)
+                      : (item.completed_percent || 0);
+
+                    const showMainProject = !mainProjectRendered;
+                    if (showMainProject) mainProjectRendered = true;
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`${groupBg} ${isLastRowOfMain ? 'border-b-2 border-slate-300' : isLastItemOfSub ? 'border-b border-slate-200' : 'border-b border-slate-100'} hover:brightness-[0.97] transition-all`}
+                      >
+                        {isFirstItemOfSub && (
+                          <td
+                            className="px-3 py-2 text-slate-400 text-xs font-mono text-center align-top"
+                            rowSpan={subProject.items.length}
+                          >
+                            {currentCounter}
+                          </td>
+                        )}
+
+                        {showMainProject && (
+                          <td
+                            className="px-3 py-2 text-slate-800 font-semibold text-xs leading-snug align-top border-r border-slate-200"
+                            rowSpan={mainRowSpan}
+                          >
+                            <span className="underline">{mainGroup.mainProjectName}</span>
+                          </td>
+                        )}
+
+                        {isFirstItemOfSub && (
+                          <td
+                            className="px-3 py-2 text-slate-700 text-xs leading-snug align-top"
+                            rowSpan={subProject.items.length}
+                          >
+                            {subProject.subProjectName}
+                          </td>
+                        )}
+
+                        <td className="px-3 py-2 text-slate-500 text-xs leading-relaxed max-w-[200px] whitespace-pre-wrap">
+                          {subProject.hasItems ? item.details : '-'}
+                        </td>
+
+                        {isFirstItemOfSub && (
+                          <td
+                            className="px-3 py-2 align-top"
+                            rowSpan={subProject.items.length}
+                          >
+                            <CompletionBar percent={completionPct} />
+                          </td>
+                        )}
+
+                        {isFirstItemOfSub && (
+                          <td
+                            className="px-3 py-2 bg-amber-50/40 text-right align-top font-mono text-xs text-slate-800"
+                            rowSpan={subProject.items.length}
+                          >
+                            ${subProject.subProjectGrantAmount.toLocaleString()}
+                          </td>
+                        )}
+
+                        <td className="px-3 py-2 bg-amber-50/20 text-right">
+                          {displayItemGrantAmount != null ? (
+                            <span className="text-xs font-semibold text-amber-700 font-mono">
+                              ${displayItemGrantAmount.toLocaleString()}
+                            </span>
+                          ) : null}
+                        </td>
+
+                        {showMainProject && (
+                          <td
+                            className="px-3 py-2 bg-blue-50/60 text-right align-top"
+                            rowSpan={mainRowSpan}
+                          >
+                            <span className="text-xs font-bold text-blue-700 font-mono">
+                              ${mainGroup.mainProjectGrantAmount.toLocaleString()}
+                            </span>
+                          </td>
+                        )}
+
+                        <td className="px-2 py-2 text-center">
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            disabled={deleting === item.id}
+                            className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                          >
+                            {deleting === item.id
+                              ? <Loader2 className="w-3 h-3 animate-spin" />
+                              : <Trash2 className="w-3 h-3" />}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  });
                 });
               })}
             </tbody>
             <tfoot>
               <tr className="bg-slate-100 border-t-2 border-slate-300">
-                <td colSpan={5} className="px-3 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                  Grand Total ({details.length} items)
+                <td colSpan={4} className="px-3 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                  Grand Total ({totalSubProjectCount} sub-projects)
                 </td>
                 <td className="px-3 py-2.5">
                   <CompletionBar percent={overallPercent} />
                 </td>
-                <td className="px-3 py-2.5 text-right text-sm font-bold text-slate-900 font-mono">
+                <td className="px-3 py-2.5 bg-amber-50/40 text-right text-sm font-bold text-slate-900 font-mono">
                   ${totalGrantAmount.toLocaleString()}
                 </td>
-                <td className="px-3 py-2.5 bg-amber-50" />
+                <td className="px-3 py-2.5 bg-amber-50/20" />
                 <td className="px-3 py-2.5 bg-blue-100 text-right text-sm font-bold text-blue-800 font-mono">
                   ${totalGrantAmount.toLocaleString()}
                 </td>
