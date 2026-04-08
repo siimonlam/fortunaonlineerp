@@ -90,52 +90,60 @@ Deno.serve(async (req: Request) => {
     const prompt = `You are an expert data extraction assistant for Hong Kong BUD Fund Applications. Extract project information and detailed budget tables. Remove commas and currency symbols from all numbers.
 
 UNDERSTANDING THE TABLE STRUCTURE:
-The "預期項目交付" (Expected Project Deliverables) column contains MAIN PROJECTS. Some have formatting:
-- Text with underline/bold formatting (e.g., "建立/優化公司網頁") is the category/header — IGNORE THIS, do NOT use as main_project
-- Regular/normal text (e.g., "建立新網頁") is the actual MAIN_PROJECT to extract
-- Extract ONLY the regular non-formatted text from this column
+The "預期項目交付" (Expected Project Deliverables) column contains a TWO-LEVEL hierarchy in each cell:
 
-The "開支詳情" (Details of Expenses) column contains SUB_PROJECTS and their details.
+LEVEL 1 — MAIN_PROJECT: The BOLD and/or UNDERLINED text at the top of the cell. This is the category name.
+  Examples: "投放直接與項目相關的廣告", "建立/優化公司網頁", "其他關支", "增聘為直接推行此項目的員工"
+  → Use this as main_project for ALL sub-projects in this section.
+
+LEVEL 2 — SUB_PROJECTS: The regular (non-bold, non-underlined) text listed BELOW the bold title within the same cell or continuation rows. Each line is a separate sub_project.
+  Examples under "投放直接與項目相關的廣告":
+    - "於澳門投放Facebook廣告為期12個月"
+    - "於澳門投放Instagram廣告為期20次"
+    - "小紅書素人(粉絲數1000至10000)廣告為期60次"
+    - "於澳門投放小紅書素人(粉絲數10000至50000)廣告為期50次"
+  These are FOUR separate sub_projects all under ONE main_project.
+
+The "開支詳情" (Details of Expenses) column contains the detailed breakdown for each sub_project.
 
 CRITICAL: DETERMINING MAIN_PROJECT BOUNDARIES USING 總開支:
 Each main_project section ends with a 總開支 (subtotal) row. The 總開支 amount IS the main_project_grant_amount.
-- All sub_projects that appear BEFORE a 總開支 row belong to the SAME main_project
-- Multiple sub_projects can share the same main_project if they are all above the same 總開支 row
-- Example: "5款產品攝影合共精修25張" and "5條產品短片每條短片大約10-15秒" both appear under one main_project with a single 總開支 — they share the same main_project name and main_project_grant_amount
+- All sub_projects listed under the same bold/underlined heading share ONE main_project and ONE 總開支
+- Example: Under "其他關支", both "5款產品攝影合共精修25張" and "5條產品短片每條短片大約10-15秒" are sub_projects with a single shared 總開支 — both use "其他關支" as main_project
 
 HIERARCHICAL EXTRACTION LOGIC:
 
-1. IDENTIFY MAIN_PROJECTS: Extract only the non-formatted (regular) text from the 預期項目交付 column.
-   If a cell contains both bold/underline text AND regular text, use ONLY the regular text part.
+1. IDENTIFY MAIN_PROJECTS: Use the BOLD/UNDERLINED text from the 預期項目交付 column as main_project.
 
-2. DETERMINE MAIN_PROJECT_GRANT_AMOUNT: Look for the 總開支 row that closes each main_project section.
-   The 總開支 amount = main_project_grant_amount for all rows under that main_project.
+2. IDENTIFY SUB_PROJECTS: Each regular-text line item listed under a bold heading is a separate sub_project. One main_project can have multiple sub_projects.
 
-3. FOR EACH SUB-PROJECT UNDER A MAIN_PROJECT:
+3. DETERMINE MAIN_PROJECT_GRANT_AMOUNT: The 總開支 row amount that closes the section = main_project_grant_amount for ALL rows under that main_project.
 
-   CASE A: SUB-PROJECT HAS NO 細項 (SINGLE AMOUNT — no breakdown items listed):
+4. FOR EACH SUB-PROJECT UNDER A MAIN_PROJECT:
+
+   CASE A: SUB-PROJECT HAS NO 細項 (no breakdown items — single amount only):
    - Create ONE row
-   - sub_project: the line item name from 開支詳情
-   - details: descriptive text associated with that line item
-   - sub_project_grant_amount: the amount shown for this sub-project
+   - sub_project: the sub-project name
+   - details: descriptive text associated with it from 開支詳情
+   - sub_project_grant_amount: the amount for this sub-project
    - item_grant_amount: null
 
-   CASE B: SUB-PROJECT HAS 細項 (MULTIPLE BREAKDOWN ITEMS listed below it):
+   CASE B: SUB-PROJECT HAS 細項 (breakdown items listed):
    - Create ONE parent row:
-     * sub_project: the sub-project name/header
-     * details: same as sub_project
-     * sub_project_grant_amount: SUM of all 細項 amounts for this sub-project
+     * sub_project: the sub-project name
+     * details: same as sub_project name
+     * sub_project_grant_amount: SUM of all 細項 amounts
      * item_grant_amount: null
    - Create ONE child row per 細項:
      * sub_project: SAME sub-project name as parent
      * details: the 細項 description
-     * item_grant_amount: that specific 細項 amount
+     * item_grant_amount: that 細項 amount
      * sub_project_grant_amount: same total as parent row
 
-4. CRITICAL AMOUNT RULES:
-   - main_project_grant_amount = the 總開支 value for that main_project section
-   - All rows belonging to the same main_project share the SAME main_project_grant_amount
-   - sub_project_grant_amount = total for that specific sub-project (sum of its 細項 if any)
+5. CRITICAL AMOUNT RULES:
+   - main_project_grant_amount = the 總開支 value for the section (same on ALL rows of that main_project)
+   - sub_project_grant_amount = total for that specific sub-project only
+   - The sum of all sub_project_grant_amount (parent rows only, not child 細項 rows) under a main_project = main_project_grant_amount
    - Always extract TOTAL amounts, never 50% portions. If only 50% shown, multiply by 2
    - Remove all commas and currency symbols from numbers
 
