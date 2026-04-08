@@ -87,29 +87,53 @@ Deno.serve(async (req: Request) => {
       )
     );
 
-    const prompt = `You are an expert data extraction assistant for Hong Kong BUD Fund Applications. Locate the overarching project information AND the detailed budget/expenditure tables.
-Output a JSON ARRAY of objects. Remove commas and currency symbols from all numbers.
+    const prompt = `You are an expert data extraction assistant for Hong Kong BUD Fund Applications. Extract project information and detailed budget tables. Remove commas and currency symbols from all numbers.
 
-STRICT PARSING RULES FOR THE BUDGET TABLE:
-- "main_project": Extract exactly from the "Expected Project Deliverables" (預期項目交付) column (e.g., "增設新業務單位的相關開支", "增聘員工").
-- "sub_project": Extract the specific line item name from the "Details of the Expenses" (開支詳情) column (e.g., "租金支出", "開立澳門公司", "銷售員").
-- "details": Extract the descriptive text associated with the sub_project (e.g., "新業務單位面積：50平方").
+UNDERSTANDING THE TABLE STRUCTURE:
+The "預期項目交付" (Expected Project Deliverables) column contains MAIN PROJECTS. Some have formatting:
+- Text with underline/bold formatting (e.g., "建立/優化公司網頁") is the category/header
+- Regular text below it (e.g., "建立新網頁") is the actual MAIN_PROJECT to use
+- Extract ONLY the regular text, NOT the underlined/bold text
 
-CRITICAL — HANDLING 細項 (SUB-ITEMS) WITHIN A SUB-PROJECT:
-Some sub-projects contain multiple 細項 (individual items) listed below them, each with its own quantity, unit price, and amount. When this occurs you MUST expand that sub-project into multiple rows as follows:
-1. First row: a "Detail" row — use the sub_project name as both "sub_project" and "details", set "item_grant_amount" to null (empty), and set "sub_project_grant_amount" to the total amount for the entire sub-project.
-2. Subsequent rows: one row per 細項 — use the SAME "sub_project" name, set "details" to the 細項 description/name, set "item_grant_amount" to that specific 細項's amount, and set "sub_project_grant_amount" to the total sub-project amount (same as the Detail row).
-If a sub-project has NO 細項 breakdown, output just ONE row for it with "item_grant_amount" set to null.
+The "開支詳情" (Details of Expenses) column contains SUB_PROJECTS and their details.
 
-CRITICAL RULES FOR GRANT AMOUNTS:
-- "sub_project_grant_amount": This is the TOTAL PROJECT COST for this sub-project line item (the full amount, NOT the 50% funded portion). Always use the TOTAL COST column, never the funded/grant column. If only the funded amount (50%) is shown, multiply by 2.
-- "main_project_grant_amount": This is the TOTAL PROJECT COST for the entire main project category. Full amount, not 50%.
-- "item_grant_amount": The full cost of an individual 細項 item. Null if there are no 細項. Never divide this number.
-- "sub_project_completed_amount" and "main_project_completed_amount": Extract as shown in the PDF without modification.
+HIERARCHICAL EXTRACTION LOGIC:
 
-Each row in the output must include ALL overarching project fields duplicated:
+1. IDENTIFY MAIN_PROJECTS: Extract only the non-formatted (regular) text from the 預期項目交付 column
 
-Structure:
+2. FOR EACH SUB-PROJECT UNDER A MAIN_PROJECT:
+
+   CASE A: SUB-PROJECT HAS NO 細項 (SINGLE AMOUNT):
+   - Create ONE row
+   - sub_project: the line item name from 開支詳情
+   - details: descriptive text above or associated with that line item
+   - sub_project_grant_amount: the total amount for this line item
+   - item_grant_amount: null
+
+   CASE B: SUB-PROJECT HAS 細項 (MULTIPLE LINE ITEMS):
+   - The sub_project name remains the same across all expanded rows
+   - Create ONE parent row with:
+     * sub_project: the sub-project name/header
+     * details: the sub-project name/header (same as sub_project)
+     * sub_project_grant_amount: SUM of all 細項 amounts
+     * item_grant_amount: null
+   - Create ONE row per 細項 with:
+     * sub_project: SAME as parent (the sub-project name)
+     * details: the 細項 description/name
+     * item_grant_amount: that specific 細項 amount
+     * sub_project_grant_amount: SUM of all items (same as parent)
+
+3. MAIN_PROJECT_GRANT_AMOUNT CALCULATION:
+   Sum all sub_project_grant_amount values that share the same main_project.
+   All rows under the same main_project must have the SAME main_project_grant_amount value.
+
+4. CRITICAL AMOUNT RULES:
+   - Always extract TOTAL amounts, never 50% portions
+   - If only 50% is shown, multiply by 2
+   - Remove all commas and currency symbols
+   - All amounts should be numbers
+
+Output JSON structure (one object per row):
 [
   {
     "enterprise_name_en": "string",
