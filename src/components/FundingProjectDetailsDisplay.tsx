@@ -152,8 +152,8 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
   if (details.length === 0) return null;
 
   const first = details[0];
-  const totalGrantAmount = details.reduce((sum, d) => sum + (d.sub_project_grant_amount || 0), 0);
-  const totalCompletedAmount = details.reduce((sum, d) => sum + (d.sub_project_completed_amount || 0), 0);
+  const totalGrantAmount = details.reduce((sum, d) => d.item_grant_amount == null ? sum + (d.sub_project_grant_amount || 0) : sum, 0);
+  const totalCompletedAmount = details.reduce((sum, d) => d.item_grant_amount == null ? sum + (d.sub_project_completed_amount || 0) : sum, 0);
   const overallPercent = totalGrantAmount > 0 ? Math.round((totalCompletedAmount / totalGrantAmount) * 100) : 0;
 
   const groupedByMain: Record<string, FundingProjectDetail[]> = {};
@@ -266,7 +266,7 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
               {mainProjectOrder.map((mainProject, groupIndex) => {
                 const rows = groupedByMain[mainProject];
                 const groupBg = groupIndex % 2 === 0 ? 'bg-blue-50/30' : 'bg-green-50/25';
-                const groupGrantTotal = rows.reduce((s, r) => s + (r.sub_project_grant_amount || 0), 0);
+                const groupGrantTotal = rows.reduce((s, r) => r.item_grant_amount == null ? s + (r.sub_project_grant_amount || 0) : s, 0);
 
                 return rows.map((detail, rowIndex) => {
                   itemCounter += 1;
