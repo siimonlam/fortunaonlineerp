@@ -42,6 +42,7 @@ interface FundingProjectDetail {
 interface SubProjectGroup {
   subProjectName: string;
   subProjectGrantAmount: number;
+  subProjectQty: number | null;
   items: FundingProjectDetail[];
   hasItems: boolean;
 }
@@ -69,11 +70,11 @@ function CompletionBar({ percent }: { percent: number }) {
       : 'bg-slate-200';
 
   return (
-    <div className="flex items-center gap-1.5 min-w-[90px]">
-      <div className="flex-1 h-4 bg-slate-100 rounded overflow-hidden border border-slate-200">
+    <div className="flex items-center gap-1.5 min-w-[80px]">
+      <div className="flex-1 h-3.5 bg-slate-100 rounded overflow-hidden border border-slate-200">
         <div className={`h-full ${color} transition-all`} style={{ width: `${clamped}%` }} />
       </div>
-      <span className="text-xs font-medium text-slate-700 w-8 text-right shrink-0">{clamped}%</span>
+      <span className="text-xs font-medium text-slate-600 w-7 text-right shrink-0">{clamped}%</span>
     </div>
   );
 }
@@ -108,6 +109,16 @@ function CoordinatorCard({ label, person, icon }: { label: string; person: Proje
   );
 }
 
+// Strip "細項 N: " prefix and trailing "(HK$X,XXX.XX)" or "(HKS...)" amounts
+function cleanDetailText(text: string): string {
+  if (!text) return text;
+  // Remove leading "細項 N:" or "細項N:" prefix
+  let cleaned = text.replace(/^細項\s*\d+\s*[:：]\s*/u, '');
+  // Remove trailing amount like "(HK$9,000.00)" or "(HKS51,000.00)" or "(HK$ 9,000)"
+  cleaned = cleaned.replace(/\s*\(HK[S$]\$?\s?[\d,]+(?:\.\d+)?\)\s*$/i, '');
+  return cleaned.trim();
+}
+
 function groupDetails(details: FundingProjectDetail[]): MainProjectGroup[] {
   const mainOrder: string[] = [];
   const mainMap: Record<string, { rows: FundingProjectDetail[]; grantAmount: number }> = {};
@@ -136,18 +147,15 @@ function groupDetails(details: FundingProjectDetail[]): MainProjectGroup[] {
 
     const subProjects: SubProjectGroup[] = subOrder.map(subName => {
       const subRows = subMap[subName];
-      // Parent description row: item_grant_amount === null (no 細項) or item_grant_amount === 0 (has 細項)
       const parentRow = subRows.find(r => r.item_grant_amount == null || r.item_grant_amount === 0) || subRows[0];
-      // Child 細項 rows: item_grant_amount > 0
       const itemRows = subRows.filter(r => r.item_grant_amount != null && r.item_grant_amount > 0);
       const hasItems = itemRows.length > 0;
-
-      // All rows to display: parent description row first, then 細項 children
       const displayRows = hasItems ? [parentRow, ...itemRows] : [parentRow];
 
       return {
         subProjectName: subName,
         subProjectGrantAmount: parentRow.sub_project_grant_amount || 0,
+        subProjectQty: parentRow.sub_project_approved_qty ?? null,
         items: displayRows,
         hasItems,
       };
@@ -223,7 +231,6 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
   const totalGrantAmount = grouped.reduce((sum, mp) => sum + mp.mainProjectGrantAmount, 0);
   const totalCompletedAmount = details.reduce((sum, d) => d.item_grant_amount == null ? sum + (d.sub_project_completed_amount || 0) : sum, 0);
   const overallPercent = totalGrantAmount > 0 ? Math.round((totalCompletedAmount / totalGrantAmount) * 100) : 0;
-
   const totalSubProjectCount = grouped.reduce((sum, mp) => sum + mp.subProjects.length, 0);
 
   let subProjectCounter = 0;
@@ -305,18 +312,31 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+          <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '32px' }} />
+              <col style={{ width: '140px', minWidth: '100px' }} />
+              <col style={{ width: '160px', minWidth: '100px' }} />
+              <col style={{ width: '260px', minWidth: '150px' }} />
+              <col style={{ width: '44px' }} />
+              <col style={{ width: '100px' }} />
+              <col style={{ width: '96px' }} />
+              <col style={{ width: '96px' }} />
+              <col style={{ width: '96px' }} />
+              <col style={{ width: '32px' }} />
+            </colgroup>
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-3 py-2.5 text-center font-semibold text-slate-500 text-xs uppercase tracking-wide w-10">No.</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[150px]">Main Project</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[150px]">Sub Project</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[180px]">Details (細項)</th>
-                <th className="px-3 py-2.5 text-center font-semibold text-slate-500 text-xs uppercase tracking-wide min-w-[110px]">Completion</th>
-                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-amber-50">Sub Grant Amt</th>
-                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-amber-50/60">Item Grant Amt</th>
-                <th className="px-3 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide w-28 bg-blue-50">Main Subtotal</th>
-                <th className="px-2 py-2.5 w-8"></th>
+                <th className="px-2 py-2 text-center font-semibold text-slate-500 text-xs uppercase tracking-wide">No.</th>
+                <th className="px-2 py-2 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide overflow-hidden" style={{ resize: 'horizontal' }}>Main Project</th>
+                <th className="px-2 py-2 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide overflow-hidden" style={{ resize: 'horizontal' }}>Sub Project</th>
+                <th className="px-2 py-2 text-left font-semibold text-slate-500 text-xs uppercase tracking-wide overflow-hidden" style={{ resize: 'horizontal' }}>Details (細項)</th>
+                <th className="px-2 py-2 text-center font-semibold text-slate-500 text-xs uppercase tracking-wide">Qty</th>
+                <th className="px-2 py-2 text-center font-semibold text-slate-500 text-xs uppercase tracking-wide">Completion</th>
+                <th className="px-2 py-2 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide bg-amber-50">Sub Grant</th>
+                <th className="px-2 py-2 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide bg-amber-50/60">Item Grant</th>
+                <th className="px-2 py-2 text-right font-semibold text-slate-500 text-xs uppercase tracking-wide bg-blue-50">Subtotal</th>
+                <th className="px-1 py-2 w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -324,7 +344,7 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                 const groupBg = groupIndex % 2 === 0 ? 'bg-blue-50/30' : 'bg-green-50/25';
                 const totalSubRows = mainGroup.subProjects.reduce((s, sp) => s + sp.items.length, 0);
                 let mainProjectRendered = false;
-                let mainRowSpan = totalSubRows;
+                const mainRowSpan = totalSubRows;
 
                 return mainGroup.subProjects.map((subProject) => {
                   subProjectCounter += 1;
@@ -335,14 +355,8 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                     const isFirstItemOfSub = itemIndex === 0;
                     const isLastItemOfSub = itemIndex === subProject.items.length - 1;
                     const isLastRowOfMain = isLastSubInMain && isLastItemOfSub;
-
-                    const isDescriptionRow = item.item_grant_amount === 0 || item.item_grant_amount == null;
                     const isItemRow = item.item_grant_amount != null && item.item_grant_amount > 0;
 
-                    // item_grant_amount display:
-                    // - description row with 細項: show nothing (0 means "parent, see children")
-                    // - 細項 child row: show the specific amount
-                    // - no 細項 sub-project (null): show sub_project_grant_amount
                     const displayItemGrantAmount = !subProject.hasItems
                       ? subProject.subProjectGrantAmount
                       : isItemRow
@@ -356,6 +370,8 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                     const showMainProject = !mainProjectRendered;
                     if (showMainProject) mainProjectRendered = true;
 
+                    const detailText = cleanDetailText(item.details || '');
+
                     return (
                       <tr
                         key={item.id}
@@ -363,7 +379,7 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                       >
                         {isFirstItemOfSub && (
                           <td
-                            className="px-3 py-2 text-slate-400 text-xs font-mono text-center align-top"
+                            className="px-2 py-1.5 text-slate-400 text-xs font-mono text-center align-top"
                             rowSpan={subProject.items.length}
                           >
                             {currentCounter}
@@ -372,8 +388,9 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
 
                         {showMainProject && (
                           <td
-                            className="px-3 py-2 text-slate-800 font-semibold text-xs leading-snug align-top border-r border-slate-200"
+                            className="px-2 py-1.5 text-slate-800 font-semibold text-xs leading-snug align-top border-r border-slate-200 overflow-hidden"
                             rowSpan={mainRowSpan}
+                            style={{ wordBreak: 'break-word' }}
                           >
                             <span className="underline">{mainGroup.mainProjectName}</span>
                           </td>
@@ -381,28 +398,41 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
 
                         {isFirstItemOfSub && (
                           <td
-                            className="px-3 py-2 text-slate-700 text-xs leading-snug align-top"
+                            className="px-2 py-1.5 text-slate-700 text-xs leading-snug align-top overflow-hidden"
                             rowSpan={subProject.items.length}
+                            style={{ wordBreak: 'break-word' }}
                           >
                             {subProject.subProjectName}
                           </td>
                         )}
 
-                        <td className="px-3 py-2 text-xs leading-relaxed max-w-[240px] whitespace-pre-wrap">
+                        <td
+                          className="px-2 py-1.5 text-xs leading-relaxed overflow-hidden"
+                          style={{ wordBreak: 'break-word' }}
+                        >
                           {subProject.hasItems ? (
                             isItemRow ? (
-                              <span className="text-amber-700 font-medium">{item.details}</span>
+                              <span className="text-amber-700 font-medium">{detailText}</span>
                             ) : (
-                              <span className="text-slate-500 italic">{item.details || '-'}</span>
+                              <span className="text-slate-500 italic">{detailText || '-'}</span>
                             )
                           ) : (
-                            <span className="text-slate-500">{item.details || '-'}</span>
+                            <span className="text-slate-600">{detailText || '-'}</span>
                           )}
                         </td>
 
                         {isFirstItemOfSub && (
                           <td
-                            className="px-3 py-2 align-top"
+                            className="px-2 py-1.5 text-center align-top font-mono text-slate-600"
+                            rowSpan={subProject.items.length}
+                          >
+                            {subProject.subProjectQty != null ? subProject.subProjectQty : '-'}
+                          </td>
+                        )}
+
+                        {isFirstItemOfSub && (
+                          <td
+                            className="px-2 py-1.5 align-top"
                             rowSpan={subProject.items.length}
                           >
                             <CompletionBar percent={completionPct} />
@@ -411,16 +441,16 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
 
                         {isFirstItemOfSub && (
                           <td
-                            className="px-3 py-2 bg-amber-50/40 text-right align-top font-mono text-xs text-slate-800"
+                            className="px-2 py-1.5 bg-amber-50/40 text-right align-top font-mono text-slate-800"
                             rowSpan={subProject.items.length}
                           >
                             ${subProject.subProjectGrantAmount.toLocaleString()}
                           </td>
                         )}
 
-                        <td className="px-3 py-2 bg-amber-50/20 text-right">
+                        <td className="px-2 py-1.5 bg-amber-50/20 text-right">
                           {displayItemGrantAmount != null ? (
-                            <span className="text-xs font-semibold text-amber-700 font-mono">
+                            <span className="font-semibold text-amber-700 font-mono">
                               ${displayItemGrantAmount.toLocaleString()}
                             </span>
                           ) : null}
@@ -428,16 +458,16 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
 
                         {showMainProject && (
                           <td
-                            className="px-3 py-2 bg-blue-50/60 text-right align-top"
+                            className="px-2 py-1.5 bg-blue-50/60 text-right align-top"
                             rowSpan={mainRowSpan}
                           >
-                            <span className="text-xs font-bold text-blue-700 font-mono">
+                            <span className="font-bold text-blue-700 font-mono">
                               ${mainGroup.mainProjectGrantAmount.toLocaleString()}
                             </span>
                           </td>
                         )}
 
-                        <td className="px-2 py-2 text-center">
+                        <td className="px-1 py-1.5 text-center">
                           <button
                             onClick={() => handleDelete(item.id)}
                             disabled={deleting === item.id}
@@ -456,17 +486,17 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
             </tbody>
             <tfoot>
               <tr className="bg-slate-100 border-t-2 border-slate-300">
-                <td colSpan={4} className="px-3 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                <td colSpan={5} className="px-2 py-2 text-xs font-semibold text-slate-600 uppercase tracking-wide">
                   Grand Total ({totalSubProjectCount} sub-projects)
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-2 py-2">
                   <CompletionBar percent={overallPercent} />
                 </td>
-                <td className="px-3 py-2.5 bg-amber-50/40 text-right text-sm font-bold text-slate-900 font-mono">
+                <td className="px-2 py-2 bg-amber-50/40 text-right text-xs font-bold text-slate-900 font-mono">
                   ${totalGrantAmount.toLocaleString()}
                 </td>
-                <td className="px-3 py-2.5 bg-amber-50/20" />
-                <td className="px-3 py-2.5 bg-blue-100 text-right text-sm font-bold text-blue-800 font-mono">
+                <td className="px-2 py-2 bg-amber-50/20" />
+                <td className="px-2 py-2 bg-blue-100 text-right text-xs font-bold text-blue-800 font-mono">
                   ${totalGrantAmount.toLocaleString()}
                 </td>
                 <td />
