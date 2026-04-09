@@ -106,6 +106,22 @@ LEVEL 2 — SUB_PROJECTS: The regular (non-bold, non-underlined) text listed BEL
 
 The "開支詳情" (Details of Expenses) column contains the detailed breakdown for each sub_project.
 
+SPECIAL CASE — "增設業務單位" (Setting Up a New Business Unit):
+This section has a unique structure that differs from others:
+- The 預期項目交付 cell contains: BOLD/UNDERLINED heading (e.g. "在自貿協定及/或投資協定市場增設新業務單位") followed by a NARRATIVE paragraph explaining the business purpose, then a sub-project description (e.g. "增設業務單位").
+- The corresponding 開支詳情 cell contains NUMBERED cost breakdowns:
+    1. 租金支出：預計新業務單位面積：X平方米 每月租金$X × 12月 共HK$X
+    2. 增設上述業務單位的其他相關運作開支（包括商業登記或營運執照費用、租賃/裝修、水電煤費用等及就新增業務單位而委聘專業服務的費用）
+       Then CHILD 細項 items numbered like "細項 1:", "細項 2:", "細項 3:" etc.
+- Extract the main_project as the BOLD heading (e.g. "在自貿協定及/或投資協定市場增設新業務單位" or shortened to "增設業務單位")
+- Sub-project 1 is "租金支出" — CASE A row with:
+  * details = "租金支出：[area size] 每月租金$[amount] × 12月"
+  * sub_project_approved_qty = 12 (the 12 months)
+  * sub_project_grant_amount = the annual total shown
+  * item_grant_amount = null
+- Sub-project 2 is "增設上述業務單位的其他相關運作開支" — CASE B row with child 細項 items
+- NEVER skip this section. ALWAYS extract both numbered sub-projects.
+
 CRITICAL: DETERMINING MAIN_PROJECT BOUNDARIES USING 總開支:
 Each main_project section ends with a 總開支 (subtotal) row. The 總開支 amount IS the main_project_grant_amount.
 - All sub_projects listed under the same bold/underlined heading share ONE main_project and ONE 總開支
