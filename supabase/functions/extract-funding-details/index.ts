@@ -56,6 +56,49 @@ Deno.serve(async (req: Request) => {
       throw new Error("GEMINI_API_KEY not configured. Please add it in Settings.");
     }
 
+    // Fetch valid categories from database
+    const categoriesResponse = await fetch(
+      `${supabaseUrl}/rest/v1/funding_project_detail_categories?select=name_zh,name_en&order=order_index`,
+      {
+        headers: {
+          "apikey": supabaseServiceKey,
+          "Authorization": `Bearer ${supabaseServiceKey}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    let categoryList: Array<{ name_zh: string; name_en: string }> = [];
+    if (categoriesResponse.ok) {
+      categoryList = await categoriesResponse.json();
+    }
+
+    const categoryListText = categoryList.length > 0
+      ? categoryList.map((c, i) => `  ${i + 1}. "${c.name_zh}" (${c.name_en})`).join("\n")
+      : `  1. "在內地增設新業務單位" (Setting Up New Business Unit)
+  2. "租賃單位" (Rental of Unit)
+  3. "裝修傢俱" (Renovation and Furniture)
+  4. "增聘員工" (Hiring of Staff)
+  5. "參加展覽" (Participating in Exhibitions)
+  6. "參展美工/設計/搭建" (Exhibition Artwork/Design/Setup)
+  7. "展覽交通及住宿費" (Exhibition Transport and Accommodation)
+  8. "購買租賃機器設備" (Purchase/Rental of Machinery and Equipment)
+  9. "製作購買產品樣本或樣板" (Production/Purchase of Product Samples)
+  10. "檢測及認證" (Testing and Certification)
+  11. "專利 商標註冊" (Patent and Trademark Registration)
+  12. "設計及製作宣傳品" (Design and Production of Promotional Materials)
+  13. "建立/優化公司網頁" (Build/Optimize Company Website)
+  14. "設計及建立網上銷售平台" (Design and Build Online Sales Platform)
+  15. "廣告開支官方號 (直播/貼文)" (Official Account Advertising)
+  16. "廣告開支廣告投流(Vendor)" (Advertising Spend - Vendor)
+  17. "廣告開支廣告投流(自投)" (Advertising Spend - Self-managed)
+  18. "製作費用影片相片" (Production Cost - Video and Photo)
+  19. "核數" (Audit)
+  20. "其他" (Others)
+  21. "廣告開支其他廣告有關的開支" (Advertising - Other Related Expenses)
+  22. "廣告開支聘請代言人" (Advertising - Hiring of Spokesperson/KOL)
+  23. "製作或優化流動應用程式費用" (Mobile Application Production/Optimization)`;
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
 
@@ -88,6 +131,37 @@ Deno.serve(async (req: Request) => {
     );
 
     const prompt = `You are an expert data extraction assistant for Hong Kong BUD Fund Applications. Extract project information and detailed budget tables. Remove commas and currency symbols from all numbers.
+
+CATEGORIZATION REQUIREMENT:
+For every extracted row, assign a "checklist_category" field by matching the sub_project or main_project to the closest category from this list:
+${categoryListText}
+
+Rules for checklist_category:
+- Use the EXACT Chinese name (name_zh) from the list above
+- Match based on the nature of the expense, not just keywords
+- If a sub_project involves hiring staff → "增聘員工"
+- If it involves renting office space → "租賃單位"
+- If it involves renovation/furniture → "裝修傢俱"
+- If it involves exhibitions → "參加展覽" (or "參展美工/設計/搭建" if artwork/design, or "展覽交通及住宿費" if transport/hotel)
+- If it involves Facebook/Instagram/Xiaohongshu/social media ads via a vendor → "廣告開支廣告投流(Vendor)"
+- If it involves self-managed ad spend → "廣告開支廣告投流(自投)"
+- If it involves official account management/livestreaming/posts → "廣告開支官方號 (直播/貼文)"
+- If it involves video/photo production → "製作費用影片相片"
+- If it involves website → "建立/優化公司網頁"
+- If it involves online sales platform → "設計及建立網上銷售平台"
+- If it involves mobile app → "製作或優化流動應用程式費用"
+- If it involves audit/accounting → "核數"
+- If it involves testing/certification → "檢測及認證"
+- If it involves trademark/patent → "專利 商標註冊"
+- If it involves promotional materials (brochures, flyers, etc.) → "設計及製作宣傳品"
+- If it involves machinery/equipment → "購買租賃機器設備"
+- If it involves product samples → "製作購買產品樣本或樣板"
+- If it involves KOL/spokesperson → "廣告開支聘請代言人"
+- If it involves setting up mainland China business unit → "在內地增設新業務單位"
+- If it involves other advertising costs not covered above → "廣告開支其他廣告有關的開支"
+- If nothing fits → "其他"
+- ALL rows belonging to the same sub_project (parent + children) must share the SAME checklist_category
+
 
 UNDERSTANDING THE TABLE STRUCTURE:
 The "預期項目交付" (Expected Project Deliverables) column contains a TWO-LEVEL hierarchy in each cell:
@@ -197,7 +271,8 @@ Output JSON structure (one object per row, ALL project header fields repeated on
     "item_grant_amount": number | null,
     "main_project_grant_amount": number,
     "sub_project_completed_amount": number,
-    "main_project_completed_amount": number
+    "main_project_completed_amount": number,
+    "checklist_category": "string"
   }
 ]`;
 
