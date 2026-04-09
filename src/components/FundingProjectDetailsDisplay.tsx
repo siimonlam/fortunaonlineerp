@@ -147,8 +147,18 @@ function groupDetails(details: FundingProjectDetail[]): MainProjectGroup[] {
 
     const subProjects: SubProjectGroup[] = subOrder.map(subName => {
       const subRows = subMap[subName];
-      const parentRow = subRows.find(r => r.item_grant_amount == null || r.item_grant_amount === 0) || subRows[0];
-      const itemRows = subRows.filter(r => r.item_grant_amount != null && r.item_grant_amount > 0);
+      // Deduplicate: if the same sub_project appears multiple times, prefer the row(s) with 細項 data
+      const parentRow = subRows.find(r => r.item_grant_amount === 0) ||
+                        subRows.find(r => r.item_grant_amount == null) ||
+                        subRows[0];
+      // Deduplicate 細項 child rows by item_grant_amount value to prevent double entries
+      const seenAmounts = new Set<number>();
+      const itemRows = subRows.filter(r => {
+        if (r.item_grant_amount == null || r.item_grant_amount === 0) return false;
+        if (seenAmounts.has(r.item_grant_amount)) return false;
+        seenAmounts.add(r.item_grant_amount);
+        return true;
+      });
       const hasItems = itemRows.length > 0;
       const displayRows = hasItems ? [parentRow, ...itemRows] : [parentRow];
 
@@ -417,7 +427,7 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                               <span className="text-slate-500 italic">{detailText || '-'}</span>
                             )
                           ) : (
-                            <span className="text-slate-600">{detailText || '-'}</span>
+                            <span className="text-slate-400">-</span>
                           )}
                         </td>
 

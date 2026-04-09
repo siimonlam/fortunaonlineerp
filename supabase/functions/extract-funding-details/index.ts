@@ -124,7 +124,7 @@ HIERARCHICAL EXTRACTION LOGIC:
    CASE A: SUB-PROJECT HAS NO 細項 (no breakdown items — single amount only):
    - Create ONE row
    - sub_project: the sub-project name
-   - details: the full descriptive text from 開支詳情 (廣告內容 section — all narrative text)
+   - details: leave blank ("") — do NOT copy the narrative text; the sub_project name is sufficient
    - sub_project_grant_amount: the amount for this sub-project
    - item_grant_amount: null
 
