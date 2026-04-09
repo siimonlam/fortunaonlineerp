@@ -213,6 +213,7 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, projectRef
         main_project_grant_amount: detail.main_project_grant_amount,
         sub_project_completed_amount: detail.sub_project_completed_amount,
         main_project_completed_amount: detail.main_project_completed_amount,
+        checklist_category: detail.checklist_category ?? null,
       }));
 
       const { error: insertError } = await supabase
