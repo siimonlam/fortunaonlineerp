@@ -958,7 +958,10 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   }
 
   async function handleSyncToClient() {
-    if (!project.client_id) {
+    const hasClientId = !!project.client_id;
+    const hasClientNumber = !!project.client_number;
+
+    if (!hasClientId && !hasClientNumber) {
       alert('No client linked to this project');
       return;
     }
@@ -995,10 +998,15 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         updateData.parent_client_id = formData.parentClientId.trim() || null;
       }
 
-      const { error } = await supabase
-        .from('clients')
-        .update(updateData)
-        .eq('id', project.client_id);
+      let query = supabase.from('clients').update(updateData);
+
+      if (hasClientId) {
+        query = query.eq('id', project.client_id);
+      } else {
+        query = query.eq('client_number', project.client_number);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
 
@@ -3481,7 +3489,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             >
               Close
             </button>
-            {canEdit && project.client_id && (
+            {canEdit && (project.client_id || project.client_number) && (
               <button
                 type="button"
                 onClick={handleSyncToClient}
