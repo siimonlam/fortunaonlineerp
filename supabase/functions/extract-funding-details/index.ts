@@ -124,26 +124,38 @@ HIERARCHICAL EXTRACTION LOGIC:
    CASE A: SUB-PROJECT HAS NO 細項 (no breakdown items — single amount only):
    - Create ONE row
    - sub_project: the sub-project name
-   - details: descriptive text associated with it from 開支詳情
+   - details: the full descriptive text from 開支詳情 (廣告內容 section — all narrative text)
    - sub_project_grant_amount: the amount for this sub-project
    - item_grant_amount: null
 
-   CASE B: SUB-PROJECT HAS 細項 (breakdown items listed):
-   - Create ONE parent row:
+   CASE B: SUB-PROJECT HAS 細項 (breakdown items listed in 涉及的細項及開支):
+   The 開支詳情 cell contains TWO sections:
+     Section 1 — 廣告內容/描述: The full narrative description text at the top of the cell (before "涉及的細項及開支"). This is the PARENT row.
+     Section 2 — 涉及的細項及開支: Lists the individual 細項 items with their amounts. Each 細項 is a CHILD row.
+
+   Create rows as follows:
+   - Row 1 (PARENT — description row):
      * sub_project: the sub-project name
-     * details: same as sub_project name
+     * details: the full narrative/description text (廣告內容 section, everything BEFORE "涉及的細項及開支")
+     * sub_project_approved_qty: the qty shown (e.g. 12 for "12個月")
      * sub_project_grant_amount: SUM of all 細項 amounts
-     * item_grant_amount: null
-   - Create ONE child row per 細項:
+     * item_grant_amount: 0  ← always 0 for the parent description row
+   - Row 2+ (CHILD — one per 細項):
      * sub_project: SAME sub-project name as parent
-     * details: the 細項 description
-     * item_grant_amount: that 細項 amount
+     * details: the 細項 label (e.g. "細項 1: Facebook page management (12 months)")
+     * sub_project_approved_qty: same qty as parent
      * sub_project_grant_amount: same total as parent row
+     * item_grant_amount: the specific 細項 amount (e.g. 9000, 51000) — NEVER 0 for child rows
+
+   EXAMPLE for "於澳門投放Facebook廣告為期12個月":
+   Row 1: details="廣告媒體：Facebook... 廣告內容：- Facebook page management Fee includes... - Copywriting...", item_grant_amount=0, sub_project_grant_amount=60000
+   Row 2: details="細項 1: Facebook page management (12 months)", item_grant_amount=9000, sub_project_grant_amount=60000
+   Row 3: details="細項 2: Facebook Ads (each month 2 feeds, total 24 feeds)", item_grant_amount=51000, sub_project_grant_amount=60000
 
 5. CRITICAL AMOUNT RULES:
    - main_project_grant_amount = the 總開支 value for the section (same on ALL rows of that main_project)
-   - sub_project_grant_amount = total for that specific sub-project only
-   - The sum of all sub_project_grant_amount (parent rows only, not child 細項 rows) under a main_project = main_project_grant_amount
+   - sub_project_grant_amount = total for that specific sub-project only (same across all rows of that sub-project)
+   - item_grant_amount: 0 for the parent description row; the specific 細項 amount for child rows; null for sub-projects with no 細項
    - Always extract TOTAL amounts, never 50% portions. If only 50% shown, multiply by 2
    - Remove all commas and currency symbols from numbers
 

@@ -136,14 +136,19 @@ function groupDetails(details: FundingProjectDetail[]): MainProjectGroup[] {
 
     const subProjects: SubProjectGroup[] = subOrder.map(subName => {
       const subRows = subMap[subName];
-      const parentRow = subRows.find(r => r.item_grant_amount == null) || subRows[0];
-      const itemRows = subRows.filter(r => r.item_grant_amount != null);
+      // Parent description row: item_grant_amount === null (no 細項) or item_grant_amount === 0 (has 細項)
+      const parentRow = subRows.find(r => r.item_grant_amount == null || r.item_grant_amount === 0) || subRows[0];
+      // Child 細項 rows: item_grant_amount > 0
+      const itemRows = subRows.filter(r => r.item_grant_amount != null && r.item_grant_amount > 0);
       const hasItems = itemRows.length > 0;
+
+      // All rows to display: parent description row first, then 細項 children
+      const displayRows = hasItems ? [parentRow, ...itemRows] : [parentRow];
 
       return {
         subProjectName: subName,
         subProjectGrantAmount: parentRow.sub_project_grant_amount || 0,
-        items: hasItems ? itemRows : [parentRow],
+        items: displayRows,
         hasItems,
       };
     });
@@ -331,9 +336,18 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                     const isLastItemOfSub = itemIndex === subProject.items.length - 1;
                     const isLastRowOfMain = isLastSubInMain && isLastItemOfSub;
 
-                    const displayItemGrantAmount = subProject.hasItems
+                    const isDescriptionRow = item.item_grant_amount === 0 || item.item_grant_amount == null;
+                    const isItemRow = item.item_grant_amount != null && item.item_grant_amount > 0;
+
+                    // item_grant_amount display:
+                    // - description row with 細項: show nothing (0 means "parent, see children")
+                    // - 細項 child row: show the specific amount
+                    // - no 細項 sub-project (null): show sub_project_grant_amount
+                    const displayItemGrantAmount = !subProject.hasItems
+                      ? subProject.subProjectGrantAmount
+                      : isItemRow
                       ? item.item_grant_amount
-                      : subProject.subProjectGrantAmount;
+                      : null;
 
                     const completionPct = subProject.subProjectGrantAmount > 0
                       ? Math.round(((item.sub_project_completed_amount || 0) / subProject.subProjectGrantAmount) * 100)
@@ -374,8 +388,16 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                           </td>
                         )}
 
-                        <td className="px-3 py-2 text-slate-500 text-xs leading-relaxed max-w-[200px] whitespace-pre-wrap">
-                          {subProject.hasItems ? item.details : '-'}
+                        <td className="px-3 py-2 text-xs leading-relaxed max-w-[240px] whitespace-pre-wrap">
+                          {subProject.hasItems ? (
+                            isItemRow ? (
+                              <span className="text-amber-700 font-medium">{item.details}</span>
+                            ) : (
+                              <span className="text-slate-500 italic">{item.details || '-'}</span>
+                            )
+                          ) : (
+                            <span className="text-slate-500">{item.details || '-'}</span>
+                          )}
                         </td>
 
                         {isFirstItemOfSub && (
