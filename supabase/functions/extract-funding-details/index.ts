@@ -124,7 +124,8 @@ HIERARCHICAL EXTRACTION LOGIC:
    CASE A: SUB-PROJECT HAS NO 細項 (no breakdown items — single amount only):
    - Create ONE row
    - sub_project: the sub-project name
-   - details: leave blank ("") — do NOT copy the narrative text; the sub_project name is sufficient
+   - details: extract the SHORT operational/cost description from the 開支詳情 cell — specifically the concise lines such as area size, monthly rate, duration (e.g. "租金支出：預計新業務單位面積：50平方米 每月租金$15,000.00 × 12月"). Do NOT copy the long narrative background text about company purpose. Focus on the quantitative cost description only.
+   - sub_project_approved_qty: extract the quantity number if mentioned (e.g. 12 for "x12月", 50 for "50平方米"). If no quantity is mentioned, use 1.
    - sub_project_grant_amount: the amount for this sub-project
    - item_grant_amount: null
 

@@ -427,7 +427,7 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                               <span className="text-slate-500 italic">{detailText || '-'}</span>
                             )
                           ) : (
-                            <span className="text-slate-400">-</span>
+                            <span className="text-slate-600">{detailText || '-'}</span>
                           )}
                         </td>
 
@@ -436,7 +436,7 @@ export function FundingProjectDetailsDisplay({ projectId, onRefresh }: FundingPr
                             className="px-2 py-1.5 text-center align-top font-mono text-slate-600"
                             rowSpan={subProject.items.length}
                           >
-                            {subProject.subProjectQty != null ? subProject.subProjectQty : '-'}
+                            {(subProject.subProjectQty != null && subProject.subProjectQty > 0) ? subProject.subProjectQty : 1}
                           </td>
                         )}
 
