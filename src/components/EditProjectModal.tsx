@@ -16,6 +16,7 @@ import { EmailSchedulerTab } from './EmailSchedulerTab';
 import { FundingInvoiceSettingsPanel } from './FundingInvoiceSettingsPanel';
 import { FundingProjectDetailsExtractor } from './FundingProjectDetailsExtractor';
 import { FundingProjectDetailsDisplay } from './FundingProjectDetailsDisplay';
+import FundingProjectChecklist from './FundingProjectChecklist';
 import html2pdf from 'html2pdf.js';
 import { createBudProjectFolders, createMarketingProjectFolders, getProjectFolders } from '../utils/googleDriveUtils';
 import { toLocalDateTimeString, fromLocalDateTimeString } from '../utils/dateTimeUtils';
@@ -142,6 +143,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [clientData, setClientData] = useState<any>(null);
   const [projectType, setProjectType] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'summary' | 'project' | 'invoices' | 'files' | 'emails'>('project');
+  const [summarySubTab, setSummarySubTab] = useState<'detail' | 'ledger' | 'checklist'>('detail');
   const [invoiceSubTab, setInvoiceSubTab] = useState<'list' | 'agreements' | 'settings'>('list');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [agreements, setAgreements] = useState<any[]>([]);
@@ -1879,7 +1881,57 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
         )}
 
         {activeTab === 'summary' ? (
-          <div className="p-6 space-y-6">
+          <div className="flex flex-col h-full">
+            <div className="flex gap-1 px-4 sm:px-6 pt-3 pb-0 border-b border-slate-100 bg-white">
+              <button
+                type="button"
+                onClick={() => setSummarySubTab('detail')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  summarySubTab === 'detail'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Project Detail
+              </button>
+              <button
+                type="button"
+                onClick={() => setSummarySubTab('ledger')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  summarySubTab === 'ledger'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                General Ledger
+              </button>
+              <button
+                type="button"
+                onClick={() => setSummarySubTab('checklist')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  summarySubTab === 'checklist'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Checklist
+              </button>
+            </div>
+
+            {summarySubTab === 'checklist' ? (
+              <FundingProjectChecklist projectId={project.id} />
+            ) : summarySubTab === 'ledger' ? (
+              <div className="flex items-center justify-center py-16 text-slate-400">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <FileText className="w-6 h-6 text-slate-300" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-500">General Ledger</p>
+                  <p className="text-xs text-slate-400 mt-1">Coming soon</p>
+                </div>
+              </div>
+            ) : (
+            <div className="p-6 space-y-6 overflow-y-auto">
             <div className="space-y-4">
               <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden hidden">
                 <table className="w-full text-sm">
@@ -2034,6 +2086,8 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
                   }}
                 />
               </div>
+            )}
+          </div>
             )}
           </div>
         ) : activeTab === 'project' ? (
