@@ -90,14 +90,15 @@ Deno.serve(async (req: Request) => {
   13. "建立/優化公司網頁" (Build/Optimize Company Website)
   14. "設計及建立網上銷售平台" (Design and Build Online Sales Platform)
   15. "廣告開支官方號 (直播/貼文)" (Official Account Advertising)
-  16. "廣告開支廣告投流(Vendor)" (Advertising Spend - Vendor)
-  17. "廣告開支廣告投流(自投)" (Advertising Spend - Self-managed)
-  18. "製作費用影片相片" (Production Cost - Video and Photo)
-  19. "核數" (Audit)
-  20. "其他" (Others)
-  21. "廣告開支其他廣告有關的開支" (Advertising - Other Related Expenses)
-  22. "廣告開支聘請代言人" (Advertising - Hiring of Spokesperson/KOL)
-  23. "製作或優化流動應用程式費用" (Mobile Application Production/Optimization)`;
+  16. "廣告開支KOL (直播/貼文)" (KOL Advertising - Live / Post)
+  17. "廣告開支廣告投流(Vendor)" (Advertising Spend - Vendor)
+  18. "廣告開支廣告投流(自投)" (Advertising Spend - Self-managed)
+  19. "製作費用影片相片" (Production Cost - Video and Photo)
+  20. "核數" (Audit)
+  21. "其他" (Others)
+  22. "廣告開支其他廣告有關的開支" (Advertising - Other Related Expenses)
+  23. "廣告開支聘請代言人" (Advertising - Hiring of Spokesperson/KOL)
+  24. "製作或優化流動應用程式費用" (Mobile Application Production/Optimization)`;
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
