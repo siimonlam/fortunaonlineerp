@@ -222,6 +222,37 @@ export function FundingProjectDetailsExtractor({ projectId, clientId, projectRef
 
       if (insertError) throw insertError;
 
+      const { data: checklistTemplates } = await supabase
+        .from('funding_document_checklist')
+        .select('id, category, document_name, description');
+
+      if (checklistTemplates && checklistTemplates.length > 0) {
+        const { data: existingItems } = await supabase
+          .from('project_checklist_items')
+          .select('checklist_id')
+          .eq('project_id', projectId);
+
+        const existingIds = new Set((existingItems || []).map(i => i.checklist_id));
+
+        const newChecklistRows = checklistTemplates
+          .filter(t => !existingIds.has(t.id))
+          .map(t => ({
+            project_id: projectId,
+            checklist_id: t.id,
+            category: t.category,
+            document_name: t.document_name,
+            description: t.description,
+            is_checked: false,
+            is_checked_by_ai: false,
+          }));
+
+        if (newChecklistRows.length > 0) {
+          await supabase
+            .from('project_checklist_items')
+            .insert(newChecklistRows);
+        }
+      }
+
       setState('upload');
       setSelectedFile(null);
       setExtractedData([]);
