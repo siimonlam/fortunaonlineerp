@@ -3,6 +3,18 @@ import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot,
 import { supabase } from '../lib/supabase';
 import { createChecklistFolders, createBudProjectFolders } from '../utils/googleDriveUtils';
 
+const SHARED_DOC_PREFIXES = [
+  'Quotation 報價',
+  '反圍標',
+  '供應商發票',
+  '供應商收據',
+  '付款紀錄證明',
+];
+
+function isSharedDoc(documentName: string): boolean {
+  return SHARED_DOC_PREFIXES.some(prefix => documentName.startsWith(prefix));
+}
+
 interface ChecklistTemplate {
   id: string;
   category: string;
@@ -31,6 +43,7 @@ interface ProjectDetail {
   main_project: string;
   sub_project: string;
   checklist_category: string;
+  item_number: string;
 }
 
 interface FundingProjectChecklistProps {
@@ -62,6 +75,7 @@ interface SubProjectGroup {
 
 interface MainProjectGroup {
   main_project: string;
+  sharedDocuments: DocumentGroup[];
   subProjects: SubProjectGroup[];
 }
 
@@ -78,6 +92,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [mainProjectGroups, setMainProjectGroups] = useState<MainProjectGroup[]>([]);
   const [hasProjectDetails, setHasProjectDetails] = useState(true);
   const [collapsedMain, setCollapsedMain] = useState<Set<string>>(new Set());
+  const [collapsedShared, setCollapsedShared] = useState<Set<string>>(new Set());
   const [collapsedSub, setCollapsedSub] = useState<Set<string>>(new Set());
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [collapsedDocuments, setCollapsedDocuments] = useState<Set<string>>(new Set());
@@ -103,10 +118,11 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       const [detailsRes, templatesRes, projectItemsRes] = await Promise.all([
         supabase
           .from('funding_project_details')
-          .select('main_project, sub_project, checklist_category')
+          .select('main_project, sub_project, checklist_category, item_number')
           .eq('project_id', projectId)
           .not('checklist_category', 'is', null)
-          .not('checklist_category', 'eq', ''),
+          .not('checklist_category', 'eq', '')
+          .order('item_number', { ascending: true }),
         supabase
           .from('funding_document_checklist')
           .select('*')
@@ -144,25 +160,75 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         templatesByCategory.get(t.category)!.push(t);
       });
 
-      // Build main_project → sub_project → checklist_category hierarchy
-      // Use ordered maps to preserve insertion order from DB
+      // Build hierarchy preserving item_number order (same as Project Detail tab)
+      // main_project → sub_project → checklist_category
       type CatMap = Map<string, true>;
       type SubMap = Map<string, CatMap>;
       type MainMap = Map<string, SubMap>;
 
       const mainMap: MainMap = new Map();
+      // Track which categories belong to the main project (shared docs) vs sub-projects
+      const mainSharedCategories = new Map<string, Set<string>>();
 
       details.forEach(d => {
         const subKey = d.sub_project || '(No Sub Project)';
-        if (!mainMap.has(d.main_project)) mainMap.set(d.main_project, new Map());
+        if (!mainMap.has(d.main_project)) {
+          mainMap.set(d.main_project, new Map());
+          mainSharedCategories.set(d.main_project, new Set());
+        }
         const subMap = mainMap.get(d.main_project)!;
         if (!subMap.has(subKey)) subMap.set(subKey, new Map());
         subMap.get(subKey)!.set(d.checklist_category, true);
+        mainSharedCategories.get(d.main_project)!.add(d.checklist_category);
       });
 
       const groups: MainProjectGroup[] = [];
 
       mainMap.forEach((subMap, main_project) => {
+        // Collect ALL checklist entries across all categories for this main project
+        // to extract shared documents (Quotation, 反圍標, 供應商發票, etc.)
+        const allCategoriesForMain = new Set<string>();
+        subMap.forEach((catMap) => {
+          catMap.forEach((_, cat) => allCategoriesForMain.add(cat));
+        });
+
+        // Build shared documents: collect all templates from all categories for this main project
+        // where document_name is one of the 5 shared types
+        const sharedDocMap = new Map<string, ChecklistEntry[]>();
+        allCategoriesForMain.forEach(cat => {
+          const catTemplates = templatesByCategory.get(cat) || [];
+          catTemplates.forEach(t => {
+            if (isSharedDoc(t.document_name)) {
+              if (!sharedDocMap.has(t.document_name)) sharedDocMap.set(t.document_name, []);
+              sharedDocMap.get(t.document_name)!.push({
+                template: t,
+                projectItem: projectItemMap.get(t.id) || null,
+              });
+            }
+          });
+        });
+
+        // Deduplicate shared doc entries (same template may appear in multiple categories)
+        const seenTemplateIds = new Set<string>();
+        const sharedDocuments: DocumentGroup[] = [];
+        sharedDocMap.forEach((entries, document_name) => {
+          const deduped = entries.filter(e => {
+            if (seenTemplateIds.has(e.template.id)) return false;
+            seenTemplateIds.add(e.template.id);
+            return true;
+          });
+          if (deduped.length > 0) sharedDocuments.push({ document_name, items: deduped });
+        });
+
+        // Sort shared documents in the canonical order
+        sharedDocuments.sort((a, b) => {
+          const ai = SHARED_DOC_PREFIXES.findIndex(p => a.document_name.startsWith(p));
+          const bi = SHARED_DOC_PREFIXES.findIndex(p => b.document_name.startsWith(p));
+          if (ai !== bi) return ai - bi;
+          return a.document_name.localeCompare(b.document_name, 'zh-Hant');
+        });
+
+        // Build sub-project groups (only non-shared docs)
         const subProjectGroups: SubProjectGroup[] = [];
 
         subMap.forEach((catMap, sub_project) => {
@@ -174,6 +240,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
 
             const docMap = new Map<string, ChecklistEntry[]>();
             catTemplates.forEach(t => {
+              if (isSharedDoc(t.document_name)) return; // skip shared docs
               if (!docMap.has(t.document_name)) docMap.set(t.document_name, []);
               docMap.get(t.document_name)!.push({
                 template: t,
@@ -184,7 +251,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             const documents: DocumentGroup[] = [];
             docMap.forEach((items, document_name) => documents.push({ document_name, items }));
 
-            categoryGroups.push({ checklist_category, documents });
+            if (documents.length > 0) {
+              categoryGroups.push({ checklist_category, documents });
+            }
           });
 
           if (categoryGroups.length > 0) {
@@ -192,12 +261,10 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           }
         });
 
-        if (subProjectGroups.length > 0) {
-          groups.push({ main_project, subProjects: subProjectGroups });
-        }
+        groups.push({ main_project, sharedDocuments, subProjects: subProjectGroups });
       });
 
-      groups.sort((a, b) => a.main_project.localeCompare(b.main_project, 'zh-Hant'));
+      // No sorting — preserve insertion order from item_number ordering (same as Project Detail tab)
       setMainProjectGroups(groups);
     } catch (err) {
       console.error('Error loading checklist:', err);
@@ -282,6 +349,12 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     setMainProjectGroups(prev =>
       prev.map(mpg => ({
         ...mpg,
+        sharedDocuments: mpg.sharedDocuments.map(doc => ({
+          ...doc,
+          items: doc.items.map(item =>
+            item.template.id !== templateId ? item : { ...item, projectItem: updatedItem }
+          ),
+        })),
         subProjects: mpg.subProjects.map(spg => ({
           ...spg,
           categories: spg.categories.map(cg => ({
@@ -337,8 +410,10 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const getSubProjectItems = (spg: SubProjectGroup): ChecklistEntry[] =>
     spg.categories.flatMap(cg => cg.documents.flatMap(doc => doc.items));
 
-  const getMainProjectItems = (mpg: MainProjectGroup): ChecklistEntry[] =>
-    mpg.subProjects.flatMap(spg => getSubProjectItems(spg));
+  const getMainProjectItems = (mpg: MainProjectGroup): ChecklistEntry[] => [
+    ...mpg.sharedDocuments.flatMap(doc => doc.items),
+    ...mpg.subProjects.flatMap(spg => getSubProjectItems(spg)),
+  ];
 
   const getCategoryItems = (cg: CategoryGroup): ChecklistEntry[] =>
     cg.documents.flatMap(doc => doc.items);
@@ -372,6 +447,159 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const { total, userChecked, aiChecked } = getTotalProgress();
   const pct = total > 0 ? Math.round((userChecked / total) * 100) : 0;
   const aiPct = total > 0 ? Math.round((aiChecked / total) * 100) : 0;
+
+  const renderChecklistItem = (template: ChecklistTemplate, projectItem: ProjectChecklistItem | null) => {
+    const isUserChecked = projectItem?.is_checked ?? false;
+    const isAiChecked = projectItem?.is_checked_by_ai ?? false;
+    const hasData = !!(projectItem?.data || projectItem?.data_by_ai);
+    const dataKey = template.id;
+    const isDataExpanded = expandedData.has(dataKey);
+    const isSavingUser = savingItem?.id === template.id && savingItem.type === 'user';
+    const isSavingAi = savingItem?.id === template.id && savingItem.type === 'ai';
+
+    return (
+      <div key={template.id} className={`border-t border-slate-50 transition-colors ${isUserChecked ? 'bg-green-50/20' : ''}`}>
+        <div className="flex items-start gap-3 px-11 py-2.5">
+          <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+            <button
+              onClick={() => toggleUserCheck(template, projectItem)}
+              disabled={!!savingItem}
+              title="Staff check"
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                isUserChecked
+                  ? 'bg-blue-500 border-blue-500'
+                  : 'border-slate-300 hover:border-blue-400 bg-white'
+              }`}
+            >
+              {isSavingUser ? (
+                <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+              ) : isUserChecked ? (
+                <User className="w-2.5 h-2.5 text-white" />
+              ) : (
+                <User className="w-2.5 h-2.5 text-slate-300" />
+              )}
+            </button>
+
+            <div
+              title="AI verified (read-only)"
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-default ${
+                isAiChecked
+                  ? 'bg-amber-400 border-amber-400'
+                  : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              {isSavingAi ? (
+                <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+              ) : isAiChecked ? (
+                <Bot className="w-2.5 h-2.5 text-white" />
+              ) : (
+                <Bot className="w-2.5 h-2.5 text-slate-300" />
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <span className={`text-sm ${isUserChecked ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+              {template.description}
+            </span>
+
+            {isUserChecked && projectItem?.checked_by_user_name && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <User className="w-3 h-3 text-blue-400" />
+                <span className="text-xs text-blue-500">{projectItem.checked_by_user_name}</span>
+                {projectItem.checked_at && (
+                  <span className="text-xs text-slate-400">
+                    · {new Date(projectItem.checked_at).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0 ml-1">
+            {template.is_required && !isUserChecked && (
+              <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                Required
+              </span>
+            )}
+            {hasData && (
+              <button
+                onClick={() => toggle(expandedData, dataKey, setExpandedData)}
+                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded transition-colors"
+              >
+                <Database className="w-3 h-3" />
+                Data
+              </button>
+            )}
+          </div>
+        </div>
+
+        {isDataExpanded && hasData && (
+          <div className="mx-11 mb-2 space-y-1.5">
+            {projectItem?.data_by_ai && (
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <Bot className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-amber-700 mb-0.5">AI Data</div>
+                  <div className="text-xs text-amber-800 break-words">{projectItem.data_by_ai}</div>
+                </div>
+              </div>
+            )}
+            {projectItem?.data && (
+              <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                <User className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-blue-700 mb-0.5">Staff Data</div>
+                  <div className="text-xs text-blue-800 break-words">{projectItem.data}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderDocumentGroup = (doc: DocumentGroup, docKey: string, indentClass: string) => {
+    const docProgress = getProgress(doc.items);
+    const docAllDone = docProgress.userChecked === docProgress.total && docProgress.total > 0;
+    const docCollapsed = collapsedDocuments.has(docKey);
+
+    return (
+      <div key={doc.document_name}>
+        <button
+          onClick={() => toggle(collapsedDocuments, docKey, setCollapsedDocuments)}
+          className={`w-full flex items-center justify-between ${indentClass} py-2 text-left transition-colors ${
+            docAllDone ? 'bg-green-50/30 hover:bg-green-50/50' : 'bg-white hover:bg-slate-50'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {docCollapsed
+              ? <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
+              : <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0" />
+            }
+            <span className={`text-sm truncate font-medium ${docAllDone ? 'text-green-600' : 'text-slate-600'}`}>
+              {doc.document_name}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+            <span className={`text-xs flex items-center gap-1 ${docAllDone ? 'text-green-500' : 'text-slate-300'}`}>
+              <User className="w-3 h-3" /> {docProgress.userChecked}/{docProgress.total}
+            </span>
+            <span className="text-xs text-amber-400 flex items-center gap-1">
+              <Bot className="w-3 h-3" /> {docProgress.aiChecked}/{docProgress.total}
+            </span>
+          </div>
+        </button>
+
+        {!docCollapsed && (
+          <div className="bg-white">
+            {doc.items.map(({ template, projectItem }) => renderChecklistItem(template, projectItem))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="p-6 space-y-4">
@@ -534,9 +762,6 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                   <span className={`font-semibold text-sm truncate ${mpAllDone ? 'text-green-700' : 'text-slate-800'}`}>
                     {mpg.main_project}
                   </span>
-                  <span className="text-xs text-slate-400 flex-shrink-0">
-                    ({mpg.subProjects.length} sub-project{mpg.subProjects.length !== 1 ? 's' : ''})
-                  </span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                   {mpAllDone && <Check className="w-4 h-4 text-green-600" />}
@@ -553,6 +778,58 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
 
               {!mpCollapsed && (
                 <div className="divide-y divide-slate-100">
+                  {/* Shared document types (Quotation, 反圍標, 供應商發票, etc.) at main project level */}
+                  {mpg.sharedDocuments.length > 0 && (() => {
+                    const sharedKey = `${mpg.main_project}::shared`;
+                    const sharedItems = mpg.sharedDocuments.flatMap(d => d.items);
+                    const sharedProgress = getProgress(sharedItems);
+                    const sharedAllDone = sharedProgress.userChecked === sharedProgress.total && sharedProgress.total > 0;
+                    const sharedCollapsed = collapsedShared.has(sharedKey);
+
+                    return (
+                      <div>
+                        <button
+                          onClick={() => toggle(collapsedShared, sharedKey, setCollapsedShared)}
+                          className={`w-full flex items-center justify-between px-5 py-2.5 text-left transition-colors ${
+                            sharedAllDone ? 'bg-green-50/70 hover:bg-green-50' : 'bg-slate-50 hover:bg-slate-100'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FolderOpen className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            {sharedCollapsed
+                              ? <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                              : <ChevronDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            }
+                            <span className={`text-sm font-semibold truncate ${sharedAllDone ? 'text-green-700' : 'text-slate-700'}`}>
+                              供應商文件 (Vendor Documents)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                            {sharedAllDone && <Check className="w-3.5 h-3.5 text-green-600" />}
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                              sharedAllDone ? 'bg-green-100 text-green-700' : 'bg-white text-slate-500'
+                            }`}>
+                              <User className="w-3 h-3" /> {sharedProgress.userChecked}/{sharedProgress.total}
+                            </span>
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-500 flex items-center gap-1">
+                              <Bot className="w-3 h-3" /> {sharedProgress.aiChecked}/{sharedProgress.total}
+                            </span>
+                          </div>
+                        </button>
+
+                        {!sharedCollapsed && (
+                          <div className="divide-y divide-slate-50 bg-white">
+                            {mpg.sharedDocuments.map(doc => {
+                              const docKey = `${sharedKey}::${doc.document_name}`;
+                              return renderDocumentGroup(doc, docKey, 'px-9');
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Sub-projects */}
                   {mpg.subProjects.map(spg => {
                     const spKey = `${mpg.main_project}::${spg.sub_project}`;
                     const spItems = getSubProjectItems(spg);
@@ -562,7 +839,6 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
 
                     return (
                       <div key={spg.sub_project}>
-                        {/* Sub Project Header */}
                         <button
                           onClick={() => toggle(collapsedSub, spKey, setCollapsedSub)}
                           className={`w-full flex items-center justify-between px-5 py-2.5 text-left transition-colors ${
@@ -603,7 +879,6 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
 
                               return (
                                 <div key={cg.checklist_category}>
-                                  {/* Category Header */}
                                   <button
                                     onClick={() => toggle(collapsedCategories, catKey, setCollapsedCategories)}
                                     className={`w-full flex items-center justify-between px-7 py-2 text-left transition-colors ${
@@ -634,155 +909,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                                     <div className="divide-y divide-slate-50">
                                       {cg.documents.map(doc => {
                                         const docKey = `${catKey}::${doc.document_name}`;
-                                        const docProgress = getProgress(doc.items);
-                                        const docAllDone = docProgress.userChecked === docProgress.total && docProgress.total > 0;
-                                        const docCollapsed = collapsedDocuments.has(docKey);
-
-                                        return (
-                                          <div key={doc.document_name}>
-                                            {/* Document Header */}
-                                            <button
-                                              onClick={() => toggle(collapsedDocuments, docKey, setCollapsedDocuments)}
-                                              className={`w-full flex items-center justify-between px-9 py-2 text-left transition-colors ${
-                                                docAllDone ? 'bg-green-50/30 hover:bg-green-50/50' : 'bg-white hover:bg-slate-50'
-                                              }`}
-                                            >
-                                              <div className="flex items-center gap-2 min-w-0">
-                                                {docCollapsed
-                                                  ? <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
-                                                  : <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0" />
-                                                }
-                                                <span className={`text-sm truncate font-medium ${docAllDone ? 'text-green-600' : 'text-slate-600'}`}>
-                                                  {doc.document_name}
-                                                </span>
-                                              </div>
-                                              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                                                <span className={`text-xs flex items-center gap-1 ${docAllDone ? 'text-green-500' : 'text-slate-300'}`}>
-                                                  <User className="w-3 h-3" /> {docProgress.userChecked}/{docProgress.total}
-                                                </span>
-                                                <span className="text-xs text-amber-400 flex items-center gap-1">
-                                                  <Bot className="w-3 h-3" /> {docProgress.aiChecked}/{docProgress.total}
-                                                </span>
-                                              </div>
-                                            </button>
-
-                                            {!docCollapsed && (
-                                              <div className="bg-white">
-                                                {doc.items.map(({ template, projectItem }) => {
-                                                  const isUserChecked = projectItem?.is_checked ?? false;
-                                                  const isAiChecked = projectItem?.is_checked_by_ai ?? false;
-                                                  const hasData = !!(projectItem?.data || projectItem?.data_by_ai);
-                                                  const dataKey = template.id;
-                                                  const isDataExpanded = expandedData.has(dataKey);
-                                                  const isSavingUser = savingItem?.id === template.id && savingItem.type === 'user';
-                                                  const isSavingAi = savingItem?.id === template.id && savingItem.type === 'ai';
-
-                                                  return (
-                                                    <div key={template.id} className={`border-t border-slate-50 transition-colors ${isUserChecked ? 'bg-green-50/20' : ''}`}>
-                                                      <div className="flex items-start gap-3 px-11 py-2.5">
-                                                        <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-                                                          <button
-                                                            onClick={() => toggleUserCheck(template, projectItem)}
-                                                            disabled={!!savingItem}
-                                                            title="Staff check"
-                                                            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                                                              isUserChecked
-                                                                ? 'bg-blue-500 border-blue-500'
-                                                                : 'border-slate-300 hover:border-blue-400 bg-white'
-                                                            }`}
-                                                          >
-                                                            {isSavingUser ? (
-                                                              <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
-                                                            ) : isUserChecked ? (
-                                                              <User className="w-2.5 h-2.5 text-white" />
-                                                            ) : (
-                                                              <User className="w-2.5 h-2.5 text-slate-300" />
-                                                            )}
-                                                          </button>
-
-                                                          <div
-                                                            title="AI verified (read-only)"
-                                                            className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-default ${
-                                                              isAiChecked
-                                                                ? 'bg-amber-400 border-amber-400'
-                                                                : 'border-slate-200 bg-slate-50'
-                                                            }`}
-                                                          >
-                                                            {isSavingAi ? (
-                                                              <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
-                                                            ) : isAiChecked ? (
-                                                              <Bot className="w-2.5 h-2.5 text-white" />
-                                                            ) : (
-                                                              <Bot className="w-2.5 h-2.5 text-slate-300" />
-                                                            )}
-                                                          </div>
-                                                        </div>
-
-                                                        <div className="flex-1 min-w-0">
-                                                          <span className={`text-sm ${isUserChecked ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                                                            {template.description}
-                                                          </span>
-
-                                                          {isUserChecked && projectItem?.checked_by_user_name && (
-                                                            <div className="flex items-center gap-1 mt-0.5">
-                                                              <User className="w-3 h-3 text-blue-400" />
-                                                              <span className="text-xs text-blue-500">{projectItem.checked_by_user_name}</span>
-                                                              {projectItem.checked_at && (
-                                                                <span className="text-xs text-slate-400">
-                                                                  · {new Date(projectItem.checked_at).toLocaleDateString()}
-                                                                </span>
-                                                              )}
-                                                            </div>
-                                                          )}
-                                                        </div>
-
-                                                        <div className="flex items-center gap-2 flex-shrink-0 ml-1">
-                                                          {template.is_required && !isUserChecked && (
-                                                            <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                                                              Required
-                                                            </span>
-                                                          )}
-                                                          {hasData && (
-                                                            <button
-                                                              onClick={() => toggle(expandedData, dataKey, setExpandedData)}
-                                                              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded transition-colors"
-                                                            >
-                                                              <Database className="w-3 h-3" />
-                                                              Data
-                                                            </button>
-                                                          )}
-                                                        </div>
-                                                      </div>
-
-                                                      {isDataExpanded && hasData && (
-                                                        <div className="mx-11 mb-2 space-y-1.5">
-                                                          {projectItem?.data_by_ai && (
-                                                            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                                              <Bot className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-                                                              <div className="min-w-0">
-                                                                <div className="text-xs font-medium text-amber-700 mb-0.5">AI Data</div>
-                                                                <div className="text-xs text-amber-800 break-words">{projectItem.data_by_ai}</div>
-                                                              </div>
-                                                            </div>
-                                                          )}
-                                                          {projectItem?.data && (
-                                                            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                                                              <User className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
-                                                              <div className="min-w-0">
-                                                                <div className="text-xs font-medium text-blue-700 mb-0.5">Staff Data</div>
-                                                                <div className="text-xs text-blue-800 break-words">{projectItem.data}</div>
-                                                              </div>
-                                                            </div>
-                                                          )}
-                                                        </div>
-                                                      )}
-                                                    </div>
-                                                  );
-                                                })}
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
+                                        return renderDocumentGroup(doc, docKey, 'px-9');
                                       })}
                                     </div>
                                   )}
