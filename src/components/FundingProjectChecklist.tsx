@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Database, Layers } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Database, Layers, FolderOpen, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { createChecklistFolders } from '../utils/googleDriveUtils';
 
 interface ChecklistTemplate {
   id: string;
@@ -34,6 +35,7 @@ interface ProjectDetail {
 
 interface FundingProjectChecklistProps {
   projectId: string;
+  projectDriveFolderId?: string | null;
 }
 
 interface ChecklistEntry {
@@ -61,9 +63,12 @@ interface MainProjectGroup {
   subProjects: SubProjectGroup[];
 }
 
-export default function FundingProjectChecklist({ projectId }: FundingProjectChecklistProps) {
+export default function FundingProjectChecklist({ projectId, projectDriveFolderId }: FundingProjectChecklistProps) {
   const [loading, setLoading] = useState(true);
   const [savingItem, setSavingItem] = useState<{ id: string; type: 'user' | 'ai' } | null>(null);
+  const [creatingFolders, setCreatingFolders] = useState(false);
+  const [folderResult, setFolderResult] = useState<{ url: string; count: number } | null>(null);
+  const [folderError, setFolderError] = useState<string | null>(null);
   const [mainProjectGroups, setMainProjectGroups] = useState<MainProjectGroup[]>([]);
   const [hasProjectDetails, setHasProjectDetails] = useState(true);
   const [collapsedMain, setCollapsedMain] = useState<Set<string>>(new Set());
@@ -199,6 +204,21 @@ export default function FundingProjectChecklist({ projectId }: FundingProjectChe
     loadCurrentUser();
     loadChecklist();
   }, [loadCurrentUser, loadChecklist]);
+
+  const handleCreateFolders = async () => {
+    if (!projectDriveFolderId) return;
+    setCreatingFolders(true);
+    setFolderError(null);
+    setFolderResult(null);
+    try {
+      const result = await createChecklistFolders(projectId, projectDriveFolderId);
+      setFolderResult({ url: result.checklist_drive_url, count: result.folders_created });
+    } catch (err) {
+      setFolderError(err instanceof Error ? err.message : 'Failed to create folders');
+    } finally {
+      setCreatingFolders(false);
+    }
+  };
 
   const upsertItem = async (
     template: ChecklistTemplate,
@@ -354,6 +374,21 @@ export default function FundingProjectChecklist({ projectId }: FundingProjectChe
             <div className="text-2xl font-bold text-blue-600">{pct}%</div>
             <div className="text-xs text-slate-400">staff complete</div>
           </div>
+          {projectDriveFolderId && (
+            <button
+              onClick={handleCreateFolders}
+              disabled={creatingFolders}
+              title="Create Checklist folder structure in Google Drive"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {creatingFolders ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FolderOpen className="w-3.5 h-3.5" />
+              )}
+              {creatingFolders ? 'Creating...' : 'Create Folders'}
+            </button>
+          )}
           <button
             onClick={loadChecklist}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -379,6 +414,30 @@ export default function FundingProjectChecklist({ projectId }: FundingProjectChe
           <span className="text-xs text-slate-400 w-8 text-right">{aiPct}%</span>
         </div>
       </div>
+
+      {folderResult && (
+        <div className="flex items-center justify-between gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-2 text-sm text-green-700">
+            <FolderOpen className="w-4 h-4 text-green-600 flex-shrink-0" />
+            <span className="font-medium">{folderResult.count} folders created successfully</span>
+          </div>
+          <a
+            href={folderResult.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 font-medium underline"
+          >
+            Open in Drive <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      )}
+
+      {folderError && (
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700">{folderError}</p>
+        </div>
+      )}
 
       <div className="flex items-center gap-6 py-2 px-3 bg-slate-50 rounded-lg border border-slate-100 text-xs text-slate-500">
         <div className="flex items-center gap-2">

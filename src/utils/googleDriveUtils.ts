@@ -99,6 +99,42 @@ export async function createMarketingProjectFolders(
   }
 }
 
+export async function createChecklistFolders(
+  projectId: string,
+  parentFolderId: string
+): Promise<{ success: boolean; checklist_folder_id: string; checklist_drive_url: string; folders_created: number }> {
+  const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checklist-folders`;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      project_id: projectId,
+      parent_folder_id: parentFolderId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = 'Failed to create checklist folders';
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return await response.json();
+}
+
 export async function getProjectFolders(projectId: string) {
   const { data, error } = await supabase
     .from('project_folders')
