@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Check, Lock, Tag, Zap, Eye, CreditCard as Edit, DollarSign, Instagram, Facebook, BarChart3, Mail, MessageCircle } from 'lucide-react';
+import { Shield, Users, Check, Lock, Tag, Zap, Eye, CreditCard as Edit, DollarSign, Instagram, Facebook, BarChart3, Mail, MessageCircle, UserPlus, Send, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthorizationPage } from './AuthorizationPage';
 import { LabelManagement } from './LabelManagement';
@@ -13,7 +13,7 @@ import FacebookAccountsPage from './FacebookAccountsPage';
 import MetaAdsSettingsPage from './MetaAdsSettingsPage';
 import { MarketingProjectPermissions } from './MarketingProjectPermissions';
 
-type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'marketing-projects' | 'finance-auth' | 'labels' | 'automation' | 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'meta-ads';
+type AdminView = 'permissions' | 'funding-auth' | 'comsec-auth' | 'marketing-auth' | 'marketing-projects' | 'finance-auth' | 'labels' | 'automation' | 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'meta-ads' | 'invite-user';
 
 interface User {
   id: string;
@@ -34,11 +34,24 @@ interface UserPermission {
   channel_partner_edit_all: boolean;
 }
 
+interface InviteResult {
+  email: string;
+  success: boolean;
+  error?: string;
+}
+
 export function AdminPage() {
   const [currentView, setCurrentView] = useState<AdminView>('permissions');
   const [users, setUsers] = useState<User[]>([]);
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteFullName, setInviteFullName] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteResults, setInviteResults] = useState<InviteResult[]>([]);
+  const [bulkEmails, setBulkEmails] = useState('');
+  const [inviteMode, setInviteMode] = useState<'single' | 'bulk'>('single');
 
   useEffect(() => {
     console.log('AdminPage mounted or currentView changed:', currentView);
@@ -178,6 +191,57 @@ export function AdminPage() {
     setLoading(false);
   }
 
+  async function sendInvite(email: string, fullName: string): Promise<InviteResult> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/invite-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ email: email.trim(), full_name: fullName.trim() }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      return { email, success: false, error: data.error || 'Failed to send invite' };
+    }
+    return { email, success: true };
+  }
+
+  async function handleSingleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setInviteLoading(true);
+    const result = await sendInvite(inviteEmail, inviteFullName);
+    setInviteResults(prev => [result, ...prev]);
+    if (result.success) {
+      setInviteEmail('');
+      setInviteFullName('');
+      await loadData();
+    }
+    setInviteLoading(false);
+  }
+
+  async function handleBulkInvite(e: React.FormEvent) {
+    e.preventDefault();
+    const emails = bulkEmails.split('\n').map(e => e.trim()).filter(e => e.includes('@'));
+    if (!emails.length) return;
+    setInviteLoading(true);
+    const results: InviteResult[] = [];
+    for (const email of emails) {
+      const result = await sendInvite(email, '');
+      results.push(result);
+    }
+    setInviteResults(prev => [...results, ...prev]);
+    setBulkEmails('');
+    await loadData();
+    setInviteLoading(false);
+  }
+
   const menuItems = [
     { id: 'permissions', label: 'Client Permissions', icon: Users },
     { id: 'funding-auth', label: 'Funding Authorization', icon: Lock },
@@ -192,6 +256,7 @@ export function AdminPage() {
     { id: 'instagram', label: 'Instagram', icon: Instagram },
     { id: 'facebook', label: 'Facebook', icon: Facebook },
     { id: 'meta-ads', label: 'Meta Ads', icon: BarChart3 },
+    { id: 'invite-user', label: 'Invite Users', icon: UserPlus },
   ];
 
   return (
@@ -475,6 +540,144 @@ export function AdminPage() {
                 <p className="text-slate-600">Configure Meta Ads API and sync ad accounts</p>
               </div>
               <MetaAdsSettingsPage />
+            </div>
+          )}
+
+          {currentView === 'invite-user' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Invite Users</h2>
+                <p className="text-slate-600">Send invite emails to new users. They will receive a link to set their password and access the system.</p>
+              </div>
+
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div className="flex border-b border-slate-200">
+                  <button
+                    onClick={() => setInviteMode('single')}
+                    className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${inviteMode === 'single' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Single Invite
+                  </button>
+                  <button
+                    onClick={() => setInviteMode('bulk')}
+                    className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${inviteMode === 'bulk' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Bulk Invite
+                  </button>
+                </div>
+
+                <div className="p-6">
+                  {inviteMode === 'single' ? (
+                    <form onSubmit={handleSingleInvite} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Full Name <span className="text-slate-400 font-normal">(optional)</span></label>
+                        <input
+                          type="text"
+                          value={inviteFullName}
+                          onChange={e => setInviteFullName(e.target.value)}
+                          placeholder="e.g. John Smith"
+                          className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Email Address <span className="text-red-500">*</span></label>
+                        <input
+                          type="email"
+                          value={inviteEmail}
+                          onChange={e => setInviteEmail(e.target.value)}
+                          placeholder="user@example.com"
+                          required
+                          className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={inviteLoading || !inviteEmail.trim()}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                      >
+                        <Send className="w-4 h-4" />
+                        {inviteLoading ? 'Sending...' : 'Send Invite'}
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleBulkInvite} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Email Addresses <span className="text-slate-400 font-normal">(one per line)</span></label>
+                        <textarea
+                          value={bulkEmails}
+                          onChange={e => setBulkEmails(e.target.value)}
+                          placeholder={"alice@example.com\nbob@example.com\ncarol@example.com"}
+                          rows={6}
+                          className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono resize-none"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          {bulkEmails.split('\n').filter(e => e.trim().includes('@')).length} valid email(s) detected
+                        </p>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={inviteLoading || !bulkEmails.trim()}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                      >
+                        <Send className="w-4 h-4" />
+                        {inviteLoading ? 'Sending invites...' : 'Send All Invites'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+
+              {inviteResults.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                    <h3 className="font-semibold text-slate-900">Invite Results</h3>
+                    <button
+                      onClick={() => setInviteResults([])}
+                      className="text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {inviteResults.map((result, i) => (
+                      <div key={i} className="flex items-center gap-3 px-6 py-3">
+                        {result.success ? (
+                          <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-slate-900 truncate">{result.email}</div>
+                          {result.error && <div className="text-xs text-red-600 mt-0.5">{result.error}</div>}
+                          {result.success && <div className="text-xs text-green-600 mt-0.5">Invite sent successfully</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white rounded-xl border border-slate-200">
+                <div className="px-6 py-4 border-b border-slate-200">
+                  <h3 className="font-semibold text-slate-900">Current Users ({users.length})</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">All users currently in the system</p>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {users.map(user => (
+                    <div key={user.id} className="flex items-center gap-3 px-6 py-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        <Users className="w-4 h-4 text-slate-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-slate-900 truncate">{user.email}</div>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${user.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
+                        {user.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
