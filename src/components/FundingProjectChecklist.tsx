@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Database, Layers, FolderOpen, ExternalLink } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Database, Layers, FolderOpen, FolderPlus, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { createChecklistFolders } from '../utils/googleDriveUtils';
+import { createChecklistFolders, createBudProjectFolders } from '../utils/googleDriveUtils';
 
 interface ChecklistTemplate {
   id: string;
@@ -36,6 +36,8 @@ interface ProjectDetail {
 interface FundingProjectChecklistProps {
   projectId: string;
   projectDriveFolderId?: string | null;
+  projectName?: string;
+  projectReference?: string;
 }
 
 interface ChecklistEntry {
@@ -63,12 +65,16 @@ interface MainProjectGroup {
   subProjects: SubProjectGroup[];
 }
 
-export default function FundingProjectChecklist({ projectId, projectDriveFolderId }: FundingProjectChecklistProps) {
+export default function FundingProjectChecklist({ projectId, projectDriveFolderId, projectName, projectReference }: FundingProjectChecklistProps) {
   const [loading, setLoading] = useState(true);
   const [savingItem, setSavingItem] = useState<{ id: string; type: 'user' | 'ai' } | null>(null);
   const [creatingFolders, setCreatingFolders] = useState(false);
   const [folderResult, setFolderResult] = useState<{ url: string; count: number } | null>(null);
   const [folderError, setFolderError] = useState<string | null>(null);
+  const [creatingBudFolders, setCreatingBudFolders] = useState(false);
+  const [budFolderResult, setBudFolderResult] = useState<{ count: number } | null>(null);
+  const [budFolderError, setBudFolderError] = useState<string | null>(null);
+  const [localDriveFolderId, setLocalDriveFolderId] = useState<string | null>(projectDriveFolderId ?? null);
   const [mainProjectGroups, setMainProjectGroups] = useState<MainProjectGroup[]>([]);
   const [hasProjectDetails, setHasProjectDetails] = useState(true);
   const [collapsedMain, setCollapsedMain] = useState<Set<string>>(new Set());
@@ -206,17 +212,35 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   }, [loadCurrentUser, loadChecklist]);
 
   const handleCreateFolders = async () => {
-    if (!projectDriveFolderId) return;
+    const folderId = localDriveFolderId || projectDriveFolderId;
+    if (!folderId) return;
     setCreatingFolders(true);
     setFolderError(null);
     setFolderResult(null);
     try {
-      const result = await createChecklistFolders(projectId, projectDriveFolderId);
+      const result = await createChecklistFolders(projectId, folderId);
       setFolderResult({ url: result.checklist_drive_url, count: result.folders_created });
     } catch (err) {
       setFolderError(err instanceof Error ? err.message : 'Failed to create folders');
     } finally {
       setCreatingFolders(false);
+    }
+  };
+
+  const handleCreateBudFolders = async () => {
+    if (!projectName) return;
+    if (!confirm('This will create a BUD folder structure on Google Drive for this project. Continue?')) return;
+    setCreatingBudFolders(true);
+    setBudFolderError(null);
+    setBudFolderResult(null);
+    try {
+      const result = await createBudProjectFolders(projectId, projectName, projectReference);
+      setLocalDriveFolderId(result.root_folder_id);
+      setBudFolderResult({ count: result.folders_created });
+    } catch (err) {
+      setBudFolderError(err instanceof Error ? err.message : 'Failed to create BUD folders');
+    } finally {
+      setCreatingBudFolders(false);
     }
   };
 
@@ -374,7 +398,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             <div className="text-2xl font-bold text-blue-600">{pct}%</div>
             <div className="text-xs text-slate-400">staff complete</div>
           </div>
-          {projectDriveFolderId && (
+          {(localDriveFolderId || projectDriveFolderId) ? (
             <button
               onClick={handleCreateFolders}
               disabled={creatingFolders}
@@ -386,7 +410,21 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
               ) : (
                 <FolderOpen className="w-3.5 h-3.5" />
               )}
-              {creatingFolders ? 'Creating...' : 'Create Folders'}
+              {creatingFolders ? 'Creating...' : 'Create Checklist Folders'}
+            </button>
+          ) : (
+            <button
+              onClick={handleCreateBudFolders}
+              disabled={creatingBudFolders || !projectName}
+              title="Create BUD folder structure in Google Drive"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {creatingBudFolders ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FolderPlus className="w-3.5 h-3.5" />
+              )}
+              {creatingBudFolders ? 'Creating...' : 'Create BUD Folders'}
             </button>
           )}
           <button
@@ -436,6 +474,20 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-700">{folderError}</p>
+        </div>
+      )}
+
+      {budFolderResult && (
+        <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <FolderPlus className="w-4 h-4 text-blue-600 flex-shrink-0" />
+          <span className="text-sm font-medium text-blue-700">{budFolderResult.count} BUD folders created successfully. You can now create checklist folders.</span>
+        </div>
+      )}
+
+      {budFolderError && (
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700">{budFolderError}</p>
         </div>
       )}
 
