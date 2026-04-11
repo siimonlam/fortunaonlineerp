@@ -69,13 +69,14 @@ function getExtension(mimeType: string, name: string): string {
 
 async function sendToN8n(webhookUrl: string, payload: Record<string, unknown>): Promise<void> {
   try {
-    await fetch(webhookUrl, {
+    const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    console.log(`n8n webhook response: ${res.status} for file ${payload.file_name}`);
   } catch (err) {
-    console.warn('n8n webhook failed:', err);
+    console.error('n8n webhook failed:', err);
   }
 }
 
@@ -214,18 +215,15 @@ Deno.serve(async (req: Request) => {
     }
 
     // --- Load existing file rows to prevent duplicates ---
-    const itemIds = (checklistItems || []).map((i: { id: string }) => i.id).filter(Boolean);
-    const { data: allProjectFiles } = itemIds.length > 0
-      ? await supabase
-          .from('project_checklist_files')
-          .select('id, file_id, checklist_item_id')
-          .in('checklist_item_id', itemIds)
-      : { data: [] };
+    // Key: drive_file_id|||drive_folder_id — one row per physical file per folder
+    const { data: allProjectFiles } = await supabase
+      .from('project_checklist_files')
+      .select('id, file_id, drive_folder_id')
+      .eq('project_id', project_id);
 
-    // Track existing (drive_file_id, checklist_item_id) pairs
-    const existingPairs = new Set<string>();
-    for (const f of (allProjectFiles || []) as Array<{ id: string; file_id: string; checklist_item_id: string }>) {
-      if (f.file_id && f.checklist_item_id) existingPairs.add(`${f.file_id}|||${f.checklist_item_id}`);
+    const existingFilePairs = new Set<string>();
+    for (const f of (allProjectFiles || []) as Array<{ id: string; file_id: string; drive_folder_id: string }>) {
+      if (f.file_id && f.drive_folder_id) existingFilePairs.add(`${f.file_id}|||${f.drive_folder_id}`);
     }
 
     let totalScanned = 0;
@@ -234,11 +232,8 @@ Deno.serve(async (req: Request) => {
     const folderDebug: Array<{ folder_id: string; folder_name: string; files_found: number; error?: string }> = [];
     const newFilePayloads: Array<Record<string, unknown>> = [];
 
-    // Unified set of folder IDs to scan
+    // Collect unique folder IDs from checklist items only (not top-level folders which are parents)
     const allFolderIdsToScan = new Set<string>();
-    for (const folder of (folderRows as Array<{ drive_folder_id: string }>)) {
-      if (folder.drive_folder_id) allFolderIdsToScan.add(folder.drive_folder_id);
-    }
     for (const item of (checklistItems || [])) {
       if (item.drive_folder_id) allFolderIdsToScan.add(item.drive_folder_id);
     }
@@ -246,104 +241,106 @@ Deno.serve(async (req: Request) => {
     const scannedFolderIds = new Set<string>();
 
     for (const drive_folder_id of allFolderIdsToScan) {
-      // Use representative items (one per document_name) to avoid duplicate file rows
-      const repItems = folderToRepresentativeItems[drive_folder_id];
-      if (!repItems || repItems.length === 0) continue;
       if (scannedFolderIds.has(drive_folder_id)) continue;
       scannedFolderIds.add(drive_folder_id);
+
+      // Pick ONE representative item for this folder to use as the anchor
+      const repItems = folderToRepresentativeItems[drive_folder_id];
+      if (!repItems || repItems.length === 0) continue;
+      // Use the first representative item as the single anchor for all files in this folder
+      const anchorItem = repItems[0];
 
       const { files, error: driveErr } = await listFilesInFolder(drive_folder_id, access_token);
       folderDebug.push({
         folder_id: drive_folder_id,
-        folder_name: repItems[0]?.document_name || drive_folder_id,
+        folder_name: anchorItem.document_name || drive_folder_id,
         files_found: files.length,
         error: driveErr,
       });
       totalScanned += files.length;
 
       for (const file of files as Array<{ id: string; name: string; mimeType: string; size: string; webViewLink: string }>) {
-        // Insert ONE row per representative item (one per document_name in this folder)
-        for (const item of repItems) {
-          const pairKey = `${file.id}|||${item.id}`;
-          if (existingPairs.has(pairKey)) continue;
+        // ONE row per (drive_file_id, drive_folder_id) — skip if already exists
+        const pairKey = `${file.id}|||${drive_folder_id}`;
+        if (existingFilePairs.has(pairKey)) continue;
 
-          const documentType = item.document_name || null;
-          const category = item.category || null;
+        const documentType = anchorItem.document_name || null;
+        const category = anchorItem.category || null;
 
-          const { data: insertedFile, error: fileInsertErr } = await supabase
-            .from('project_checklist_files')
-            .insert({
-              checklist_item_id: item.id,
-              file_id: file.id,
-              file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
-              file_name: file.name,
-              file_type: getExtension(file.mimeType, file.name),
-              file_size: file.size ? parseInt(file.size, 10) : null,
-              drive_folder_id: drive_folder_id,
-              document_type: documentType,
-              extracted_data: {},
-              is_verified_by_ai: false,
-            })
-            .select('id')
-            .single();
-
-          if (fileInsertErr || !insertedFile) {
-            console.error('File insert error:', fileInsertErr);
-            continue;
-          }
-
-          existingPairs.add(pairKey);
-          totalFilesInserted++;
-
-          if (!documentType) continue;
-
-          // Use category-specific templates first, then deduplicated doc-level templates
-          const specificKey = `${category}|||${documentType}`;
-          let checkTemplates: CheckTemplate[] = templatesByKey[specificKey] || [];
-          if (checkTemplates.length === 0) {
-            checkTemplates = templatesByDocName[documentType] || [];
-          }
-
-          if (checkTemplates.length === 0) continue;
-
-          const checkRows = checkTemplates.map((t) => ({
-            file_id: insertedFile.id,
-            checklist_item_id: item.id,
-            project_id,
-            document_type: documentType,
-            category: t.category,
-            description: t.description,
-            order_index: t.order_index,
-            is_required: t.is_required,
-            is_checked: false,
-            is_checked_by_ai: false,
-          }));
-
-          for (let i = 0; i < checkRows.length; i += 50) {
-            const chunk = checkRows.slice(i, i + 50);
-            const { error: checksErr } = await supabase
-              .from('project_checklist_file_checks')
-              .insert(chunk);
-            if (!checksErr) {
-              totalChecksInserted += chunk.length;
-            } else {
-              console.error('Checks insert error:', checksErr);
-            }
-          }
-
-          // Collect payload for n8n
-          newFilePayloads.push({
-            project_id,
-            file_row_id: insertedFile.id,
-            drive_file_id: file.id,
-            file_name: file.name,
+        const { data: insertedFile, error: fileInsertErr } = await supabase
+          .from('project_checklist_files')
+          .insert({
+            checklist_item_id: anchorItem.id,
+            file_id: file.id,
             file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
-            document_name: documentType,
-            category,
-            checklist_item_id: item.id,
-            check_count: checkRows.length,
-          });
+            file_name: file.name,
+            file_type: getExtension(file.mimeType, file.name),
+            file_size: file.size ? parseInt(file.size, 10) : null,
+            drive_folder_id: drive_folder_id,
+            document_type: documentType,
+            project_id,
+            extracted_data: {},
+            is_verified_by_ai: false,
+          })
+          .select('id')
+          .single();
+
+        if (fileInsertErr || !insertedFile) {
+          console.error('File insert error:', fileInsertErr);
+          continue;
         }
+
+        existingFilePairs.add(pairKey);
+        totalFilesInserted++;
+
+        if (!documentType) continue;
+
+        // Use category-specific templates first, then deduplicated doc-level templates
+        const specificKey = `${category}|||${documentType}`;
+        let checkTemplates: CheckTemplate[] = templatesByKey[specificKey] || [];
+        if (checkTemplates.length === 0) {
+          checkTemplates = templatesByDocName[documentType] || [];
+        }
+
+        if (checkTemplates.length === 0) continue;
+
+        const checkRows = checkTemplates.map((t) => ({
+          file_id: insertedFile.id,
+          checklist_item_id: anchorItem.id,
+          project_id,
+          document_type: documentType,
+          category: t.category,
+          description: t.description,
+          order_index: t.order_index,
+          is_required: t.is_required,
+          is_checked: false,
+          is_checked_by_ai: false,
+        }));
+
+        for (let i = 0; i < checkRows.length; i += 50) {
+          const chunk = checkRows.slice(i, i + 50);
+          const { error: checksErr } = await supabase
+            .from('project_checklist_file_checks')
+            .insert(chunk);
+          if (!checksErr) {
+            totalChecksInserted += chunk.length;
+          } else {
+            console.error('Checks insert error:', checksErr);
+          }
+        }
+
+        // Collect payload for n8n
+        newFilePayloads.push({
+          project_id,
+          file_row_id: insertedFile.id,
+          drive_file_id: file.id,
+          file_name: file.name,
+          file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
+          document_name: documentType,
+          category,
+          checklist_item_id: anchorItem.id,
+          check_count: checkRows.length,
+        });
       }
     }
 
