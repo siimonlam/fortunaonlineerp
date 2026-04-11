@@ -891,9 +891,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         )}
 
         {!effectiveCollapsed && (
-          <div className="bg-white">
+          <div className="bg-white border-t border-slate-100">
             {itemFiles.length === 0 ? (
-              <div className="px-10 py-2.5 text-xs text-slate-400 italic border-t border-slate-50">
+              <div className="px-10 py-2.5 text-xs text-slate-400 italic">
                 No files synced yet
                 {!hasDriveFolder && (
                   <span className="ml-1">— link a Drive folder above, then click "Check by AI"</span>
@@ -902,8 +902,16 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                   <span className="ml-1">— click "Check by AI" to import files</span>
                 )}
               </div>
+            ) : itemFiles.length === 1 ? (
+              renderFileChecks(itemFiles[0])
             ) : (
-              itemFiles.map(file => renderFileChecks(file))
+              <div className="grid gap-px bg-slate-100" style={{ gridTemplateColumns: `repeat(${itemFiles.length}, minmax(0, 1fr))` }}>
+                {itemFiles.map(file => (
+                  <div key={file.id} className="bg-white">
+                    {renderFileChecks(file)}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

@@ -350,9 +350,7 @@ Deno.serve(async (req: Request) => {
     // --- Send each new file to n8n for AI validation ---
     const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
     if (n8nWebhookUrl && newFilePayloads.length > 0) {
-      for (const payload of newFilePayloads) {
-        EdgeRuntime.waitUntil(sendToN8n(n8nWebhookUrl, payload));
-      }
+      await Promise.allSettled(newFilePayloads.map(payload => sendToN8n(n8nWebhookUrl, payload)));
     }
 
     return new Response(
