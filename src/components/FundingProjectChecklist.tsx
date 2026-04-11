@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Database, Layers, FolderOpen, FolderPlus, ExternalLink, Link, X, FileText, Send } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Layers, FolderOpen, FolderPlus, ExternalLink, FileText, Send, Link, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createChecklistFolders, createBudProjectFolders } from '../utils/googleDriveUtils';
 
@@ -47,12 +47,21 @@ interface ChecklistFile {
   file_url: string;
   is_verified_by_ai: boolean;
   created_at: string;
+  checklist_item_id: string;
 }
 
-interface SyncResult {
-  new_files_synced: number;
-  webhooks_sent: number;
-  n8n_configured: boolean;
+interface FileCheck {
+  id: string;
+  file_id: string;
+  checklist_item_id: string;
+  description: string;
+  is_required: boolean;
+  is_checked: boolean;
+  is_checked_by_ai: boolean;
+  ai_result: string | null;
+  checked_by: string | null;
+  checked_at: string | null;
+  order_index: number;
 }
 
 interface ProjectDetail {
@@ -69,19 +78,15 @@ interface FundingProjectChecklistProps {
   projectReference?: string;
 }
 
-interface ChecklistEntry {
+interface DocumentFolder {
+  document_name: string;
   template: ChecklistTemplate;
   projectItem: ProjectChecklistItem | null;
 }
 
-interface DocumentGroup {
-  document_name: string;
-  items: ChecklistEntry[];
-}
-
 interface CategoryGroup {
   checklist_category: string;
-  documents: DocumentGroup[];
+  documents: DocumentFolder[];
 }
 
 interface SubProjectGroup {
@@ -91,13 +96,12 @@ interface SubProjectGroup {
 
 interface MainProjectGroup {
   main_project: string;
-  sharedDocuments: DocumentGroup[];
+  sharedDocuments: DocumentFolder[];
   subProjects: SubProjectGroup[];
 }
 
 export default function FundingProjectChecklist({ projectId, projectDriveFolderId, projectName, projectReference }: FundingProjectChecklistProps) {
   const [loading, setLoading] = useState(true);
-  const [savingItem, setSavingItem] = useState<{ id: string; type: 'user' | 'ai' } | null>(null);
   const [creatingFolders, setCreatingFolders] = useState(false);
   const [folderResult, setFolderResult] = useState<{ url: string; count: number } | null>(null);
   const [folderError, setFolderError] = useState<string | null>(null);
@@ -113,17 +117,20 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [collapsedSub, setCollapsedSub] = useState<Set<string>>(new Set());
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [collapsedDocuments, setCollapsedDocuments] = useState<Set<string>>(new Set());
-  const [expandedData, setExpandedData] = useState<Set<string>>(new Set());
+  const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
   const [currentUserName, setCurrentUserName] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
-  const [syncingItem, setSyncingItem] = useState<string | null>(null);
-  const [syncToast, setSyncToast] = useState<{ templateId: string; message: string; type: 'success' | 'error' } | null>(null);
-  const [checklistFiles, setChecklistFiles] = useState<Map<string, ChecklistFile[]>>(new Map());
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncAllResult, setSyncAllResult] = useState<{ files: number } | null>(null);
+  const [syncAllError, setSyncAllError] = useState<string | null>(null);
+  const [savingCheck, setSavingCheck] = useState<string | null>(null);
   const [folderInputItem, setFolderInputItem] = useState<string | null>(null);
   const [folderInputValue, setFolderInputValue] = useState<string>('');
-  const [syncingAll, setSyncingAll] = useState(false);
-  const [syncAllResult, setSyncAllResult] = useState<{ synced: number; sent: number } | null>(null);
-  const [syncAllError, setSyncAllError] = useState<string | null>(null);
+
+  // Files keyed by checklist_item_id
+  const [checklistFiles, setChecklistFiles] = useState<Map<string, ChecklistFile[]>>(new Map());
+  // File checks keyed by file row id
+  const [fileChecks, setFileChecks] = useState<Map<string, FileCheck[]>>(new Map());
 
   const loadCurrentUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -188,73 +195,58 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       const projectItemMap = new Map<string, ProjectChecklistItem>();
       projectItems.forEach(item => projectItemMap.set(item.checklist_id, item));
 
+      // Build a deduplication map: for each (category, document_name) keep ONE representative template
       const templatesByCategory = new Map<string, ChecklistTemplate[]>();
       templates.forEach(t => {
         if (!templatesByCategory.has(t.category)) templatesByCategory.set(t.category, []);
         templatesByCategory.get(t.category)!.push(t);
       });
 
-      // Build hierarchy preserving item_number order (same as Project Detail tab)
-      // main_project → sub_project → checklist_category
-      type CatMap = Map<string, true>;
-      type SubMap = Map<string, CatMap>;
-      type MainMap = Map<string, SubMap>;
+      // For each category, collect unique document_names (first template per doc name)
+      const uniqueDocTemplateByCategory = new Map<string, Map<string, ChecklistTemplate>>();
+      templatesByCategory.forEach((ts, cat) => {
+        const docMap = new Map<string, ChecklistTemplate>();
+        ts.forEach(t => {
+          if (!docMap.has(t.document_name)) docMap.set(t.document_name, t);
+        });
+        uniqueDocTemplateByCategory.set(cat, docMap);
+      });
 
+      type SubMap = Map<string, Set<string>>;
+      type MainMap = Map<string, SubMap>;
       const mainMap: MainMap = new Map();
-      // Track which categories belong to the main project (shared docs) vs sub-projects
-      const mainSharedCategories = new Map<string, Set<string>>();
 
       details.forEach(d => {
         const subKey = d.sub_project || '(No Sub Project)';
-        if (!mainMap.has(d.main_project)) {
-          mainMap.set(d.main_project, new Map());
-          mainSharedCategories.set(d.main_project, new Set());
-        }
+        if (!mainMap.has(d.main_project)) mainMap.set(d.main_project, new Map());
         const subMap = mainMap.get(d.main_project)!;
-        if (!subMap.has(subKey)) subMap.set(subKey, new Map());
-        subMap.get(subKey)!.set(d.checklist_category, true);
-        mainSharedCategories.get(d.main_project)!.add(d.checklist_category);
+        if (!subMap.has(subKey)) subMap.set(subKey, new Set());
+        subMap.get(subKey)!.add(d.checklist_category);
       });
 
       const groups: MainProjectGroup[] = [];
 
       mainMap.forEach((subMap, main_project) => {
-        // Collect ALL checklist entries across all categories for this main project
-        // to extract shared documents (Quotation, 反圍標, 供應商發票, etc.)
         const allCategoriesForMain = new Set<string>();
-        subMap.forEach((catMap) => {
-          catMap.forEach((_, cat) => allCategoriesForMain.add(cat));
-        });
+        subMap.forEach(cats => cats.forEach(c => allCategoriesForMain.add(c)));
 
-        // Build shared documents: collect all templates from all categories for this main project
-        // where document_name is one of the 5 shared types
-        const sharedDocMap = new Map<string, ChecklistEntry[]>();
+        // Shared docs: deduplicated by document_name across all categories
+        const seenSharedDocNames = new Set<string>();
+        const sharedDocuments: DocumentFolder[] = [];
         allCategoriesForMain.forEach(cat => {
-          const catTemplates = templatesByCategory.get(cat) || [];
-          catTemplates.forEach(t => {
-            if (isSharedDoc(t.document_name)) {
-              if (!sharedDocMap.has(t.document_name)) sharedDocMap.set(t.document_name, []);
-              sharedDocMap.get(t.document_name)!.push({
-                template: t,
-                projectItem: projectItemMap.get(t.id) || null,
+          const docMap = uniqueDocTemplateByCategory.get(cat) || new Map();
+          docMap.forEach((template, docName) => {
+            if (isSharedDoc(docName) && !seenSharedDocNames.has(docName)) {
+              seenSharedDocNames.add(docName);
+              sharedDocuments.push({
+                document_name: docName,
+                template,
+                projectItem: projectItemMap.get(template.id) || null,
               });
             }
           });
         });
 
-        // Deduplicate shared doc entries (same template may appear in multiple categories)
-        const seenTemplateIds = new Set<string>();
-        const sharedDocuments: DocumentGroup[] = [];
-        sharedDocMap.forEach((entries, document_name) => {
-          const deduped = entries.filter(e => {
-            if (seenTemplateIds.has(e.template.id)) return false;
-            seenTemplateIds.add(e.template.id);
-            return true;
-          });
-          if (deduped.length > 0) sharedDocuments.push({ document_name, items: deduped });
-        });
-
-        // Sort shared documents in the canonical order
         sharedDocuments.sort((a, b) => {
           const ai = SHARED_DOC_PREFIXES.findIndex(p => a.document_name.startsWith(p));
           const bi = SHARED_DOC_PREFIXES.findIndex(p => b.document_name.startsWith(p));
@@ -262,59 +254,65 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           return a.document_name.localeCompare(b.document_name, 'zh-Hant');
         });
 
-        // Build sub-project groups (only non-shared docs)
         const subProjectGroups: SubProjectGroup[] = [];
 
-        subMap.forEach((catMap, sub_project) => {
+        subMap.forEach((cats, sub_project) => {
           const categoryGroups: CategoryGroup[] = [];
-
-          catMap.forEach((_, checklist_category) => {
-            const catTemplates = templatesByCategory.get(checklist_category) || [];
-            if (catTemplates.length === 0) return;
-
-            const docMap = new Map<string, ChecklistEntry[]>();
-            catTemplates.forEach(t => {
-              if (isSharedDoc(t.document_name)) return; // skip shared docs
-              if (!docMap.has(t.document_name)) docMap.set(t.document_name, []);
-              docMap.get(t.document_name)!.push({
-                template: t,
-                projectItem: projectItemMap.get(t.id) || null,
-              });
+          cats.forEach(checklist_category => {
+            const docMap = uniqueDocTemplateByCategory.get(checklist_category) || new Map();
+            const documents: DocumentFolder[] = [];
+            docMap.forEach((template, docName) => {
+              if (!isSharedDoc(docName)) {
+                documents.push({
+                  document_name: docName,
+                  template,
+                  projectItem: projectItemMap.get(template.id) || null,
+                });
+              }
             });
-
-            const documents: DocumentGroup[] = [];
-            docMap.forEach((items, document_name) => documents.push({ document_name, items }));
-
-            if (documents.length > 0) {
-              categoryGroups.push({ checklist_category, documents });
-            }
+            if (documents.length > 0) categoryGroups.push({ checklist_category, documents });
           });
-
-          if (categoryGroups.length > 0) {
-            subProjectGroups.push({ sub_project, categories: categoryGroups });
-          }
+          if (categoryGroups.length > 0) subProjectGroups.push({ sub_project, categories: categoryGroups });
         });
 
         groups.push({ main_project, sharedDocuments, subProjects: subProjectGroups });
       });
 
-      // No sorting — preserve insertion order from item_number ordering (same as Project Detail tab)
       setMainProjectGroups(groups);
 
-      // Load files for all project items that exist
+      // Load files for all project items
       const itemsWithIds = projectItems.filter(i => i.id);
       if (itemsWithIds.length > 0) {
         const { data: allFiles } = await supabase
           .from('project_checklist_files')
           .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at, checklist_item_id')
-          .in('checklist_item_id', itemsWithIds.map(i => i.id));
-        if (allFiles) {
+          .in('checklist_item_id', itemsWithIds.map(i => i.id))
+          .order('created_at', { ascending: true });
+
+        if (allFiles && allFiles.length > 0) {
           const fileMap = new Map<string, ChecklistFile[]>();
-          allFiles.forEach((f: ChecklistFile & { checklist_item_id: string }) => {
+          allFiles.forEach((f: ChecklistFile) => {
             if (!fileMap.has(f.checklist_item_id)) fileMap.set(f.checklist_item_id, []);
             fileMap.get(f.checklist_item_id)!.push(f);
           });
           setChecklistFiles(fileMap);
+
+          // Load checks for all files
+          const fileIds = allFiles.map((f: ChecklistFile) => f.id);
+          const { data: allChecks } = await supabase
+            .from('project_checklist_file_checks')
+            .select('id, file_id, checklist_item_id, description, is_required, is_checked, is_checked_by_ai, ai_result, checked_by, checked_at, order_index')
+            .in('file_id', fileIds)
+            .order('order_index', { ascending: true });
+
+          if (allChecks && allChecks.length > 0) {
+            const checksMap = new Map<string, FileCheck[]>();
+            allChecks.forEach((c: FileCheck) => {
+              if (!checksMap.has(c.file_id)) checksMap.set(c.file_id, []);
+              checksMap.get(c.file_id)!.push(c);
+            });
+            setFileChecks(checksMap);
+          }
         }
       }
     } catch (err) {
@@ -370,42 +368,10 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     }
   };
 
-  const loadFilesForItem = useCallback(async (projectItemId: string) => {
-    const { data } = await supabase
-      .from('project_checklist_files')
-      .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at')
-      .eq('checklist_item_id', projectItemId)
-      .order('created_at', { ascending: true });
-    if (data) {
-      setChecklistFiles(prev => {
-        const next = new Map(prev);
-        next.set(projectItemId, data);
-        return next;
-      });
-    }
-  }, []);
-
-  const saveDriveFolderForItem = async (template: ChecklistTemplate, projectItem: ProjectChecklistItem | null, folderId: string) => {
-    const trimmed = folderId.trim();
-    if (!trimmed) return;
-    const result = await upsertItemDirect(template, projectItem, { drive_folder_id: trimmed });
-    if (result) updateGroupsWithItem(template.id, result);
-    setFolderInputItem(null);
-    setFolderInputValue('');
-  };
-
-  const handleSyncFromDrive = async (template: ChecklistTemplate, projectItem: ProjectChecklistItem | null) => {
-    const folderId = projectItem?.drive_folder_id;
-    if (!folderId) {
-      setFolderInputItem(template.id);
-      setFolderInputValue('');
-      return;
-    }
-
-    if (!projectItem) return;
-
-    setSyncingItem(template.id);
-    setSyncToast(null);
+  const handleSyncAll = async () => {
+    setSyncingAll(true);
+    setSyncAllResult(null);
+    setSyncAllError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-checklist-files`, {
@@ -414,45 +380,37 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({
-          checklist_item_id: projectItem.id,
-          drive_folder_id: folderId,
-        }),
+        body: JSON.stringify({ project_id: projectId }),
       });
-      const result: SyncResult & { error?: string } = await response.json();
+      const result = await response.json();
       if (!response.ok || result.error) {
-        setSyncToast({ templateId: template.id, message: result.error || 'Sync failed', type: 'error' });
+        setSyncAllError(result.error || 'Sync failed');
       } else {
-        const msg = result.new_files_synced === 0
-          ? 'No new files found'
-          : `${result.new_files_synced} new file${result.new_files_synced !== 1 ? 's' : ''} found and sent for AI document checking`;
-        setSyncToast({ templateId: template.id, message: msg, type: 'success' });
-        await loadFilesForItem(projectItem.id);
+        setSyncAllResult({ files: result.files_inserted || 0 });
+        await loadChecklist();
+        setTimeout(() => setSyncAllResult(null), 5000);
       }
     } catch (err) {
-      setSyncToast({ templateId: template.id, message: err instanceof Error ? err.message : 'Sync failed', type: 'error' });
+      setSyncAllError(err instanceof Error ? err.message : 'Sync failed');
     } finally {
-      setSyncingItem(null);
-      setTimeout(() => setSyncToast(prev => prev?.templateId === template.id ? null : prev), 4000);
+      setSyncingAll(false);
     }
   };
 
-  const upsertItemDirect = async (
-    template: ChecklistTemplate,
-    projectItem: ProjectChecklistItem | null,
-    updates: Partial<ProjectChecklistItem>
-  ): Promise<ProjectChecklistItem | null> => {
+  const saveDriveFolderForItem = async (doc: DocumentFolder, folderId: string) => {
+    const trimmed = folderId.trim();
+    if (!trimmed) return;
+    const { template, projectItem } = doc;
     if (projectItem) {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('project_checklist_items')
-        .update(updates)
+        .update({ drive_folder_id: trimmed })
         .eq('id', projectItem.id)
         .select()
         .maybeSingle();
-      if (error) throw error;
-      return data;
+      if (data) updateDocFolder(template.id, data);
     } else {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('project_checklist_items')
         .insert({
           project_id: projectId,
@@ -462,145 +420,62 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           description: template.description,
           is_checked: false,
           is_checked_by_ai: false,
-          ...updates,
+          drive_folder_id: trimmed,
         })
         .select()
         .maybeSingle();
-      if (error) throw error;
-      return data;
+      if (data) updateDocFolder(template.id, data);
     }
+    setFolderInputItem(null);
+    setFolderInputValue('');
   };
 
-  const upsertItem = async (
-    template: ChecklistTemplate,
-    projectItem: ProjectChecklistItem | null,
-    updates: Partial<ProjectChecklistItem>
-  ): Promise<ProjectChecklistItem | null> => {
-    if (projectItem) {
-      const { data, error } = await supabase
-        .from('project_checklist_items')
-        .update(updates)
-        .eq('id', projectItem.id)
-        .select()
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    } else {
-      const { data, error } = await supabase
-        .from('project_checklist_items')
-        .insert({
-          project_id: projectId,
-          checklist_id: template.id,
-          category: template.category,
-          document_name: template.document_name,
-          description: template.description,
-          is_checked: false,
-          is_checked_by_ai: false,
-          ...updates,
-        })
-        .select()
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    }
-  };
-
-  const updateGroupsWithItem = (templateId: string, updatedItem: ProjectChecklistItem) => {
+  const updateDocFolder = (templateId: string, updatedItem: ProjectChecklistItem) => {
     setMainProjectGroups(prev =>
       prev.map(mpg => ({
         ...mpg,
-        sharedDocuments: mpg.sharedDocuments.map(doc => ({
-          ...doc,
-          items: doc.items.map(item =>
-            item.template.id !== templateId ? item : { ...item, projectItem: updatedItem }
-          ),
-        })),
+        sharedDocuments: mpg.sharedDocuments.map(d =>
+          d.template.id === templateId ? { ...d, projectItem: updatedItem } : d
+        ),
         subProjects: mpg.subProjects.map(spg => ({
           ...spg,
           categories: spg.categories.map(cg => ({
             ...cg,
-            documents: cg.documents.map(doc => ({
-              ...doc,
-              items: doc.items.map(item =>
-                item.template.id !== templateId ? item : { ...item, projectItem: updatedItem }
-              ),
-            })),
+            documents: cg.documents.map(d =>
+              d.template.id === templateId ? { ...d, projectItem: updatedItem } : d
+            ),
           })),
         })),
       }))
     );
   };
 
-  const handleSyncAllToN8n = async () => {
-    setSyncingAll(true);
-    setSyncAllResult(null);
-    setSyncAllError(null);
+  const toggleFileCheck = async (check: FileCheck) => {
+    const newChecked = !check.is_checked;
+    setSavingCheck(check.id);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const allItems = mainProjectGroups.flatMap(mpg => getMainProjectItems(mpg));
-      const itemsWithFolders = allItems.filter(({ projectItem }) => projectItem?.drive_folder_id);
-
-      if (itemsWithFolders.length === 0) {
-        setSyncAllError('No checklist items have a Drive folder linked. Click the Sync button on individual items to link folders first.');
-        setSyncingAll(false);
-        return;
+      const { data } = await supabase
+        .from('project_checklist_file_checks')
+        .update({
+          is_checked: newChecked,
+          checked_by: newChecked ? currentUserId || null : null,
+          checked_at: newChecked ? new Date().toISOString() : null,
+        })
+        .eq('id', check.id)
+        .select()
+        .maybeSingle();
+      if (data) {
+        setFileChecks(prev => {
+          const next = new Map(prev);
+          const existing = next.get(check.file_id) || [];
+          next.set(check.file_id, existing.map(c => c.id === check.id ? { ...c, ...data } : c));
+          return next;
+        });
       }
-
-      let totalSynced = 0;
-      let totalSent = 0;
-
-      for (const { projectItem } of itemsWithFolders) {
-        if (!projectItem) continue;
-        try {
-          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-checklist-files`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.access_token}`,
-            },
-            body: JSON.stringify({
-              checklist_item_id: projectItem.id,
-              drive_folder_id: projectItem.drive_folder_id,
-            }),
-          });
-          const result = await response.json();
-          if (response.ok) {
-            totalSynced += result.new_files_synced || 0;
-            totalSent += result.webhooks_sent || 0;
-            if (result.new_files_synced > 0) {
-              await loadFilesForItem(projectItem.id);
-            }
-          }
-        } catch {
-          // continue on individual failures
-        }
-      }
-
-      setSyncAllResult({ synced: totalSynced, sent: totalSent });
     } catch (err) {
-      setSyncAllError(err instanceof Error ? err.message : 'Sync failed');
+      console.error('Error toggling check:', err);
     } finally {
-      setSyncingAll(false);
-      setTimeout(() => setSyncAllResult(null), 5000);
-    }
-  };
-
-  const toggleUserCheck = async (template: ChecklistTemplate, projectItem: ProjectChecklistItem | null) => {
-    const newChecked = !(projectItem?.is_checked ?? false);
-    setSavingItem({ id: template.id, type: 'user' });
-    try {
-      const updates: Partial<ProjectChecklistItem> = {
-        is_checked: newChecked,
-        checked_by: newChecked ? currentUserId || null : null,
-        checked_by_user_name: newChecked ? currentUserName || null : null,
-        checked_at: newChecked ? new Date().toISOString() : null,
-      };
-      const result = await upsertItem(template, projectItem, updates);
-      if (result) updateGroupsWithItem(template.id, result);
-    } catch (err) {
-      console.error('Error toggling user check:', err);
-    } finally {
-      setSavingItem(null);
+      setSavingCheck(null);
     }
   };
 
@@ -611,30 +486,41 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     setter(next);
   };
 
-  const getProgress = (items: ChecklistEntry[]) => {
+  // Progress based on file checks (not item checks)
+  const getFileChecksProgress = (itemId: string) => {
+    const files = checklistFiles.get(itemId) || [];
     let total = 0; let userChecked = 0; let aiChecked = 0;
-    items.forEach(({ projectItem }) => {
-      total++;
-      if (projectItem?.is_checked) userChecked++;
-      if (projectItem?.is_checked_by_ai) aiChecked++;
+    files.forEach(f => {
+      const checks = fileChecks.get(f.id) || [];
+      checks.forEach(c => {
+        total++;
+        if (c.is_checked) userChecked++;
+        if (c.is_checked_by_ai) aiChecked++;
+      });
     });
-    return { total, userChecked, aiChecked };
+    return { total, userChecked, aiChecked, fileCount: files.length };
   };
 
-  const getSubProjectItems = (spg: SubProjectGroup): ChecklistEntry[] =>
-    spg.categories.flatMap(cg => cg.documents.flatMap(doc => doc.items));
+  const getDocFolderProgress = (doc: DocumentFolder) => {
+    if (!doc.projectItem) return { total: 0, userChecked: 0, aiChecked: 0, fileCount: 0 };
+    return getFileChecksProgress(doc.projectItem.id);
+  };
 
-  const getMainProjectItems = (mpg: MainProjectGroup): ChecklistEntry[] => [
-    ...mpg.sharedDocuments.flatMap(doc => doc.items),
-    ...mpg.subProjects.flatMap(spg => getSubProjectItems(spg)),
-  ];
-
-  const getCategoryItems = (cg: CategoryGroup): ChecklistEntry[] =>
-    cg.documents.flatMap(doc => doc.items);
+  const getGroupProgress = (docs: DocumentFolder[]) => {
+    let total = 0; let userChecked = 0; let aiChecked = 0; let fileCount = 0;
+    docs.forEach(d => {
+      const p = getDocFolderProgress(d);
+      total += p.total; userChecked += p.userChecked; aiChecked += p.aiChecked; fileCount += p.fileCount;
+    });
+    return { total, userChecked, aiChecked, fileCount };
+  };
 
   const getTotalProgress = () => {
-    const allItems = mainProjectGroups.flatMap(mpg => getMainProjectItems(mpg));
-    return getProgress(allItems);
+    const allDocs = mainProjectGroups.flatMap(mpg => [
+      ...mpg.sharedDocuments,
+      ...mpg.subProjects.flatMap(spg => spg.categories.flatMap(cg => cg.documents)),
+    ]);
+    return getGroupProgress(allDocs);
   };
 
   if (loading) {
@@ -662,116 +548,197 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const pct = total > 0 ? Math.round((userChecked / total) * 100) : 0;
   const aiPct = total > 0 ? Math.round((aiChecked / total) * 100) : 0;
 
-  const renderChecklistItem = (template: ChecklistTemplate, projectItem: ProjectChecklistItem | null) => {
-    const isUserChecked = projectItem?.is_checked ?? false;
-    const isAiChecked = projectItem?.is_checked_by_ai ?? false;
-    const hasData = !!(projectItem?.data || projectItem?.data_by_ai);
-    const dataKey = template.id;
-    const isDataExpanded = expandedData.has(dataKey);
-    const isSavingUser = savingItem?.id === template.id && savingItem.type === 'user';
-    const isSavingAi = savingItem?.id === template.id && savingItem.type === 'ai';
-    const isSyncing = syncingItem === template.id;
-    const hasDriveFolder = !!(projectItem?.drive_folder_id);
-    const isShowingFolderInput = folderInputItem === template.id;
-    const itemFiles = projectItem ? (checklistFiles.get(projectItem.id) || []) : [];
-    const toast = syncToast?.templateId === template.id ? syncToast : null;
+  const renderFileChecks = (file: ChecklistFile) => {
+    const checks = fileChecks.get(file.id) || [];
+    const fileKey = `file::${file.id}`;
+    const isCollapsed = collapsedFiles.has(fileKey);
+    const checkedCount = checks.filter(c => c.is_checked).length;
+    const aiCount = checks.filter(c => c.is_checked_by_ai).length;
+    const allDone = checks.length > 0 && checkedCount === checks.length;
 
     return (
-      <div key={template.id} className={`border-t border-slate-50 transition-colors ${isUserChecked ? 'bg-green-50/20' : ''}`}>
-        <div className="flex items-start gap-3 px-11 py-2.5">
-          <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-            <button
-              onClick={() => toggleUserCheck(template, projectItem)}
-              disabled={!!savingItem}
-              title="Staff check"
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                isUserChecked
-                  ? 'bg-blue-500 border-blue-500'
-                  : 'border-slate-300 hover:border-blue-400 bg-white'
-              }`}
-            >
-              {isSavingUser ? (
-                <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
-              ) : isUserChecked ? (
-                <User className="w-2.5 h-2.5 text-white" />
-              ) : (
-                <User className="w-2.5 h-2.5 text-slate-300" />
-              )}
-            </button>
-
-            <div
-              title="AI verified (read-only)"
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-default ${
-                isAiChecked
-                  ? 'bg-amber-400 border-amber-400'
-                  : 'border-slate-200 bg-slate-50'
-              }`}
-            >
-              {isSavingAi ? (
-                <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
-              ) : isAiChecked ? (
-                <Bot className="w-2.5 h-2.5 text-white" />
-              ) : (
-                <Bot className="w-2.5 h-2.5 text-slate-300" />
-              )}
-            </div>
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <span className={`text-sm ${isUserChecked ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-              {template.description}
-            </span>
-
-            {isUserChecked && projectItem?.checked_by_user_name && (
-              <div className="flex items-center gap-1 mt-0.5">
-                <User className="w-3 h-3 text-blue-400" />
-                <span className="text-xs text-blue-500">{projectItem.checked_by_user_name}</span>
-                {projectItem.checked_at && (
-                  <span className="text-xs text-slate-400">
-                    · {new Date(projectItem.checked_at).toLocaleDateString()}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 flex-shrink-0 ml-1">
-            {template.is_required && !isUserChecked && (
-              <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                Required
+      <div key={file.id} className="border-t border-slate-100">
+        <button
+          onClick={() => toggle(collapsedFiles, fileKey, setCollapsedFiles)}
+          className={`w-full flex items-center gap-2 px-4 py-2 text-left transition-colors ${
+            allDone ? 'bg-green-50/40 hover:bg-green-50/60' : 'bg-slate-50/80 hover:bg-slate-100'
+          }`}
+        >
+          {isCollapsed
+            ? <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
+            : <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0" />
+          }
+          <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+          <a
+            href={file.file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="flex-1 text-xs text-slate-600 hover:text-blue-600 truncate min-w-0 text-left"
+          >
+            {file.file_name}
+          </a>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+            {file.is_verified_by_ai && (
+              <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                <Bot className="w-2.5 h-2.5" /> AI verified
               </span>
             )}
-            {hasData && (
-              <button
-                onClick={() => toggle(expandedData, dataKey, setExpandedData)}
-                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded transition-colors"
-              >
-                <Database className="w-3 h-3" />
-                Data
-              </button>
+            {checks.length > 0 && (
+              <>
+                <span className={`text-xs flex items-center gap-1 ${allDone ? 'text-green-600' : 'text-slate-400'}`}>
+                  <User className="w-3 h-3" /> {checkedCount}/{checks.length}
+                </span>
+                <span className="text-xs text-amber-500 flex items-center gap-1">
+                  <Bot className="w-3 h-3" /> {aiCount}/{checks.length}
+                </span>
+              </>
+            )}
+            {checks.length === 0 && (
+              <span className="text-xs text-slate-300">No checks</span>
+            )}
+          </div>
+        </button>
+
+        {!isCollapsed && checks.length > 0 && (
+          <div className="divide-y divide-slate-50">
+            {checks.map(check => {
+              const isSaving = savingCheck === check.id;
+              return (
+                <div
+                  key={check.id}
+                  className={`flex items-start gap-3 px-10 py-2 transition-colors ${check.is_checked ? 'bg-green-50/10' : 'bg-white'}`}
+                >
+                  <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+                    <button
+                      onClick={() => toggleFileCheck(check)}
+                      disabled={!!savingCheck}
+                      title="Staff check"
+                      className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                        check.is_checked
+                          ? 'bg-blue-500 border-blue-500'
+                          : 'border-slate-300 hover:border-blue-400 bg-white'
+                      }`}
+                    >
+                      {isSaving ? (
+                        <Loader2 className="w-2.5 h-2.5 animate-spin text-slate-400" />
+                      ) : check.is_checked ? (
+                        <User className="w-2 h-2 text-white" />
+                      ) : (
+                        <User className="w-2 h-2 text-slate-300" />
+                      )}
+                    </button>
+                    <div
+                      title="AI verified (read-only)"
+                      className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-default ${
+                        check.is_checked_by_ai
+                          ? 'bg-amber-400 border-amber-400'
+                          : 'border-slate-200 bg-slate-50'
+                      }`}
+                    >
+                      {check.is_checked_by_ai ? (
+                        <Bot className="w-2 h-2 text-white" />
+                      ) : (
+                        <Bot className="w-2 h-2 text-slate-300" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-xs ${check.is_checked ? 'text-slate-400 line-through' : 'text-slate-600'}`}>
+                      {check.description}
+                    </span>
+                    {check.ai_result && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Bot className="w-2.5 h-2.5 text-amber-400" />
+                        <span className="text-xs text-amber-600">{check.ai_result}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0">
+                    {check.is_required && !check.is_checked && (
+                      <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                        Required
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!isCollapsed && checks.length === 0 && (
+          <div className="px-10 py-2 text-xs text-slate-400 italic bg-white">
+            No check items — sync from Drive to populate checks
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderDocumentFolder = (doc: DocumentFolder, docKey: string, indentClass: string) => {
+    const projectItem = doc.projectItem;
+    const itemFiles = projectItem ? (checklistFiles.get(projectItem.id) || []) : [];
+    const { total: dTotal, userChecked: dUser, aiChecked: dAi } = getDocFolderProgress(doc);
+    const allDone = dTotal > 0 && dUser === dTotal;
+    const docCollapsed = collapsedDocuments.has(docKey);
+    const hasDriveFolder = !!projectItem?.drive_folder_id;
+    const isShowingFolderInput = folderInputItem === docKey;
+
+    return (
+      <div key={docKey}>
+        <div className={`flex items-center justify-between ${indentClass} py-2 transition-colors ${
+          allDone ? 'bg-green-50/30 hover:bg-green-50/50' : 'bg-white hover:bg-slate-50'
+        }`}>
+          <button
+            onClick={() => toggle(collapsedDocuments, docKey, setCollapsedDocuments)}
+            className="flex items-center gap-2 min-w-0 flex-1 text-left"
+          >
+            {docCollapsed
+              ? <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
+              : <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0" />
+            }
+            <span className={`text-sm truncate font-medium ${allDone ? 'text-green-600' : 'text-slate-600'}`}>
+              {doc.document_name}
+            </span>
+            {itemFiles.length > 0 && (
+              <span className="text-xs text-slate-400 flex-shrink-0 ml-1">
+                ({itemFiles.length} file{itemFiles.length !== 1 ? 's' : ''})
+              </span>
+            )}
+          </button>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+            {dTotal > 0 && (
+              <>
+                <span className={`text-xs flex items-center gap-1 ${allDone ? 'text-green-500' : 'text-slate-300'}`}>
+                  <User className="w-3 h-3" /> {dUser}/{dTotal}
+                </span>
+                <span className="text-xs text-amber-400 flex items-center gap-1">
+                  <Bot className="w-3 h-3" /> {dAi}/{dTotal}
+                </span>
+              </>
             )}
             <button
-              onClick={() => handleSyncFromDrive(template, projectItem)}
-              disabled={isSyncing}
-              title={hasDriveFolder ? 'Sync files from Drive folder' : 'Link a Drive folder to sync files'}
-              className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              onClick={() => {
+                if (hasDriveFolder) return;
+                setFolderInputItem(docKey);
+                setFolderInputValue('');
+              }}
+              title={hasDriveFolder ? `Drive folder linked: ${projectItem?.drive_folder_id}` : 'Link a Drive folder'}
+              className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded transition-colors ${
                 hasDriveFolder
-                  ? 'text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100'
+                  ? 'text-green-600 bg-green-50 cursor-default'
                   : 'text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200'
               }`}
             >
-              {isSyncing ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <RefreshCw className="w-3 h-3" />
-              )}
-              {isSyncing ? 'Syncing...' : 'Sync'}
+              <Link className="w-3 h-3" />
+              {hasDriveFolder ? 'Linked' : 'Link'}
             </button>
           </div>
         </div>
 
         {isShowingFolderInput && (
-          <div className="mx-11 mb-2">
+          <div className={`${indentClass} pr-4 pb-2`}>
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
               <Link className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
               <input
@@ -779,7 +746,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 value={folderInputValue}
                 onChange={e => setFolderInputValue(e.target.value)}
                 onKeyDown={e => {
-                  if (e.key === 'Enter') saveDriveFolderForItem(template, projectItem, folderInputValue);
+                  if (e.key === 'Enter') saveDriveFolderForItem(doc, folderInputValue);
                   if (e.key === 'Escape') { setFolderInputItem(null); setFolderInputValue(''); }
                 }}
                 placeholder="Paste Google Drive folder ID..."
@@ -787,7 +754,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 autoFocus
               />
               <button
-                onClick={() => saveDriveFolderForItem(template, projectItem, folderInputValue)}
+                onClick={() => saveDriveFolderForItem(doc, folderInputValue)}
                 disabled={!folderInputValue.trim()}
                 className="text-xs text-green-600 hover:text-green-800 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -800,113 +767,27 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
-            <p className="text-xs text-slate-400 mt-1 ml-1">
+            <p className="text-xs text-slate-400 mt-1">
               Find the folder ID in the Google Drive URL: drive.google.com/drive/folders/<strong>FOLDER_ID</strong>
             </p>
           </div>
         )}
 
-        {toast && (
-          <div className={`mx-11 mb-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
-            toast.type === 'success'
-              ? 'bg-green-50 border border-green-200 text-green-700'
-              : 'bg-red-50 border border-red-200 text-red-700'
-          }`}>
-            {toast.type === 'success' ? (
-              <Check className="w-3.5 h-3.5 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-            )}
-            {toast.message}
-          </div>
-        )}
-
-        {itemFiles.length > 0 && (
-          <div className="mx-11 mb-2 space-y-1">
-            {itemFiles.map(file => (
-              <div key={file.id} className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5">
-                <FileText className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                <a
-                  href={file.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 text-xs text-slate-600 hover:text-blue-600 truncate min-w-0"
-                >
-                  {file.file_name}
-                </a>
-                {file.is_verified_by_ai ? (
-                  <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded flex-shrink-0">
-                    <Bot className="w-2.5 h-2.5" /> AI verified
-                  </span>
-                ) : (
-                  <span className="text-xs text-slate-400 flex-shrink-0">Pending AI</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {isDataExpanded && hasData && (
-          <div className="mx-11 mb-2 space-y-1.5">
-            {projectItem?.data_by_ai && (
-              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                <Bot className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-amber-700 mb-0.5">AI Data</div>
-                  <div className="text-xs text-amber-800 break-words">{projectItem.data_by_ai}</div>
-                </div>
-              </div>
-            )}
-            {projectItem?.data && (
-              <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                <User className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-blue-700 mb-0.5">Staff Data</div>
-                  <div className="text-xs text-blue-800 break-words">{projectItem.data}</div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderDocumentGroup = (doc: DocumentGroup, docKey: string, indentClass: string) => {
-    const docProgress = getProgress(doc.items);
-    const docAllDone = docProgress.userChecked === docProgress.total && docProgress.total > 0;
-    const docCollapsed = collapsedDocuments.has(docKey);
-
-    return (
-      <div key={doc.document_name}>
-        <button
-          onClick={() => toggle(collapsedDocuments, docKey, setCollapsedDocuments)}
-          className={`w-full flex items-center justify-between ${indentClass} py-2 text-left transition-colors ${
-            docAllDone ? 'bg-green-50/30 hover:bg-green-50/50' : 'bg-white hover:bg-slate-50'
-          }`}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            {docCollapsed
-              ? <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
-              : <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0" />
-            }
-            <span className={`text-sm truncate font-medium ${docAllDone ? 'text-green-600' : 'text-slate-600'}`}>
-              {doc.document_name}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-            <span className={`text-xs flex items-center gap-1 ${docAllDone ? 'text-green-500' : 'text-slate-300'}`}>
-              <User className="w-3 h-3" /> {docProgress.userChecked}/{docProgress.total}
-            </span>
-            <span className="text-xs text-amber-400 flex items-center gap-1">
-              <Bot className="w-3 h-3" /> {docProgress.aiChecked}/{docProgress.total}
-            </span>
-          </div>
-        </button>
-
         {!docCollapsed && (
           <div className="bg-white">
-            {doc.items.map(({ template, projectItem }) => renderChecklistItem(template, projectItem))}
+            {itemFiles.length === 0 ? (
+              <div className="px-10 py-2.5 text-xs text-slate-400 italic border-t border-slate-50">
+                No files synced yet
+                {!hasDriveFolder && (
+                  <span className="ml-1">— link a Drive folder above, then use "Sync from Drive"</span>
+                )}
+                {hasDriveFolder && (
+                  <span className="ml-1">— click "Sync from Drive" to import files</span>
+                )}
+              </div>
+            ) : (
+              itemFiles.map(file => renderFileChecks(file))
+            )}
           </div>
         )}
       </div>
@@ -972,9 +853,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             </button>
           )}
           <button
-            onClick={handleSyncAllToN8n}
+            onClick={handleSyncAll}
             disabled={syncingAll}
-            title="Sync all linked Drive folders and send new files for AI document checking"
+            title="Sync all Drive folders and send new files for AI document checking"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {syncingAll ? (
@@ -982,7 +863,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             ) : (
               <Send className="w-3.5 h-3.5" />
             )}
-            {syncingAll ? 'Checking...' : 'Check document by AI'}
+            {syncingAll ? 'Syncing...' : 'Sync from Drive'}
           </button>
           <button
             onClick={loadChecklist}
@@ -993,22 +874,24 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-2">
-          <User className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-          <div className="flex-1 bg-slate-200 rounded-full h-2">
-            <div className="bg-blue-500 h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+      {total > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <User className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+            <div className="flex-1 bg-slate-200 rounded-full h-2">
+              <div className="bg-blue-500 h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-xs text-slate-400 w-8 text-right">{pct}%</span>
           </div>
-          <span className="text-xs text-slate-400 w-8 text-right">{pct}%</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Bot className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-          <div className="flex-1 bg-slate-200 rounded-full h-2">
-            <div className="bg-amber-400 h-2 rounded-full transition-all duration-500" style={{ width: `${aiPct}%` }} />
+          <div className="flex items-center gap-2">
+            <Bot className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            <div className="flex-1 bg-slate-200 rounded-full h-2">
+              <div className="bg-amber-400 h-2 rounded-full transition-all duration-500" style={{ width: `${aiPct}%` }} />
+            </div>
+            <span className="text-xs text-slate-400 w-8 text-right">{aiPct}%</span>
           </div>
-          <span className="text-xs text-slate-400 w-8 text-right">{aiPct}%</span>
         </div>
-      </div>
+      )}
 
       {folderResult && (
         <div className="flex items-center justify-between gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -1052,9 +935,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
           <Send className="w-4 h-4 text-orange-500 flex-shrink-0" />
           <span className="text-sm text-orange-700 font-medium">
-            {syncAllResult.synced === 0
-              ? 'No new files found across all folders'
-              : `${syncAllResult.synced} new file${syncAllResult.synced !== 1 ? 's' : ''} sent for AI document checking`}
+            {syncAllResult.files === 0
+              ? 'No new files found'
+              : `${syncAllResult.files} new file${syncAllResult.files !== 1 ? 's' : ''} synced and checks created`}
           </span>
         </div>
       )}
@@ -1079,22 +962,20 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           </div>
           <span>AI verified (read-only)</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Database className="w-3.5 h-3.5 text-slate-400" />
-          <span>Has data</span>
-        </div>
       </div>
 
       <div className="space-y-3">
         {mainProjectGroups.map(mpg => {
-          const mpItems = getMainProjectItems(mpg);
-          const mpProgress = getProgress(mpItems);
-          const mpAllDone = mpProgress.userChecked === mpProgress.total && mpProgress.total > 0;
+          const allDocs = [
+            ...mpg.sharedDocuments,
+            ...mpg.subProjects.flatMap(spg => spg.categories.flatMap(cg => cg.documents)),
+          ];
+          const mpProgress = getGroupProgress(allDocs);
+          const mpAllDone = mpProgress.total > 0 && mpProgress.userChecked === mpProgress.total;
           const mpCollapsed = collapsedMain.has(mpg.main_project);
 
           return (
             <div key={mpg.main_project} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-              {/* Main Project Header */}
               <button
                 onClick={() => toggle(collapsedMain, mpg.main_project, setCollapsedMain)}
                 className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
@@ -1112,25 +993,27 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                   {mpAllDone && <Check className="w-4 h-4 text-green-600" />}
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                    mpAllDone ? 'bg-green-100 text-green-700' : 'bg-white text-slate-600'
-                  }`}>
-                    <User className="w-3 h-3" /> {mpProgress.userChecked}/{mpProgress.total}
-                  </span>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 flex items-center gap-1">
-                    <Bot className="w-3 h-3" /> {mpProgress.aiChecked}/{mpProgress.total}
-                  </span>
+                  {mpProgress.total > 0 && (
+                    <>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                        mpAllDone ? 'bg-green-100 text-green-700' : 'bg-white text-slate-600'
+                      }`}>
+                        <User className="w-3 h-3" /> {mpProgress.userChecked}/{mpProgress.total}
+                      </span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 flex items-center gap-1">
+                        <Bot className="w-3 h-3" /> {mpProgress.aiChecked}/{mpProgress.total}
+                      </span>
+                    </>
+                  )}
                 </div>
               </button>
 
               {!mpCollapsed && (
                 <div className="divide-y divide-slate-100">
-                  {/* Shared document types (Quotation, 反圍標, 供應商發票, etc.) at main project level */}
                   {mpg.sharedDocuments.length > 0 && (() => {
                     const sharedKey = `${mpg.main_project}::shared`;
-                    const sharedItems = mpg.sharedDocuments.flatMap(d => d.items);
-                    const sharedProgress = getProgress(sharedItems);
-                    const sharedAllDone = sharedProgress.userChecked === sharedProgress.total && sharedProgress.total > 0;
+                    const sharedProgress = getGroupProgress(mpg.sharedDocuments);
+                    const sharedAllDone = sharedProgress.total > 0 && sharedProgress.userChecked === sharedProgress.total;
                     const sharedCollapsed = collapsedShared.has(sharedKey);
 
                     return (
@@ -1153,14 +1036,18 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                             {sharedAllDone && <Check className="w-3.5 h-3.5 text-green-600" />}
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                              sharedAllDone ? 'bg-green-100 text-green-700' : 'bg-white text-slate-500'
-                            }`}>
-                              <User className="w-3 h-3" /> {sharedProgress.userChecked}/{sharedProgress.total}
-                            </span>
-                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-500 flex items-center gap-1">
-                              <Bot className="w-3 h-3" /> {sharedProgress.aiChecked}/{sharedProgress.total}
-                            </span>
+                            {sharedProgress.total > 0 && (
+                              <>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                  sharedAllDone ? 'bg-green-100 text-green-700' : 'bg-white text-slate-500'
+                                }`}>
+                                  <User className="w-3 h-3" /> {sharedProgress.userChecked}/{sharedProgress.total}
+                                </span>
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-500 flex items-center gap-1">
+                                  <Bot className="w-3 h-3" /> {sharedProgress.aiChecked}/{sharedProgress.total}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </button>
 
@@ -1168,7 +1055,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                           <div className="divide-y divide-slate-50 bg-white">
                             {mpg.sharedDocuments.map(doc => {
                               const docKey = `${sharedKey}::${doc.document_name}`;
-                              return renderDocumentGroup(doc, docKey, 'px-9');
+                              return renderDocumentFolder(doc, docKey, 'px-9');
                             })}
                           </div>
                         )}
@@ -1176,12 +1063,11 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                     );
                   })()}
 
-                  {/* Sub-projects */}
                   {mpg.subProjects.map(spg => {
                     const spKey = `${mpg.main_project}::${spg.sub_project}`;
-                    const spItems = getSubProjectItems(spg);
-                    const spProgress = getProgress(spItems);
-                    const spAllDone = spProgress.userChecked === spProgress.total && spProgress.total > 0;
+                    const spDocs = spg.categories.flatMap(cg => cg.documents);
+                    const spProgress = getGroupProgress(spDocs);
+                    const spAllDone = spProgress.total > 0 && spProgress.userChecked === spProgress.total;
                     const spCollapsed = collapsedSub.has(spKey);
 
                     return (
@@ -1204,14 +1090,18 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                             {spAllDone && <Check className="w-3.5 h-3.5 text-green-600" />}
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                              spAllDone ? 'bg-green-100 text-green-700' : 'bg-white text-slate-500'
-                            }`}>
-                              <User className="w-3 h-3" /> {spProgress.userChecked}/{spProgress.total}
-                            </span>
-                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-500 flex items-center gap-1">
-                              <Bot className="w-3 h-3" /> {spProgress.aiChecked}/{spProgress.total}
-                            </span>
+                            {spProgress.total > 0 && (
+                              <>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                  spAllDone ? 'bg-green-100 text-green-700' : 'bg-white text-slate-500'
+                                }`}>
+                                  <User className="w-3 h-3" /> {spProgress.userChecked}/{spProgress.total}
+                                </span>
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-500 flex items-center gap-1">
+                                  <Bot className="w-3 h-3" /> {spProgress.aiChecked}/{spProgress.total}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </button>
 
@@ -1219,9 +1109,8 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                           <div className="divide-y divide-slate-100 bg-white">
                             {spg.categories.map(cg => {
                               const catKey = `${spKey}::${cg.checklist_category}`;
-                              const catItems = getCategoryItems(cg);
-                              const catProgress = getProgress(catItems);
-                              const catAllDone = catProgress.userChecked === catProgress.total && catProgress.total > 0;
+                              const catProgress = getGroupProgress(cg.documents);
+                              const catAllDone = catProgress.total > 0 && catProgress.userChecked === catProgress.total;
                               const catCollapsed = collapsedCategories.has(catKey);
 
                               return (
@@ -1243,12 +1132,16 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                                       {catAllDone && <Check className="w-3 h-3 text-green-600" />}
-                                      <span className={`text-xs flex items-center gap-1 ${catAllDone ? 'text-green-600' : 'text-slate-400'}`}>
-                                        <User className="w-3 h-3" /> {catProgress.userChecked}/{catProgress.total}
-                                      </span>
-                                      <span className="text-xs text-amber-500 flex items-center gap-1">
-                                        <Bot className="w-3 h-3" /> {catProgress.aiChecked}/{catProgress.total}
-                                      </span>
+                                      {catProgress.total > 0 && (
+                                        <>
+                                          <span className={`text-xs flex items-center gap-1 ${catAllDone ? 'text-green-600' : 'text-slate-400'}`}>
+                                            <User className="w-3 h-3" /> {catProgress.userChecked}/{catProgress.total}
+                                          </span>
+                                          <span className="text-xs text-amber-500 flex items-center gap-1">
+                                            <Bot className="w-3 h-3" /> {catProgress.aiChecked}/{catProgress.total}
+                                          </span>
+                                        </>
+                                      )}
                                     </div>
                                   </button>
 
@@ -1256,7 +1149,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                                     <div className="divide-y divide-slate-50">
                                       {cg.documents.map(doc => {
                                         const docKey = `${catKey}::${doc.document_name}`;
-                                        return renderDocumentGroup(doc, docKey, 'px-9');
+                                        return renderDocumentFolder(doc, docKey, 'px-9');
                                       })}
                                     </div>
                                   )}
