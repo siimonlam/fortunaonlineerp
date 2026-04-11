@@ -345,6 +345,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           .update({ checklist_folder_id: result.checklist_folder_id })
           .eq('id', projectId);
       }
+      await loadChecklist();
     } catch (err) {
       setFolderError(err instanceof Error ? err.message : 'Failed to create folders');
     } finally {
