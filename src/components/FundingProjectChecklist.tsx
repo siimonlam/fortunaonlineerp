@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Database, Layers, FolderOpen, FolderPlus, ExternalLink } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Database, Layers, FolderOpen, FolderPlus, ExternalLink, Link, X, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createChecklistFolders, createBudProjectFolders } from '../utils/googleDriveUtils';
 
@@ -37,6 +37,22 @@ interface ProjectChecklistItem {
   checked_at: string | null;
   data: string | null;
   data_by_ai: string | null;
+  drive_folder_id: string | null;
+}
+
+interface ChecklistFile {
+  id: string;
+  file_id: string | null;
+  file_name: string;
+  file_url: string;
+  is_verified_by_ai: boolean;
+  created_at: string;
+}
+
+interface SyncResult {
+  new_files_synced: number;
+  webhooks_sent: number;
+  n8n_configured: boolean;
 }
 
 interface ProjectDetail {
@@ -99,6 +115,11 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [expandedData, setExpandedData] = useState<Set<string>>(new Set());
   const [currentUserName, setCurrentUserName] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [syncingItem, setSyncingItem] = useState<string | null>(null);
+  const [syncToast, setSyncToast] = useState<{ templateId: string; message: string; type: 'success' | 'error' } | null>(null);
+  const [checklistFiles, setChecklistFiles] = useState<Map<string, ChecklistFile[]>>(new Map());
+  const [folderInputItem, setFolderInputItem] = useState<string | null>(null);
+  const [folderInputValue, setFolderInputValue] = useState<string>('');
 
   const loadCurrentUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -266,6 +287,23 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
 
       // No sorting — preserve insertion order from item_number ordering (same as Project Detail tab)
       setMainProjectGroups(groups);
+
+      // Load files for all project items that exist
+      const itemsWithIds = projectItems.filter(i => i.id);
+      if (itemsWithIds.length > 0) {
+        const { data: allFiles } = await supabase
+          .from('project_checklist_files')
+          .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at, checklist_item_id')
+          .in('checklist_item_id', itemsWithIds.map(i => i.id));
+        if (allFiles) {
+          const fileMap = new Map<string, ChecklistFile[]>();
+          allFiles.forEach((f: ChecklistFile & { checklist_item_id: string }) => {
+            if (!fileMap.has(f.checklist_item_id)) fileMap.set(f.checklist_item_id, []);
+            fileMap.get(f.checklist_item_id)!.push(f);
+          });
+          setChecklistFiles(fileMap);
+        }
+      }
     } catch (err) {
       console.error('Error loading checklist:', err);
     } finally {
@@ -308,6 +346,107 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       setBudFolderError(err instanceof Error ? err.message : 'Failed to create BUD folders');
     } finally {
       setCreatingBudFolders(false);
+    }
+  };
+
+  const loadFilesForItem = useCallback(async (projectItemId: string) => {
+    const { data } = await supabase
+      .from('project_checklist_files')
+      .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at')
+      .eq('checklist_item_id', projectItemId)
+      .order('created_at', { ascending: true });
+    if (data) {
+      setChecklistFiles(prev => {
+        const next = new Map(prev);
+        next.set(projectItemId, data);
+        return next;
+      });
+    }
+  }, []);
+
+  const saveDriveFolderForItem = async (template: ChecklistTemplate, projectItem: ProjectChecklistItem | null, folderId: string) => {
+    const trimmed = folderId.trim();
+    if (!trimmed) return;
+    const result = await upsertItemDirect(template, projectItem, { drive_folder_id: trimmed });
+    if (result) updateGroupsWithItem(template.id, result);
+    setFolderInputItem(null);
+    setFolderInputValue('');
+  };
+
+  const handleSyncFromDrive = async (template: ChecklistTemplate, projectItem: ProjectChecklistItem | null) => {
+    const folderId = projectItem?.drive_folder_id;
+    if (!folderId) {
+      setFolderInputItem(template.id);
+      setFolderInputValue('');
+      return;
+    }
+
+    if (!projectItem) return;
+
+    setSyncingItem(template.id);
+    setSyncToast(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-checklist-files`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          checklist_item_id: projectItem.id,
+          drive_folder_id: folderId,
+        }),
+      });
+      const result: SyncResult & { error?: string } = await response.json();
+      if (!response.ok || result.error) {
+        setSyncToast({ templateId: template.id, message: result.error || 'Sync failed', type: 'error' });
+      } else {
+        const msg = result.new_files_synced === 0
+          ? 'No new files found'
+          : `${result.new_files_synced} new file${result.new_files_synced !== 1 ? 's' : ''} found and sent for AI processing`;
+        setSyncToast({ templateId: template.id, message: msg, type: 'success' });
+        await loadFilesForItem(projectItem.id);
+      }
+    } catch (err) {
+      setSyncToast({ templateId: template.id, message: err instanceof Error ? err.message : 'Sync failed', type: 'error' });
+    } finally {
+      setSyncingItem(null);
+      setTimeout(() => setSyncToast(prev => prev?.templateId === template.id ? null : prev), 4000);
+    }
+  };
+
+  const upsertItemDirect = async (
+    template: ChecklistTemplate,
+    projectItem: ProjectChecklistItem | null,
+    updates: Partial<ProjectChecklistItem>
+  ): Promise<ProjectChecklistItem | null> => {
+    if (projectItem) {
+      const { data, error } = await supabase
+        .from('project_checklist_items')
+        .update(updates)
+        .eq('id', projectItem.id)
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    } else {
+      const { data, error } = await supabase
+        .from('project_checklist_items')
+        .insert({
+          project_id: projectId,
+          checklist_id: template.id,
+          category: template.category,
+          document_name: template.document_name,
+          description: template.description,
+          is_checked: false,
+          is_checked_by_ai: false,
+          ...updates,
+        })
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      return data;
     }
   };
 
@@ -456,6 +595,11 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const isDataExpanded = expandedData.has(dataKey);
     const isSavingUser = savingItem?.id === template.id && savingItem.type === 'user';
     const isSavingAi = savingItem?.id === template.id && savingItem.type === 'ai';
+    const isSyncing = syncingItem === template.id;
+    const hasDriveFolder = !!(projectItem?.drive_folder_id);
+    const isShowingFolderInput = folderInputItem === template.id;
+    const itemFiles = projectItem ? (checklistFiles.get(projectItem.id) || []) : [];
+    const toast = syncToast?.templateId === template.id ? syncToast : null;
 
     return (
       <div key={template.id} className={`border-t border-slate-50 transition-colors ${isUserChecked ? 'bg-green-50/20' : ''}`}>
@@ -531,8 +675,101 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 Data
               </button>
             )}
+            <button
+              onClick={() => handleSyncFromDrive(template, projectItem)}
+              disabled={isSyncing}
+              title={hasDriveFolder ? 'Sync files from Drive folder' : 'Link a Drive folder to sync files'}
+              className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                hasDriveFolder
+                  ? 'text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100'
+                  : 'text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200'
+              }`}
+            >
+              {isSyncing ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
+              )}
+              {isSyncing ? 'Syncing...' : 'Sync'}
+            </button>
           </div>
         </div>
+
+        {isShowingFolderInput && (
+          <div className="mx-11 mb-2">
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              <Link className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+              <input
+                type="text"
+                value={folderInputValue}
+                onChange={e => setFolderInputValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveDriveFolderForItem(template, projectItem, folderInputValue);
+                  if (e.key === 'Escape') { setFolderInputItem(null); setFolderInputValue(''); }
+                }}
+                placeholder="Paste Google Drive folder ID..."
+                className="flex-1 text-xs bg-transparent outline-none text-slate-700 placeholder-slate-400"
+                autoFocus
+              />
+              <button
+                onClick={() => saveDriveFolderForItem(template, projectItem, folderInputValue)}
+                disabled={!folderInputValue.trim()}
+                className="text-xs text-green-600 hover:text-green-800 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => { setFolderInputItem(null); setFolderInputValue(''); }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 ml-1">
+              Find the folder ID in the Google Drive URL: drive.google.com/drive/folders/<strong>FOLDER_ID</strong>
+            </p>
+          </div>
+        )}
+
+        {toast && (
+          <div className={`mx-11 mb-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
+            toast.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-700'
+              : 'bg-red-50 border border-red-200 text-red-700'
+          }`}>
+            {toast.type === 'success' ? (
+              <Check className="w-3.5 h-3.5 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+            )}
+            {toast.message}
+          </div>
+        )}
+
+        {itemFiles.length > 0 && (
+          <div className="mx-11 mb-2 space-y-1">
+            {itemFiles.map(file => (
+              <div key={file.id} className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5">
+                <FileText className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                <a
+                  href={file.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-xs text-slate-600 hover:text-blue-600 truncate min-w-0"
+                >
+                  {file.file_name}
+                </a>
+                {file.is_verified_by_ai ? (
+                  <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded flex-shrink-0">
+                    <Bot className="w-2.5 h-2.5" /> AI verified
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-400 flex-shrink-0">Pending AI</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {isDataExpanded && hasData && (
           <div className="mx-11 mb-2 space-y-1.5">
