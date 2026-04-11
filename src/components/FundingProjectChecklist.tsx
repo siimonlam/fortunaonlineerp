@@ -105,6 +105,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [budFolderResult, setBudFolderResult] = useState<{ count: number } | null>(null);
   const [budFolderError, setBudFolderError] = useState<string | null>(null);
   const [localDriveFolderId, setLocalDriveFolderId] = useState<string | null>(projectDriveFolderId ?? null);
+  const [checklistFolderId, setChecklistFolderId] = useState<string | null>(null);
   const [mainProjectGroups, setMainProjectGroups] = useState<MainProjectGroup[]>([]);
   const [hasProjectDetails, setHasProjectDetails] = useState(true);
   const [collapsedMain, setCollapsedMain] = useState<Set<string>>(new Set());
@@ -139,6 +140,15 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const loadChecklist = useCallback(async () => {
     setLoading(true);
     try {
+      const { data: projectData } = await supabase
+        .from('projects')
+        .select('checklist_folder_id')
+        .eq('id', projectId)
+        .maybeSingle();
+      if (projectData?.checklist_folder_id) {
+        setChecklistFolderId(projectData.checklist_folder_id);
+      }
+
       const [detailsRes, templatesRes, projectItemsRes] = await Promise.all([
         supabase
           .from('funding_project_details')
@@ -328,6 +338,13 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     try {
       const result = await createChecklistFolders(projectId, folderId);
       setFolderResult({ url: result.checklist_drive_url, count: result.folders_created });
+      if (result.checklist_folder_id) {
+        setChecklistFolderId(result.checklist_folder_id);
+        await supabase
+          .from('projects')
+          .update({ checklist_folder_id: result.checklist_folder_id })
+          .eq('id', projectId);
+      }
     } catch (err) {
       setFolderError(err instanceof Error ? err.message : 'Failed to create folders');
     } finally {
@@ -922,17 +939,21 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           </div>
           {(localDriveFolderId || projectDriveFolderId) ? (
             <button
-              onClick={handleCreateFolders}
-              disabled={creatingFolders}
-              title="Create Checklist folder structure in Google Drive"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={!checklistFolderId ? handleCreateFolders : undefined}
+              disabled={creatingFolders || !!checklistFolderId}
+              title={checklistFolderId ? 'Checklist folders already created' : 'Create Checklist folder structure in Google Drive'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-lg transition-colors disabled:cursor-not-allowed ${
+                checklistFolderId
+                  ? 'bg-slate-300 opacity-60'
+                  : 'bg-green-600 hover:bg-green-700 disabled:opacity-50'
+              }`}
             >
               {creatingFolders ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <FolderOpen className="w-3.5 h-3.5" />
               )}
-              {creatingFolders ? 'Creating...' : 'Create Checklist Folders'}
+              {creatingFolders ? 'Creating...' : checklistFolderId ? 'Folders Created' : 'Create Checklist Folders'}
             </button>
           ) : (
             <button
