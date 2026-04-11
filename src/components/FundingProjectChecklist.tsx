@@ -407,7 +407,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       } else {
         const msg = result.new_files_synced === 0
           ? 'No new files found'
-          : `${result.new_files_synced} new file${result.new_files_synced !== 1 ? 's' : ''} found and sent for AI processing`;
+          : `${result.new_files_synced} new file${result.new_files_synced !== 1 ? 's' : ''} found and sent for AI document checking`;
         setSyncToast({ templateId: template.id, message: msg, type: 'success' });
         await loadFilesForItem(projectItem.id);
       }
@@ -952,7 +952,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           <button
             onClick={handleSyncAllToN8n}
             disabled={syncingAll}
-            title="Sync all linked Drive folders and send new files to n8n for AI processing"
+            title="Sync all linked Drive folders and send new files for AI document checking"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {syncingAll ? (
@@ -960,7 +960,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             ) : (
               <Send className="w-3.5 h-3.5" />
             )}
-            {syncingAll ? 'Syncing...' : 'Sync All to n8n'}
+            {syncingAll ? 'Checking...' : 'Check document by AI'}
           </button>
           <button
             onClick={loadChecklist}
@@ -1032,7 +1032,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           <span className="text-sm text-orange-700 font-medium">
             {syncAllResult.synced === 0
               ? 'No new files found across all folders'
-              : `${syncAllResult.synced} new file${syncAllResult.synced !== 1 ? 's' : ''} sent to n8n for AI processing`}
+              : `${syncAllResult.synced} new file${syncAllResult.synced !== 1 ? 's' : ''} sent for AI document checking`}
           </span>
         </div>
       )}
