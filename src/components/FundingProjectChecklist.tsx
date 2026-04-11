@@ -122,7 +122,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [currentUserName, setCurrentUserName] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [syncingAll, setSyncingAll] = useState(false);
-  const [syncAllResult, setSyncAllResult] = useState<{ files: number } | null>(null);
+  const [syncAllResult, setSyncAllResult] = useState<{ files: number; debug?: Array<{ folder_id: string; folder_name: string; files_found: number; error?: string }> } | null>(null);
   const [syncAllError, setSyncAllError] = useState<string | null>(null);
   const [savingCheck, setSavingCheck] = useState<string | null>(null);
   const [folderInputItem, setFolderInputItem] = useState<string | null>(null);
@@ -397,9 +397,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       if (!response.ok || result.error) {
         setSyncAllError(result.error || 'Sync failed');
       } else {
-        setSyncAllResult({ files: result.files_inserted || 0 });
+        setSyncAllResult({ files: result.files_inserted || 0, debug: result.debug });
         await loadChecklist();
-        setTimeout(() => setSyncAllResult(null), 5000);
+        if ((result.files_inserted || 0) > 0) setTimeout(() => setSyncAllResult(null), 5000);
       }
     } catch (err) {
       setSyncAllError(err instanceof Error ? err.message : 'Sync failed');
@@ -972,13 +972,34 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       )}
 
       {syncAllResult && (
-        <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-          <Send className="w-4 h-4 text-orange-500 flex-shrink-0" />
-          <span className="text-sm text-orange-700 font-medium">
-            {syncAllResult.files === 0
-              ? 'No new files found'
-              : `${syncAllResult.files} new file${syncAllResult.files !== 1 ? 's' : ''} synced and checks created`}
-          </span>
+        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
+          <div className="flex items-center gap-2">
+            <Send className="w-4 h-4 text-orange-500 flex-shrink-0" />
+            <span className="text-sm text-orange-700 font-medium">
+              {syncAllResult.files === 0
+                ? 'No new files found'
+                : `${syncAllResult.files} new file${syncAllResult.files !== 1 ? 's' : ''} synced and checks created`}
+            </span>
+            {syncAllResult.files === 0 && (
+              <button onClick={() => setSyncAllResult(null)} className="ml-auto text-slate-400 hover:text-slate-600">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {syncAllResult.files === 0 && syncAllResult.debug && syncAllResult.debug.length > 0 && (
+            <div className="text-xs text-slate-600 space-y-1 border-t border-orange-200 pt-2">
+              <p className="font-medium text-slate-500">Folders scanned ({syncAllResult.debug.length}):</p>
+              {syncAllResult.debug.map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${d.error ? 'bg-red-400' : d.files_found > 0 ? 'bg-green-400' : 'bg-slate-300'}`} />
+                  <span className="truncate text-slate-500">{d.folder_name}</span>
+                  <span className={`flex-shrink-0 font-medium ${d.error ? 'text-red-500' : 'text-slate-400'}`}>
+                    {d.error ? `error: ${d.error.slice(0, 60)}` : `${d.files_found} file${d.files_found !== 1 ? 's' : ''}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

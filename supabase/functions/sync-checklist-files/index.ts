@@ -30,7 +30,7 @@ async function refreshGoogleToken(refreshToken: string): Promise<string> {
 async function listFilesInFolder(
   folderId: string,
   accessToken: string
-): Promise<Array<{ id: string; name: string; mimeType: string; size: string; webViewLink: string }>> {
+): Promise<{ files: Array<{ id: string; name: string; mimeType: string; size: string; webViewLink: string }>; error?: string }> {
   const params = new URLSearchParams({
     q: `'${folderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
     fields: 'files(id,name,mimeType,size,webViewLink)',
@@ -42,11 +42,12 @@ async function listFilesInFolder(
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) {
-    console.warn(`Failed to list files in folder ${folderId}: ${await res.text()}`);
-    return [];
+    const errText = await res.text();
+    console.warn(`Failed to list files in folder ${folderId}: ${errText}`);
+    return { files: [], error: errText };
   }
   const data = await res.json();
-  return data.files || [];
+  return { files: data.files || [] };
 }
 
 function getExtension(mimeType: string, name: string): string {
@@ -197,6 +198,7 @@ Deno.serve(async (req: Request) => {
     let totalScanned = 0;
     let totalFilesInserted = 0;
     let totalChecksInserted = 0;
+    const folderDebug: Array<{ folder_id: string; folder_name: string; files_found: number; error?: string }> = [];
 
     // Track which (file_id, checklist_item_id) pairs already exist to avoid duplicates across items
     const existingPairs = new Set<string>();
@@ -204,26 +206,31 @@ Deno.serve(async (req: Request) => {
       if (f.file_id && f.checklist_item_id) existingPairs.add(`${f.file_id}|||${f.checklist_item_id}`);
     }
 
+    // Build a unified set of all folder IDs to scan:
+    // - from project_checklist_folders (created by folder structure creation)
+    // - from project_checklist_items.drive_folder_id (manually linked)
+    const allFolderIdsToScan = new Set<string>();
+    for (const folder of (folderRows as Array<{ drive_folder_id: string }>) ) {
+      if (folder.drive_folder_id) allFolderIdsToScan.add(folder.drive_folder_id);
+    }
+    for (const item of (checklistItems || [])) {
+      if (item.drive_folder_id) allFolderIdsToScan.add(item.drive_folder_id);
+    }
+
     // --- Scan each folder ---
-    // Deduplicate folders so we don't list the same Drive folder multiple times
     const scannedFolderIds = new Set<string>();
 
-    for (const folder of folderRows as Array<{
-      folder_path: string;
-      folder_type: string;
-      folder_name: string;
-      drive_folder_id: string;
-    }>) {
-      const { drive_folder_id } = folder;
+    for (const drive_folder_id of allFolderIdsToScan) {
       const items = folderToItems[drive_folder_id];
       if (!items || items.length === 0) continue;
       if (scannedFolderIds.has(drive_folder_id)) continue;
       scannedFolderIds.add(drive_folder_id);
 
-      const files = await listFilesInFolder(drive_folder_id, access_token);
+      const { files, error: driveErr } = await listFilesInFolder(drive_folder_id, access_token);
+      folderDebug.push({ folder_id: drive_folder_id, folder_name: items[0]?.document_name || drive_folder_id, files_found: files.length, error: driveErr });
       totalScanned += files.length;
 
-      for (const file of files) {
+      for (const file of files as Array<{ id: string; name: string; mimeType: string; size: string; webViewLink: string }>) {
         // Insert file once per checklist item that shares this folder
         for (const item of items) {
           const pairKey = `${file.id}|||${item.id}`;
@@ -305,11 +312,12 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        folders_scanned: folderRows.length,
+        folders_scanned: scannedFolderIds.size,
         files_found: totalScanned,
         files_inserted: totalFilesInserted,
         checks_inserted: totalChecksInserted,
-        message: `Scanned ${folderRows.length} folders, found ${totalScanned} files, inserted ${totalFilesInserted} new files with ${totalChecksInserted} check items.`,
+        message: `Scanned ${scannedFolderIds.size} folders, found ${totalScanned} files, inserted ${totalFilesInserted} new files with ${totalChecksInserted} check items.`,
+        debug: folderDebug,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
