@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Layers, FolderOpen, FolderPlus, ExternalLink, FileText, Send, Link, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Layers, FolderOpen, FolderPlus, ExternalLink, FileText, Send, Link, X, Image, Sheet, FileCode } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createChecklistFolders, createBudProjectFolders } from '../utils/googleDriveUtils';
 
@@ -119,7 +119,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [collapsedShared, setCollapsedShared] = useState<Set<string>>(new Set());
   const [collapsedSub, setCollapsedSub] = useState<Set<string>>(new Set());
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
-  const [collapsedDocuments, setCollapsedDocuments] = useState<Set<string>>(new Set());
+  const [userToggledDocs, setUserToggledDocs] = useState<Map<string, boolean>>(new Map());
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
   const [currentUserName, setCurrentUserName] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
@@ -198,12 +198,14 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       const projectItemMap = new Map<string, ProjectChecklistItem>();
       projectItems.forEach(item => projectItemMap.set(item.checklist_id, item));
 
-      // For shared docs: map document_name -> all project items with that document_name
-      const itemsByDocName = new Map<string, ProjectChecklistItem[]>();
+      // For shared docs: map (category, document_name) -> all project items with that combo
+      // Also map category -> all items in that category
+      const itemsByCategoryAndDocName = new Map<string, ProjectChecklistItem[]>();
       projectItems.forEach(item => {
-        if (item.document_name) {
-          if (!itemsByDocName.has(item.document_name)) itemsByDocName.set(item.document_name, []);
-          itemsByDocName.get(item.document_name)!.push(item);
+        if (item.document_name && item.category) {
+          const key = `${item.category}|||${item.document_name}`;
+          if (!itemsByCategoryAndDocName.has(key)) itemsByCategoryAndDocName.set(key, []);
+          itemsByCategoryAndDocName.get(key)!.push(item);
         }
       });
 
@@ -242,7 +244,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         const allCategoriesForMain = new Set<string>();
         subMap.forEach(cats => cats.forEach(c => allCategoriesForMain.add(c)));
 
-        // Shared docs: deduplicated by document_name across all categories
+        // Shared docs: deduplicated by document_name, scoped to categories of THIS main_project only
         const seenSharedDocNames = new Set<string>();
         const sharedDocuments: DocumentFolder[] = [];
         allCategoriesForMain.forEach(cat => {
@@ -250,11 +252,20 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           docMap.forEach((template, docName) => {
             if (isSharedDoc(docName) && !seenSharedDocNames.has(docName)) {
               seenSharedDocNames.add(docName);
+              // Collect items only from categories present in THIS main_project
+              const scopedItems: ProjectChecklistItem[] = [];
+              const seenItemIds = new Set<string>();
+              allCategoriesForMain.forEach(c => {
+                const key = `${c}|||${docName}`;
+                (itemsByCategoryAndDocName.get(key) || []).forEach(item => {
+                  if (!seenItemIds.has(item.id)) { seenItemIds.add(item.id); scopedItems.push(item); }
+                });
+              });
               sharedDocuments.push({
                 document_name: docName,
                 template,
                 projectItem: projectItemMap.get(template.id) || null,
-                allProjectItems: itemsByDocName.get(docName) || [],
+                allProjectItems: scopedItems,
               });
             }
           });
@@ -580,6 +591,16 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const pct = total > 0 ? Math.round((userChecked / total) * 100) : 0;
   const aiPct = total > 0 ? Math.round((aiChecked / total) * 100) : 0;
 
+  const getFileTypeBadge = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    if (ext === 'pdf') return { label: 'PDF', color: 'bg-red-100 text-red-600', icon: <FileText className="w-3 h-3" /> };
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext)) return { label: ext.toUpperCase(), color: 'bg-emerald-100 text-emerald-600', icon: <Image className="w-3 h-3" /> };
+    if (['xlsx', 'xls', 'csv'].includes(ext)) return { label: ext.toUpperCase(), color: 'bg-green-100 text-green-600', icon: <Sheet className="w-3 h-3" /> };
+    if (['docx', 'doc'].includes(ext)) return { label: ext.toUpperCase(), color: 'bg-blue-100 text-blue-600', icon: <FileText className="w-3 h-3" /> };
+    if (['gdoc', 'gsheet'].includes(ext)) return { label: ext === 'gdoc' ? 'DOC' : 'SHEET', color: 'bg-blue-100 text-blue-600', icon: <FileCode className="w-3 h-3" /> };
+    return { label: ext.toUpperCase() || 'FILE', color: 'bg-slate-100 text-slate-500', icon: <FileText className="w-3 h-3" /> };
+  };
+
   const renderFileChecks = (file: ChecklistFile) => {
     const checks = fileChecks.get(file.id) || [];
     const fileKey = `file::${file.id}`;
@@ -587,6 +608,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const checkedCount = checks.filter(c => c.is_checked).length;
     const aiCount = checks.filter(c => c.is_checked_by_ai).length;
     const allDone = checks.length > 0 && checkedCount === checks.length;
+    const typeBadge = getFileTypeBadge(file.file_name);
 
     return (
       <div key={file.id} className="border-t border-slate-100">
@@ -600,7 +622,10 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             ? <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
             : <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0" />
           }
-          <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${typeBadge.color}`}>
+            {typeBadge.icon}
+            {typeBadge.label}
+          </span>
           <a
             href={file.file_url}
             target="_blank"
@@ -723,7 +748,10 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     });
     const { total: dTotal, userChecked: dUser, aiChecked: dAi } = getDocFolderProgress(doc);
     const allDone = dTotal > 0 && dUser === dTotal;
-    const docCollapsed = collapsedDocuments.has(docKey);
+    const hasFiles = itemFiles.length > 0;
+    // Default: collapsed when no files, expanded when files exist. User toggle overrides default.
+    const userOverride = userToggledDocs.get(docKey);
+    const effectiveCollapsed = userOverride !== undefined ? userOverride : !hasFiles;
     const hasDriveFolder = itemsToShow.some(i => !!i.drive_folder_id);
     const isShowingFolderInput = folderInputItem === docKey;
 
@@ -733,14 +761,14 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           allDone ? 'bg-green-50/30 hover:bg-green-50/50' : 'bg-white hover:bg-slate-50'
         }`}>
           <button
-            onClick={() => toggle(collapsedDocuments, docKey, setCollapsedDocuments)}
+            onClick={() => setUserToggledDocs(prev => { const m = new Map(prev); m.set(docKey, !effectiveCollapsed); return m; })}
             className="flex items-center gap-2 min-w-0 flex-1 text-left"
           >
-            {docCollapsed
+            {effectiveCollapsed
               ? <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
               : <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0" />
             }
-            <span className={`text-sm truncate font-medium ${allDone ? 'text-green-600' : 'text-slate-600'}`}>
+            <span className={`text-sm truncate font-medium ${allDone ? 'text-green-600' : hasFiles ? 'text-blue-600' : 'text-slate-500'}`}>
               {doc.document_name}
             </span>
             {itemFiles.length > 0 && (
@@ -815,7 +843,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           </div>
         )}
 
-        {!docCollapsed && (
+        {!effectiveCollapsed && (
           <div className="bg-white">
             {itemFiles.length === 0 ? (
               <div className="px-10 py-2.5 text-xs text-slate-400 italic border-t border-slate-50">
