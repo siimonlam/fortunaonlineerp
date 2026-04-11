@@ -129,6 +129,8 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [savingCheck, setSavingCheck] = useState<string | null>(null);
   const [folderInputItem, setFolderInputItem] = useState<string | null>(null);
   const [folderInputValue, setFolderInputValue] = useState<string>('');
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+  const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<string | null>(null);
 
   // Files keyed by checklist_item_id
   const [checklistFiles, setChecklistFiles] = useState<Map<string, ChecklistFile[]>>(new Map());
@@ -591,6 +593,24 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const pct = total > 0 ? Math.round((userChecked / total) * 100) : 0;
   const aiPct = total > 0 ? Math.round((aiChecked / total) * 100) : 0;
 
+  const deleteFile = async (fileId: string) => {
+    setDeletingFileId(fileId);
+    try {
+      await supabase.from('project_checklist_files').delete().eq('id', fileId);
+      setChecklistFiles(prev => {
+        const updated = new Map(prev);
+        updated.forEach((files, itemId) => {
+          updated.set(itemId, files.filter(f => f.id !== fileId));
+        });
+        return updated;
+      });
+      setFileChecks(prev => { const m = new Map(prev); m.delete(fileId); return m; });
+    } finally {
+      setDeletingFileId(null);
+      setConfirmDeleteFileId(null);
+    }
+  };
+
   const getFileTypeBadge = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase() || '';
     if (ext === 'pdf') return { label: 'PDF', color: 'bg-red-100 text-red-600', icon: <FileText className="w-3 h-3" /> };
@@ -654,8 +674,35 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             {checks.length === 0 && (
               <span className="text-xs text-slate-300">No checks</span>
             )}
+            <button
+              onClick={e => { e.stopPropagation(); setConfirmDeleteFileId(file.id); }}
+              title="Delete file"
+              className="ml-1 p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         </button>
+
+        {confirmDeleteFileId === file.id && (
+          <div className="flex items-center gap-3 px-10 py-2 bg-red-50 border-t border-red-100">
+            <span className="text-xs text-red-700 flex-1">Delete <strong>{file.file_name}</strong>? This cannot be undone.</span>
+            <button
+              onClick={() => deleteFile(file.id)}
+              disabled={deletingFileId === file.id}
+              className="text-xs font-medium text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded transition-colors disabled:opacity-50 flex items-center gap-1"
+            >
+              {deletingFileId === file.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              Delete
+            </button>
+            <button
+              onClick={() => setConfirmDeleteFileId(null)}
+              className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         {!isCollapsed && checks.length > 0 && (
           <div className="divide-y divide-slate-50">
