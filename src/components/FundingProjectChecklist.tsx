@@ -293,20 +293,20 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
 
       setMainProjectGroups(groups);
 
-      // Load files for all project items
-      const itemsWithIds = projectItems.filter(i => i.id);
-      if (itemsWithIds.length > 0) {
+      // Load files for all project items — join via project_checklist_items to avoid large .in() lists
+      if (projectItems.length > 0) {
         const { data: allFiles } = await supabase
           .from('project_checklist_files')
-          .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at, checklist_item_id')
-          .in('checklist_item_id', itemsWithIds.map(i => i.id))
+          .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at, checklist_item_id, project_checklist_items!inner(project_id)')
+          .eq('project_checklist_items.project_id', projectId)
           .order('created_at', { ascending: true });
 
         if (allFiles && allFiles.length > 0) {
           const fileMap = new Map<string, ChecklistFile[]>();
-          allFiles.forEach((f: ChecklistFile) => {
-            if (!fileMap.has(f.checklist_item_id)) fileMap.set(f.checklist_item_id, []);
-            fileMap.get(f.checklist_item_id)!.push(f);
+          allFiles.forEach((f: Record<string, unknown>) => {
+            const file = f as unknown as ChecklistFile;
+            if (!fileMap.has(file.checklist_item_id)) fileMap.set(file.checklist_item_id, []);
+            fileMap.get(file.checklist_item_id)!.push(file);
           });
           setChecklistFiles(fileMap);
 
