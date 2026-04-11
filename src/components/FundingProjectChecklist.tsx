@@ -82,6 +82,7 @@ interface DocumentFolder {
   document_name: string;
   template: ChecklistTemplate;
   projectItem: ProjectChecklistItem | null;
+  allProjectItems?: ProjectChecklistItem[];
 }
 
 interface CategoryGroup {
@@ -195,6 +196,15 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       const projectItemMap = new Map<string, ProjectChecklistItem>();
       projectItems.forEach(item => projectItemMap.set(item.checklist_id, item));
 
+      // For shared docs: map document_name -> all project items with that document_name
+      const itemsByDocName = new Map<string, ProjectChecklistItem[]>();
+      projectItems.forEach(item => {
+        if (item.document_name) {
+          if (!itemsByDocName.has(item.document_name)) itemsByDocName.set(item.document_name, []);
+          itemsByDocName.get(item.document_name)!.push(item);
+        }
+      });
+
       // Build a deduplication map: for each (category, document_name) keep ONE representative template
       const templatesByCategory = new Map<string, ChecklistTemplate[]>();
       templates.forEach(t => {
@@ -242,6 +252,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 document_name: docName,
                 template,
                 projectItem: projectItemMap.get(template.id) || null,
+                allProjectItems: itemsByDocName.get(docName) || [],
               });
             }
           });
@@ -502,8 +513,27 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   };
 
   const getDocFolderProgress = (doc: DocumentFolder) => {
-    if (!doc.projectItem) return { total: 0, userChecked: 0, aiChecked: 0, fileCount: 0 };
-    return getFileChecksProgress(doc.projectItem.id);
+    const itemsToCheck = doc.allProjectItems && doc.allProjectItems.length > 0
+      ? doc.allProjectItems
+      : doc.projectItem ? [doc.projectItem] : [];
+    if (itemsToCheck.length === 0) return { total: 0, userChecked: 0, aiChecked: 0, fileCount: 0 };
+    let total = 0; let userChecked = 0; let aiChecked = 0; let fileCount = 0;
+    const seenFileIds = new Set<string>();
+    itemsToCheck.forEach(item => {
+      const files = checklistFiles.get(item.id) || [];
+      files.forEach(f => {
+        if (seenFileIds.has(f.id)) return;
+        seenFileIds.add(f.id);
+        fileCount++;
+        const checks = fileChecks.get(f.id) || [];
+        checks.forEach(c => {
+          total++;
+          if (c.is_checked) userChecked++;
+          if (c.is_checked_by_ai) aiChecked++;
+        });
+      });
+    });
+    return { total, userChecked, aiChecked, fileCount };
   };
 
   const getGroupProgress = (docs: DocumentFolder[]) => {
@@ -678,11 +708,21 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
 
   const renderDocumentFolder = (doc: DocumentFolder, docKey: string, indentClass: string) => {
     const projectItem = doc.projectItem;
-    const itemFiles = projectItem ? (checklistFiles.get(projectItem.id) || []) : [];
+    const itemsToShow = doc.allProjectItems && doc.allProjectItems.length > 0
+      ? doc.allProjectItems
+      : projectItem ? [projectItem] : [];
+    // Deduplicate files by file_id across all items
+    const seenIds = new Set<string>();
+    const itemFiles: ChecklistFile[] = [];
+    itemsToShow.forEach(item => {
+      (checklistFiles.get(item.id) || []).forEach(f => {
+        if (!seenIds.has(f.id)) { seenIds.add(f.id); itemFiles.push(f); }
+      });
+    });
     const { total: dTotal, userChecked: dUser, aiChecked: dAi } = getDocFolderProgress(doc);
     const allDone = dTotal > 0 && dUser === dTotal;
     const docCollapsed = collapsedDocuments.has(docKey);
-    const hasDriveFolder = !!projectItem?.drive_folder_id;
+    const hasDriveFolder = itemsToShow.some(i => !!i.drive_folder_id);
     const isShowingFolderInput = folderInputItem === docKey;
 
     return (
@@ -724,7 +764,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 setFolderInputItem(docKey);
                 setFolderInputValue('');
               }}
-              title={hasDriveFolder ? `Drive folder linked: ${projectItem?.drive_folder_id}` : 'Link a Drive folder'}
+              title={hasDriveFolder ? `Drive folder linked` : 'Link a Drive folder'}
               className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded transition-colors ${
                 hasDriveFolder
                   ? 'text-green-600 bg-green-50 cursor-default'
