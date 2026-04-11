@@ -12,7 +12,6 @@ const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 async function refreshGoogleToken(refreshToken: string): Promise<string> {
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
-
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -23,7 +22,6 @@ async function refreshGoogleToken(refreshToken: string): Promise<string> {
       grant_type: 'refresh_token',
     }),
   });
-
   if (!res.ok) throw new Error(`Token refresh failed: ${await res.text()}`);
   const data = await res.json();
   return data.access_token;
@@ -40,23 +38,20 @@ async function listFilesInFolder(
     includeItemsFromAllDrives: 'true',
     pageSize: '1000',
   });
-
   const res = await fetch(`${DRIVE_API}/files?${params}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-
   if (!res.ok) {
     console.warn(`Failed to list files in folder ${folderId}: ${await res.text()}`);
     return [];
   }
-
   const data = await res.json();
   return data.files || [];
 }
 
 function getExtension(mimeType: string, name: string): string {
   const ext = name.split('.').pop()?.toLowerCase();
-  if (ext) return ext;
+  if (ext && ext.length <= 5) return ext;
   const mimeMap: Record<string, string> = {
     'application/pdf': 'pdf',
     'image/jpeg': 'jpg',
@@ -93,7 +88,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get Google credentials
+    // --- Google credentials ---
     const { data: credentials, error: credError } = await supabase
       .from('google_oauth_credentials')
       .select('*')
@@ -110,7 +105,6 @@ Deno.serve(async (req: Request) => {
     let access_token = credentials.access_token;
     const token_expires_at = new Date(credentials.token_expires_at);
     const now = new Date();
-
     if (token_expires_at < new Date(now.getTime() + 5 * 60 * 1000)) {
       access_token = await refreshGoogleToken(credentials.refresh_token);
       await supabase
@@ -123,69 +117,115 @@ Deno.serve(async (req: Request) => {
         .eq('service_name', 'google_drive');
     }
 
-    // Load all saved folders for this project
+    // --- Load checklist folders for this project ---
     const { data: folderRows, error: folderErr } = await supabase
       .from('project_checklist_folders')
-      .select('folder_path, folder_type, drive_folder_id')
+      .select('folder_path, folder_type, folder_name, drive_folder_id')
       .eq('project_id', project_id);
 
     if (folderErr) throw folderErr;
-
     if (!folderRows || folderRows.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'No checklist folders found for this project. Please create checklist folders first.' }),
+        JSON.stringify({ error: 'No checklist folders found. Please create checklist folders first.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Load checklist items to map folder → item
+    // --- Load checklist items (drive_folder_id → item metadata) ---
     const { data: checklistItems, error: itemsErr } = await supabase
       .from('project_checklist_items')
-      .select('id, drive_folder_id, document_name, category')
+      .select('id, drive_folder_id, document_name, category, checklist_id')
       .eq('project_id', project_id);
 
     if (itemsErr) throw itemsErr;
 
-    // Build drive_folder_id → checklist_item_id map
-    const folderToItemId: Record<string, string> = {};
+    // Build drive_folder_id → checklist item map
+    const folderToItem: Record<string, { id: string; document_name: string; category: string }> = {};
     for (const item of (checklistItems || [])) {
       if (item.drive_folder_id) {
-        folderToItemId[item.drive_folder_id] = item.id;
+        folderToItem[item.drive_folder_id] = {
+          id: item.id,
+          document_name: item.document_name,
+          category: item.category,
+        };
       }
     }
 
-    // Load existing file_id records to avoid duplicates
+    // --- Load all verification check templates from funding_document_checklist ---
+    // Key: "category|||document_name" → array of check rows
+    const { data: allCheckTemplates, error: templatesErr } = await supabase
+      .from('funding_document_checklist')
+      .select('id, category, document_name, description, is_required, order_index')
+      .order('order_index');
+
+    if (templatesErr) throw templatesErr;
+
+    // Build lookup: document_name → check items (category-aware fallback)
+    type CheckTemplate = {
+      id: string;
+      category: string;
+      document_name: string;
+      description: string;
+      is_required: boolean;
+      order_index: number;
+    };
+
+    const templatesByKey: Record<string, CheckTemplate[]> = {};
+    for (const t of (allCheckTemplates || []) as CheckTemplate[]) {
+      const key = `${t.category}|||${t.document_name}`;
+      if (!templatesByKey[key]) templatesByKey[key] = [];
+      templatesByKey[key].push(t);
+    }
+
+    // Also build a document_name-only lookup (used as fallback)
+    const templatesByDocName: Record<string, CheckTemplate[]> = {};
+    for (const t of (allCheckTemplates || []) as CheckTemplate[]) {
+      if (!templatesByDocName[t.document_name]) templatesByDocName[t.document_name] = [];
+      templatesByDocName[t.document_name].push(t);
+    }
+
+    // --- Load existing file_ids to prevent duplicates ---
     const { data: existingFiles } = await supabase
       .from('project_checklist_files')
-      .select('file_id')
-      .not('file_id', 'is', null);
+      .select('id, file_id')
+      .eq('checklist_item_id', (checklistItems || []).map((i: { id: string }) => i.id));
 
-    const existingFileIds = new Set((existingFiles || []).map((f: { file_id: string }) => f.file_id));
+    const existingFileIds = new Set<string>();
+    const existingFileRowIds: Array<{ id: string; file_id: string }> = [];
+    for (const f of (existingFiles || []) as Array<{ id: string; file_id: string }>) {
+      if (f.file_id) {
+        existingFileIds.add(f.file_id);
+        existingFileRowIds.push(f);
+      }
+    }
+
+    // Also check project-wide to be safe
+    const { data: allProjectFiles } = await supabase
+      .from('project_checklist_files')
+      .select('id, file_id')
+      .in(
+        'checklist_item_id',
+        (checklistItems || []).map((i: { id: string }) => i.id).filter(Boolean)
+      );
+
+    for (const f of (allProjectFiles || []) as Array<{ id: string; file_id: string }>) {
+      if (f.file_id) existingFileIds.add(f.file_id);
+    }
 
     let totalScanned = 0;
-    let totalInserted = 0;
+    let totalFilesInserted = 0;
+    let totalChecksInserted = 0;
 
-    const newFileRows: Array<{
-      checklist_item_id: string;
-      file_id: string;
-      file_url: string;
-      file_name: string;
-      file_type: string;
-      file_size: number | null;
+    // --- Scan each folder ---
+    for (const folder of folderRows as Array<{
+      folder_path: string;
+      folder_type: string;
+      folder_name: string;
       drive_folder_id: string;
-      extracted_data: Record<string, unknown>;
-      is_verified_by_ai: boolean;
-    }> = [];
-
-    // Scan every saved folder
-    for (const folder of folderRows as Array<{ folder_path: string; folder_type: string; drive_folder_id: string }>) {
+    }>) {
       const { drive_folder_id } = folder;
-      const checklistItemId = folderToItemId[drive_folder_id];
-
-      if (!checklistItemId) {
-        // folder has no matching checklist item — skip file insertion
-        continue;
-      }
+      const item = folderToItem[drive_folder_id];
+      if (!item) continue;
 
       const files = await listFilesInFolder(drive_folder_id, access_token);
       totalScanned += files.length;
@@ -193,32 +233,82 @@ Deno.serve(async (req: Request) => {
       for (const file of files) {
         if (existingFileIds.has(file.id)) continue;
 
-        newFileRows.push({
-          checklist_item_id: checklistItemId,
-          file_id: file.id,
-          file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
-          file_name: file.name,
-          file_type: getExtension(file.mimeType, file.name),
-          file_size: file.size ? parseInt(file.size, 10) : null,
-          drive_folder_id: drive_folder_id,
-          extracted_data: {},
-          is_verified_by_ai: false,
-        });
+        // Determine document_type: use the checklist item's document_name
+        const documentType = item.document_name || null;
+        const category = item.category || null;
+
+        // Insert the file row
+        const { data: insertedFile, error: fileInsertErr } = await supabase
+          .from('project_checklist_files')
+          .insert({
+            checklist_item_id: item.id,
+            file_id: file.id,
+            file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
+            file_name: file.name,
+            file_type: getExtension(file.mimeType, file.name),
+            file_size: file.size ? parseInt(file.size, 10) : null,
+            drive_folder_id: drive_folder_id,
+            document_type: documentType,
+            extracted_data: {},
+            is_verified_by_ai: false,
+          })
+          .select('id')
+          .single();
+
+        if (fileInsertErr || !insertedFile) {
+          console.error('File insert error:', fileInsertErr);
+          continue;
+        }
 
         existingFileIds.add(file.id);
-      }
-    }
+        totalFilesInserted++;
 
-    // Batch insert in chunks of 50
-    for (let i = 0; i < newFileRows.length; i += 50) {
-      const chunk = newFileRows.slice(i, i + 50);
-      const { error: insertErr } = await supabase
-        .from('project_checklist_files')
-        .insert(chunk);
-      if (insertErr) {
-        console.error('Insert error:', insertErr);
-      } else {
-        totalInserted += chunk.length;
+        // --- Look up check templates for this document type ---
+        if (!documentType) continue;
+
+        // Try category-specific first, then fall back to any category match
+        const specificKey = `${category}|||${documentType}`;
+        let checkTemplates: CheckTemplate[] = templatesByKey[specificKey] || [];
+
+        if (checkTemplates.length === 0) {
+          // Fallback: deduplicated checks from any category matching this document_name
+          const seen = new Set<string>();
+          for (const t of (templatesByDocName[documentType] || [])) {
+            if (!seen.has(t.description)) {
+              seen.add(t.description);
+              checkTemplates.push(t);
+            }
+          }
+        }
+
+        if (checkTemplates.length === 0) continue;
+
+        // Insert one check row per template item
+        const checkRows = checkTemplates.map((t) => ({
+          file_id: insertedFile.id,
+          checklist_item_id: item.id,
+          project_id,
+          document_type: documentType,
+          category: t.category,
+          description: t.description,
+          order_index: t.order_index,
+          is_required: t.is_required,
+          is_checked: false,
+          is_checked_by_ai: false,
+        }));
+
+        // Batch insert checks in chunks
+        for (let i = 0; i < checkRows.length; i += 50) {
+          const chunk = checkRows.slice(i, i + 50);
+          const { error: checksErr } = await supabase
+            .from('project_checklist_file_checks')
+            .insert(chunk);
+          if (checksErr) {
+            console.error('Checks insert error:', checksErr);
+          } else {
+            totalChecksInserted += chunk.length;
+          }
+        }
       }
     }
 
@@ -227,8 +317,9 @@ Deno.serve(async (req: Request) => {
         success: true,
         folders_scanned: folderRows.length,
         files_found: totalScanned,
-        files_inserted: totalInserted,
-        message: `Scanned ${folderRows.length} folders, found ${totalScanned} files, inserted ${totalInserted} new records.`,
+        files_inserted: totalFilesInserted,
+        checks_inserted: totalChecksInserted,
+        message: `Scanned ${folderRows.length} folders, found ${totalScanned} files, inserted ${totalFilesInserted} new files with ${totalChecksInserted} check items.`,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
