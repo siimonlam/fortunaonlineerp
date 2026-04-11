@@ -161,14 +161,14 @@ Deno.serve(async (req: Request) => {
 
     const newFiles = driveFiles.filter(f => !existingFileIds.has(f.id));
 
-    const n8nWebhookUrl = Deno.env.get("N8N_WEBHOOK_URL");
+    const n8nWebhookUrl = Deno.env.get("N8N_WEBHOOK_URL") || "https://n8n.fortuna-online.org/webhook-test/69fd45ad-defe-4a40-8770-1b9e65c9f775";
     let synced = 0;
     let webhooksSent = 0;
 
     for (const file of newFiles) {
       const fileUrl = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
 
-      const { error: insertError } = await supabase
+      const { data: insertedFile, error: insertError } = await supabase
         .from("project_checklist_files")
         .insert({
           checklist_item_id,
@@ -177,7 +177,9 @@ Deno.serve(async (req: Request) => {
           file_url: fileUrl,
           is_verified_by_ai: false,
           extracted_data: {},
-        });
+        })
+        .select()
+        .maybeSingle();
 
       if (insertError) {
         console.error(`Failed to insert file ${file.id}:`, insertError);
@@ -186,21 +188,23 @@ Deno.serve(async (req: Request) => {
 
       synced++;
 
-      if (n8nWebhookUrl) {
-        try {
-          const webhookRes = await fetch(n8nWebhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              file_id: file.id,
-              file_name: file.name,
-              checklist_item_id,
-            }),
-          });
-          if (webhookRes.ok) webhooksSent++;
-        } catch (webhookErr) {
-          console.error(`Webhook failed for file ${file.id}:`, webhookErr);
-        }
+      try {
+        const webhookRes = await fetch(n8nWebhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            file_id: file.id,
+            file_name: file.name,
+            file_url: fileUrl,
+            checklist_item_id,
+            checklist_file_record_id: insertedFile?.id || null,
+            drive_folder_id,
+          }),
+        });
+        if (webhookRes.ok) webhooksSent++;
+        else console.error(`Webhook returned ${webhookRes.status} for file ${file.id}`);
+      } catch (webhookErr) {
+        console.error(`Webhook failed for file ${file.id}:`, webhookErr);
       }
     }
 
