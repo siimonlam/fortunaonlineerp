@@ -95,6 +95,15 @@ interface ProjectDetail {
   checklist_category: string | null;
 }
 
+interface ChecklistItemRow {
+  id: string;
+  checklist_id: string;
+  funding_document_checklist: {
+    category: string;
+    document_name: string;
+  } | null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -195,9 +204,10 @@ Deno.serve(async (req: Request) => {
       totalFolders++;
       console.log(`Created main project folder: ${mainProject}`);
 
-      // Create the 5 shared document folders under main project
+      // Create the 5 shared document folders under main project and record their IDs
       for (const subfolder of SHARED_SUBFOLDERS) {
-        await createFolder(subfolder, mainFolderId, access_token);
+        const sharedFolderId = await createFolder(subfolder, mainFolderId, access_token);
+        folderMap[`Checklist/${mainProject}/${subfolder}`] = sharedFolderId;
         totalFolders++;
         console.log(`Created shared subfolder: ${mainProject}/${subfolder}`);
       }
@@ -222,11 +232,92 @@ Deno.serve(async (req: Request) => {
         }
 
         for (const category of categoriesForSub) {
-          await createFolder(category, subFolderId, access_token);
+          const catFolderId = await createFolder(category, subFolderId, access_token);
+          folderMap[`Checklist/${mainProject}/${subProject}/${category}`] = catFolderId;
           totalFolders++;
           console.log(`Created category folder: ${mainProject}/${subProject}/${category}`);
         }
       }
+    }
+
+    // --- Save folder IDs to project_checklist_items ---
+    // Fetch all checklist items for this project, joined with their template category/document_name
+    const { data: checklistItems } = await supabase
+      .from('project_checklist_items')
+      .select('id, checklist_id, funding_document_checklist(category, document_name)')
+      .eq('project_id', project_id);
+
+    if (checklistItems && checklistItems.length > 0) {
+      // Build a lookup: checklist_category -> list of (main_project, sub_project) pairs
+      // so we know which folder path to use for each item
+      const categoryToPath = new Map<string, string>();
+
+      // For category-level items: path = Checklist/{main}/{sub}/{category}
+      for (const d of projectDetails) {
+        const mp = d.main_project?.trim();
+        const sp = d.sub_project?.trim();
+        const cat = d.checklist_category?.trim();
+        if (!mp || !sp || !cat) continue;
+        const key = `${mp}|||${sp}|||${cat}`;
+        const path = `Checklist/${mp}/${sp}/${cat}`;
+        if (folderMap[path] && !categoryToPath.has(cat)) {
+          categoryToPath.set(cat, folderMap[path]);
+        }
+        // Use a more specific key to handle same category under different sub-projects
+        categoryToPath.set(key, folderMap[path] || '');
+      }
+
+      const updates: Array<{ id: string; drive_folder_id: string }> = [];
+
+      for (const item of checklistItems as ChecklistItemRow[]) {
+        const tmpl = item.funding_document_checklist;
+        if (!tmpl) continue;
+
+        const docName = tmpl.document_name?.trim();
+        const cat = tmpl.category?.trim();
+
+        // Check if this is a shared doc (matched by document_name prefix)
+        const sharedMatch = SHARED_SUBFOLDERS.find(sf => docName === sf || docName?.startsWith(sf));
+
+        if (sharedMatch) {
+          // Find which main_project this item belongs to via its category
+          // Look for a detail row where checklist_category matches
+          const detailForItem = projectDetails.find(d => d.checklist_category?.trim() === cat);
+          if (detailForItem) {
+            const mp = detailForItem.main_project.trim();
+            const sharedFolderPath = `Checklist/${mp}/${sharedMatch}`;
+            const folderId = folderMap[sharedFolderPath];
+            if (folderId) updates.push({ id: item.id, drive_folder_id: folderId });
+          }
+        } else {
+          // Category-level item — find its folder via main+sub+category
+          const detailForItem = projectDetails.find(d => d.checklist_category?.trim() === cat);
+          if (detailForItem) {
+            const mp = detailForItem.main_project.trim();
+            const sp = detailForItem.sub_project?.trim();
+            if (sp) {
+              const catFolderPath = `Checklist/${mp}/${sp}/${cat}`;
+              const folderId = folderMap[catFolderPath];
+              if (folderId) updates.push({ id: item.id, drive_folder_id: folderId });
+            }
+          }
+        }
+      }
+
+      // Batch update in chunks of 50
+      for (let i = 0; i < updates.length; i += 50) {
+        const chunk = updates.slice(i, i + 50);
+        await Promise.all(
+          chunk.map(({ id, drive_folder_id }) =>
+            supabase
+              .from('project_checklist_items')
+              .update({ drive_folder_id })
+              .eq('id', id)
+          )
+        );
+      }
+
+      console.log(`Updated drive_folder_id for ${updates.length} checklist items`);
     }
 
     const checklistDriveUrl = `https://drive.google.com/drive/folders/${checklistRootId}`;
@@ -238,7 +329,8 @@ Deno.serve(async (req: Request) => {
         checklist_drive_url: checklistDriveUrl,
         folders_created: totalFolders,
         folder_map: folderMap,
-        message: `Successfully created ${totalFolders} folders in the Checklist structure.`,
+        items_linked: checklistItems?.length ?? 0,
+        message: `Successfully created ${totalFolders} folders and linked ${checklistItems?.length ?? 0} checklist items.`,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
