@@ -67,6 +67,18 @@ function getExtension(mimeType: string, name: string): string {
   return mimeMap[mimeType] || 'file';
 }
 
+async function sendToN8n(webhookUrl: string, payload: Record<string, unknown>): Promise<void> {
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.warn('n8n webhook failed:', err);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -132,7 +144,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // --- Load checklist items (drive_folder_id → item metadata) ---
+    // --- Load checklist items ---
     const { data: checklistItems, error: itemsErr } = await supabase
       .from('project_checklist_items')
       .select('id, drive_folder_id, document_name, category, checklist_id')
@@ -140,7 +152,7 @@ Deno.serve(async (req: Request) => {
 
     if (itemsErr) throw itemsErr;
 
-    // Build drive_folder_id → checklist items (multiple items can share same folder)
+    // Build: drive_folder_id → array of items sharing that folder
     const folderToItems: Record<string, Array<{ id: string; document_name: string; category: string }>> = {};
     for (const item of (checklistItems || [])) {
       if (item.drive_folder_id) {
@@ -153,16 +165,23 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // --- Load all verification check templates from funding_document_checklist ---
-    // Key: "category|||document_name" → array of check rows
-    const { data: allCheckTemplates, error: templatesErr } = await supabase
-      .from('funding_document_checklist')
-      .select('id, category, document_name, description, is_required, order_index')
-      .order('order_index');
+    // Build: drive_folder_id → ONE representative item per document_name
+    // (for shared docs, many items share the same folder+document_name — pick one)
+    const folderToRepresentativeItems: Record<string, Array<{ id: string; document_name: string; category: string }>> = {};
+    for (const [folderId, items] of Object.entries(folderToItems)) {
+      const seenDocNames = new Set<string>();
+      const representatives: Array<{ id: string; document_name: string; category: string }> = [];
+      for (const item of items) {
+        const key = item.document_name || item.id;
+        if (!seenDocNames.has(key)) {
+          seenDocNames.add(key);
+          representatives.push(item);
+        }
+      }
+      folderToRepresentativeItems[folderId] = representatives;
+    }
 
-    if (templatesErr) throw templatesErr;
-
-    // Build lookup: document_name → check items (category-aware fallback)
+    // --- Load check templates ---
     type CheckTemplate = {
       id: string;
       category: string;
@@ -172,6 +191,13 @@ Deno.serve(async (req: Request) => {
       order_index: number;
     };
 
+    const { data: allCheckTemplates, error: templatesErr } = await supabase
+      .from('funding_document_checklist')
+      .select('id, category, document_name, description, is_required, order_index')
+      .order('order_index');
+
+    if (templatesErr) throw templatesErr;
+
     const templatesByKey: Record<string, CheckTemplate[]> = {};
     for (const t of (allCheckTemplates || []) as CheckTemplate[]) {
       const key = `${t.category}|||${t.document_name}`;
@@ -179,14 +205,15 @@ Deno.serve(async (req: Request) => {
       templatesByKey[key].push(t);
     }
 
-    // Also build a document_name-only lookup (used as fallback)
+    // Deduplicated by description across all categories for a given document_name
     const templatesByDocName: Record<string, CheckTemplate[]> = {};
     for (const t of (allCheckTemplates || []) as CheckTemplate[]) {
       if (!templatesByDocName[t.document_name]) templatesByDocName[t.document_name] = [];
-      templatesByDocName[t.document_name].push(t);
+      const alreadyHas = templatesByDocName[t.document_name].some(x => x.description === t.description);
+      if (!alreadyHas) templatesByDocName[t.document_name].push(t);
     }
 
-    // --- Load existing (file_id, checklist_item_id) pairs to prevent duplicates ---
+    // --- Load existing file rows to prevent duplicates ---
     const itemIds = (checklistItems || []).map((i: { id: string }) => i.id).filter(Boolean);
     const { data: allProjectFiles } = itemIds.length > 0
       ? await supabase
@@ -195,44 +222,48 @@ Deno.serve(async (req: Request) => {
           .in('checklist_item_id', itemIds)
       : { data: [] };
 
-    let totalScanned = 0;
-    let totalFilesInserted = 0;
-    let totalChecksInserted = 0;
-    const folderDebug: Array<{ folder_id: string; folder_name: string; files_found: number; error?: string }> = [];
-
-    // Track which (file_id, checklist_item_id) pairs already exist to avoid duplicates across items
+    // Track existing (drive_file_id, checklist_item_id) pairs
     const existingPairs = new Set<string>();
     for (const f of (allProjectFiles || []) as Array<{ id: string; file_id: string; checklist_item_id: string }>) {
       if (f.file_id && f.checklist_item_id) existingPairs.add(`${f.file_id}|||${f.checklist_item_id}`);
     }
 
-    // Build a unified set of all folder IDs to scan:
-    // - from project_checklist_folders (created by folder structure creation)
-    // - from project_checklist_items.drive_folder_id (manually linked)
+    let totalScanned = 0;
+    let totalFilesInserted = 0;
+    let totalChecksInserted = 0;
+    const folderDebug: Array<{ folder_id: string; folder_name: string; files_found: number; error?: string }> = [];
+    const newFilePayloads: Array<Record<string, unknown>> = [];
+
+    // Unified set of folder IDs to scan
     const allFolderIdsToScan = new Set<string>();
-    for (const folder of (folderRows as Array<{ drive_folder_id: string }>) ) {
+    for (const folder of (folderRows as Array<{ drive_folder_id: string }>)) {
       if (folder.drive_folder_id) allFolderIdsToScan.add(folder.drive_folder_id);
     }
     for (const item of (checklistItems || [])) {
       if (item.drive_folder_id) allFolderIdsToScan.add(item.drive_folder_id);
     }
 
-    // --- Scan each folder ---
     const scannedFolderIds = new Set<string>();
 
     for (const drive_folder_id of allFolderIdsToScan) {
-      const items = folderToItems[drive_folder_id];
-      if (!items || items.length === 0) continue;
+      // Use representative items (one per document_name) to avoid duplicate file rows
+      const repItems = folderToRepresentativeItems[drive_folder_id];
+      if (!repItems || repItems.length === 0) continue;
       if (scannedFolderIds.has(drive_folder_id)) continue;
       scannedFolderIds.add(drive_folder_id);
 
       const { files, error: driveErr } = await listFilesInFolder(drive_folder_id, access_token);
-      folderDebug.push({ folder_id: drive_folder_id, folder_name: items[0]?.document_name || drive_folder_id, files_found: files.length, error: driveErr });
+      folderDebug.push({
+        folder_id: drive_folder_id,
+        folder_name: repItems[0]?.document_name || drive_folder_id,
+        files_found: files.length,
+        error: driveErr,
+      });
       totalScanned += files.length;
 
       for (const file of files as Array<{ id: string; name: string; mimeType: string; size: string; webViewLink: string }>) {
-        // Insert file once per checklist item that shares this folder
-        for (const item of items) {
+        // Insert ONE row per representative item (one per document_name in this folder)
+        for (const item of repItems) {
           const pairKey = `${file.id}|||${item.id}`;
           if (existingPairs.has(pairKey)) continue;
 
@@ -266,17 +297,11 @@ Deno.serve(async (req: Request) => {
 
           if (!documentType) continue;
 
+          // Use category-specific templates first, then deduplicated doc-level templates
           const specificKey = `${category}|||${documentType}`;
           let checkTemplates: CheckTemplate[] = templatesByKey[specificKey] || [];
-
           if (checkTemplates.length === 0) {
-            const seen = new Set<string>();
-            for (const t of (templatesByDocName[documentType] || [])) {
-              if (!seen.has(t.description)) {
-                seen.add(t.description);
-                checkTemplates.push(t);
-              }
-            }
+            checkTemplates = templatesByDocName[documentType] || [];
           }
 
           if (checkTemplates.length === 0) continue;
@@ -299,13 +324,34 @@ Deno.serve(async (req: Request) => {
             const { error: checksErr } = await supabase
               .from('project_checklist_file_checks')
               .insert(chunk);
-            if (checksErr) {
-              console.error('Checks insert error:', checksErr);
-            } else {
+            if (!checksErr) {
               totalChecksInserted += chunk.length;
+            } else {
+              console.error('Checks insert error:', checksErr);
             }
           }
+
+          // Collect payload for n8n
+          newFilePayloads.push({
+            project_id,
+            file_row_id: insertedFile.id,
+            drive_file_id: file.id,
+            file_name: file.name,
+            file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
+            document_name: documentType,
+            category,
+            checklist_item_id: item.id,
+            check_count: checkRows.length,
+          });
         }
+      }
+    }
+
+    // --- Send each new file to n8n for AI validation ---
+    const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
+    if (n8nWebhookUrl && newFilePayloads.length > 0) {
+      for (const payload of newFilePayloads) {
+        EdgeRuntime.waitUntil(sendToN8n(n8nWebhookUrl, payload));
       }
     }
 

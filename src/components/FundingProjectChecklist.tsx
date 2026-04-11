@@ -28,6 +28,8 @@ interface ProjectChecklistItem {
   id: string;
   project_id: string;
   checklist_id: string;
+  document_name: string | null;
+  category: string | null;
   is_checked: boolean;
   is_checked_by_ai: boolean;
   ai_checked_at: string | null;
@@ -819,10 +821,10 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
               <div className="px-10 py-2.5 text-xs text-slate-400 italic border-t border-slate-50">
                 No files synced yet
                 {!hasDriveFolder && (
-                  <span className="ml-1">— link a Drive folder above, then use "Sync from Drive"</span>
+                  <span className="ml-1">— link a Drive folder above, then click "Check by AI"</span>
                 )}
                 {hasDriveFolder && (
-                  <span className="ml-1">— click "Sync from Drive" to import files</span>
+                  <span className="ml-1">— click "Check by AI" to import files</span>
                 )}
               </div>
             ) : (
@@ -895,15 +897,15 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           <button
             onClick={handleSyncAll}
             disabled={syncingAll}
-            title="Sync all Drive folders and send new files for AI document checking"
+            title="Scan Drive folders for new files and send to AI for document checking"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {syncingAll ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <Send className="w-3.5 h-3.5" />
+              <Bot className="w-3.5 h-3.5" />
             )}
-            {syncingAll ? 'Syncing...' : 'Sync from Drive'}
+            {syncingAll ? 'Checking...' : 'Check by AI'}
           </button>
           <button
             onClick={loadChecklist}
@@ -978,7 +980,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             <span className="text-sm text-orange-700 font-medium">
               {syncAllResult.files === 0
                 ? 'No new files found'
-                : `${syncAllResult.files} new file${syncAllResult.files !== 1 ? 's' : ''} synced and checks created`}
+                : `${syncAllResult.files} new file${syncAllResult.files !== 1 ? 's' : ''} imported and sent to AI for checking`}
             </span>
             {syncAllResult.files === 0 && (
               <button onClick={() => setSyncAllResult(null)} className="ml-auto text-slate-400 hover:text-slate-600">
