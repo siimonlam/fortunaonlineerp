@@ -139,15 +139,16 @@ Deno.serve(async (req: Request) => {
 
     if (itemsErr) throw itemsErr;
 
-    // Build drive_folder_id → checklist item map
-    const folderToItem: Record<string, { id: string; document_name: string; category: string }> = {};
+    // Build drive_folder_id → checklist items (multiple items can share same folder)
+    const folderToItems: Record<string, Array<{ id: string; document_name: string; category: string }>> = {};
     for (const item of (checklistItems || [])) {
       if (item.drive_folder_id) {
-        folderToItem[item.drive_folder_id] = {
+        if (!folderToItems[item.drive_folder_id]) folderToItems[item.drive_folder_id] = [];
+        folderToItems[item.drive_folder_id].push({
           id: item.id,
           document_name: item.document_name,
           category: item.category,
-        };
+        });
       }
     }
 
@@ -184,39 +185,29 @@ Deno.serve(async (req: Request) => {
       templatesByDocName[t.document_name].push(t);
     }
 
-    // --- Load existing file_ids to prevent duplicates ---
-    const { data: existingFiles } = await supabase
-      .from('project_checklist_files')
-      .select('id, file_id')
-      .eq('checklist_item_id', (checklistItems || []).map((i: { id: string }) => i.id));
-
-    const existingFileIds = new Set<string>();
-    const existingFileRowIds: Array<{ id: string; file_id: string }> = [];
-    for (const f of (existingFiles || []) as Array<{ id: string; file_id: string }>) {
-      if (f.file_id) {
-        existingFileIds.add(f.file_id);
-        existingFileRowIds.push(f);
-      }
-    }
-
-    // Also check project-wide to be safe
-    const { data: allProjectFiles } = await supabase
-      .from('project_checklist_files')
-      .select('id, file_id')
-      .in(
-        'checklist_item_id',
-        (checklistItems || []).map((i: { id: string }) => i.id).filter(Boolean)
-      );
-
-    for (const f of (allProjectFiles || []) as Array<{ id: string; file_id: string }>) {
-      if (f.file_id) existingFileIds.add(f.file_id);
-    }
+    // --- Load existing (file_id, checklist_item_id) pairs to prevent duplicates ---
+    const itemIds = (checklistItems || []).map((i: { id: string }) => i.id).filter(Boolean);
+    const { data: allProjectFiles } = itemIds.length > 0
+      ? await supabase
+          .from('project_checklist_files')
+          .select('id, file_id, checklist_item_id')
+          .in('checklist_item_id', itemIds)
+      : { data: [] };
 
     let totalScanned = 0;
     let totalFilesInserted = 0;
     let totalChecksInserted = 0;
 
+    // Track which (file_id, checklist_item_id) pairs already exist to avoid duplicates across items
+    const existingPairs = new Set<string>();
+    for (const f of (allProjectFiles || []) as Array<{ id: string; file_id: string; checklist_item_id: string }>) {
+      if (f.file_id && f.checklist_item_id) existingPairs.add(`${f.file_id}|||${f.checklist_item_id}`);
+    }
+
     // --- Scan each folder ---
+    // Deduplicate folders so we don't list the same Drive folder multiple times
+    const scannedFolderIds = new Set<string>();
+
     for (const folder of folderRows as Array<{
       folder_path: string;
       folder_type: string;
@@ -224,89 +215,88 @@ Deno.serve(async (req: Request) => {
       drive_folder_id: string;
     }>) {
       const { drive_folder_id } = folder;
-      const item = folderToItem[drive_folder_id];
-      if (!item) continue;
+      const items = folderToItems[drive_folder_id];
+      if (!items || items.length === 0) continue;
+      if (scannedFolderIds.has(drive_folder_id)) continue;
+      scannedFolderIds.add(drive_folder_id);
 
       const files = await listFilesInFolder(drive_folder_id, access_token);
       totalScanned += files.length;
 
       for (const file of files) {
-        if (existingFileIds.has(file.id)) continue;
+        // Insert file once per checklist item that shares this folder
+        for (const item of items) {
+          const pairKey = `${file.id}|||${item.id}`;
+          if (existingPairs.has(pairKey)) continue;
 
-        // Determine document_type: use the checklist item's document_name
-        const documentType = item.document_name || null;
-        const category = item.category || null;
+          const documentType = item.document_name || null;
+          const category = item.category || null;
 
-        // Insert the file row
-        const { data: insertedFile, error: fileInsertErr } = await supabase
-          .from('project_checklist_files')
-          .insert({
-            checklist_item_id: item.id,
-            file_id: file.id,
-            file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
-            file_name: file.name,
-            file_type: getExtension(file.mimeType, file.name),
-            file_size: file.size ? parseInt(file.size, 10) : null,
-            drive_folder_id: drive_folder_id,
-            document_type: documentType,
-            extracted_data: {},
-            is_verified_by_ai: false,
-          })
-          .select('id')
-          .single();
+          const { data: insertedFile, error: fileInsertErr } = await supabase
+            .from('project_checklist_files')
+            .insert({
+              checklist_item_id: item.id,
+              file_id: file.id,
+              file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
+              file_name: file.name,
+              file_type: getExtension(file.mimeType, file.name),
+              file_size: file.size ? parseInt(file.size, 10) : null,
+              drive_folder_id: drive_folder_id,
+              document_type: documentType,
+              extracted_data: {},
+              is_verified_by_ai: false,
+            })
+            .select('id')
+            .single();
 
-        if (fileInsertErr || !insertedFile) {
-          console.error('File insert error:', fileInsertErr);
-          continue;
-        }
+          if (fileInsertErr || !insertedFile) {
+            console.error('File insert error:', fileInsertErr);
+            continue;
+          }
 
-        existingFileIds.add(file.id);
-        totalFilesInserted++;
+          existingPairs.add(pairKey);
+          totalFilesInserted++;
 
-        // --- Look up check templates for this document type ---
-        if (!documentType) continue;
+          if (!documentType) continue;
 
-        // Try category-specific first, then fall back to any category match
-        const specificKey = `${category}|||${documentType}`;
-        let checkTemplates: CheckTemplate[] = templatesByKey[specificKey] || [];
+          const specificKey = `${category}|||${documentType}`;
+          let checkTemplates: CheckTemplate[] = templatesByKey[specificKey] || [];
 
-        if (checkTemplates.length === 0) {
-          // Fallback: deduplicated checks from any category matching this document_name
-          const seen = new Set<string>();
-          for (const t of (templatesByDocName[documentType] || [])) {
-            if (!seen.has(t.description)) {
-              seen.add(t.description);
-              checkTemplates.push(t);
+          if (checkTemplates.length === 0) {
+            const seen = new Set<string>();
+            for (const t of (templatesByDocName[documentType] || [])) {
+              if (!seen.has(t.description)) {
+                seen.add(t.description);
+                checkTemplates.push(t);
+              }
             }
           }
-        }
 
-        if (checkTemplates.length === 0) continue;
+          if (checkTemplates.length === 0) continue;
 
-        // Insert one check row per template item
-        const checkRows = checkTemplates.map((t) => ({
-          file_id: insertedFile.id,
-          checklist_item_id: item.id,
-          project_id,
-          document_type: documentType,
-          category: t.category,
-          description: t.description,
-          order_index: t.order_index,
-          is_required: t.is_required,
-          is_checked: false,
-          is_checked_by_ai: false,
-        }));
+          const checkRows = checkTemplates.map((t) => ({
+            file_id: insertedFile.id,
+            checklist_item_id: item.id,
+            project_id,
+            document_type: documentType,
+            category: t.category,
+            description: t.description,
+            order_index: t.order_index,
+            is_required: t.is_required,
+            is_checked: false,
+            is_checked_by_ai: false,
+          }));
 
-        // Batch insert checks in chunks
-        for (let i = 0; i < checkRows.length; i += 50) {
-          const chunk = checkRows.slice(i, i + 50);
-          const { error: checksErr } = await supabase
-            .from('project_checklist_file_checks')
-            .insert(chunk);
-          if (checksErr) {
-            console.error('Checks insert error:', checksErr);
-          } else {
-            totalChecksInserted += chunk.length;
+          for (let i = 0; i < checkRows.length; i += 50) {
+            const chunk = checkRows.slice(i, i + 50);
+            const { error: checksErr } = await supabase
+              .from('project_checklist_file_checks')
+              .insert(chunk);
+            if (checksErr) {
+              console.error('Checks insert error:', checksErr);
+            } else {
+              totalChecksInserted += chunk.length;
+            }
           }
         }
       }
