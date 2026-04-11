@@ -292,24 +292,43 @@ Deno.serve(async (req: Request) => {
         const isShared = SHARED_SUBFOLDERS.includes(docName);
 
         if (isShared) {
-          // Find which main_project this item's category belongs to
-          const detailForItem = projectDetails.find(d => d.checklist_category?.trim() === cat);
-          if (detailForItem) {
+          // Shared docs go under Checklist/{main_project}/{docName}
+          // Try all matching main_projects for this category and pick the first folder that exists
+          const matchingDetails = projectDetails.filter(d => d.checklist_category?.trim() === cat);
+          let linked = false;
+          for (const detailForItem of matchingDetails) {
             const mp = detailForItem.main_project.trim();
             const sharedPath = `Checklist/${mp}/${docName}`;
             const folderId = folderMap[sharedPath];
-            if (folderId) updates.push({ id: item.id, drive_folder_id: folderId });
+            if (folderId) {
+              updates.push({ id: item.id, drive_folder_id: folderId });
+              linked = true;
+              break;
+            }
+          }
+          if (!linked) {
+            // Fallback: try any main_project that has this shared folder
+            for (const [path, folderId] of Object.entries(folderMap)) {
+              if (path.endsWith(`/${docName}`) && path.startsWith('Checklist/')) {
+                updates.push({ id: item.id, drive_folder_id: folderId });
+                break;
+              }
+            }
           }
         } else {
-          // Category-level item
-          const detailForItem = projectDetails.find(d => d.checklist_category?.trim() === cat);
-          if (detailForItem) {
+          // Category-level item: Checklist/{main_project}/{sub_project}/{category}
+          // Try all matching sub_projects for this category and pick the first folder that exists
+          const matchingDetails = projectDetails.filter(d => d.checklist_category?.trim() === cat);
+          for (const detailForItem of matchingDetails) {
             const mp = detailForItem.main_project.trim();
             const sp = detailForItem.sub_project?.trim();
             if (sp) {
               const catPath = `Checklist/${mp}/${sp}/${cat}`;
               const folderId = folderMap[catPath];
-              if (folderId) updates.push({ id: item.id, drive_folder_id: folderId });
+              if (folderId) {
+                updates.push({ id: item.id, drive_folder_id: folderId });
+                break;
+              }
             }
           }
         }
