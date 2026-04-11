@@ -161,7 +161,7 @@ Deno.serve(async (req: Request) => {
 
     const newFiles = driveFiles.filter(f => !existingFileIds.has(f.id));
 
-    const n8nWebhookUrl = Deno.env.get("N8N_WEBHOOK_URL") || "https://n8n.fortuna-online.org/webhook-test/69fd45ad-defe-4a40-8770-1b9e65c9f775";
+    const n8nWebhookUrl = Deno.env.get("N8N_WEBHOOK_URL");
     let synced = 0;
     let webhooksSent = 0;
 

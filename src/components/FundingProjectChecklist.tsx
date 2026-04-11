@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Database, Layers, FolderOpen, FolderPlus, ExternalLink, Link, X, FileText } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Database, Layers, FolderOpen, FolderPlus, ExternalLink, Link, X, FileText, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createChecklistFolders, createBudProjectFolders } from '../utils/googleDriveUtils';
 
@@ -120,6 +120,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [checklistFiles, setChecklistFiles] = useState<Map<string, ChecklistFile[]>>(new Map());
   const [folderInputItem, setFolderInputItem] = useState<string | null>(null);
   const [folderInputValue, setFolderInputValue] = useState<string>('');
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncAllResult, setSyncAllResult] = useState<{ synced: number; sent: number } | null>(null);
+  const [syncAllError, setSyncAllError] = useState<string | null>(null);
 
   const loadCurrentUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -510,6 +513,60 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     );
   };
 
+  const handleSyncAllToN8n = async () => {
+    setSyncingAll(true);
+    setSyncAllResult(null);
+    setSyncAllError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const allItems = mainProjectGroups.flatMap(mpg => getMainProjectItems(mpg));
+      const itemsWithFolders = allItems.filter(({ projectItem }) => projectItem?.drive_folder_id);
+
+      if (itemsWithFolders.length === 0) {
+        setSyncAllError('No checklist items have a Drive folder linked. Click the Sync button on individual items to link folders first.');
+        setSyncingAll(false);
+        return;
+      }
+
+      let totalSynced = 0;
+      let totalSent = 0;
+
+      for (const { projectItem } of itemsWithFolders) {
+        if (!projectItem) continue;
+        try {
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-checklist-files`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({
+              checklist_item_id: projectItem.id,
+              drive_folder_id: projectItem.drive_folder_id,
+            }),
+          });
+          const result = await response.json();
+          if (response.ok) {
+            totalSynced += result.new_files_synced || 0;
+            totalSent += result.webhooks_sent || 0;
+            if (result.new_files_synced > 0) {
+              await loadFilesForItem(projectItem.id);
+            }
+          }
+        } catch {
+          // continue on individual failures
+        }
+      }
+
+      setSyncAllResult({ synced: totalSynced, sent: totalSent });
+    } catch (err) {
+      setSyncAllError(err instanceof Error ? err.message : 'Sync failed');
+    } finally {
+      setSyncingAll(false);
+      setTimeout(() => setSyncAllResult(null), 5000);
+    }
+  };
+
   const toggleUserCheck = async (template: ChecklistTemplate, projectItem: ProjectChecklistItem | null) => {
     const newChecked = !(projectItem?.is_checked ?? false);
     setSavingItem({ id: template.id, type: 'user' });
@@ -893,6 +950,19 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             </button>
           )}
           <button
+            onClick={handleSyncAllToN8n}
+            disabled={syncingAll}
+            title="Sync all linked Drive folders and send new files to n8n for AI processing"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {syncingAll ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
+            {syncingAll ? 'Syncing...' : 'Sync All to n8n'}
+          </button>
+          <button
             onClick={loadChecklist}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
           >
@@ -953,6 +1023,24 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-700">{budFolderError}</p>
+        </div>
+      )}
+
+      {syncAllResult && (
+        <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+          <Send className="w-4 h-4 text-orange-500 flex-shrink-0" />
+          <span className="text-sm text-orange-700 font-medium">
+            {syncAllResult.synced === 0
+              ? 'No new files found across all folders'
+              : `${syncAllResult.synced} new file${syncAllResult.synced !== 1 ? 's' : ''} sent to n8n for AI processing`}
+          </span>
+        </div>
+      )}
+
+      {syncAllError && (
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700">{syncAllError}</p>
         </div>
       )}
 
