@@ -85,6 +85,15 @@ interface ProjectDetail {
   sub_project: string;
   checklist_category: string;
   item_number: string;
+  item_grant_amount: number | null;
+  sub_project_grant_amount: number | null;
+}
+
+function getRequiredVendorCount(amount: number | null): number | null {
+  if (amount == null || amount < 50000) return null;
+  if (amount < 300000) return 2;
+  if (amount < 1400000) return 3;
+  return 5;
 }
 
 interface FundingProjectChecklistProps {
@@ -101,6 +110,7 @@ interface DocumentFolder {
   template: ChecklistTemplate;
   projectItem: ProjectChecklistItem | null;
   allProjectItems?: ProjectChecklistItem[];
+  itemGrantAmount?: number | null;
 }
 
 interface CategoryGroup {
@@ -148,7 +158,6 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<string | null>(null);
   const [togglingSelectedVendor, setTogglingSelectedVendor] = useState<string | null>(null);
-  const [savingRequiredCount, setSavingRequiredCount] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [realtimeActive, setRealtimeActive] = useState(false);
@@ -187,7 +196,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       const [detailsRes, templatesRes, projectItemsRes] = await Promise.all([
         supabase
           .from('funding_project_details')
-          .select('main_project, sub_project, checklist_category, item_number')
+          .select('main_project, sub_project, checklist_category, item_number, item_grant_amount, sub_project_grant_amount')
           .eq('project_id', projectId)
           .not('checklist_category', 'is', null)
           .not('checklist_category', 'eq', '')
@@ -251,6 +260,15 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         uniqueDocTemplateByCategory.set(cat, docMap);
       });
 
+      // Build a map: (sub_project + checklist_category) -> max grant amount for auto vendor count
+      const amountBySubCat = new Map<string, number>();
+      details.forEach(d => {
+        const key = `${d.sub_project || ''}|||${d.checklist_category}`;
+        const amt = d.item_grant_amount ?? d.sub_project_grant_amount ?? 0;
+        const existing = amountBySubCat.get(key) ?? 0;
+        if (amt > existing) amountBySubCat.set(key, amt);
+      });
+
       type SubMap = Map<string, Set<string>>;
       type MainMap = Map<string, SubMap>;
       const mainMap: MainMap = new Map();
@@ -277,13 +295,19 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           docMap.forEach((template, docName) => {
             if (isSharedDoc(docName) && !seenSharedDocNames.has(docName)) {
               seenSharedDocNames.add(docName);
-              // Collect items only from categories present in THIS main_project
               const scopedItems: ProjectChecklistItem[] = [];
               const seenItemIds = new Set<string>();
+              let maxAmt = 0;
               allCategoriesForMain.forEach(c => {
                 const key = `${c}|||${docName}`;
                 (itemsByCategoryAndDocName.get(key) || []).forEach(item => {
                   if (!seenItemIds.has(item.id)) { seenItemIds.add(item.id); scopedItems.push(item); }
+                });
+                // Aggregate max amount across all sub-projects for this category
+                subMap.forEach((_cats, sub) => {
+                  const amtKey = `${sub}|||${c}`;
+                  const amt = amountBySubCat.get(amtKey) ?? 0;
+                  if (amt > maxAmt) maxAmt = amt;
                 });
               });
               sharedDocuments.push({
@@ -291,6 +315,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 template,
                 projectItem: projectItemMap.get(template.id) || null,
                 allProjectItems: scopedItems,
+                itemGrantAmount: maxAmt > 0 ? maxAmt : null,
               });
             }
           });
@@ -310,12 +335,15 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           cats.forEach(checklist_category => {
             const docMap = uniqueDocTemplateByCategory.get(checklist_category) || new Map();
             const documents: DocumentFolder[] = [];
+            const catAmtKey = `${sub_project}|||${checklist_category}`;
+            const catAmt = amountBySubCat.get(catAmtKey) ?? null;
             docMap.forEach((template, docName) => {
               if (!isSharedDoc(docName)) {
                 documents.push({
                   document_name: docName,
                   template,
                   projectItem: projectItemMap.get(template.id) || null,
+                  itemGrantAmount: catAmt,
                 });
               }
             });
@@ -724,35 +752,6 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     }
   };
 
-  const saveRequiredVendorCount = async (itemId: string, count: number | null) => {
-    setSavingRequiredCount(itemId);
-    try {
-      await supabase
-        .from('project_checklist_items')
-        .update({ required_vendor_count: count })
-        .eq('id', itemId);
-      setMainProjectGroups(prev => prev.map(mpg => ({
-        ...mpg,
-        sharedDocuments: mpg.sharedDocuments.map(d => ({
-          ...d,
-          projectItem: d.projectItem?.id === itemId ? { ...d.projectItem, required_vendor_count: count } : d.projectItem,
-          allProjectItems: d.allProjectItems?.map(i => i.id === itemId ? { ...i, required_vendor_count: count } : i),
-        })),
-        subProjects: mpg.subProjects.map(spg => ({
-          ...spg,
-          categories: spg.categories.map(cg => ({
-            ...cg,
-            documents: cg.documents.map(d => ({
-              ...d,
-              projectItem: d.projectItem?.id === itemId ? { ...d.projectItem, required_vendor_count: count } : d.projectItem,
-            })),
-          })),
-        })),
-      })));
-    } finally {
-      setSavingRequiredCount(null);
-    }
-  };
 
   const getFileTypeBadge = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase() || '';
@@ -1007,16 +1006,14 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const hasDriveFolder = itemsToShow.some(i => !!i.drive_folder_id);
     const isShowingFolderInput = folderInputItem === docKey;
 
-    // Quotation-specific status
-    const requiredCount = itemsToShow.find(i => i.required_vendor_count != null)?.required_vendor_count ?? null;
+    // Quotation-specific status — required vendor count is auto-computed from the item grant amount
+    const requiredCount = isQuotation ? getRequiredVendorCount(doc.itemGrantAmount ?? null) : null;
     const selectedVendorFile = isQuotation ? itemFiles.find(f => f.is_selected_vendor) : null;
     const allChecksComplete = dTotal > 0 && (dUser === dTotal || dAi === dTotal);
     const vendorCountMet = !isQuotation || requiredCount === null || itemFiles.length >= requiredCount;
     const hasSelectedVendor = !isQuotation || !!selectedVendorFile;
     const quotationComplete = isQuotation && allChecksComplete && vendorCountMet && hasSelectedVendor;
     const allDone = !isQuotation ? (dTotal > 0 && dUser === dTotal) : quotationComplete;
-
-    const primaryItem = itemsToShow[0] || null;
 
     return (
       <div key={docKey}>
@@ -1080,25 +1077,21 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 </span>
               </>
             )}
-            {isQuotation && primaryItem && (
-              <div className="flex items-center gap-1">
-                <select
-                  value={requiredCount ?? ''}
-                  onChange={e => {
-                    const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
-                    saveRequiredVendorCount(primaryItem.id, val);
-                  }}
-                  disabled={savingRequiredCount === primaryItem.id}
-                  title="Required number of vendor quotations"
-                  className="text-xs border border-slate-200 rounded px-1 py-0.5 bg-white text-slate-600 cursor-pointer hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <option value="">Min vendors</option>
-                  <option value="2">Min 2</option>
-                  <option value="3">Min 3</option>
-                  <option value="5">Min 5</option>
-                </select>
-              </div>
+            {isQuotation && requiredCount != null && (
+              <span
+                title={`HKD ${(doc.itemGrantAmount ?? 0).toLocaleString()} → min ${requiredCount} vendor quotations required`}
+                className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium ${
+                  vendorCountMet ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'
+                }`}
+              >
+                <Hash className="w-3 h-3" />
+                {itemFiles.length}/{requiredCount}
+              </span>
+            )}
+            {isQuotation && requiredCount === null && doc.itemGrantAmount != null && (
+              <span className="text-xs text-slate-400 px-1.5 py-0.5 rounded bg-slate-50">
+                &lt;$50K — no min
+              </span>
             )}
             <button
               onClick={() => {
