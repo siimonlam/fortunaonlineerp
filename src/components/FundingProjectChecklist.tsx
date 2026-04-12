@@ -582,11 +582,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       });
     });
     if (totalChecks === 0) return { byStaff: false, byAi: false, hasChecks: false };
-    return {
-      byStaff: staffChecked === totalChecks,
-      byAi: aiChecked === totalChecks,
-      hasChecks: true,
-    };
+    const byStaff = staffChecked === totalChecks;
+    const byAi = aiChecked === totalChecks;
+    return { byStaff, byAi, hasChecks: true };
   };
 
   // Progress counts documents (not individual check items)
@@ -611,9 +609,10 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         });
       });
     });
-    const docComplete = totalChecks > 0 && staffChecked === totalChecks ? 1 : 0;
-    const docAiComplete = totalChecks > 0 && aiChecked === totalChecks ? 1 : 0;
-    return { total: 1, userChecked: docComplete, aiChecked: docAiComplete, fileCount };
+    const staffDone = totalChecks > 0 && staffChecked === totalChecks;
+    const aiDone = totalChecks > 0 && aiChecked === totalChecks;
+    const docComplete = (staffDone || aiDone) ? 1 : 0;
+    return { total: 1, userChecked: docComplete, aiChecked: aiDone ? 1 : 0, fileCount };
   };
 
   const getGroupProgress = (docs: DocumentFolder[]) => {
@@ -1038,7 +1037,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
               <div className="w-3.5 h-3.5 rounded bg-blue-500 flex items-center justify-center">
                 <User className="w-2.5 h-2.5 text-white" />
               </div>
-              <span className="text-xs text-slate-500">{userChecked}/{total} docs completed by staff</span>
+              <span className="text-xs text-slate-500">{userChecked}/{total} docs completed (staff or AI)</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3.5 h-3.5 rounded bg-amber-500 flex items-center justify-center">
