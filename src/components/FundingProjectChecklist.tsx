@@ -561,43 +561,59 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     setter(next);
   };
 
-  // Progress based on file checks (not item checks)
-  const getFileChecksProgress = (itemId: string) => {
-    const files = checklistFiles.get(itemId) || [];
-    let total = 0; let userChecked = 0; let aiChecked = 0;
-    files.forEach(f => {
-      const checks = fileChecks.get(f.id) || [];
-      checks.forEach(c => {
-        total++;
-        if (c.is_checked) userChecked++;
-        if (c.is_checked_by_ai) aiChecked++;
-      });
-    });
-    return { total, userChecked, aiChecked, fileCount: files.length };
-  };
-
-  const getDocFolderProgress = (doc: DocumentFolder) => {
+  // Returns whether a single document folder is fully completed by staff / AI
+  const isDocComplete = (doc: DocumentFolder): { byStaff: boolean; byAi: boolean; hasChecks: boolean } => {
     const itemsToCheck = doc.allProjectItems && doc.allProjectItems.length > 0
       ? doc.allProjectItems
       : doc.projectItem ? [doc.projectItem] : [];
-    if (itemsToCheck.length === 0) return { total: 0, userChecked: 0, aiChecked: 0, fileCount: 0 };
-    let total = 0; let userChecked = 0; let aiChecked = 0; let fileCount = 0;
+    if (itemsToCheck.length === 0) return { byStaff: false, byAi: false, hasChecks: false };
+
     const seenFileIds = new Set<string>();
+    let totalChecks = 0; let staffChecked = 0; let aiChecked = 0;
     itemsToCheck.forEach(item => {
-      const files = checklistFiles.get(item.id) || [];
-      files.forEach(f => {
+      (checklistFiles.get(item.id) || []).forEach(f => {
         if (seenFileIds.has(f.id)) return;
         seenFileIds.add(f.id);
-        fileCount++;
-        const checks = fileChecks.get(f.id) || [];
-        checks.forEach(c => {
-          total++;
-          if (c.is_checked) userChecked++;
+        (fileChecks.get(f.id) || []).forEach(c => {
+          totalChecks++;
+          if (c.is_checked) staffChecked++;
           if (c.is_checked_by_ai) aiChecked++;
         });
       });
     });
-    return { total, userChecked, aiChecked, fileCount };
+    if (totalChecks === 0) return { byStaff: false, byAi: false, hasChecks: false };
+    return {
+      byStaff: staffChecked === totalChecks,
+      byAi: aiChecked === totalChecks,
+      hasChecks: true,
+    };
+  };
+
+  // Progress counts documents (not individual check items)
+  // total = number of documents, userChecked = docs where ALL checks are staff-done, aiChecked = docs where ALL checks are AI-done
+  const getDocFolderProgress = (doc: DocumentFolder) => {
+    const itemsToCheck = doc.allProjectItems && doc.allProjectItems.length > 0
+      ? doc.allProjectItems
+      : doc.projectItem ? [doc.projectItem] : [];
+    if (itemsToCheck.length === 0) return { total: 1, userChecked: 0, aiChecked: 0, fileCount: 0 };
+    let fileCount = 0;
+    const seenFileIds = new Set<string>();
+    let totalChecks = 0; let staffChecked = 0; let aiChecked = 0;
+    itemsToCheck.forEach(item => {
+      (checklistFiles.get(item.id) || []).forEach(f => {
+        if (seenFileIds.has(f.id)) return;
+        seenFileIds.add(f.id);
+        fileCount++;
+        (fileChecks.get(f.id) || []).forEach(c => {
+          totalChecks++;
+          if (c.is_checked) staffChecked++;
+          if (c.is_checked_by_ai) aiChecked++;
+        });
+      });
+    });
+    const docComplete = totalChecks > 0 && staffChecked === totalChecks ? 1 : 0;
+    const docAiComplete = totalChecks > 0 && aiChecked === totalChecks ? 1 : 0;
+    return { total: 1, userChecked: docComplete, aiChecked: docAiComplete, fileCount };
   };
 
   const getGroupProgress = (docs: DocumentFolder[]) => {
@@ -1022,20 +1038,20 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
               <div className="w-3.5 h-3.5 rounded bg-blue-500 flex items-center justify-center">
                 <User className="w-2.5 h-2.5 text-white" />
               </div>
-              <span className="text-xs text-slate-500">{userChecked}/{total} verified by staff</span>
+              <span className="text-xs text-slate-500">{userChecked}/{total} docs completed by staff</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3.5 h-3.5 rounded bg-amber-500 flex items-center justify-center">
                 <Bot className="w-2.5 h-2.5 text-white" />
               </div>
-              <span className="text-xs text-slate-500">{aiChecked}/{total} verified by AI</span>
+              <span className="text-xs text-slate-500">{aiChecked}/{total} docs completed by AI</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
             <div className="text-2xl font-bold text-blue-600">{pct}%</div>
-            <div className="text-xs text-slate-400">staff complete</div>
+            <div className="text-xs text-slate-400">docs complete</div>
           </div>
           {(localDriveFolderId || projectDriveFolderId) ? (
             <button
