@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Layers, FolderOpen, FolderPlus, ExternalLink, FileText, Send, Link, X, Image, Sheet, FileCode, Zap } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Layers, FolderOpen, FolderPlus, ExternalLink, FileText, Send, Link, X, Image, Sheet, FileCode, Zap, Star, Trophy, AlertTriangle, Hash } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createChecklistFolders, createBudProjectFolders } from '../utils/googleDriveUtils';
 
@@ -40,6 +40,7 @@ interface ProjectChecklistItem {
   data: string | null;
   data_by_ai: string | null;
   drive_folder_id: string | null;
+  required_vendor_count: number | null;
 }
 
 interface ExtractedData {
@@ -60,6 +61,9 @@ interface ChecklistFile {
   created_at: string;
   checklist_item_id: string;
   extracted_data?: ExtractedData | null;
+  is_selected_vendor: boolean;
+  selected_vendor_at: string | null;
+  selected_vendor_by: string | null;
 }
 
 interface FileCheck {
@@ -143,6 +147,8 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [folderInputValue, setFolderInputValue] = useState<string>('');
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<string | null>(null);
+  const [togglingSelectedVendor, setTogglingSelectedVendor] = useState<string | null>(null);
+  const [savingRequiredCount, setSavingRequiredCount] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [realtimeActive, setRealtimeActive] = useState(false);
@@ -327,7 +333,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       if (projectItems.length > 0) {
         const { data: allFiles } = await supabase
           .from('project_checklist_files')
-          .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at, checklist_item_id, extracted_data, project_checklist_items!inner(project_id)')
+          .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at, checklist_item_id, extracted_data, is_selected_vendor, selected_vendor_at, selected_vendor_by, project_checklist_items!inner(project_id)')
           .eq('project_checklist_items.project_id', projectId)
           .order('created_at', { ascending: true });
 
@@ -675,6 +681,79 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     }
   };
 
+  const toggleSelectedVendor = async (file: ChecklistFile, allItemFiles: ChecklistFile[]) => {
+    setTogglingSelectedVendor(file.id);
+    try {
+      const newValue = !file.is_selected_vendor;
+      const now = new Date().toISOString();
+      if (newValue) {
+        const otherIds = allItemFiles.filter(f => f.id !== file.id && f.is_selected_vendor).map(f => f.id);
+        if (otherIds.length > 0) {
+          await supabase
+            .from('project_checklist_files')
+            .update({ is_selected_vendor: false, selected_vendor_at: null, selected_vendor_by: null })
+            .in('id', otherIds);
+        }
+      }
+      await supabase
+        .from('project_checklist_files')
+        .update({
+          is_selected_vendor: newValue,
+          selected_vendor_at: newValue ? now : null,
+          selected_vendor_by: newValue ? currentUserId : null,
+        })
+        .eq('id', file.id);
+      setChecklistFiles(prev => {
+        const updated = new Map(prev);
+        updated.forEach((files, itemId) => {
+          const updatedFiles = files.map(f => {
+            if (allItemFiles.find(af => af.id === f.id)) {
+              if (f.id === file.id) return { ...f, is_selected_vendor: newValue, selected_vendor_at: newValue ? now : null };
+              if (newValue && f.is_selected_vendor) return { ...f, is_selected_vendor: false, selected_vendor_at: null };
+            }
+            return f;
+          });
+          updated.set(itemId, updatedFiles);
+        });
+        return updated;
+      });
+    } catch (err) {
+      console.error('Error toggling selected vendor:', err);
+    } finally {
+      setTogglingSelectedVendor(null);
+    }
+  };
+
+  const saveRequiredVendorCount = async (itemId: string, count: number | null) => {
+    setSavingRequiredCount(itemId);
+    try {
+      await supabase
+        .from('project_checklist_items')
+        .update({ required_vendor_count: count })
+        .eq('id', itemId);
+      setMainProjectGroups(prev => prev.map(mpg => ({
+        ...mpg,
+        sharedDocuments: mpg.sharedDocuments.map(d => ({
+          ...d,
+          projectItem: d.projectItem?.id === itemId ? { ...d.projectItem, required_vendor_count: count } : d.projectItem,
+          allProjectItems: d.allProjectItems?.map(i => i.id === itemId ? { ...i, required_vendor_count: count } : i),
+        })),
+        subProjects: mpg.subProjects.map(spg => ({
+          ...spg,
+          categories: spg.categories.map(cg => ({
+            ...cg,
+            documents: cg.documents.map(d => ({
+              ...d,
+              projectItem: d.projectItem?.id === itemId ? { ...d.projectItem, required_vendor_count: count } : d.projectItem,
+            })),
+          })),
+        })),
+      })));
+    } finally {
+      setSavingRequiredCount(null);
+    }
+  };
+
   const getFileTypeBadge = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase() || '';
     if (ext === 'pdf') return { label: 'PDF', color: 'bg-red-100 text-red-600', icon: <FileText className="w-3 h-3" /> };
@@ -685,23 +764,31 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     return { label: ext.toUpperCase() || 'FILE', color: 'bg-slate-100 text-slate-500', icon: <FileText className="w-3 h-3" /> };
   };
 
-  const renderFileChecks = (file: ChecklistFile) => {
+  const renderFileChecks = (file: ChecklistFile, allItemFiles: ChecklistFile[] = [], isQuotation = false) => {
     const checks = fileChecks.get(file.id) || [];
     const fileKey = `file::${file.id}`;
     const isCollapsed = collapsedFiles.has(fileKey);
     const checkedCount = checks.filter(c => c.is_checked).length;
     const aiCount = checks.filter(c => c.is_checked_by_ai).length;
-    const allDone = checks.length > 0 && checkedCount === checks.length;
+    const allDone = checks.length > 0 && (checkedCount === checks.length || aiCount === checks.length);
     const typeBadge = getFileTypeBadge(file.file_name);
+    const isWinner = file.is_selected_vendor;
+    const isToggling = togglingSelectedVendor === file.id;
 
     const extracted = file.extracted_data;
 
     return (
-      <div key={file.id} className="border-t border-slate-100">
+      <div key={file.id} className={`border-t border-slate-100 ${isWinner ? 'ring-1 ring-inset ring-amber-300' : ''}`}>
+        {isWinner && (
+          <div className="flex items-center gap-1.5 px-4 py-1 bg-amber-50 border-b border-amber-100">
+            <Trophy className="w-3 h-3 text-amber-500" />
+            <span className="text-xs font-semibold text-amber-700">Selected / Winning Vendor</span>
+          </div>
+        )}
         <button
           onClick={() => toggle(collapsedFiles, fileKey, setCollapsedFiles)}
           className={`w-full flex items-start gap-2 px-4 py-2 text-left transition-colors ${
-            allDone ? 'bg-green-50/40 hover:bg-green-50/60' : 'bg-slate-50/80 hover:bg-slate-100'
+            isWinner ? 'bg-amber-50/60 hover:bg-amber-50/80' : allDone ? 'bg-green-50/40 hover:bg-green-50/60' : 'bg-slate-50/80 hover:bg-slate-100'
           }`}
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -740,7 +827,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                   {extracted.sign_date && (
                     <div className="flex items-baseline gap-1">
                       <span className="text-xs text-slate-400 flex-shrink-0">Signed Date</span>
-                      <span className="text-xs text-slate-700 font-medium">{String(extracted.sign_date)}</span>
+                      <span className="text-xs font-semibold text-amber-700">{String(extracted.sign_date)}</span>
                     </div>
                   )}
                   {extracted.total_amount != null && (
@@ -774,6 +861,25 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             )}
             {checks.length === 0 && (
               <span className="text-xs text-slate-300">No checks</span>
+            )}
+            {isQuotation && (
+              <button
+                onClick={e => { e.stopPropagation(); toggleSelectedVendor(file, allItemFiles); }}
+                disabled={isToggling}
+                title={isWinner ? 'Unmark as selected vendor' : 'Mark as selected/winning vendor'}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                  isWinner
+                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                    : 'bg-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-600'
+                }`}
+              >
+                {isToggling ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Star className={`w-3 h-3 ${isWinner ? 'fill-amber-500 text-amber-500' : ''}`} />
+                )}
+                {isWinner ? 'Winner' : 'Select'}
+              </button>
             )}
             <button
               onClick={e => { e.stopPropagation(); setConfirmDeleteFileId(file.id); }}
@@ -886,7 +992,6 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const itemsToShow = doc.allProjectItems && doc.allProjectItems.length > 0
       ? doc.allProjectItems
       : projectItem ? [projectItem] : [];
-    // Deduplicate files by file_id across all items
     const seenIds = new Set<string>();
     const itemFiles: ChecklistFile[] = [];
     itemsToShow.forEach(item => {
@@ -895,13 +1000,23 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       });
     });
     const { total: dTotal, userChecked: dUser, aiChecked: dAi } = getDocFolderProgress(doc);
-    const allDone = dTotal > 0 && dUser === dTotal;
+    const isQuotation = doc.document_name.startsWith('Quotation');
     const hasFiles = itemFiles.length > 0;
-    // Default: collapsed when no files, expanded when files exist. User toggle overrides default.
     const userOverride = userToggledDocs.get(docKey);
     const effectiveCollapsed = userOverride !== undefined ? userOverride : !hasFiles;
     const hasDriveFolder = itemsToShow.some(i => !!i.drive_folder_id);
     const isShowingFolderInput = folderInputItem === docKey;
+
+    // Quotation-specific status
+    const requiredCount = itemsToShow.find(i => i.required_vendor_count != null)?.required_vendor_count ?? null;
+    const selectedVendorFile = isQuotation ? itemFiles.find(f => f.is_selected_vendor) : null;
+    const allChecksComplete = dTotal > 0 && (dUser === dTotal || dAi === dTotal);
+    const vendorCountMet = !isQuotation || requiredCount === null || itemFiles.length >= requiredCount;
+    const hasSelectedVendor = !isQuotation || !!selectedVendorFile;
+    const quotationComplete = isQuotation && allChecksComplete && vendorCountMet && hasSelectedVendor;
+    const allDone = !isQuotation ? (dTotal > 0 && dUser === dTotal) : quotationComplete;
+
+    const primaryItem = itemsToShow[0] || null;
 
     return (
       <div key={docKey}>
@@ -924,6 +1039,28 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 ({itemFiles.length} file{itemFiles.length !== 1 ? 's' : ''})
               </span>
             )}
+            {isQuotation && requiredCount != null && (
+              <span className={`flex items-center gap-1 flex-shrink-0 ml-1 px-1.5 py-0.5 rounded text-xs font-medium ${
+                itemFiles.length >= requiredCount ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'
+              }`}>
+                <Hash className="w-2.5 h-2.5" />
+                {itemFiles.length}/{requiredCount} vendors
+              </span>
+            )}
+            {isQuotation && selectedVendorFile && (
+              <span className="flex items-center gap-1 flex-shrink-0 ml-1 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 font-medium">
+                <Trophy className="w-2.5 h-2.5" />
+                {selectedVendorFile.extracted_data?.vendor_name
+                  ? String(selectedVendorFile.extracted_data.vendor_name).substring(0, 20)
+                  : 'Winner selected'}
+              </span>
+            )}
+            {isQuotation && !selectedVendorFile && hasFiles && (
+              <span className="flex items-center gap-1 flex-shrink-0 ml-1 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-400">
+                <Star className="w-2.5 h-2.5" />
+                No winner
+              </span>
+            )}
             {doc.document_name.startsWith('Quotation') && (projectStartDate || projectEndDate) && (
               <span className="flex items-center gap-1 flex-shrink-0 ml-2 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 font-normal">
                 {projectStartDate && <span>Start: {new Date(projectStartDate).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })}</span>}
@@ -943,6 +1080,26 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 </span>
               </>
             )}
+            {isQuotation && primaryItem && (
+              <div className="flex items-center gap-1">
+                <select
+                  value={requiredCount ?? ''}
+                  onChange={e => {
+                    const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                    saveRequiredVendorCount(primaryItem.id, val);
+                  }}
+                  disabled={savingRequiredCount === primaryItem.id}
+                  title="Required number of vendor quotations"
+                  className="text-xs border border-slate-200 rounded px-1 py-0.5 bg-white text-slate-600 cursor-pointer hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <option value="">Min vendors</option>
+                  <option value="2">Min 2</option>
+                  <option value="3">Min 3</option>
+                  <option value="5">Min 5</option>
+                </select>
+              </div>
+            )}
             <button
               onClick={() => {
                 if (hasDriveFolder) return;
@@ -961,6 +1118,31 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             </button>
           </div>
         </div>
+
+        {isQuotation && hasFiles && (
+          <div className={`${indentClass} pr-4 pb-1`}>
+            <div className="flex items-center gap-3 flex-wrap">
+              {!vendorCountMet && requiredCount != null && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
+                  <AlertTriangle className="w-3 h-3" />
+                  Need {requiredCount - itemFiles.length} more vendor quotation{requiredCount - itemFiles.length !== 1 ? 's' : ''}
+                </div>
+              )}
+              {!hasSelectedVendor && allChecksComplete && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                  <Star className="w-3 h-3" />
+                  Mark winning vendor above to complete
+                </div>
+              )}
+              {quotationComplete && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-xs text-green-700 font-medium">
+                  <Check className="w-3 h-3" />
+                  Quotation complete
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {isShowingFolderInput && (
           <div className={`${indentClass} pr-4 pb-2`}>
@@ -1011,12 +1193,12 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 )}
               </div>
             ) : itemFiles.length === 1 ? (
-              renderFileChecks(itemFiles[0])
+              renderFileChecks(itemFiles[0], itemFiles, isQuotation)
             ) : (
-              <div className="grid gap-px bg-slate-100" style={{ gridTemplateColumns: `repeat(${itemFiles.length}, minmax(0, 1fr))` }}>
+              <div className="grid gap-px bg-slate-100" style={{ gridTemplateColumns: `repeat(${Math.min(itemFiles.length, 4)}, minmax(0, 1fr))` }}>
                 {itemFiles.map(file => (
                   <div key={file.id} className="bg-white">
-                    {renderFileChecks(file)}
+                    {renderFileChecks(file, itemFiles, isQuotation)}
                   </div>
                 ))}
               </div>
