@@ -88,6 +88,8 @@ interface FundingProjectChecklistProps {
   projectDriveFolderId?: string | null;
   projectName?: string;
   projectReference?: string;
+  projectStartDate?: string | null;
+  projectEndDate?: string | null;
 }
 
 interface DocumentFolder {
@@ -113,7 +115,7 @@ interface MainProjectGroup {
   subProjects: SubProjectGroup[];
 }
 
-export default function FundingProjectChecklist({ projectId, projectDriveFolderId, projectName, projectReference }: FundingProjectChecklistProps) {
+export default function FundingProjectChecklist({ projectId, projectDriveFolderId, projectName, projectReference, projectStartDate, projectEndDate }: FundingProjectChecklistProps) {
   const [loading, setLoading] = useState(true);
   const [creatingFolders, setCreatingFolders] = useState(false);
   const [folderResult, setFolderResult] = useState<{ url: string; count: number } | null>(null);
@@ -707,28 +709,33 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 {file.file_name}
               </a>
               {extracted && (
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5">
                   {extracted.vendor_name && (
-                    <span className="text-xs text-slate-500">
-                      <span className="text-slate-400">Vendor:</span> {String(extracted.vendor_name)}
-                    </span>
+                    <div className="flex items-baseline gap-1 col-span-2">
+                      <span className="text-xs text-slate-400 flex-shrink-0">Vendor</span>
+                      <span className="text-xs text-slate-700 font-medium truncate">{String(extracted.vendor_name)}</span>
+                    </div>
                   )}
                   {extracted.quotation_date && (
-                    <span className="text-xs text-slate-500">
-                      <span className="text-slate-400">Date:</span> {String(extracted.quotation_date)}
-                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs text-slate-400 flex-shrink-0">Quotation Date</span>
+                      <span className="text-xs text-slate-700 font-medium">{String(extracted.quotation_date)}</span>
+                    </div>
                   )}
                   {extracted.sign_date && (
-                    <span className="text-xs text-slate-500">
-                      <span className="text-slate-400">Signed:</span> {String(extracted.sign_date)}
-                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs text-slate-400 flex-shrink-0">Signed Date</span>
+                      <span className="text-xs text-slate-700 font-medium">{String(extracted.sign_date)}</span>
+                    </div>
                   )}
                   {extracted.total_amount != null && (
-                    <span className="text-xs text-slate-500">
-                      <span className="text-slate-400">Amount:</span>{' '}
-                      {extracted.currency ? `${extracted.currency} ` : ''}
-                      {Number(extracted.total_amount).toLocaleString()}
-                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs text-slate-400 flex-shrink-0">Amount</span>
+                      <span className="text-xs text-slate-700 font-medium">
+                        {extracted.currency ? `${extracted.currency} ` : ''}
+                        {Number(extracted.total_amount).toLocaleString()}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
@@ -900,6 +907,13 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             {itemFiles.length > 0 && (
               <span className="text-xs text-slate-400 flex-shrink-0 ml-1">
                 ({itemFiles.length} file{itemFiles.length !== 1 ? 's' : ''})
+              </span>
+            )}
+            {doc.document_name.startsWith('Quotation') && (projectStartDate || projectEndDate) && (
+              <span className="flex items-center gap-1 flex-shrink-0 ml-2 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 font-normal">
+                {projectStartDate && <span>Start: {new Date(projectStartDate).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })}</span>}
+                {projectStartDate && projectEndDate && <span className="text-blue-300">–</span>}
+                {projectEndDate && <span>End: {new Date(projectEndDate).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })}</span>}
               </span>
             )}
           </button>

@@ -1919,7 +1919,7 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
             </div>
 
             {summarySubTab === 'checklist' ? (
-              <FundingProjectChecklist projectId={project.id} projectDriveFolderId={project.google_drive_folder_id} projectName={project.company_name || project.title} projectReference={project.project_reference} />
+              <FundingProjectChecklist projectId={project.id} projectDriveFolderId={project.google_drive_folder_id} projectName={project.company_name || project.title} projectReference={project.project_reference} projectStartDate={project.project_start_date || project.start_date} projectEndDate={(project as any).project_end_date} />
             ) : summarySubTab === 'ledger' ? (
               <div className="flex items-center justify-center py-16 text-slate-400">
                 <div className="text-center">
