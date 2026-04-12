@@ -562,6 +562,8 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
 
   const BUYER_CHOP_DESC = '採購公司(BUD申請公司)的蓋印';
   const BUYER_SIG_DESC = '採購公司(BUD申請公司)的簽名';
+  const SUPPLIER_CHOP_DESC = '供應商蓋印';
+  const SUPPLIER_SIG_DESC = '供應商簽名';
 
   const hasBuyerSignatureAndChop = (fileId: string, overrideChecks?: FileCheck[]): boolean => {
     const checks = overrideChecks ?? (fileChecks.get(fileId) || []);
@@ -571,7 +573,13 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const hasSig = checks.some(
       c => c.description === BUYER_SIG_DESC && (c.is_checked || c.is_checked_by_ai)
     );
-    return hasChop && hasSig;
+    const hasSupplierChop = checks.some(
+      c => c.description === SUPPLIER_CHOP_DESC && (c.is_checked || c.is_checked_by_ai)
+    );
+    const hasSupplierSig = checks.some(
+      c => c.description === SUPPLIER_SIG_DESC && (c.is_checked || c.is_checked_by_ai)
+    );
+    return (hasChop && hasSig) || (hasSupplierChop && hasSupplierSig);
   };
 
   const toggleFileCheck = async (
@@ -601,10 +609,11 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           return next;
         });
 
-        // Auto-select this file as the winning vendor when buyer sig + chop are both checked
+        // Auto-select this file as the winning vendor when buyer sig + chop OR supplier sig + chop are both checked
         if (
           newChecked &&
-          (check.description === BUYER_CHOP_DESC || check.description === BUYER_SIG_DESC) &&
+          (check.description === BUYER_CHOP_DESC || check.description === BUYER_SIG_DESC ||
+           check.description === SUPPLIER_CHOP_DESC || check.description === SUPPLIER_SIG_DESC) &&
           allItemFiles &&
           hasBuyerSignatureAndChop(check.file_id, updatedChecks)
         ) {
@@ -1102,13 +1111,6 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
               <span className="flex items-center gap-1 flex-shrink-0 ml-1 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-400">
                 <Star className="w-2.5 h-2.5" />
                 No winner
-              </span>
-            )}
-            {doc.document_name.startsWith('Quotation') && (projectStartDate || projectEndDate) && (
-              <span className="flex items-center gap-1 flex-shrink-0 ml-2 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 font-normal">
-                {projectStartDate && <span>Start: {new Date(projectStartDate).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })}</span>}
-                {projectStartDate && projectEndDate && <span className="text-blue-300">–</span>}
-                {projectEndDate && <span>End: {new Date(projectEndDate).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })}</span>}
               </span>
             )}
           </button>
