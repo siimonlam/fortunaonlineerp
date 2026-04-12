@@ -142,8 +142,22 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
   const [clientChannelPartner, setClientChannelPartner] = useState<any>(null);
   const [clientData, setClientData] = useState<any>(null);
   const [projectType, setProjectType] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'summary' | 'project' | 'invoices' | 'files' | 'emails'>('project');
-  const [summarySubTab, setSummarySubTab] = useState<'detail' | 'ledger' | 'checklist'>('detail');
+  const TAB_KEY = `edit_project_tab_${project.id}`;
+  const SUB_TAB_KEY = `edit_project_subtab_${project.id}`;
+  const [activeTab, setActiveTabState] = useState<'summary' | 'project' | 'invoices' | 'files' | 'emails'>(
+    () => (sessionStorage.getItem(TAB_KEY) as any) || 'project'
+  );
+  const [summarySubTab, setSummarySubTabState] = useState<'detail' | 'ledger' | 'checklist'>(
+    () => (sessionStorage.getItem(SUB_TAB_KEY) as any) || 'detail'
+  );
+  const setActiveTab = (tab: 'summary' | 'project' | 'invoices' | 'files' | 'emails') => {
+    sessionStorage.setItem(TAB_KEY, tab);
+    setActiveTabState(tab);
+  };
+  const setSummarySubTab = (tab: 'detail' | 'ledger' | 'checklist') => {
+    sessionStorage.setItem(SUB_TAB_KEY, tab);
+    setSummarySubTabState(tab);
+  };
   const [invoiceSubTab, setInvoiceSubTab] = useState<'list' | 'agreements' | 'settings'>('list');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [agreements, setAgreements] = useState<any[]>([]);
@@ -1081,11 +1095,15 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
     if (hasUnsavedChanges) {
       setShowUnsavedWarning(true);
     } else {
+      sessionStorage.removeItem(TAB_KEY);
+      sessionStorage.removeItem(SUB_TAB_KEY);
       onClose();
     }
   }
 
   function confirmClose() {
+    sessionStorage.removeItem(TAB_KEY);
+    sessionStorage.removeItem(SUB_TAB_KEY);
     setShowUnsavedWarning(false);
     onClose();
   }
