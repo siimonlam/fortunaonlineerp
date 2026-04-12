@@ -1006,9 +1006,10 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const hasDriveFolder = itemsToShow.some(i => !!i.drive_folder_id);
     const isShowingFolderInput = folderInputItem === docKey;
 
-    // Quotation-specific status — required vendor count is auto-computed from the item grant amount
-    const requiredCount = isQuotation ? getRequiredVendorCount(doc.itemGrantAmount ?? null) : null;
+    // Quotation-specific status — required vendor count is auto-computed from the winning vendor's amount
     const selectedVendorFile = isQuotation ? itemFiles.find(f => f.is_selected_vendor) : null;
+    const winnerAmount = selectedVendorFile?.extracted_data?.total_amount ?? null;
+    const requiredCount = isQuotation ? getRequiredVendorCount(typeof winnerAmount === 'number' ? winnerAmount : null) : null;
     const allChecksComplete = dTotal > 0 && (dUser === dTotal || dAi === dTotal);
     const vendorCountMet = !isQuotation || requiredCount === null || itemFiles.length >= requiredCount;
     const hasSelectedVendor = !isQuotation || !!selectedVendorFile;
@@ -1077,9 +1078,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 </span>
               </>
             )}
-            {isQuotation && requiredCount != null && (
+            {isQuotation && selectedVendorFile && requiredCount != null && (
               <span
-                title={`HKD ${(doc.itemGrantAmount ?? 0).toLocaleString()} → min ${requiredCount} vendor quotations required`}
+                title={`Winner amount HKD ${(winnerAmount ?? 0).toLocaleString()} → min ${requiredCount} vendor quotations required`}
                 className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium ${
                   vendorCountMet ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'
                 }`}
@@ -1088,8 +1089,8 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 {itemFiles.length}/{requiredCount}
               </span>
             )}
-            {isQuotation && requiredCount === null && doc.itemGrantAmount != null && (
-              <span className="text-xs text-slate-400 px-1.5 py-0.5 rounded bg-slate-50">
+            {isQuotation && selectedVendorFile && requiredCount === null && winnerAmount != null && (
+              <span className="text-xs text-slate-400 px-1.5 py-0.5 rounded bg-slate-50" title={`Winner amount HKD ${Number(winnerAmount).toLocaleString()} — below $50K threshold`}>
                 &lt;$50K — no min
               </span>
             )}
@@ -1115,16 +1116,22 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         {isQuotation && hasFiles && (
           <div className={`${indentClass} pr-4 pb-1`}>
             <div className="flex items-center gap-3 flex-wrap">
-              {!vendorCountMet && requiredCount != null && (
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
-                  <AlertTriangle className="w-3 h-3" />
-                  Need {requiredCount - itemFiles.length} more vendor quotation{requiredCount - itemFiles.length !== 1 ? 's' : ''}
+              {!hasSelectedVendor && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-500">
+                  <Star className="w-3 h-3" />
+                  Mark winning vendor to determine minimum quotation count
                 </div>
               )}
-              {!hasSelectedVendor && allChecksComplete && (
+              {!vendorCountMet && requiredCount != null && selectedVendorFile && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
+                  <AlertTriangle className="w-3 h-3" />
+                  Need {requiredCount - itemFiles.length} more vendor quotation{requiredCount - itemFiles.length !== 1 ? 's' : ''} (winner amount HKD {Number(winnerAmount ?? 0).toLocaleString()})
+                </div>
+              )}
+              {hasSelectedVendor && !allChecksComplete && vendorCountMet && (
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
-                  <Star className="w-3 h-3" />
-                  Mark winning vendor above to complete
+                  <Check className="w-3 h-3" />
+                  Complete all file checks to finish
                 </div>
               )}
               {quotationComplete && (
