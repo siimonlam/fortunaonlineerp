@@ -565,6 +565,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const SUPPLIER_CHOP_DESC = '供應商蓋印';
   const SUPPLIER_SIG_DESC = '供應商簽名';
 
+  // Returns true if this file has both buyer chop AND buyer signature verified (by staff or AI)
   const hasBuyerSignatureAndChop = (fileId: string, overrideChecks?: FileCheck[]): boolean => {
     const checks = overrideChecks ?? (fileChecks.get(fileId) || []);
     const hasChop = checks.some(
@@ -573,13 +574,30 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const hasSig = checks.some(
       c => c.description === BUYER_SIG_DESC && (c.is_checked || c.is_checked_by_ai)
     );
-    const hasSupplierChop = checks.some(
-      c => c.description === SUPPLIER_CHOP_DESC && (c.is_checked || c.is_checked_by_ai)
-    );
-    const hasSupplierSig = checks.some(
-      c => c.description === SUPPLIER_SIG_DESC && (c.is_checked || c.is_checked_by_ai)
-    );
-    return (hasChop && hasSig) || (hasSupplierChop && hasSupplierSig);
+    return hasChop && hasSig;
+  };
+
+  // Determine which file should be auto-selected:
+  // Must have buyer chop + sig AND have the lowest total_amount among all qualifying files.
+  // Returns the file that should be selected, or null if no file qualifies.
+  const resolveAutoSelectedVendor = (
+    allItemFiles: ChecklistFile[],
+    overrideFileId?: string,
+    overrideChecks?: FileCheck[]
+  ): ChecklistFile | null => {
+    const qualifying = allItemFiles.filter(f => {
+      const checks = f.id === overrideFileId
+        ? (overrideChecks ?? fileChecks.get(f.id) ?? [])
+        : (fileChecks.get(f.id) ?? []);
+      return hasBuyerSignatureAndChop(f.id, checks);
+    });
+    if (qualifying.length === 0) return null;
+    // Pick the one with the lowest total_amount; treat null/undefined as Infinity
+    return qualifying.reduce((best, f) => {
+      const bAmt = best.extracted_data?.total_amount ?? Infinity;
+      const fAmt = f.extracted_data?.total_amount ?? Infinity;
+      return fAmt < bAmt ? f : best;
+    });
   };
 
   const toggleFileCheck = async (
@@ -609,17 +627,15 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           return next;
         });
 
-        // Auto-select this file as the winning vendor when buyer sig + chop OR supplier sig + chop are both checked
+        // Re-evaluate selected vendor whenever a buyer chop/sig check changes
         if (
-          newChecked &&
-          (check.description === BUYER_CHOP_DESC || check.description === BUYER_SIG_DESC ||
-           check.description === SUPPLIER_CHOP_DESC || check.description === SUPPLIER_SIG_DESC) &&
-          allItemFiles &&
-          hasBuyerSignatureAndChop(check.file_id, updatedChecks)
+          (check.description === BUYER_CHOP_DESC || check.description === BUYER_SIG_DESC) &&
+          allItemFiles
         ) {
-          const fileObj = allItemFiles.find(f => f.id === check.file_id);
-          if (fileObj && !fileObj.is_selected_vendor) {
-            await toggleSelectedVendor(fileObj, allItemFiles);
+          const shouldBeSelected = resolveAutoSelectedVendor(allItemFiles, check.file_id, updatedChecks);
+          const currentlySelected = allItemFiles.find(f => f.is_selected_vendor);
+          if (shouldBeSelected && shouldBeSelected.id !== currentlySelected?.id) {
+            await toggleSelectedVendor(shouldBeSelected, allItemFiles);
           }
         }
       }
