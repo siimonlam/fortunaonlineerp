@@ -559,7 +559,24 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     );
   };
 
-  const toggleFileCheck = async (check: FileCheck) => {
+  const BUYER_CHOP_DESC = '採購公司(BUD申請公司)的蓋印';
+  const BUYER_SIG_DESC = '採購公司(BUD申請公司)的簽名';
+
+  const hasBuyerSignatureAndChop = (fileId: string, overrideChecks?: FileCheck[]): boolean => {
+    const checks = overrideChecks ?? (fileChecks.get(fileId) || []);
+    const hasChop = checks.some(
+      c => c.description === BUYER_CHOP_DESC && (c.is_checked || c.is_checked_by_ai)
+    );
+    const hasSig = checks.some(
+      c => c.description === BUYER_SIG_DESC && (c.is_checked || c.is_checked_by_ai)
+    );
+    return hasChop && hasSig;
+  };
+
+  const toggleFileCheck = async (
+    check: FileCheck,
+    allItemFiles?: ChecklistFile[]
+  ) => {
     const newChecked = !check.is_checked;
     setSavingCheck(check.id);
     try {
@@ -574,12 +591,27 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         .select()
         .maybeSingle();
       if (data) {
+        const updatedChecks = (fileChecks.get(check.file_id) || []).map(
+          c => c.id === check.id ? { ...c, ...data } : c
+        );
         setFileChecks(prev => {
           const next = new Map(prev);
-          const existing = next.get(check.file_id) || [];
-          next.set(check.file_id, existing.map(c => c.id === check.id ? { ...c, ...data } : c));
+          next.set(check.file_id, updatedChecks);
           return next;
         });
+
+        // Auto-select this file as the winning vendor when buyer sig + chop are both checked
+        if (
+          newChecked &&
+          (check.description === BUYER_CHOP_DESC || check.description === BUYER_SIG_DESC) &&
+          allItemFiles &&
+          hasBuyerSignatureAndChop(check.file_id, updatedChecks)
+        ) {
+          const fileObj = allItemFiles.find(f => f.id === check.file_id);
+          if (fileObj && !fileObj.is_selected_vendor) {
+            await toggleSelectedVendor(fileObj, allItemFiles);
+          }
+        }
       }
     } catch (err) {
       console.error('Error toggling check:', err);
@@ -921,7 +953,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 >
                   <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
                     <button
-                      onClick={() => toggleFileCheck(check)}
+                      onClick={() => toggleFileCheck(check, allItemFiles)}
                       disabled={!!savingCheck}
                       title="Staff check"
                       className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
