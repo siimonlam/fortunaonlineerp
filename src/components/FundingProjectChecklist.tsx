@@ -764,6 +764,36 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             .update({ is_selected_vendor: false, selected_vendor_at: null, selected_vendor_by: null })
             .in('id', otherIds);
         }
+
+        // For all non-selected vendor files, AI-verify their buyer chop/sig checks as N/A
+        const nonSelectedIds = allItemFiles.filter(f => f.id !== file.id).map(f => f.id);
+        if (nonSelectedIds.length > 0) {
+          const naDescriptions = [BUYER_CHOP_DESC, BUYER_SIG_DESC];
+          const { data: checksToUpdate } = await supabase
+            .from('project_checklist_file_checks')
+            .select('id, file_id, description')
+            .in('file_id', nonSelectedIds)
+            .in('description', naDescriptions);
+
+          if (checksToUpdate && checksToUpdate.length > 0) {
+            const checkIds = checksToUpdate.map((c: { id: string }) => c.id);
+            await supabase
+              .from('project_checklist_file_checks')
+              .update({ is_checked_by_ai: true, ai_result: 'N/A - Non-Selected Vendor' })
+              .in('id', checkIds);
+
+            setFileChecks(prev => {
+              const next = new Map(prev);
+              checksToUpdate.forEach((c: { id: string; file_id: string }) => {
+                const existing = next.get(c.file_id) || [];
+                next.set(c.file_id, existing.map(ch =>
+                  ch.id === c.id ? { ...ch, is_checked_by_ai: true, ai_result: 'N/A - Non-Selected Vendor' } : ch
+                ));
+              });
+              return next;
+            });
+          }
+        }
       }
       await supabase
         .from('project_checklist_files')
