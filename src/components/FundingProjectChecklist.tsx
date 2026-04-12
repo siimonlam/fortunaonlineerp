@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Layers, FolderOpen, FolderPlus, ExternalLink, FileText, Send, Link, X, Image, Sheet, FileCode } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, AlertCircle, Bot, User, Layers, FolderOpen, FolderPlus, ExternalLink, FileText, Send, Link, X, Image, Sheet, FileCode, Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createChecklistFolders, createBudProjectFolders } from '../utils/googleDriveUtils';
 
@@ -131,6 +131,10 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [folderInputValue, setFolderInputValue] = useState<string>('');
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [realtimeActive, setRealtimeActive] = useState(false);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Files keyed by checklist_item_id
   const [checklistFiles, setChecklistFiles] = useState<Map<string, ChecklistFile[]>>(new Map());
@@ -149,8 +153,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     setCurrentUserName(profile?.full_name || profile?.email || user.email || '');
   }, []);
 
-  const loadChecklist = useCallback(async () => {
-    setLoading(true);
+  const loadChecklist = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const { data: projectData } = await supabase
         .from('projects')
@@ -341,10 +346,12 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
           }
         }
       }
+      setLastRefreshed(new Date());
     } catch (err) {
       console.error('Error loading checklist:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [projectId]);
 
@@ -352,6 +359,36 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     loadCurrentUser();
     loadChecklist();
   }, [loadCurrentUser, loadChecklist]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`checklist-realtime-${projectId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'project_checklist_file_checks',
+      }, () => {
+        if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = setTimeout(() => loadChecklist(true), 800);
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'project_checklist_files',
+        filter: `project_checklist_items.project_id=eq.${projectId}`,
+      }, () => {
+        if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = setTimeout(() => loadChecklist(true), 800);
+      })
+      .subscribe((status) => {
+        setRealtimeActive(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, loadChecklist]);
 
   const handleCreateFolders = async () => {
     const folderId = localDriveFolderId || projectDriveFolderId;
@@ -413,7 +450,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         setSyncAllError(result.error || 'Sync failed');
       } else {
         setSyncAllResult({ files: result.files_inserted || 0, debug: result.debug });
-        await loadChecklist();
+        await loadChecklist(true);
         if ((result.files_inserted || 0) > 0) setTimeout(() => setSyncAllResult(null), 5000);
       }
     } catch (err) {
@@ -630,32 +667,54 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const allDone = checks.length > 0 && checkedCount === checks.length;
     const typeBadge = getFileTypeBadge(file.file_name);
 
+    const allAiResults = checks
+      .filter(c => c.ai_result && c.ai_result.trim())
+      .map(c => c.ai_result as string);
+    const uniqueAiSummaries = Array.from(new Set(allAiResults));
+
     return (
       <div key={file.id} className="border-t border-slate-100">
         <button
           onClick={() => toggle(collapsedFiles, fileKey, setCollapsedFiles)}
-          className={`w-full flex items-center gap-2 px-4 py-2 text-left transition-colors ${
+          className={`w-full flex items-start gap-2 px-4 py-2 text-left transition-colors ${
             allDone ? 'bg-green-50/40 hover:bg-green-50/60' : 'bg-slate-50/80 hover:bg-slate-100'
           }`}
         >
-          {isCollapsed
-            ? <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
-            : <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0" />
-          }
-          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${typeBadge.color}`}>
-            {typeBadge.icon}
-            {typeBadge.label}
-          </span>
-          <a
-            href={file.file_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            className="flex-1 text-xs text-slate-600 hover:text-blue-600 truncate min-w-0 text-left"
-          >
-            {file.file_name}
-          </a>
-          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {isCollapsed
+              ? <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0 mt-0.5" />
+              : <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0 mt-0.5" />
+            }
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${typeBadge.color}`}>
+              {typeBadge.icon}
+              {typeBadge.label}
+            </span>
+            <div className="flex flex-col min-w-0 flex-1">
+              <a
+                href={file.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="text-xs text-slate-600 hover:text-blue-600 truncate text-left font-medium"
+              >
+                {file.file_name}
+              </a>
+              {uniqueAiSummaries.length > 0 && (
+                <div className="mt-0.5 space-y-0.5">
+                  {uniqueAiSummaries.slice(0, 3).map((result, i) => (
+                    <div key={i} className="flex items-start gap-1">
+                      <Bot className="w-2.5 h-2.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-xs text-amber-700 leading-snug line-clamp-2">{result}</span>
+                    </div>
+                  ))}
+                  {uniqueAiSummaries.length > 3 && (
+                    <span className="text-xs text-slate-400 ml-3.5">+{uniqueAiSummaries.length - 3} more findings</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2 mt-0.5">
             {file.is_verified_by_ai && (
               <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
                 <Bot className="w-2.5 h-2.5" /> AI verified
@@ -990,12 +1049,34 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
             )}
             {syncingAll ? 'Checking...' : 'Check by AI'}
           </button>
-          <button
-            onClick={loadChecklist}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {realtimeActive && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded-lg" title="Live updates active — changes sync automatically">
+                <Zap className="w-3 h-3 text-green-500" />
+                <span className="text-xs text-green-600 font-medium">Live</span>
+              </div>
+            )}
+            <div className="relative group">
+              <button
+                onClick={() => loadChecklist(true)}
+                disabled={refreshing}
+                title="Refresh checklist data"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 text-xs font-medium border border-slate-200"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <div className="absolute bottom-full right-0 mb-2 w-56 bg-slate-800 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                <p className="font-medium mb-1">No full page reload needed</p>
+                <p className="text-slate-300">Data auto-updates in real-time. Use this button to manually pull the latest data.</p>
+                {lastRefreshed && (
+                  <p className="text-slate-400 mt-1 border-t border-slate-700 pt-1">
+                    Last updated: {lastRefreshed.toLocaleTimeString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
