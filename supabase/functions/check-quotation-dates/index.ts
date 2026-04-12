@@ -22,11 +22,11 @@ Deno.serve(async (req: Request) => {
     );
 
     const body = await req.json();
-    const { file_id, project_id } = body;
+    const { file_id, project_id, checklist_item_id } = body;
 
-    if (!file_id && !project_id) {
+    if (!file_id && !project_id && !checklist_item_id) {
       return new Response(
-        JSON.stringify({ error: 'file_id or project_id is required' }),
+        JSON.stringify({ error: 'file_id, checklist_item_id, or project_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -36,20 +36,42 @@ Deno.serve(async (req: Request) => {
       project_id: string;
       document_type: string | null;
       extracted_data: Record<string, unknown> | null;
+      checklist_item_id: string | null;
     }> = [];
 
     if (file_id) {
       const { data, error } = await supabase
         .from('project_checklist_files')
-        .select('id, project_id, document_type, extracted_data')
+        .select('id, project_id, document_type, extracted_data, checklist_item_id')
         .eq('id', file_id)
         .maybeSingle();
       if (error) throw error;
-      if (data) filesToCheck = [data];
+      if (data) {
+        // If file belongs to a checklist_item, expand to all files in that item
+        if (data.checklist_item_id && data.document_type?.startsWith('Quotation')) {
+          const { data: siblingFiles, error: sibErr } = await supabase
+            .from('project_checklist_files')
+            .select('id, project_id, document_type, extracted_data, checklist_item_id')
+            .eq('checklist_item_id', data.checklist_item_id)
+            .ilike('document_type', 'Quotation%');
+          if (sibErr) throw sibErr;
+          filesToCheck = siblingFiles || [];
+        } else {
+          filesToCheck = [data];
+        }
+      }
+    } else if (checklist_item_id) {
+      const { data, error } = await supabase
+        .from('project_checklist_files')
+        .select('id, project_id, document_type, extracted_data, checklist_item_id')
+        .eq('checklist_item_id', checklist_item_id)
+        .ilike('document_type', 'Quotation%');
+      if (error) throw error;
+      filesToCheck = data || [];
     } else {
       const { data, error } = await supabase
         .from('project_checklist_files')
-        .select('id, project_id, document_type, extracted_data')
+        .select('id, project_id, document_type, extracted_data, checklist_item_id')
         .eq('project_id', project_id)
         .ilike('document_type', 'Quotation%');
       if (error) throw error;
@@ -103,7 +125,7 @@ Deno.serve(async (req: Request) => {
       if (isNaN(quotationDate.getTime())) continue;
 
       const startDate = new Date(effectiveStartDate);
-      // Allow 1 month before project start date
+      // Allow up to 1 month before project start date
       const allowedFrom = new Date(startDate);
       allowedFrom.setMonth(allowedFrom.getMonth() - 1);
 
@@ -112,7 +134,7 @@ Deno.serve(async (req: Request) => {
         endDate = new Date(effectiveEndDate);
       }
 
-      // Check: quotation date must be >= 1 month before start AND <= end date (if exists)
+      // Valid if: quotation date >= 1 month before start AND <= end date (if exists)
       const afterAllowedFrom = quotationDate >= allowedFrom;
       const beforeEndDate = endDate ? quotationDate <= endDate : true;
       const isValid = afterAllowedFrom && beforeEndDate;
@@ -121,7 +143,7 @@ Deno.serve(async (req: Request) => {
       if (isValid) {
         aiResult = `Quotation date ${quotationDateStr} is within the valid period (from ${allowedFrom.toISOString().slice(0, 10)}${endDate ? ' to ' + effectiveEndDate : ''}).`;
       } else if (!afterAllowedFrom) {
-        aiResult = `Quotation date ${quotationDateStr} is more than 1 month before the project start date (${effectiveStartDate}).`;
+        aiResult = `Quotation date ${quotationDateStr} is more than 1 month before the project start date (${effectiveStartDate}). Earliest allowed: ${allowedFrom.toISOString().slice(0, 10)}.`;
       } else if (!beforeEndDate) {
         aiResult = `Quotation date ${quotationDateStr} is after the project end date (${effectiveEndDate}).`;
       }
