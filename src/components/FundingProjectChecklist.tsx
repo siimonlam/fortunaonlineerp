@@ -90,9 +90,10 @@ interface ProjectDetail {
 }
 
 function getRequiredVendorCount(amount: number | null): number | null {
-  if (amount == null || amount < 50000) return null;
-  if (amount < 300000) return 2;
-  if (amount < 1400000) return 3;
+  if (amount == null) return null;
+  if (amount <= 5000) return 0;
+  if (amount <= 50000) return 2;
+  if (amount <= 300000) return 3;
   return 5;
 }
 
@@ -1043,7 +1044,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const winnerAmount = selectedVendorFile?.extracted_data?.total_amount ?? null;
     const requiredCount = isQuotation ? getRequiredVendorCount(typeof winnerAmount === 'number' ? winnerAmount : null) : null;
     const allChecksComplete = dTotal > 0 && (dUser === dTotal || dAi === dTotal);
-    const vendorCountMet = !isQuotation || requiredCount === null || itemFiles.length >= requiredCount;
+    const vendorCountMet = !isQuotation || requiredCount === null || requiredCount === 0 || itemFiles.length >= requiredCount;
     const hasSelectedVendor = !isQuotation || !!selectedVendorFile;
     const quotationComplete = isQuotation && allChecksComplete && vendorCountMet && hasSelectedVendor;
     const allDone = !isQuotation ? (dTotal > 0 && dUser === dTotal) : quotationComplete;
@@ -1076,12 +1077,17 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 ({itemFiles.length} file{itemFiles.length !== 1 ? 's' : ''})
               </span>
             )}
-            {isQuotation && requiredCount != null && (
+            {isQuotation && requiredCount != null && requiredCount > 0 && (
               <span className={`flex items-center gap-1 flex-shrink-0 ml-1 px-1.5 py-0.5 rounded text-xs font-medium ${
                 itemFiles.length >= requiredCount ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'
               }`}>
                 <Hash className="w-2.5 h-2.5" />
                 {itemFiles.length}/{requiredCount} vendors
+              </span>
+            )}
+            {isQuotation && requiredCount === 0 && (
+              <span className="flex items-center gap-1 flex-shrink-0 ml-1 px-1.5 py-0.5 rounded text-xs bg-slate-50 text-slate-400">
+                &lt;$5K — no min
               </span>
             )}
             {isQuotation && selectedVendorFile && (
@@ -1117,7 +1123,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 </span>
               </>
             )}
-            {isQuotation && selectedVendorFile && requiredCount != null && (
+            {isQuotation && selectedVendorFile && requiredCount != null && requiredCount > 0 && (
               <span
                 title={`Winner amount HKD ${(winnerAmount ?? 0).toLocaleString()} → min ${requiredCount} vendor quotations required`}
                 className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium ${
@@ -1128,9 +1134,9 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 {itemFiles.length}/{requiredCount}
               </span>
             )}
-            {isQuotation && selectedVendorFile && requiredCount === null && winnerAmount != null && (
-              <span className="text-xs text-slate-400 px-1.5 py-0.5 rounded bg-slate-50" title={`Winner amount HKD ${Number(winnerAmount).toLocaleString()} — below $50K threshold`}>
-                &lt;$50K — no min
+            {isQuotation && selectedVendorFile && requiredCount === 0 && (
+              <span className="text-xs text-slate-400 px-1.5 py-0.5 rounded bg-slate-50" title={`Winner amount HKD ${Number(winnerAmount).toLocaleString()} — below $5K, no minimum vendor count`}>
+                &lt;$5K — no min
               </span>
             )}
             <button
