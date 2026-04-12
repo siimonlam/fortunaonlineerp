@@ -42,6 +42,15 @@ interface ProjectChecklistItem {
   drive_folder_id: string | null;
 }
 
+interface ExtractedData {
+  vendor_name?: string | null;
+  total_amount?: number | null;
+  currency?: string | null;
+  quotation_date?: string | null;
+  sign_date?: string | null;
+  [key: string]: unknown;
+}
+
 interface ChecklistFile {
   id: string;
   file_id: string | null;
@@ -50,6 +59,7 @@ interface ChecklistFile {
   is_verified_by_ai: boolean;
   created_at: string;
   checklist_item_id: string;
+  extracted_data?: ExtractedData | null;
 }
 
 interface FileCheck {
@@ -315,7 +325,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
       if (projectItems.length > 0) {
         const { data: allFiles } = await supabase
           .from('project_checklist_files')
-          .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at, checklist_item_id, project_checklist_items!inner(project_id)')
+          .select('id, file_id, file_name, file_url, is_verified_by_ai, created_at, checklist_item_id, extracted_data, project_checklist_items!inner(project_id)')
           .eq('project_checklist_items.project_id', projectId)
           .order('created_at', { ascending: true });
 
@@ -667,10 +677,7 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
     const allDone = checks.length > 0 && checkedCount === checks.length;
     const typeBadge = getFileTypeBadge(file.file_name);
 
-    const allAiResults = checks
-      .filter(c => c.ai_result && c.ai_result.trim())
-      .map(c => c.ai_result as string);
-    const uniqueAiSummaries = Array.from(new Set(allAiResults));
+    const extracted = file.extracted_data;
 
     return (
       <div key={file.id} className="border-t border-slate-100">
@@ -699,16 +706,29 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
               >
                 {file.file_name}
               </a>
-              {uniqueAiSummaries.length > 0 && (
-                <div className="mt-0.5 space-y-0.5">
-                  {uniqueAiSummaries.slice(0, 3).map((result, i) => (
-                    <div key={i} className="flex items-start gap-1">
-                      <Bot className="w-2.5 h-2.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                      <span className="text-xs text-amber-700 leading-snug line-clamp-2">{result}</span>
-                    </div>
-                  ))}
-                  {uniqueAiSummaries.length > 3 && (
-                    <span className="text-xs text-slate-400 ml-3.5">+{uniqueAiSummaries.length - 3} more findings</span>
+              {extracted && (
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                  {extracted.vendor_name && (
+                    <span className="text-xs text-slate-500">
+                      <span className="text-slate-400">Vendor:</span> {String(extracted.vendor_name)}
+                    </span>
+                  )}
+                  {extracted.quotation_date && (
+                    <span className="text-xs text-slate-500">
+                      <span className="text-slate-400">Date:</span> {String(extracted.quotation_date)}
+                    </span>
+                  )}
+                  {extracted.sign_date && (
+                    <span className="text-xs text-slate-500">
+                      <span className="text-slate-400">Signed:</span> {String(extracted.sign_date)}
+                    </span>
+                  )}
+                  {extracted.total_amount != null && (
+                    <span className="text-xs text-slate-500">
+                      <span className="text-slate-400">Amount:</span>{' '}
+                      {extracted.currency ? `${extracted.currency} ` : ''}
+                      {Number(extracted.total_amount).toLocaleString()}
+                    </span>
                   )}
                 </div>
               )}
