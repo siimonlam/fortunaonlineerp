@@ -47,7 +47,7 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (error) throw error;
       if (data) {
-        // If file belongs to a checklist_item, expand to all files in that item
+        // Expand to all sibling quotation files in the same checklist item
         if (data.checklist_item_id && data.document_type?.startsWith('Quotation')) {
           const { data: siblingFiles, error: sibErr } = await supabase
             .from('project_checklist_files')
@@ -78,14 +78,12 @@ Deno.serve(async (req: Request) => {
       filesToCheck = data || [];
     }
 
-    // Filter to only Quotation files with extracted quotation_date
-    filesToCheck = filesToCheck.filter(
-      f => f.document_type?.startsWith('Quotation') && f.extracted_data?.quotation_date
-    );
+    // Only process Quotation files (with or without extracted date — we still update "no date" cases)
+    filesToCheck = filesToCheck.filter(f => f.document_type?.startsWith('Quotation'));
 
     if (filesToCheck.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, processed: 0, message: 'No quotation files with extracted dates found' }),
+        JSON.stringify({ success: true, processed: 0, message: 'No quotation files found' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -111,18 +109,69 @@ Deno.serve(async (req: Request) => {
     let updated = 0;
 
     for (const file of filesToCheck) {
-      processed++;
       const proj = projectMap[file.project_id];
       if (!proj) continue;
 
       const effectiveStartDate = proj.project_start_date || proj.start_date;
       const effectiveEndDate = proj.project_end_date;
 
-      if (!effectiveStartDate) continue;
+      // Find the date check row for this file — must exist to update
+      const { data: checkRow, error: checkErr } = await supabase
+        .from('project_checklist_file_checks')
+        .select('id')
+        .eq('file_id', file.id)
+        .eq('description', DATE_CHECK_DESCRIPTION)
+        .maybeSingle();
 
-      const quotationDateStr = file.extracted_data?.quotation_date as string;
+      if (checkErr) {
+        console.error('Error finding check row for file', file.id, checkErr);
+        continue;
+      }
+
+      if (!checkRow) continue;
+
+      processed++;
+
+      // Case 1: project has no start date — cannot validate
+      if (!effectiveStartDate) {
+        const { error: updateErr } = await supabase
+          .from('project_checklist_file_checks')
+          .update({
+            is_checked_by_ai: false,
+            ai_result: '無法核對：項目未設定開始日期。請在項目資料中填寫項目開始日期後，系統將自動重新核對。(Cannot validate: project start date is not set. Set the project start date and the check will re-run automatically.)',
+          })
+          .eq('id', checkRow.id);
+        if (!updateErr) updated++;
+        continue;
+      }
+
+      const quotationDateStr = file.extracted_data?.quotation_date as string | undefined;
+
+      // Case 2: file has no extracted quotation date
+      if (!quotationDateStr) {
+        const { error: updateErr } = await supabase
+          .from('project_checklist_file_checks')
+          .update({
+            is_checked_by_ai: false,
+            ai_result: '無法核對：未能從文件中提取報價日期。請確認文件含有清晰的報價日期，或手動核對。(Cannot validate: quotation date could not be extracted from the document.)',
+          })
+          .eq('id', checkRow.id);
+        if (!updateErr) updated++;
+        continue;
+      }
+
       const quotationDate = new Date(quotationDateStr);
-      if (isNaN(quotationDate.getTime())) continue;
+      if (isNaN(quotationDate.getTime())) {
+        const { error: updateErr } = await supabase
+          .from('project_checklist_file_checks')
+          .update({
+            is_checked_by_ai: false,
+            ai_result: `無法核對：報價日期格式無效 (${quotationDateStr})。(Cannot validate: extracted quotation date has invalid format.)`,
+          })
+          .eq('id', checkRow.id);
+        if (!updateErr) updated++;
+        continue;
+      }
 
       const startDate = new Date(effectiveStartDate);
       // Allow up to 1 month before project start date
@@ -134,46 +183,35 @@ Deno.serve(async (req: Request) => {
         endDate = new Date(effectiveEndDate);
       }
 
-      // Valid if: quotation date >= 1 month before start AND <= end date (if exists)
+      // Valid if: quotation date >= 1 month before start AND (no end date OR <= end date)
       const afterAllowedFrom = quotationDate >= allowedFrom;
       const beforeEndDate = endDate ? quotationDate <= endDate : true;
       const isValid = afterAllowedFrom && beforeEndDate;
 
+      const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+
       let aiResult = '';
       if (isValid) {
-        aiResult = `Quotation date ${quotationDateStr} is within the valid period (from ${allowedFrom.toISOString().slice(0, 10)}${endDate ? ' to ' + effectiveEndDate : ''}).`;
+        const windowEnd = endDate ? ` 至 ${effectiveEndDate}` : '（無指定結束日期）';
+        aiResult = `合格：報價日期 ${quotationDateStr} 符合項目期間要求。有效範圍：${fmtDate(allowedFrom)}${windowEnd}。(Valid: quotation date ${quotationDateStr} is within the allowed window [from ${fmtDate(allowedFrom)}${endDate ? ' to ' + effectiveEndDate : ''}].)`;
       } else if (!afterAllowedFrom) {
-        aiResult = `Quotation date ${quotationDateStr} is more than 1 month before the project start date (${effectiveStartDate}). Earliest allowed: ${allowedFrom.toISOString().slice(0, 10)}.`;
-      } else if (!beforeEndDate) {
-        aiResult = `Quotation date ${quotationDateStr} is after the project end date (${effectiveEndDate}).`;
+        aiResult = `不合格：報價日期 ${quotationDateStr} 早於項目開始日期超過一個月。項目開始日期：${effectiveStartDate}，最早允許日期：${fmtDate(allowedFrom)}。(Invalid: quotation date is more than 1 month before the project start date ${effectiveStartDate}. Earliest allowed: ${fmtDate(allowedFrom)}.)`;
+      } else {
+        aiResult = `不合格：報價日期 ${quotationDateStr} 晚於項目結束日期 ${effectiveEndDate}。(Invalid: quotation date is after the project end date ${effectiveEndDate}.)`;
       }
 
-      // Find the date check row for this file
-      const { data: checkRow, error: checkErr } = await supabase
+      const { error: updateErr } = await supabase
         .from('project_checklist_file_checks')
-        .select('id')
-        .eq('file_id', file.id)
-        .eq('description', DATE_CHECK_DESCRIPTION)
-        .maybeSingle();
+        .update({
+          is_checked_by_ai: isValid,
+          ai_result: aiResult,
+        })
+        .eq('id', checkRow.id);
 
-      if (checkErr) {
-        console.error('Error finding check row:', checkErr);
-        continue;
-      }
-
-      if (checkRow) {
-        const { error: updateErr } = await supabase
-          .from('project_checklist_file_checks')
-          .update({
-            is_checked_by_ai: isValid,
-            ai_result: aiResult,
-          })
-          .eq('id', checkRow.id);
-        if (updateErr) {
-          console.error('Error updating check:', updateErr);
-        } else {
-          updated++;
-        }
+      if (updateErr) {
+        console.error('Error updating check:', updateErr);
+      } else {
+        updated++;
       }
     }
 
