@@ -40,7 +40,7 @@ function AppContent() {
   }, [user]);
 
   useEffect(() => {
-    if (user && !loading && window.location.pathname !== '/onboarding' && window.location.pathname !== '/phone-scan') {
+    if (user && !loading && window.location.pathname !== '/onboarding' && window.location.pathname !== '/phone-scan' && user.id !== '7e8c51af-9590-4a7f-8e6f-545d6a7c8412') {
       const shouldShowTaskSummary = () => {
         const now = new Date();
         const sessionKey = `task_summary_session_${new Date().toDateString()}`;
@@ -282,7 +282,7 @@ function AppContent() {
   return (
     <>
       {user ? <ProjectBoard /> : <LoginPage />}
-      {showTaskSummary && user && (
+      {showTaskSummary && user && user.id !== '7e8c51af-9590-4a7f-8e6f-545d6a7c8412' && (
         <TaskNotificationModal
           onClose={() => setShowTaskSummary(false)}
         />
