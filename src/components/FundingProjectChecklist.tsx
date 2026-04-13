@@ -499,6 +499,20 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
         setSyncAllResult({ files: result.files_inserted || 0, debug: result.debug });
         await loadChecklist(true);
         if ((result.files_inserted || 0) > 0) setTimeout(() => setSyncAllResult(null), 5000);
+        // Run date checks across all quotation files for this project
+        try {
+          const { data: { session: s } } = await supabase.auth.getSession();
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-quotation-dates`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${s?.access_token}`,
+            },
+            body: JSON.stringify({ project_id: projectId }),
+          });
+        } catch {
+          // non-blocking
+        }
       }
     } catch (err) {
       setSyncAllError(err instanceof Error ? err.message : 'Sync failed');
