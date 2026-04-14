@@ -37,12 +37,18 @@ Deno.serve(async (req: Request) => {
       document_type: string | null;
       extracted_data: Record<string, unknown> | null;
       checklist_item_id: string | null;
+      google_file_id: string | null;
     }> = [];
+
+    const FILE_SELECT = 'id, project_id, document_type, extracted_data, checklist_item_id, file_id';
+
+    const mapGoogleFileId = (rows: Array<Record<string, unknown>>) =>
+      rows.map(r => ({ ...r, google_file_id: r.file_id as string | null }));
 
     if (file_id) {
       const { data, error } = await supabase
         .from('project_checklist_files')
-        .select('id, project_id, document_type, extracted_data, checklist_item_id')
+        .select(FILE_SELECT)
         .eq('id', file_id)
         .maybeSingle();
       if (error) throw error;
@@ -50,50 +56,48 @@ Deno.serve(async (req: Request) => {
         if (data.checklist_item_id && data.document_type?.startsWith('Quotation')) {
           const { data: siblingFiles, error: sibErr } = await supabase
             .from('project_checklist_files')
-            .select('id, project_id, document_type, extracted_data, checklist_item_id')
+            .select(FILE_SELECT)
             .eq('checklist_item_id', data.checklist_item_id)
             .ilike('document_type', 'Quotation%');
           if (sibErr) throw sibErr;
-          filesToCheck = siblingFiles || [];
+          filesToCheck = mapGoogleFileId(siblingFiles || []);
         } else {
-          filesToCheck = [data];
+          filesToCheck = mapGoogleFileId([data]);
         }
       }
     } else if (checklist_item_id) {
       const { data, error } = await supabase
         .from('project_checklist_files')
-        .select('id, project_id, document_type, extracted_data, checklist_item_id')
+        .select(FILE_SELECT)
         .eq('checklist_item_id', checklist_item_id)
         .ilike('document_type', 'Quotation%');
       if (error) throw error;
-      filesToCheck = data || [];
+      filesToCheck = mapGoogleFileId(data || []);
     } else if (folder_id && project_id) {
-      // Filter by both drive_folder_id and project_id
       const { data, error } = await supabase
         .from('project_checklist_files')
-        .select('id, project_id, document_type, extracted_data, checklist_item_id')
+        .select(FILE_SELECT)
         .eq('drive_folder_id', folder_id)
         .eq('project_id', project_id)
         .ilike('document_type', 'Quotation%');
       if (error) throw error;
-      filesToCheck = data || [];
+      filesToCheck = mapGoogleFileId(data || []);
     } else if (folder_id) {
-      // Filter by drive_folder_id only
       const { data, error } = await supabase
         .from('project_checklist_files')
-        .select('id, project_id, document_type, extracted_data, checklist_item_id')
+        .select(FILE_SELECT)
         .eq('drive_folder_id', folder_id)
         .ilike('document_type', 'Quotation%');
       if (error) throw error;
-      filesToCheck = data || [];
+      filesToCheck = mapGoogleFileId(data || []);
     } else {
       const { data, error } = await supabase
         .from('project_checklist_files')
-        .select('id, project_id, document_type, extracted_data, checklist_item_id')
+        .select(FILE_SELECT)
         .eq('project_id', project_id)
         .ilike('document_type', 'Quotation%');
       if (error) throw error;
-      filesToCheck = data || [];
+      filesToCheck = mapGoogleFileId(data || []);
     }
 
     // Only process Quotation files (with or without extracted date — we still update "no date" cases)
