@@ -29,7 +29,7 @@ import { CreateMarketingProjectModal } from './CreateMarketingProjectModal';
 import MarketingProjectDetail from './MarketingProjectDetail';
 import { AddMarketingProjectButtonModal } from './AddMarketingProjectButtonModal';
 import { MarketingShareResourcesSection } from './MarketingShareResourcesSection';
-import { WhatsAppMessagesPage } from './WhatsAppMessagesPage';
+import { MessagesHub } from './MessagesHub';
 
 interface Status {
   id: string;
@@ -3696,7 +3696,7 @@ export function ProjectBoard() {
                 onBack={() => setSelectedMarketingProject(null)}
               />
             ) : selectedView === 'messages' ? (
-              <WhatsAppMessagesPage />
+              <MessagesHub />
             ) : isComSecSection ? (
               <ComSecPage
                 activeModule={comSecModule}
