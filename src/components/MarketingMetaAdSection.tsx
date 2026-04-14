@@ -2582,13 +2582,37 @@ Difference: HK$${result.databaseComparison?.difference || 'N/A'}${topAdsText}${a
                     {reportView === 'creatives' && (
                       <CreativePerformanceGallery
                         accountId={selectedAccountForView}
-                        dateRange={selectedMonth === 'last_6_months' ? {
-                          since: new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString().split('T')[0],
-                          until: new Date().toISOString().split('T')[0]
-                        } : selectedMonth === 'last_3_months' ? {
-                          since: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0],
-                          until: new Date().toISOString().split('T')[0]
-                        } : undefined}
+                        dateRange={(() => {
+                          const now = new Date();
+                          const todayStr = now.toISOString().split('T')[0];
+                          if (selectedMonth === 'last_6_months') {
+                            return {
+                              since: new Date(new Date().setMonth(now.getMonth() - 6)).toISOString().split('T')[0],
+                              until: todayStr,
+                            };
+                          }
+                          if (selectedMonth === 'last_3_months') {
+                            return {
+                              since: new Date(new Date().setMonth(now.getMonth() - 3)).toISOString().split('T')[0],
+                              until: todayStr,
+                            };
+                          }
+                          if (selectedMonth === 'last_12_months') {
+                            return {
+                              since: new Date(new Date().setMonth(now.getMonth() - 12)).toISOString().split('T')[0],
+                              until: todayStr,
+                            };
+                          }
+                          const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                          const isCurrentMonth = selectedMonth === currentMonthStr;
+                          const [y, m] = selectedMonth.split('-').map(Number);
+                          const firstDay = `${selectedMonth}-01`;
+                          if (isCurrentMonth) {
+                            return { since: firstDay, until: todayStr };
+                          }
+                          const lastDay = new Date(y, m, 0);
+                          return { since: firstDay, until: lastDay.toISOString().split('T')[0] };
+                        })()}
                       />
                     )}
 

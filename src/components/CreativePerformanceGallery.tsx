@@ -82,17 +82,18 @@ export default function CreativePerformanceGallery({ accountId, dateRange }: Pro
       setError(null);
       setCurrentPage(1); // Reset to first page when fetching new data
 
-      const since = dateRange?.since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const until = dateRange?.until || new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const currentMonthFirst = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const since = dateRange?.since || currentMonthFirst;
+      const until = dateRange?.until || now.toISOString().split('T')[0];
 
-      // Convert since/until dates to month_year format for monthly insights query
       const sinceDate = new Date(since);
+      const untilDate = new Date(until);
       const monthStart = `${sinceDate.getFullYear()}-${String(sinceDate.getMonth() + 1).padStart(2, '0')}-01`;
 
-      // Calculate monthEnd (first day of next month) to properly filter the month range
-      const currentMonth = sinceDate.getMonth() + 1;
-      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextYear = currentMonth === 12 ? sinceDate.getFullYear() + 1 : sinceDate.getFullYear();
+      const endMonth = untilDate.getMonth() + 1;
+      const nextMonth = endMonth === 12 ? 1 : endMonth + 1;
+      const nextYear = endMonth === 12 ? untilDate.getFullYear() + 1 : untilDate.getFullYear();
       const monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
       // Fetch all ads with their creative information
