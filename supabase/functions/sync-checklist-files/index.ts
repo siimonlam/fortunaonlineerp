@@ -316,6 +316,7 @@ Deno.serve(async (req: Request) => {
           is_checked: false,
           is_checked_by_ai: false,
           drive_folder_id,
+          google_file_id: file.id,
         }));
 
         for (let i = 0; i < checkRows.length; i += 50) {
