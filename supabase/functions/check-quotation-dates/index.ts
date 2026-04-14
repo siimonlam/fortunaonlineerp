@@ -154,6 +154,8 @@ Deno.serve(async (req: Request) => {
 
       processed++;
 
+      const googleFileId = file.google_file_id ?? null;
+
       // Case 1: project has no start date — cannot validate
       if (!effectiveStartDate) {
         const { error: updateErr } = await supabase
@@ -161,6 +163,7 @@ Deno.serve(async (req: Request) => {
           .update({
             is_checked_by_ai: false,
             ai_result: '無法核對：項目未設定開始日期。請在項目資料中填寫項目開始日期後，系統將自動重新核對。(Cannot validate: project start date is not set. Set the project start date and the check will re-run automatically.)',
+            google_file_id: googleFileId,
           })
           .eq('id', checkRow.id);
         if (!updateErr) updated++;
@@ -176,6 +179,7 @@ Deno.serve(async (req: Request) => {
           .update({
             is_checked_by_ai: false,
             ai_result: '無法核對：未能從文件中提取報價日期。請確認文件含有清晰的報價日期，或手動核對。(Cannot validate: quotation date could not be extracted from the document.)',
+            google_file_id: googleFileId,
           })
           .eq('id', checkRow.id);
         if (!updateErr) updated++;
@@ -189,6 +193,7 @@ Deno.serve(async (req: Request) => {
           .update({
             is_checked_by_ai: false,
             ai_result: `無法核對：報價日期格式無效 (${quotationDateStr})。(Cannot validate: extracted quotation date has invalid format.)`,
+            google_file_id: googleFileId,
           })
           .eq('id', checkRow.id);
         if (!updateErr) updated++;
@@ -227,6 +232,7 @@ Deno.serve(async (req: Request) => {
         .update({
           is_checked_by_ai: isValid,
           ai_result: aiResult,
+          google_file_id: googleFileId,
         })
         .eq('id', checkRow.id);
 
