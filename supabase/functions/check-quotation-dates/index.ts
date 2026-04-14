@@ -22,11 +22,11 @@ Deno.serve(async (req: Request) => {
     );
 
     const body = await req.json();
-    const { file_id, project_id, checklist_item_id } = body;
+    const { file_id, project_id, folder_id, checklist_item_id } = body;
 
-    if (!file_id && !project_id && !checklist_item_id) {
+    if (!file_id && !project_id && !folder_id && !checklist_item_id) {
       return new Response(
-        JSON.stringify({ error: 'file_id, checklist_item_id, or project_id is required' }),
+        JSON.stringify({ error: 'file_id, checklist_item_id, folder_id, or project_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -47,7 +47,6 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (error) throw error;
       if (data) {
-        // Expand to all sibling quotation files in the same checklist item
         if (data.checklist_item_id && data.document_type?.startsWith('Quotation')) {
           const { data: siblingFiles, error: sibErr } = await supabase
             .from('project_checklist_files')
@@ -65,6 +64,25 @@ Deno.serve(async (req: Request) => {
         .from('project_checklist_files')
         .select('id, project_id, document_type, extracted_data, checklist_item_id')
         .eq('checklist_item_id', checklist_item_id)
+        .ilike('document_type', 'Quotation%');
+      if (error) throw error;
+      filesToCheck = data || [];
+    } else if (folder_id && project_id) {
+      // Filter by both drive_folder_id and project_id
+      const { data, error } = await supabase
+        .from('project_checklist_files')
+        .select('id, project_id, document_type, extracted_data, checklist_item_id')
+        .eq('drive_folder_id', folder_id)
+        .eq('project_id', project_id)
+        .ilike('document_type', 'Quotation%');
+      if (error) throw error;
+      filesToCheck = data || [];
+    } else if (folder_id) {
+      // Filter by drive_folder_id only
+      const { data, error } = await supabase
+        .from('project_checklist_files')
+        .select('id, project_id, document_type, extracted_data, checklist_item_id')
+        .eq('drive_folder_id', folder_id)
         .ilike('document_type', 'Quotation%');
       if (error) throw error;
       filesToCheck = data || [];
