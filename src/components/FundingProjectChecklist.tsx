@@ -159,6 +159,8 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<string | null>(null);
   const [togglingSelectedVendor, setTogglingSelectedVendor] = useState<string | null>(null);
+  const [autoSelectingFolder, setAutoSelectingFolder] = useState<string | null>(null);
+  const [autoSelectResult, setAutoSelectResult] = useState<Map<string, { success: boolean; message: string }>>(new Map());
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [realtimeActive, setRealtimeActive] = useState(false);
@@ -876,6 +878,47 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
   };
 
 
+  const autoSelectVendor = async (folderId: string, docKey: string) => {
+    setAutoSelectingFolder(docKey);
+    setAutoSelectResult(prev => { const m = new Map(prev); m.delete(docKey); return m; });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/select-vendor-by-criteria`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ folder_id: folderId, project_id: projectId }),
+        }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unknown error');
+
+      const msg = result.selected_vendor_file_id
+        ? `Selected: ${result.selected_vendor_file_name ?? result.selected_vendor_file_id}${result.selected_vendor_amount != null ? ` (HKD ${Number(result.selected_vendor_amount).toLocaleString()})` : ''}`
+        : result.message || 'No qualifying vendor found';
+
+      setAutoSelectResult(prev => {
+        const m = new Map(prev);
+        m.set(docKey, { success: !!result.selected_vendor_file_id, message: msg });
+        return m;
+      });
+
+      await loadChecklist(true);
+    } catch (err: any) {
+      setAutoSelectResult(prev => {
+        const m = new Map(prev);
+        m.set(docKey, { success: false, message: err.message || 'Error running auto-selection' });
+        return m;
+      });
+    } finally {
+      setAutoSelectingFolder(null);
+    }
+  };
+
   const getFileTypeBadge = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase() || '';
     if (ext === 'pdf') return { label: 'PDF', color: 'bg-red-100 text-red-600', icon: <FileText className="w-3 h-3" /> };
@@ -1222,6 +1265,25 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                 &lt;$5K — no min
               </span>
             )}
+            {isQuotation && hasDriveFolder && (() => {
+              const folderIdForDoc = itemsToShow.find(i => i.drive_folder_id)?.drive_folder_id;
+              const isAutoSelecting = autoSelectingFolder === docKey;
+              return (
+                <button
+                  onClick={() => folderIdForDoc && autoSelectVendor(folderIdForDoc, docKey)}
+                  disabled={isAutoSelecting}
+                  title="Auto-select winning vendor by criteria: supplier signature + chop + signed date, lowest price"
+                  className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded transition-colors bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+                >
+                  {isAutoSelecting ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Zap className="w-3 h-3" />
+                  )}
+                  {isAutoSelecting ? 'Selecting...' : 'Auto-select'}
+                </button>
+              );
+            })()}
             <button
               onClick={() => {
                 if (hasDriveFolder) return;
@@ -1268,6 +1330,19 @@ export default function FundingProjectChecklist({ projectId, projectDriveFolderI
                   Quotation complete
                 </div>
               )}
+              {autoSelectResult.get(docKey) && (() => {
+                const res = autoSelectResult.get(docKey)!;
+                return (
+                  <div className={`flex items-center gap-1.5 px-2 py-1 border rounded text-xs font-medium ${
+                    res.success
+                      ? 'bg-blue-50 border-blue-200 text-blue-700'
+                      : 'bg-orange-50 border-orange-200 text-orange-700'
+                  }`}>
+                    {res.success ? <Trophy className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                    {res.message}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
