@@ -6,188 +6,94 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-interface AnalysisRequest {
-  promptName: string;
-  data: any;
-}
+const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    const { promptName, data }: AnalysisRequest = await req.json();
-
-    if (!promptName || !data) {
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: promptName and data" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "GEMINI_API_KEY is not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const body = await req.json();
+    const { prompt, data, type } = body;
 
-    // Get Gemini API key from database (system_settings table) or environment variable
-    let geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-
-    if (!geminiApiKey) {
-      // Try to fetch from database
-      const apiKeyResponse = await fetch(
-        `${supabaseUrl}/rest/v1/system_settings?key=eq.gemini_api_key&select=value`,
-        {
-          headers: {
-            "apikey": supabaseServiceKey,
-            "Authorization": `Bearer ${supabaseServiceKey}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (apiKeyResponse.ok) {
-        const apiKeyData = await apiKeyResponse.json();
-        if (apiKeyData && apiKeyData.length > 0 && apiKeyData[0].value) {
-          geminiApiKey = apiKeyData[0].value;
-        }
-      }
-    }
-
-    if (!geminiApiKey) {
+    if (!prompt && !data) {
       return new Response(
-        JSON.stringify({ error: "Gemini API key not configured. Please add it in Meta Ads Settings page." }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "prompt or data is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const promptResponse = await fetch(
-      `${supabaseUrl}/rest/v1/gemini_prompts?prompt_name=eq.${promptName}&is_active=eq.true`,
-      {
-        headers: {
-          "apikey": supabaseServiceKey,
-          "Authorization": `Bearer ${supabaseServiceKey}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const userPrompt = prompt || buildPrompt(type, data);
 
-    if (!promptResponse.ok) {
-      throw new Error("Failed to fetch prompt template");
-    }
-
-    const prompts = await promptResponse.json();
-
-    if (!prompts || prompts.length === 0) {
-      return new Response(
-        JSON.stringify({ error: `No active prompt found with name: ${promptName}` }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const promptTemplate = prompts[0].prompt_template;
-
-    // Prepare the full prompt with data
-    const fullPrompt = `${promptTemplate}\n\n**Data to Analyze:**\n\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
-
-    // Call Gemini API with gemini-1.5-flash
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
     const geminiResponse = await fetch(geminiUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [
           {
-            parts: [
-              {
-                text: fullPrompt,
-              },
-            ],
+            parts: [{ text: userPrompt }],
           },
         ],
         generationConfig: {
           temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
           maxOutputTokens: 8192,
         },
       }),
     });
 
     if (!geminiResponse.ok) {
-      const error = await geminiResponse.json();
-      console.error("Gemini API error:", error);
-
-      let errorMessage = "Failed to get response from Gemini AI";
-
-      if (error.error?.message) {
-        const geminiError = error.error.message;
-        if (geminiError.includes("API_KEY_INVALID") || geminiError.includes("invalid API key")) {
-          errorMessage = "Invalid Gemini API key. Please check your API key in Settings.";
-        } else if (geminiError.includes("quota") || geminiError.includes("RESOURCE_EXHAUSTED")) {
-          errorMessage = "Gemini API quota exceeded. Please check your Google Cloud billing.";
-        } else if (geminiError.includes("PERMISSION_DENIED")) {
-          errorMessage = "Gemini API access denied. Please verify your API key has the correct permissions.";
-        } else if (geminiError.includes("not found") || geminiError.includes("not supported")) {
-          errorMessage = "Gemini model not available. Using gemini-1.5-flash. Please verify your API key has access to this model.";
-        } else {
-          errorMessage = `Gemini API error: ${geminiError}`;
-        }
-      }
-
+      const errText = await geminiResponse.text();
       return new Response(
         JSON.stringify({
-          error: errorMessage,
-          details: error
+          error: `Gemini model not available. Using ${GEMINI_MODEL}. Please verify your API key has access to this model. Details: ${errText}`,
         }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: geminiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const geminiData = await geminiResponse.json();
-
-    // Extract the analysis text from Gemini's response
-    const analysis = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "No analysis generated";
+    const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        analysis,
-        promptUsed: promptName,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ result: text, model: GEMINI_MODEL }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error in analyze-with-gemini function:", error);
+    console.error("analyze-with-gemini error:", error);
     return new Response(
-      JSON.stringify({
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
+
+function buildPrompt(type: string, data: unknown): string {
+  if (type === "monthly_report_comparison") {
+    return `You are a digital marketing analyst. Analyze the following Meta Ads monthly report comparison data and provide actionable insights in both English and Traditional Chinese (繁體中文).
+
+Data:
+${JSON.stringify(data, null, 2)}
+
+Please provide:
+1. Overall performance summary
+2. Key metrics comparison (spend, impressions, clicks, CTR, CPC, CPM, results, reach)
+3. Notable trends and changes
+4. Recommendations for optimization
+5. Any concerns or areas requiring attention
+
+Format your response clearly with sections and bullet points.`;
+  }
+
+  return `Analyze the following data and provide insights:\n\n${JSON.stringify(data, null, 2)}`;
+}
