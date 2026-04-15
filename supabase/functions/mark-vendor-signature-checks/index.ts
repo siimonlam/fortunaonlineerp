@@ -7,8 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const VENDOR_DESCRIPTIONS = ["供應商簽名", "供應商蓋印"];
-const QUOTATION_DOCUMENT = "Quotation 報價";
+const NA_DESCRIPTIONS = [
+  "供應商簽名",
+  "供應商蓋印",
+  "採購公司(BUD申請公司)的蓋印",
+  "採購公司(BUD申請公司)的簽名",
+];
+
+const NA_RESULT = "N/A - Non-Selected Vendor";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -18,46 +24,65 @@ Deno.serve(async (req: Request) => {
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
     const body = await req.json();
-    const { file_id, checklist_item_id } = body;
+    const { folder_id, project_id } = body;
 
-    if (!file_id || !checklist_item_id) {
+    if (!folder_id || !project_id) {
       return new Response(
-        JSON.stringify({ error: "file_id and checklist_item_id are required" }),
+        JSON.stringify({ error: "folder_id and project_id are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get all files for this checklist_item_id to find non-selected vendors
+    // Get all quotation files in this folder for this project
     const { data: allFiles, error: filesError } = await supabase
       .from("project_checklist_files")
-      .select("id, is_selected_vendor")
-      .eq("checklist_item_id", checklist_item_id);
+      .select("id, is_selected_vendor, file_name")
+      .eq("drive_folder_id", folder_id)
+      .eq("project_id", project_id)
+      .ilike("document_type", "Quotation%");
 
     if (filesError) throw filesError;
 
-    // Identify non-selected vendor file ids (all except the triggered file)
-    const nonSelectedFileIds = (allFiles || [])
-      .filter((f: { id: string; is_selected_vendor: boolean }) => f.id !== file_id)
+    if (!allFiles || allFiles.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: "No quotation files found in this folder", na_updated: 0 }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Find the selected vendor file (is_selected_vendor = true)
+    const selectedFile = allFiles.find((f: { is_selected_vendor: boolean }) => f.is_selected_vendor === true);
+
+    if (!selectedFile) {
+      return new Response(
+        JSON.stringify({ success: true, message: "No selected vendor found in this folder", na_updated: 0 }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Non-selected vendor file ids
+    const nonSelectedFileIds = allFiles
+      .filter((f: { id: string; is_selected_vendor: boolean }) => f.id !== selectedFile.id)
       .map((f: { id: string }) => f.id);
 
     const results: Record<string, unknown> = {
-      triggered_file_id: file_id,
+      selected_vendor_file_id: selectedFile.id,
       non_selected_count: nonSelectedFileIds.length,
       na_updated: 0,
     };
 
     if (nonSelectedFileIds.length > 0) {
-      // Find 供應商簽名 and 供應商蓋印 checks for non-selected vendor files
+      // Find all matching checks on non-selected vendor files
       const { data: checksToNA, error: checksError } = await supabase
         .from("project_checklist_file_checks")
         .select("id")
         .in("file_id", nonSelectedFileIds)
-        .eq("document_type", QUOTATION_DOCUMENT)
-        .in("description", VENDOR_DESCRIPTIONS);
+        .in("description", NA_DESCRIPTIONS);
 
       if (checksError) throw checksError;
 
@@ -68,7 +93,7 @@ Deno.serve(async (req: Request) => {
           .from("project_checklist_file_checks")
           .update({
             is_checked_by_ai: true,
-            ai_result: "N/A - Non-Selected Vendor",
+            ai_result: NA_RESULT,
           })
           .in("id", idsToUpdate);
 
