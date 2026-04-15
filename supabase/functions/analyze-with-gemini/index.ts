@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,43 +9,101 @@ const corsHeaders = {
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
+const DEFAULT_PROMPT = `You are a senior digital marketing analyst specializing in Meta (Facebook & Instagram) advertising. Analyze the following monthly comparison data and provide a comprehensive strategic report.
+
+Data:
+{DATA}
+
+Please provide your analysis in the following structure:
+
+## Executive Summary
+Provide a 2-3 sentence overview of overall performance changes.
+
+## Key Metrics Analysis
+Analyze each metric (Spend, Impressions, Clicks, CTR, CPC, CPM, Results, Reach) with context on what the changes mean.
+
+## Performance by Objective
+Break down performance for each campaign objective and identify which are improving or declining.
+
+## Top Campaigns
+Highlight the most notable campaigns and their performance changes.
+
+## Platform & Demographics Insights
+Summarize platform performance and any demographic trends.
+
+## Recommendations
+### 🟢 START: (Actions to begin)
+### 🔵 SCALE: (What's working and should get more budget)
+### 🔴 STOP: (What's not working and should be paused)
+
+## Conclusion
+Brief closing summary with the most important action items.
+
+---
+繁體中文摘要：
+請用繁體中文簡短總結主要發現和建議（3-5點）。`;
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) {
+    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!geminiApiKey) {
       return new Response(
-        JSON.stringify({ error: "GEMINI_API_KEY is not configured" }),
+        JSON.stringify({ success: false, error: "Gemini API key not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const body = await req.json();
-    const { prompt, data, type } = body;
+    const { promptName, data, prompt: directPrompt } = body;
 
-    if (!prompt && !data) {
+    if (!data && !directPrompt) {
       return new Response(
-        JSON.stringify({ error: "prompt or data is required" }),
+        JSON.stringify({ success: false, error: "data or prompt is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userPrompt = prompt || buildPrompt(type, data);
+    let promptTemplate = DEFAULT_PROMPT;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    if (promptName) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        const { data: promptData } = await supabase
+          .from("gemini_prompts")
+          .select("prompt_template")
+          .eq("prompt_name", promptName)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (promptData?.prompt_template) {
+          promptTemplate = promptData.prompt_template;
+        }
+      } catch (_) {
+        // fall back to default prompt
+      }
+    }
+
+    let finalPrompt: string;
+    if (directPrompt) {
+      finalPrompt = directPrompt;
+    } else {
+      finalPrompt = promptTemplate.replace("{DATA}", JSON.stringify(data, null, 2));
+    }
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiApiKey}`;
 
     const geminiResponse = await fetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: userPrompt }],
-          },
-        ],
+        contents: [{ parts: [{ text: finalPrompt }] }],
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 8192,
@@ -56,44 +115,32 @@ Deno.serve(async (req: Request) => {
       const errText = await geminiResponse.text();
       return new Response(
         JSON.stringify({
-          error: `Gemini model not available. Using ${GEMINI_MODEL}. Please verify your API key has access to this model. Details: ${errText}`,
+          success: false,
+          error: `Gemini API error (${GEMINI_MODEL}): ${errText}`,
         }),
         { status: geminiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const geminiData = await geminiResponse.json();
-    const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const analysis = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+    if (!analysis) {
+      return new Response(
+        JSON.stringify({ success: false, error: "No response received from Gemini" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     return new Response(
-      JSON.stringify({ result: text, model: GEMINI_MODEL }),
+      JSON.stringify({ success: true, analysis, model: GEMINI_MODEL }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("analyze-with-gemini error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ success: false, error: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
-
-function buildPrompt(type: string, data: unknown): string {
-  if (type === "monthly_report_comparison") {
-    return `You are a digital marketing analyst. Analyze the following Meta Ads monthly report comparison data and provide actionable insights in both English and Traditional Chinese (繁體中文).
-
-Data:
-${JSON.stringify(data, null, 2)}
-
-Please provide:
-1. Overall performance summary
-2. Key metrics comparison (spend, impressions, clicks, CTR, CPC, CPM, results, reach)
-3. Notable trends and changes
-4. Recommendations for optimization
-5. Any concerns or areas requiring attention
-
-Format your response clearly with sections and bullet points.`;
-  }
-
-  return `Analyze the following data and provide insights:\n\n${JSON.stringify(data, null, 2)}`;
-}
