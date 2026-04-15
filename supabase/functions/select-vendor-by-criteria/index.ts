@@ -7,12 +7,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-// Check descriptions that qualify a vendor as "selected" (buyer has signed + chopped)
 const BUYER_CHOP_DESC = "採購公司(BUD申請公司)的蓋印";
 const BUYER_SIG_DESC = "採購公司(BUD申請公司)的簽名";
 const SUPPLIER_SIG_DESC = "供應商簽名";
 const SUPPLIER_CHOP_DESC = "供應商蓋印";
+const LOWEST_PRICE_DESC = "價低者得";
 const VENDOR_NA_RESULT = "N/A - Non-Selected Vendor";
+
+function formatPrice(amount: number, currency?: string | null): string {
+  const prefix = currency ? `${currency} ` : "";
+  return `${prefix}${amount.toLocaleString("en-HK")}`;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -36,7 +41,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 1. Find all Quotation files in this folder for this project
+    // ── Step 1: Load all Quotation files in this folder ──────────────────────
     const { data: files, error: filesError } = await supabase
       .from("project_checklist_files")
       .select("id, file_id, file_name, checklist_item_id, extracted_data, is_selected_vendor")
@@ -60,7 +65,7 @@ Deno.serve(async (req: Request) => {
 
     const fileIds = files.map((f: { id: string }) => f.id);
 
-    // 2. Load all file checks for these files
+    // ── Step 2: Load all file checks for these files ──────────────────────────
     const { data: allChecks, error: checksError } = await supabase
       .from("project_checklist_file_checks")
       .select("id, file_id, description, is_checked, is_checked_by_ai, ai_result")
@@ -81,11 +86,12 @@ Deno.serve(async (req: Request) => {
       checksByFileId.get(check.file_id)!.push(check);
     }
 
-    // 3. Determine which files qualify: must have supplier signature + supplier chop + extracted sign_date
+    // ── Step 3: Determine qualifying files (supplier sig + chop + sign_date) ─
     const qualifyingFiles: Array<{
       id: string;
       checklist_item_id: string | null;
       total_amount: number;
+      currency: string | null;
       sign_date: string | null;
       file_name: string;
       has_buyer_sig: boolean;
@@ -118,6 +124,7 @@ Deno.serve(async (req: Request) => {
         id: file.id,
         checklist_item_id: file.checklist_item_id,
         total_amount: typeof extractedData.total_amount === "number" ? extractedData.total_amount : Infinity,
+        currency: (extractedData.currency as string | null) ?? null,
         sign_date: signDate || null,
         file_name: file.file_name,
         has_buyer_sig: hasBuyerSig,
@@ -128,7 +135,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Filter: must have supplier signature + supplier chop + sign_date to qualify as potential winner
+    // Filter to files that meet the selection criteria
     const fullyQualified = qualifyingFiles.filter(
       f => f.has_supplier_sig && f.has_supplier_chop && f.has_sign_date
     );
@@ -153,49 +160,42 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 4. Among qualifying, pick the one with the lowest price
+    // ── Step 4: Pick the lowest-price qualified file as the winner ────────────
     const winner = fullyQualified.reduce((best, f) =>
       f.total_amount < best.total_amount ? f : best
     );
 
     const now = new Date().toISOString();
 
-    // 5. Update all files in this folder: set winner, clear others in same checklist_item_id groups
-    const checklist_item_ids = [...new Set(files
-      .map((f: { checklist_item_id: string | null }) => f.checklist_item_id)
-      .filter(Boolean) as string[]
+    // ── Step 5: Persist selected vendor + clear others ────────────────────────
+    const checklist_item_ids = [...new Set(
+      files
+        .map((f: { checklist_item_id: string | null }) => f.checklist_item_id)
+        .filter(Boolean) as string[]
     )];
 
     for (const itemId of checklist_item_ids) {
-      const itemFiles = files.filter((f: { checklist_item_id: string | null }) => f.checklist_item_id === itemId);
+      const itemFiles = files.filter(
+        (f: { checklist_item_id: string | null }) => f.checklist_item_id === itemId
+      );
       const winnerInGroup = itemFiles.find((f: { id: string }) => f.id === winner.id);
       const nonWinnerIds = itemFiles
         .filter((f: { id: string }) => f.id !== winner.id)
         .map((f: { id: string }) => f.id);
 
       if (winnerInGroup) {
-        // Set this file as selected vendor
         await supabase
           .from("project_checklist_files")
-          .update({
-            is_selected_vendor: true,
-            selected_vendor_at: now,
-            selected_vendor_by: null,
-          })
+          .update({ is_selected_vendor: true, selected_vendor_at: now, selected_vendor_by: null })
           .eq("id", winner.id);
 
-        // Clear other files in same group
         if (nonWinnerIds.length > 0) {
           await supabase
             .from("project_checklist_files")
-            .update({
-              is_selected_vendor: false,
-              selected_vendor_at: null,
-              selected_vendor_by: null,
-            })
+            .update({ is_selected_vendor: false, selected_vendor_at: null, selected_vendor_by: null })
             .in("id", nonWinnerIds);
 
-          // Mark non-winner supplier sig/chop checks as N/A
+          // Mark non-winner supplier sig/chop as N/A
           const { data: checksToNA } = await supabase
             .from("project_checklist_file_checks")
             .select("id")
@@ -205,25 +205,83 @@ Deno.serve(async (req: Request) => {
           if (checksToNA && checksToNA.length > 0) {
             await supabase
               .from("project_checklist_file_checks")
-              .update({
-                is_checked_by_ai: true,
-                ai_result: VENDOR_NA_RESULT,
-              })
+              .update({ is_checked_by_ai: true, ai_result: VENDOR_NA_RESULT })
               .in("id", checksToNA.map((c: { id: string }) => c.id));
           }
         }
       }
     }
 
+    // ── Step 6: 價低者得 price comparison checks ──────────────────────────────
+    const winnerPrice = winner.total_amount === Infinity ? null : winner.total_amount;
+    const winnerCurrency = winner.currency;
+    const lowestPriceResults: Record<string, unknown>[] = [];
+
+    if (winnerPrice !== null) {
+      const nonWinnerFiles = qualifyingFiles.filter(f => f.id !== winner.id);
+
+      // Prices of all other files that have a price (sorted descending for display)
+      const otherPrices = nonWinnerFiles
+        .map(f => f.total_amount === Infinity ? null : f.total_amount)
+        .filter((p): p is number => p !== null)
+        .sort((a, b) => b - a);
+
+      // Selected vendor comment: "winnerPrice < otherPrice1, otherPrice2, ..."
+      const winnerComment = otherPrices.length > 0
+        ? `${formatPrice(winnerPrice, winnerCurrency)} < ${otherPrices.map(p => formatPrice(p, winnerCurrency)).join(", ")}`
+        : formatPrice(winnerPrice, winnerCurrency);
+
+      const { data: winnerChecks } = await supabase
+        .from("project_checklist_file_checks")
+        .select("id")
+        .eq("file_id", winner.id)
+        .eq("description", LOWEST_PRICE_DESC);
+
+      if (winnerChecks && winnerChecks.length > 0) {
+        const ids = winnerChecks.map((c: { id: string }) => c.id);
+        await supabase
+          .from("project_checklist_file_checks")
+          .update({ is_checked_by_ai: true, ai_result: winnerComment })
+          .in("id", ids);
+        lowestPriceResults.push({ file: winner.file_name, role: "selected", comment: winnerComment });
+      }
+
+      // Non-selected vendor comments: "theirPrice > winnerPrice"
+      for (const nf of nonWinnerFiles) {
+        const nfPrice = nf.total_amount === Infinity ? null : nf.total_amount;
+        const nfComment = nfPrice !== null
+          ? `${formatPrice(nfPrice, nf.currency ?? winnerCurrency)} > ${formatPrice(winnerPrice, winnerCurrency)}`
+          : `N/A > ${formatPrice(winnerPrice, winnerCurrency)}`;
+
+        const { data: nfChecks } = await supabase
+          .from("project_checklist_file_checks")
+          .select("id")
+          .eq("file_id", nf.id)
+          .eq("description", LOWEST_PRICE_DESC);
+
+        if (nfChecks && nfChecks.length > 0) {
+          const ids = nfChecks.map((c: { id: string }) => c.id);
+          await supabase
+            .from("project_checklist_file_checks")
+            .update({ is_checked_by_ai: true, ai_result: nfComment })
+            .in("id", ids);
+          lowestPriceResults.push({ file: nf.file_name, role: "non-selected", comment: nfComment });
+        }
+      }
+    }
+
+    // ── Response ──────────────────────────────────────────────────────────────
     return new Response(
       JSON.stringify({
         success: true,
         selected_vendor_file_id: winner.id,
         selected_vendor_file_name: winner.file_name,
-        selected_vendor_amount: winner.total_amount === Infinity ? null : winner.total_amount,
+        selected_vendor_amount: winnerPrice,
         selected_vendor_sign_date: winner.sign_date,
         files_checked: files.length,
         qualifying_count: fullyQualified.length,
+        lowest_price_checks_updated: lowestPriceResults.length,
+        lowest_price_details: lowestPriceResults,
         qualifying_details: qualifyingFiles.map(f => ({
           file_id: f.id,
           file_name: f.file_name,
@@ -234,7 +292,7 @@ Deno.serve(async (req: Request) => {
           is_winner: f.id === winner.id,
         })),
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("select-vendor-by-criteria error:", err);
