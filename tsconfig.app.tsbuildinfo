@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/MessagesHub.tsx","./src/components/MetaMessengerPage.tsx","./src/components/MetaMessengerSettingsPage.tsx","./src/lib/supabase.ts","./src/types/messenger.ts"],"version":"5.9.3"}

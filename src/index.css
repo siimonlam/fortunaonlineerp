@@ -2,17 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-@keyframes slide-in {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+* {
+  box-sizing: border-box;
 }
 
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out;
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
