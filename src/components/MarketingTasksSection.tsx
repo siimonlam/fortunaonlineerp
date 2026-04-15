@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Trash2, CheckCircle2, Circle, Calendar, User, Link as LinkIcon, CreditCard as Edit2, X, Clock, AlertCircle, CalendarClock } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Circle, Calendar, User, Link as LinkIcon, CreditCard as Edit2, X, Clock, AlertCircle, CalendarClock, Repeat } from 'lucide-react';
 
 interface Staff {
   id: string;
@@ -17,6 +17,10 @@ interface Task {
   assigned_to: string | null;
   deadline: string | null;
   completed: boolean;
+  is_recurring: boolean;
+  recurrence_type: 'daily' | 'weekly' | 'monthly' | null;
+  recurrence_interval: number;
+  parent_task_id: string | null;
   staff?: {
     full_name: string;
   };
@@ -32,6 +36,66 @@ interface MarketingTasksSectionProps {
   projectId: string;
   project: MarketingProject | null;
   onTasksChange?: () => void;
+}
+
+function RecurrenceBadge({ task }: { task: Task }) {
+  if (!task.is_recurring || !task.recurrence_type) return null;
+  const labels: Record<string, string> = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
+  const interval = task.recurrence_interval > 1 ? ` \u00d7${task.recurrence_interval}` : '';
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+      <Repeat className="w-3 h-3" />
+      {labels[task.recurrence_type]}{interval}
+    </span>
+  );
+}
+
+interface RecurrenceFieldsProps {
+  isRecurring: boolean;
+  setIsRecurring: (v: boolean) => void;
+  recurrenceType: string;
+  setRecurrenceType: (v: string) => void;
+  recurrenceInterval: number;
+  setRecurrenceInterval: (v: number) => void;
+}
+
+function RecurrenceFields({ isRecurring, setIsRecurring, recurrenceType, setRecurrenceType, recurrenceInterval, setRecurrenceInterval }: RecurrenceFieldsProps) {
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={isRecurring}
+          onChange={e => setIsRecurring(e.target.checked)}
+          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+        />
+        <Repeat className="w-4 h-4 text-blue-600" />
+        <span className="text-sm font-medium text-slate-700">Make this a recurring task</span>
+      </label>
+      {isRecurring && (
+        <div className="ml-6 flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+          <span className="text-sm text-slate-600">Repeat every</span>
+          <input
+            type="number"
+            min={1}
+            max={99}
+            value={recurrenceInterval}
+            onChange={e => setRecurrenceInterval(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-16 px-2 py-1 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <select
+            value={recurrenceType}
+            onChange={e => setRecurrenceType(e.target.value)}
+            className="px-2 py-1 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="daily">day(s)</option>
+            <option value="weekly">week(s)</option>
+            <option value="monthly">month(s)</option>
+          </select>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function MarketingTasksSection({ projectId, project, onTasksChange }: MarketingTasksSectionProps) {
@@ -50,12 +114,18 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
+  const [newTaskIsRecurring, setNewTaskIsRecurring] = useState(false);
+  const [newTaskRecurrenceType, setNewTaskRecurrenceType] = useState('weekly');
+  const [newTaskRecurrenceInterval, setNewTaskRecurrenceInterval] = useState(1);
 
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editLinks, setEditLinks] = useState('');
   const [editAssignee, setEditAssignee] = useState('');
   const [editDeadline, setEditDeadline] = useState('');
+  const [editIsRecurring, setEditIsRecurring] = useState(false);
+  const [editRecurrenceType, setEditRecurrenceType] = useState('weekly');
+  const [editRecurrenceInterval, setEditRecurrenceInterval] = useState(1);
 
   useEffect(() => {
     loadTasks();
@@ -109,6 +179,9 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
           assigned_to: newTaskAssignee || null,
           deadline: newTaskDeadline || null,
           completed: false,
+          is_recurring: newTaskIsRecurring,
+          recurrence_type: newTaskIsRecurring ? newTaskRecurrenceType : null,
+          recurrence_interval: newTaskIsRecurring ? newTaskRecurrenceInterval : 1,
         });
 
       if (error) throw error;
@@ -119,6 +192,9 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
       setNewTaskAssignee('');
       const today = new Date();
       setNewTaskDeadline(today.toISOString().split('T')[0]);
+      setNewTaskIsRecurring(false);
+      setNewTaskRecurrenceType('weekly');
+      setNewTaskRecurrenceInterval(1);
       setShowAddTask(false);
 
       await loadTasks();
@@ -178,6 +254,9 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
     setEditLinks(task.links || '');
     setEditAssignee(task.assigned_to || '');
     setEditDeadline(task.deadline ? task.deadline.split('T')[0] : '');
+    setEditIsRecurring(task.is_recurring || false);
+    setEditRecurrenceType(task.recurrence_type || 'weekly');
+    setEditRecurrenceInterval(task.recurrence_interval || 1);
   }
 
   function cancelEdit() {
@@ -187,6 +266,9 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
     setEditLinks('');
     setEditAssignee('');
     setEditDeadline('');
+    setEditIsRecurring(false);
+    setEditRecurrenceType('weekly');
+    setEditRecurrenceInterval(1);
   }
 
   function handlePostponeDeadline() {
@@ -247,6 +329,9 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
           links: editLinks || null,
           assigned_to: editAssignee || null,
           deadline: editDeadline || null,
+          is_recurring: editIsRecurring,
+          recurrence_type: editIsRecurring ? editRecurrenceType : null,
+          recurrence_interval: editIsRecurring ? editRecurrenceInterval : 1,
         })
         .eq('id', taskId);
 
@@ -413,6 +498,15 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
               </div>
             </div>
 
+            <RecurrenceFields
+              isRecurring={newTaskIsRecurring}
+              setIsRecurring={setNewTaskIsRecurring}
+              recurrenceType={newTaskRecurrenceType}
+              setRecurrenceType={setNewTaskRecurrenceType}
+              recurrenceInterval={newTaskRecurrenceInterval}
+              setRecurrenceInterval={setNewTaskRecurrenceInterval}
+            />
+
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowAddTask(false)}
@@ -440,7 +534,10 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
             </h4>
             <div className="space-y-2">
               {incompleteTasks.map(task => (
-                <div key={task.id} className="bg-white border border-slate-200 rounded-lg p-4">
+                <div
+                  key={task.id}
+                  className={`border rounded-lg p-4 ${task.is_recurring ? 'border-blue-200 bg-blue-50/30' : 'bg-white border-slate-200'}`}
+                >
                   {editingTaskId === task.id ? (
                     <div className="space-y-3">
                       <input
@@ -492,6 +589,14 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
                           </button>
                         </div>
                       </div>
+                      <RecurrenceFields
+                        isRecurring={editIsRecurring}
+                        setIsRecurring={setEditIsRecurring}
+                        recurrenceType={editRecurrenceType}
+                        setRecurrenceType={setEditRecurrenceType}
+                        recurrenceInterval={editRecurrenceInterval}
+                        setRecurrenceInterval={setEditRecurrenceInterval}
+                      />
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={cancelEdit}
@@ -517,8 +622,9 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
                         <Circle className="w-5 h-5" />
                       </button>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h5 className="font-semibold text-slate-900">{task.title}</h5>
+                          <RecurrenceBadge task={task} />
                           {renderDeadlineBadge(task)}
                         </div>
                         {task.description && (
@@ -603,7 +709,15 @@ export function MarketingTasksSection({ projectId, project, onTasksChange }: Mar
                       <CheckCircle2 className="w-5 h-5" />
                     </button>
                     <div className="flex-1">
-                      <h5 className="font-semibold text-slate-700 line-through">{task.title}</h5>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h5 className="font-semibold text-slate-700 line-through">{task.title}</h5>
+                        {task.is_recurring && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                            <Repeat className="w-3 h-3" />
+                            Next spawned
+                          </span>
+                        )}
+                      </div>
                       {task.description && (
                         <p className="text-sm text-slate-600 mt-1">{task.description}</p>
                       )}
