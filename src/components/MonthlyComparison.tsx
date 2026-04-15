@@ -909,101 +909,102 @@ export default function MonthlyComparison({ accountId }: Props) {
         return ((newValue - oldValue) / oldValue) * 100;
       };
 
+      const fmt = (n: number) => parseFloat(n.toFixed(2));
+      const fmtChg = (a: number, b: number) => parseFloat(calculateChange(a, b).toFixed(1));
+
       const analysisData = {
         report_context: {
-          period_comparison: `${formatMonthDisplay(month1)} vs ${formatMonthDisplay(month2)}`,
+          month1_label: formatMonthDisplay(month1),
+          month2_label: formatMonthDisplay(month2),
           currency: 'HKD',
-          primary_goal: 'Mixed (Sales, Traffic, Engagement)'
+          note: '"prev" = Month 1 (Previous), "curr" = Month 2 (Current), "change_pct" = % change'
         },
         overall_performance: {
-          spend: {
-            prev: parseFloat(overallMonth1.spend.toFixed(2)),
-            curr: parseFloat(overallMonth2.spend.toFixed(2)),
-            change_pct: parseFloat(calculateChange(overallMonth1.spend, overallMonth2.spend).toFixed(1))
-          },
-          impressions: {
-            prev: overallMonth1.impressions,
-            curr: overallMonth2.impressions,
-            change_pct: parseFloat(calculateChange(overallMonth1.impressions, overallMonth2.impressions).toFixed(1))
-          },
-          clicks: {
-            prev: overallMonth1.clicks,
-            curr: overallMonth2.clicks,
-            change_pct: parseFloat(calculateChange(overallMonth1.clicks, overallMonth2.clicks).toFixed(1))
-          },
-          results: {
-            prev: overallMonth1.results,
-            curr: overallMonth2.results,
-            change_pct: parseFloat(calculateChange(overallMonth1.results, overallMonth2.results).toFixed(1))
-          },
-          ctr: {
-            prev: parseFloat(overallMonth1.ctr.toFixed(2)),
-            curr: parseFloat(overallMonth2.ctr.toFixed(2)),
-            change_pct: parseFloat(calculateChange(overallMonth1.ctr, overallMonth2.ctr).toFixed(1))
-          },
-          cpc: {
-            prev: parseFloat(overallMonth1.cpc.toFixed(2)),
-            curr: parseFloat(overallMonth2.cpc.toFixed(2)),
-            change_pct: parseFloat(calculateChange(overallMonth1.cpc, overallMonth2.cpc).toFixed(1))
-          },
-          cpm: {
-            prev: parseFloat(overallMonth1.cpm.toFixed(2)),
-            curr: parseFloat(overallMonth2.cpm.toFixed(2)),
-            change_pct: parseFloat(calculateChange(overallMonth1.cpm, overallMonth2.cpm).toFixed(1))
-          },
-          reach: {
-            prev: overallMonth1.reach,
-            curr: overallMonth2.reach,
-            change_pct: parseFloat(calculateChange(overallMonth1.reach, overallMonth2.reach).toFixed(1))
-          }
+          spend:       { prev: fmt(overallMonth1.spend),       curr: fmt(overallMonth2.spend),       change_pct: fmtChg(overallMonth1.spend, overallMonth2.spend) },
+          impressions: { prev: overallMonth1.impressions,      curr: overallMonth2.impressions,      change_pct: fmtChg(overallMonth1.impressions, overallMonth2.impressions) },
+          clicks:      { prev: overallMonth1.clicks,           curr: overallMonth2.clicks,           change_pct: fmtChg(overallMonth1.clicks, overallMonth2.clicks) },
+          results:     { prev: overallMonth1.results,          curr: overallMonth2.results,          change_pct: fmtChg(overallMonth1.results, overallMonth2.results) },
+          sales:       { prev: overallMonth1.sales,            curr: overallMonth2.sales,            change_pct: fmtChg(overallMonth1.sales, overallMonth2.sales) },
+          traffic:     { prev: overallMonth1.traffic,          curr: overallMonth2.traffic,          change_pct: fmtChg(overallMonth1.traffic, overallMonth2.traffic) },
+          ctr:         { prev: fmt(overallMonth1.ctr),         curr: fmt(overallMonth2.ctr),         change_pct: fmtChg(overallMonth1.ctr, overallMonth2.ctr) },
+          cpc:         { prev: fmt(overallMonth1.cpc),         curr: fmt(overallMonth2.cpc),         change_pct: fmtChg(overallMonth1.cpc, overallMonth2.cpc) },
+          cpm:         { prev: fmt(overallMonth1.cpm),         curr: fmt(overallMonth2.cpm),         change_pct: fmtChg(overallMonth1.cpm, overallMonth2.cpm) },
+          reach:       { prev: overallMonth1.reach,            curr: overallMonth2.reach,            change_pct: fmtChg(overallMonth1.reach, overallMonth2.reach) }
         },
-        performance_by_objective: objectiveComparisons.map(obj => ({
+        platform_vs_results: platformComparisons.map(p => ({
+          platform: p.publisher_platform,
+          prev: {
+            spend: fmt(p.month1.spend), results: p.month1.results, sales: p.month1.sales,
+            traffic: p.month1.traffic, cpc: fmt(p.month1.cpc), ctr: fmt(p.month1.ctr), cpm: fmt(p.month1.cpm)
+          },
+          curr: {
+            spend: fmt(p.month2.spend), results: p.month2.results, sales: p.month2.sales,
+            traffic: p.month2.traffic, cpc: fmt(p.month2.cpc), ctr: fmt(p.month2.ctr), cpm: fmt(p.month2.cpm)
+          },
+          results_change_pct: fmtChg(p.month1.results, p.month2.results),
+          spend_change_pct:   fmtChg(p.month1.spend, p.month2.spend)
+        })),
+        age_vs_results: ageComparisons.map(a => ({
+          age_group: a.age_group,
+          prev: {
+            spend: fmt(a.month1.spend), results: a.month1.results, sales: a.month1.sales,
+            traffic: a.month1.traffic, cpc: fmt(a.month1.cpc), ctr: fmt(a.month1.ctr)
+          },
+          curr: {
+            spend: fmt(a.month2.spend), results: a.month2.results, sales: a.month2.sales,
+            traffic: a.month2.traffic, cpc: fmt(a.month2.cpc), ctr: fmt(a.month2.ctr)
+          },
+          results_change_pct: fmtChg(a.month1.results, a.month2.results),
+          spend_change_pct:   fmtChg(a.month1.spend, a.month2.spend)
+        })),
+        gender_vs_results: genderComparisons.map(g => ({
+          gender: g.gender,
+          prev: {
+            spend: fmt(g.month1.spend), results: g.month1.results, sales: g.month1.sales,
+            traffic: g.month1.traffic, cpc: fmt(g.month1.cpc), ctr: fmt(g.month1.ctr)
+          },
+          curr: {
+            spend: fmt(g.month2.spend), results: g.month2.results, sales: g.month2.sales,
+            traffic: g.month2.traffic, cpc: fmt(g.month2.cpc), ctr: fmt(g.month2.ctr)
+          },
+          results_change_pct: fmtChg(g.month1.results, g.month2.results),
+          spend_change_pct:   fmtChg(g.month1.spend, g.month2.spend)
+        })),
+        objective_vs_results: objectiveComparisons.map(obj => ({
           objective: obj.objective,
-          status: obj.month2.results < obj.month1.results ? 'Declining' : 'Growing',
-          data: {
-            spend: { prev: parseFloat(obj.month1.spend.toFixed(2)), curr: parseFloat(obj.month2.spend.toFixed(2)) },
-            results: { prev: obj.month1.results, curr: obj.month2.results },
-            cpc: { prev: parseFloat(obj.month1.cpc.toFixed(2)), curr: parseFloat(obj.month2.cpc.toFixed(2)) },
-            ctr: { prev: parseFloat(obj.month1.ctr.toFixed(2)), curr: parseFloat(obj.month2.ctr.toFixed(2)) }
-          }
+          prev: {
+            spend: fmt(obj.month1.spend), results: obj.month1.results, sales: obj.month1.sales,
+            traffic: obj.month1.traffic, cpc: fmt(obj.month1.cpc), ctr: fmt(obj.month1.ctr)
+          },
+          curr: {
+            spend: fmt(obj.month2.spend), results: obj.month2.results, sales: obj.month2.sales,
+            traffic: obj.month2.traffic, cpc: fmt(obj.month2.cpc), ctr: fmt(obj.month2.ctr)
+          },
+          results_change_pct: fmtChg(obj.month1.results, obj.month2.results),
+          cost_per_result_prev: obj.month1.results > 0 ? fmt(obj.month1.spend / obj.month1.results) : null,
+          cost_per_result_curr: obj.month2.results > 0 ? fmt(obj.month2.spend / obj.month2.results) : null
         })),
-        top_campaigns: campaignComparisons.slice(0, 5).map(camp => ({
-          name: camp.name,
-          type: camp.objective,
-          insight: camp.month2.results < camp.month1.results ?
-            `Results dropped (${camp.month1.results} -> ${camp.month2.results})` :
-            `Results improved (${camp.month1.results} -> ${camp.month2.results})`,
-          jan_metrics: {
-            spend: parseFloat(camp.month2.spend.toFixed(2)),
-            results: camp.month2.results,
-            cpc: parseFloat(camp.month2.cpc.toFixed(2))
-          }
-        })),
-        ad_set_breakdown: adSetComparisons.slice(0, 5).map(adset => ({
+        adset_vs_results: adSetComparisons.slice(0, 10).map(adset => ({
           name: adset.name,
-          trend: adset.month2.results < adset.month1.results ? 'Declining' : 'Growing',
-          results: { prev: adset.month1.results, curr: adset.month2.results },
-          spend: { prev: parseFloat(adset.month1.spend.toFixed(2)), curr: parseFloat(adset.month2.spend.toFixed(2)) }
+          prev: {
+            spend: fmt(adset.month1.spend), results: adset.month1.results, sales: adset.month1.sales,
+            traffic: adset.month1.traffic, cpc: fmt(adset.month1.cpc), ctr: fmt(adset.month1.ctr)
+          },
+          curr: {
+            spend: fmt(adset.month2.spend), results: adset.month2.results, sales: adset.month2.sales,
+            traffic: adset.month2.traffic, cpc: fmt(adset.month2.cpc), ctr: fmt(adset.month2.ctr)
+          },
+          results_change_pct: fmtChg(adset.month1.results, adset.month2.results),
+          cost_per_result_prev: adset.month1.results > 0 ? fmt(adset.month1.spend / adset.month1.results) : null,
+          cost_per_result_curr: adset.month2.results > 0 ? fmt(adset.month2.spend / adset.month2.results) : null
         })),
-        demographics_gender: genderComparisons.reduce((acc, gender) => {
-          acc[gender.gender] = {
-            insight: `${gender.gender} audience performance`,
-            spend: parseFloat(gender.month2.spend.toFixed(2)),
-            results: gender.month2.results,
-            ctr: parseFloat(gender.month2.ctr.toFixed(2)),
-            cpc: parseFloat(gender.month2.cpc.toFixed(2))
-          };
-          return acc;
-        }, {} as any),
-        platform_performance: platformComparisons.reduce((acc, platform) => {
-          acc[platform.publisher_platform] = {
-            insight: platform.month2.results > platform.month1.results ? 'Performance improved' : 'Performance declined',
-            prev_spend: parseFloat(platform.month1.spend.toFixed(2)),
-            curr_spend: parseFloat(platform.month2.spend.toFixed(2)),
-            curr_results: platform.month2.results
-          };
-          return acc;
-        }, {} as any)
+        top_campaigns: campaignComparisons.slice(0, 8).map(camp => ({
+          name: camp.name,
+          objective: camp.objective,
+          prev: { spend: fmt(camp.month1.spend), results: camp.month1.results, sales: camp.month1.sales, cpc: fmt(camp.month1.cpc) },
+          curr: { spend: fmt(camp.month2.spend), results: camp.month2.results, sales: camp.month2.sales, cpc: fmt(camp.month2.cpc) },
+          results_change_pct: fmtChg(camp.month1.results, camp.month2.results)
+        }))
       };
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-with-gemini`;
