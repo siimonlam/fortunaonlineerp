@@ -241,7 +241,7 @@ Deno.serve(async (req: Request) => {
         const ids = winnerChecks.map((c: { id: string }) => c.id);
         await supabase
           .from("project_checklist_file_checks")
-          .update({ is_checked_by_ai: true, ai_result: winnerComment })
+          .update({ is_checked: true, is_checked_by_ai: true, ai_result: winnerComment })
           .in("id", ids);
         lowestPriceResults.push({ file: winner.file_name, role: "selected", comment: winnerComment });
       }
