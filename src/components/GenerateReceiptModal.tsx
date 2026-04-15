@@ -13,90 +13,30 @@ interface GenerateReceiptModalProps {
     payment_method?: string;
     remark?: string;
   };
+  project: {
+    company_name?: string;
+    company_name_chinese?: string;
+    contact_name?: string;
+    contact_number?: string;
+    address?: string;
+    application_number?: string;
+    funding_scheme?: string | number;
+    client_number?: string;
+  };
   onClose: () => void;
   onSuccess: () => void;
 }
 
-const RECEIPT_FOLDER_ID = '1D1cmj4HUFSvOinerVV8gOcCgFw3ctsqt';
-
-export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateReceiptModalProps) {
+export function GenerateReceiptModal({ invoice, project, onClose, onSuccess }: GenerateReceiptModalProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     invoiceNumber: invoice.invoice_number,
     receiptDate: new Date().toISOString().split('T')[0],
     paymentDate: invoice.payment_date || new Date().toISOString().split('T')[0],
-    paymentAmount: invoice.amount.toString(),
+    paymentAmount: invoice.amount ? invoice.amount.toString() : '',
     paymentMethod: invoice.payment_method || 'Bank Transfer',
     paymentMethodRemark: invoice.remark || '',
   });
-
-  async function getGoogleDriveAccessToken() {
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('google_oauth_credentials')
-      .select('*')
-      .maybeSingle();
-
-    if (tokenError) {
-      console.error('Error fetching Google OAuth credentials:', tokenError);
-      throw new Error('Google Drive not connected. Please contact your administrator to authorize Google Drive in Settings > Authorization.');
-    }
-
-    if (!tokenData) {
-      throw new Error('Google Drive not connected. Please contact your administrator to authorize Google Drive in Settings > Authorization.');
-    }
-
-    let accessToken = tokenData.access_token;
-    const tokenExpired = tokenData.token_expires_at && new Date(tokenData.token_expires_at) <= new Date();
-
-    console.log('Token check:', {
-      hasToken: !!tokenData.access_token,
-      hasRefreshToken: !!tokenData.refresh_token,
-      expiresAt: tokenData.token_expires_at,
-      isExpired: tokenExpired
-    });
-
-    if (tokenExpired) {
-      if (!tokenData.refresh_token) {
-        throw new Error('Refresh token not available. Please re-authorize Google Drive in Settings > Authorization.');
-      }
-
-      console.log('Attempting to refresh token with client_id:', import.meta.env.VITE_GOOGLE_CLIENT_ID ? 'present' : 'missing');
-
-      const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-          client_secret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-          refresh_token: tokenData.refresh_token,
-          grant_type: 'refresh_token',
-        }),
-      });
-
-      if (!refreshResponse.ok) {
-        const errorText = await refreshResponse.text();
-        console.error('Token refresh failed:', {
-          status: refreshResponse.status,
-          statusText: refreshResponse.statusText,
-          error: errorText
-        });
-        throw new Error('Failed to refresh access token. Please re-authorize Google Drive in Settings > Authorization.');
-      }
-
-      const refreshData = await refreshResponse.json();
-      accessToken = refreshData.access_token;
-
-      await supabase
-        .from('google_oauth_credentials')
-        .update({
-          access_token: accessToken,
-          token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-        })
-        .eq('id', tokenData.id);
-    }
-
-    return accessToken;
-  }
 
   async function generateReceiptNumber() {
     const { data, error } = await supabase.rpc('generate_receipt_number');
@@ -116,36 +56,48 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
     setLoading(true);
     try {
       const receiptNumber = await generateReceiptNumber();
+      const { data: { user } } = await supabase.auth.getUser();
 
-      const { data: receiptData, error: insertError } = await supabase
-        .from('funding_receipt')
-        .insert({
-          receipt_number: receiptNumber,
-          receipt_date: formData.receiptDate,
-          invoice_id: invoice.id,
-          invoice_number: formData.invoiceNumber,
-          project_id: invoice.project_id,
-          project_reference: invoice.project_reference,
-          payment_date: formData.paymentDate,
-          payment_amount: parseFloat(formData.paymentAmount),
-          payment_method: formData.paymentMethod,
-          payment_method_remark: formData.paymentMethodRemark,
-          created_by: (await supabase.auth.getUser()).data.user?.id,
-        })
-        .select()
-        .single();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
 
-      if (insertError) throw insertError;
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-funding-receipt`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiptNumber,
+          receiptDate: formData.receiptDate,
+          invoiceId: invoice.id,
+          invoiceNumber: formData.invoiceNumber,
+          projectId: invoice.project_id,
+          projectReference: invoice.project_reference || '',
+          paymentDate: formData.paymentDate,
+          paymentAmount: parseFloat(formData.paymentAmount),
+          paymentMethod: formData.paymentMethod,
+          paymentMethodRemark: formData.paymentMethodRemark,
+          companyName: project.company_name || '',
+          companyNameChinese: project.company_name_chinese || '',
+          contactName: project.contact_name || '',
+          contactNumber: project.contact_number || '',
+          address: project.address || '',
+          applicationNumber: project.application_number || '',
+          fundingScheme: project.funding_scheme?.toString() || '',
+          clientNumber: project.client_number || '',
+          createdBy: user?.id || null,
+        }),
+      });
 
-      const pdfBlob = await generateReceiptPdf(receiptData);
-      const driveUrl = await uploadReceiptToGoogleDrive(pdfBlob, receiptNumber, formData.invoiceNumber);
+      const result = await response.json();
 
-      await supabase
-        .from('funding_receipt')
-        .update({ google_drive_url: driveUrl })
-        .eq('id', receiptData.id);
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to generate receipt');
+      }
 
-      alert('Receipt generated successfully!');
+      alert(`Receipt ${receiptNumber} generated successfully!`);
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -154,141 +106,6 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
     } finally {
       setLoading(false);
     }
-  }
-
-  async function generateReceiptPdf(receipt: any): Promise<Blob> {
-    const response = await fetch('/Funding_Receipt_Template.pdf');
-    const existingPdfBytes = await response.arrayBuffer();
-
-    const { PDFDocument, PDFName, PDFBool } = await import('pdf-lib');
-    const pdfDoc = await PDFDocument.load(existingPdfBytes);
-    const form = pdfDoc.getForm();
-
-    // Note: We rely on the NeedAppearances flag set below to let PDF readers
-    // render Chinese characters using their own fonts. This is more reliable
-    // than embedding custom fonts which can cause compatibility issues.
-
-    const { data: mappings } = await supabase
-      .from('receipt_field_mappings')
-      .select('*, tag:receipt_template_tags(*)')
-      .eq('is_active', true);
-
-    if (mappings) {
-      for (const mapping of mappings) {
-        try {
-          let value = '';
-
-          if (mapping.source_type === 'receipt') {
-            value = receipt[mapping.source_field] || '';
-          }
-
-          if (mapping.default_value && !value) {
-            value = mapping.default_value;
-          }
-
-          if (value && mapping.transform_function) {
-            value = applyTransform(value, mapping.transform_function);
-          }
-
-          if (mapping.tag?.tag_name) {
-            const field = form.getField(mapping.tag.tag_name);
-            if (field && 'setText' in field) {
-              const textValue = String(value);
-
-              // Set the text directly - PDF readers will handle special characters
-              // using their own fonts thanks to the NeedAppearances flag
-              try {
-                field.setText(textValue);
-              } catch (setError) {
-                console.warn(`Could not set text for field ${mapping.tag.tag_name}:`, setError);
-                // Field will remain empty or keep its default value
-              }
-            }
-          }
-        } catch (err) {
-          console.error(`Error setting field ${mapping.tag?.tag_name}:`, err);
-        }
-      }
-    }
-
-    // Set the NeedAppearances flag to tell PDF readers to generate appearances
-    // This allows readers to use their own fonts that support Chinese characters
-    try {
-      const acroForm = pdfDoc.catalog.lookup(PDFName.of('AcroForm'));
-      if (acroForm) {
-        (acroForm as any).dict.set(PDFName.of('NeedAppearances'), PDFBool.True);
-      }
-    } catch (error) {
-      console.warn('Could not set NeedAppearances flag:', error);
-    }
-
-    // Flatten the form to make all fields non-editable
-    form.flatten();
-
-    const pdfBytes = await pdfDoc.save();
-    return new Blob([pdfBytes], { type: 'application/pdf' });
-  }
-
-  function applyTransform(value: any, transform: string): string {
-    switch (transform) {
-      case 'uppercase':
-        return String(value).toUpperCase();
-      case 'lowercase':
-        return String(value).toLowerCase();
-      case 'date_format':
-        return new Date(value).toLocaleDateString();
-      case 'currency':
-        return `$${parseFloat(value).toFixed(2)}`;
-      default:
-        return String(value);
-    }
-  }
-
-  async function uploadReceiptToGoogleDrive(
-    pdfBlob: Blob,
-    receiptNumber: string,
-    invoiceNumber: string
-  ): Promise<string> {
-    const accessToken = await getGoogleDriveAccessToken();
-
-    const today = new Date();
-    const datePrefix = today.getFullYear().toString() +
-                      (today.getMonth() + 1).toString().padStart(2, '0') +
-                      today.getDate().toString().padStart(2, '0');
-
-    const invoiceNumWithoutINV = invoiceNumber.replace(/^INV/i, '');
-    const fileName = `${datePrefix}_REC${invoiceNumWithoutINV}.pdf`;
-
-    const metadata = {
-      name: fileName,
-      parents: [RECEIPT_FOLDER_ID],
-      mimeType: 'application/pdf',
-    };
-
-    const formDataUpload = new FormData();
-    formDataUpload.append(
-      'metadata',
-      new Blob([JSON.stringify(metadata)], { type: 'application/json' })
-    );
-    formDataUpload.append('file', pdfBlob);
-
-    const uploadResponse = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: formDataUpload,
-      }
-    );
-
-    if (!uploadResponse.ok) {
-      throw new Error('Failed to upload receipt to Google Drive');
-    }
-
-    const uploadResult = await uploadResponse.json();
-    return `https://drive.google.com/file/d/${uploadResult.id}/view`;
   }
 
   return (
@@ -388,6 +205,16 @@ export function GenerateReceiptModal({ invoice, onClose, onSuccess }: GenerateRe
               />
             </div>
           </div>
+
+          {project.company_name && (
+            <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <p className="text-xs text-slate-500 font-medium mb-1">Receipt will be generated for:</p>
+              <p className="text-sm text-slate-700 font-medium">{project.company_name}</p>
+              {project.company_name_chinese && (
+                <p className="text-sm text-slate-600">{project.company_name_chinese}</p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 p-6 border-t border-slate-200 bg-slate-50">

@@ -206,6 +206,7 @@ export function ProjectBoard() {
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showGenerateReceipt, setShowGenerateReceipt] = useState(false);
   const [selectedInvoiceForReceipt, setSelectedInvoiceForReceipt] = useState<any>(null);
+  const [selectedProjectForReceipt, setSelectedProjectForReceipt] = useState<any>(null);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
   const [selectedInvoiceForMarkPaid, setSelectedInvoiceForMarkPaid] = useState<any>(null);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
@@ -4655,6 +4656,7 @@ export function ProjectBoard() {
                                   <button
                                     onClick={() => {
                                       setSelectedInvoiceForReceipt(invoice);
+                                      setSelectedProjectForReceipt(invoiceProject || null);
                                       setShowGenerateReceipt(true);
                                     }}
                                     className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-1 text-xs"
@@ -4980,9 +4982,20 @@ export function ProjectBoard() {
       {showGenerateReceipt && selectedInvoiceForReceipt && (
         <GenerateReceiptModal
           invoice={selectedInvoiceForReceipt}
+          project={{
+            company_name: selectedProjectForReceipt?.company_name,
+            company_name_chinese: selectedProjectForReceipt?.company_name_chinese,
+            contact_name: selectedProjectForReceipt?.contact_name,
+            contact_number: selectedProjectForReceipt?.contact_number,
+            address: selectedProjectForReceipt?.address,
+            application_number: selectedProjectForReceipt?.application_number,
+            funding_scheme: selectedProjectForReceipt?.funding_scheme,
+            client_number: selectedProjectForReceipt?.client_number,
+          }}
           onClose={() => {
             setShowGenerateReceipt(false);
             setSelectedInvoiceForReceipt(null);
+            setSelectedProjectForReceipt(null);
           }}
           onSuccess={() => {
             loadData();

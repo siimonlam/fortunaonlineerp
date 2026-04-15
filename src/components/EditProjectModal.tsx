@@ -4319,6 +4319,16 @@ export function EditProjectModal({ project, statuses, onClose, onSuccess, onRefr
       {showGenerateReceipt && selectedInvoiceForReceipt && (
         <GenerateReceiptModal
           invoice={selectedInvoiceForReceipt}
+          project={{
+            company_name: project.company_name,
+            company_name_chinese: project.company_name_chinese,
+            contact_name: project.contact_name,
+            contact_number: project.contact_number,
+            address: project.address,
+            application_number: project.application_number,
+            funding_scheme: project.funding_scheme,
+            client_number: project.client_number,
+          }}
           onClose={() => {
             setShowGenerateReceipt(false);
             setSelectedInvoiceForReceipt(null);
